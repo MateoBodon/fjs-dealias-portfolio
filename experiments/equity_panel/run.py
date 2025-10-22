@@ -126,10 +126,20 @@ def _sign_test_pvalue(differences: list[float] | np.ndarray) -> float:
     return float(p_value)
 
 
-def _plot_variance_error_panel(errors: dict[str, list[float]], base_path: Path) -> None:
+def _plot_variance_error_panel(
+    errors: dict[str, list[float] | np.ndarray], base_path: Path
+) -> None:
     if not errors:
         return
-    filtered = {k: np.asarray(v, dtype=np.float64) for k, v in errors.items() if v}
+    filtered: dict[str, np.ndarray] = {}
+    for key, values in errors.items():
+        arr = np.asarray(values, dtype=np.float64).ravel()
+        if arr.size == 0:
+            continue
+        mask = np.isfinite(arr)
+        if not mask.any():
+            continue
+        filtered[key] = arr[mask]
     if not filtered:
         return
 

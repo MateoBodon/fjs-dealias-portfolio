@@ -8,7 +8,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from fjs.balanced import mean_squares
-from fjs.mp import estimate_Cs_from_MS, mp_edge
+from fjs.mp import estimate_Cs_from_MS, mp_edge, t_vec
 
 
 class DesignParams(TypedDict):
@@ -201,6 +201,7 @@ def dealias_search(
         stats["Sigma2_hat"].astype(np.float64),
     ]
     c_weights = np.asarray(design_params["C"], dtype=np.float64)
+    c_vec = np.asarray(design_params["c"], dtype=np.float64)
     d_vec = np.asarray(design_params["d"], dtype=np.float64)
     n_total = float(design_params["N"])
     component_count = len(sigma_components)
@@ -210,11 +211,14 @@ def dealias_search(
 
     if Cs is None:
         drop_count = min(5, max(1, ms1_scaled.shape[0] // 20))
-        cs_vec = estimate_Cs_from_MS(
-            [ms1_scaled, ms2_scaled],
-            d_vec.tolist(),
-            np.asarray(design_params["c"], dtype=np.float64).tolist(),
-            drop_top=drop_count,
+        cs_vec = np.asarray(
+            estimate_Cs_from_MS(
+                [ms1_scaled, ms2_scaled],
+                d_vec.tolist(),
+                c_vec.tolist(),
+                drop_top=drop_count,
+            ),
+            dtype=np.float64,
         )
     else:
         cs_vec = np.asarray(Cs, dtype=np.float64)
@@ -272,16 +276,40 @@ def dealias_search(
             margin_main = lam_val - (z_plus + delta)
             if margin_main < 0.0:
                 continue
+            try:
+                t_vals = t_vec(
+                    float(lam_val),
+                    a_vec.tolist(),
+                    c_weights.tolist(),
+                    d_vec.tolist(),
+                    n_total,
+                    c_vec.tolist(),
+                    design_params["order"],
+                )
+            except (RuntimeError, ValueError):
+                continue
+
+            t_vals = np.asarray(t_vals, dtype=np.float64)
+            if t_vals.shape[0] <= target_r:
+                continue
+            t_target = float(t_vals[target_r])
+            if abs(t_target) <= eps:
+                continue
+            t_off = np.delete(t_vals, target_r)
+            if t_off.size and float(np.max(np.abs(t_off))) > eps:
+                continue
+
+            mu_hat = float(lam_val / t_target)
             component_vals = [
                 float(eigvecs[:, idx].T @ component @ eigvecs[:, idx])
                 for component in sigma_components
             ]
-
-            target_val = component_vals[target_r]
-            if target_val <= eps:
+            target_component = component_vals[target_r]
+            threshold = max(eps, 0.5 * abs(mu_hat))
+            if abs(target_component) <= threshold:
                 continue
             if any(
-                component_vals[j] > max(eps, 0.5 * target_val)
+                abs(component_vals[j]) > threshold
                 for j in range(len(component_vals))
                 if j != target_r
             ):
@@ -296,7 +324,7 @@ def dealias_search(
             stability_margin = float(min(margin_main, margin_plus, margin_minus))
 
             detection = Detection(
-                mu_hat=float(target_val),
+                mu_hat=mu_hat,
                 lambda_hat=float(lam_val),
                 a=a_vec.tolist(),
                 components=component_vals,

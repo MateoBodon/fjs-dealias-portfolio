@@ -21,6 +21,8 @@ from finance import (
     risk_metrics,
     rolling_windows,
     to_daily_returns,
+    variance_forecast_from_components,
+    weekly_cov_from_components,
     weekly_panel,
 )
 from fjs import (
@@ -32,6 +34,7 @@ from fjs import (
     estimate_spectrum,
     marchenko_pastur_edges,
     marchenko_pastur_pdf,
+    mean_squares,
 )
 
 
@@ -97,7 +100,10 @@ def test_single_equity_window_smoke(tmp_path: Path) -> None:
 
     prices = load_market_data(csv_path)
     daily_returns = to_daily_returns(prices)
-    weekly_returns = weekly_panel(daily_returns, start=dates[0], end=dates[-1])
+    weekly_returns, dropped_weeks = weekly_panel(
+        daily_returns, start=dates[0], end=dates[-1]
+    )
+    assert dropped_weeks == 0
     windows = list(rolling_windows(weekly_returns, window_weeks=2, horizon_weeks=1))
     assert windows
 
@@ -121,3 +127,72 @@ def test_single_equity_window_smoke(tmp_path: Path) -> None:
     assert np.isfinite(forecast_de)
     assert np.isfinite(forecast_lw)
     assert np.isfinite(metrics["mse"])
+
+
+def test_weekly_components_identity_and_detection_gain() -> None:
+    rng = np.random.default_rng(7)
+    p = 3
+    days_per_week = 5
+    total_weeks = 48
+    fit_weeks = 28
+    hold_weeks = total_weeks - fit_weeks
+
+    def random_psd(scale: float) -> np.ndarray:
+        mat = rng.normal(scale=scale, size=(p, p))
+        return mat @ mat.T + 0.1 * np.eye(p)
+
+    sigma1_true = random_psd(0.25)
+    sigma2_true = random_psd(0.08)
+
+    group_effects = rng.multivariate_normal(np.zeros(p), sigma1_true, size=total_weeks)
+    residuals = rng.multivariate_normal(
+        np.zeros(p), sigma2_true, size=(total_weeks, days_per_week)
+    )
+    observations = group_effects[:, None, :] + residuals
+    panel = observations.reshape(total_weeks * days_per_week, p)
+    groups = np.repeat(np.arange(total_weeks), days_per_week)
+
+    stats = mean_squares(panel, groups)
+    weekly_cov_est = weekly_cov_from_components(
+        stats["MS1"], stats["MS2"], days_per_week
+    )
+    weekly_sums = panel.reshape(total_weeks, days_per_week, p).sum(axis=1)
+    weekly_cov_emp = np.cov(weekly_sums, rowvar=False, ddof=1)
+
+    np.testing.assert_allclose(
+        weekly_cov_est,
+        weekly_cov_emp,
+        rtol=0.12,
+        atol=0.05,
+    )
+
+    fit_panel = panel[: fit_weeks * days_per_week]
+    hold_panel = panel[
+        fit_weeks * days_per_week : (fit_weeks + hold_weeks) * days_per_week
+    ]
+    weights = np.full(p, 1.0 / p, dtype=np.float64)
+
+    forecast_alias, realized_var = variance_forecast_from_components(
+        fit_panel, hold_panel, days_per_week, weights
+    )
+
+    eigvals_true, eigvecs_true = np.linalg.eigh(sigma1_true)
+    order = np.argsort(eigvals_true)[::-1]
+    mu_vals = eigvals_true[order][:2]
+    vecs = eigvecs_true[:, order][:, :2]
+    detections = [
+        {
+            "mu_hat": float(mu_vals[idx]),
+            "eigvec": vecs[:, idx],
+        }
+        for idx in range(mu_vals.size)
+    ]
+
+    forecast_detected, realized_var_check = variance_forecast_from_components(
+        fit_panel, hold_panel, days_per_week, weights, detections=detections
+    )
+    np.testing.assert_allclose(realized_var, realized_var_check, rtol=0.0, atol=1e-12)
+
+    mse_alias = (forecast_alias - realized_var) ** 2
+    mse_detected = (forecast_detected - realized_var) ** 2
+    assert mse_detected <= mse_alias * 0.9

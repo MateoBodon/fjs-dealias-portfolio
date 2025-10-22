@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from math import comb
 from pathlib import Path
@@ -91,21 +92,21 @@ def _mp_edges(
     return lower, upper
 
 
-def _prepare_data(config: dict[str, Any]) -> tuple[pd.DataFrame, pd.DataFrame]:
+def _prepare_data(config: dict[str, Any]) -> tuple[pd.DataFrame, pd.DataFrame, int]:
     """Load prices (or synthesise) and return daily/weekly returns."""
 
     data_path = Path(config["data_path"])
     if not data_path.exists():
         _generate_synthetic_prices(data_path)
 
-    prices = load_prices_csv(data_path)
+    prices = load_prices_csv(str(data_path))
     daily_returns = to_daily_returns(prices)
-    weekly_returns = weekly_panel(
+    weekly_returns, dropped_weeks = weekly_panel(
         daily_returns,
         start=config["start_date"],
         end=config["end_date"],
     )
-    return daily_returns, weekly_returns
+    return daily_returns, weekly_returns, dropped_weeks
 
 
 def _iqr(values: list[float] | np.ndarray) -> float:
@@ -323,7 +324,7 @@ def run_experiment(
     )
     config = load_config(path)
 
-    daily_returns, _ = _prepare_data(config)
+    daily_returns, _weekly_returns, dropped_weeks = _prepare_data(config)
     output_dir = Path(config["output_dir"])
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -520,6 +521,18 @@ def run_experiment(
 
     summary = pd.DataFrame(records)
     summary.to_csv(output_dir / "rolling_results.csv", index=False)
+
+    summary_payload: dict[str, Any] = {
+        "balanced_weeks": int(weekly_balanced.shape[0]),
+        "dropped_weeks": int(dropped_weeks),
+        "window_weeks": int(window_weeks),
+        "horizon_weeks": int(horizon_weeks),
+        "rolling_windows_evaluated": len(records),
+        "replicates_per_week": int(replicates),
+        "n_assets": int(weekly_balanced.shape[1]),
+    }
+    with (output_dir / "summary.json").open("w", encoding="utf-8") as handle:
+        json.dump(summary_payload, handle, indent=2)
 
     _plot_variance_error_panel(variance_errors, output_dir / "E3_variance_mse")
     _plot_coverage_error(coverage_errors, output_dir / "E4_var95_coverage_error")

@@ -9,8 +9,9 @@ import pandas as pd
 REQUIRED_PRICE_COLUMNS = {"date", "ticker", "price_close"}
 
 
-def load_prices_csv(path: str | Path) -> pd.DataFrame:
-    """Load a tidy price history CSV.
+def load_prices_csv(path: str) -> pd.DataFrame:
+    """
+    Load a tidy price history CSV with canonical dtypes.
 
     Parameters
     ----------
@@ -21,7 +22,9 @@ def load_prices_csv(path: str | Path) -> pd.DataFrame:
     Returns
     -------
     pandas.DataFrame
-        DataFrame sorted by date/ticker and limited to the required columns.
+        DataFrame sorted by date/ticker and limited to the required columns. The
+        columns use the canonical dtypes: `date` (`datetime64[ns]`), `ticker`
+        (string dtype), and `price_close` (`float64`).
     """
 
     csv_path = Path(path)
@@ -35,10 +38,12 @@ def load_prices_csv(path: str | Path) -> pd.DataFrame:
 
     df = df.loc[:, ["date", "ticker", "price_close"]].copy()
     df["date"] = pd.to_datetime(df["date"], utc=False).dt.tz_localize(None)
-    df["ticker"] = df["ticker"].astype(str)
+    df["ticker"] = df["ticker"].astype("string")
     df["price_close"] = pd.to_numeric(df["price_close"], errors="coerce")
     df = df.dropna(subset=["price_close"]).sort_values(["date", "ticker"])
-    return df.reset_index(drop=True)
+    df = df.reset_index(drop=True)
+    df["price_close"] = df["price_close"].astype("float64")
+    return df
 
 
 def to_daily_returns(price_frame: pd.DataFrame) -> pd.DataFrame:
@@ -85,4 +90,4 @@ def load_market_data(path: str | Path, *, parse_dates: bool = True) -> pd.DataFr
     """
 
     _ = parse_dates  # kept for API compatibility
-    return load_prices_csv(path)
+    return load_prices_csv(str(path))

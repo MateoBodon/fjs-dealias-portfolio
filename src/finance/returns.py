@@ -34,7 +34,7 @@ def weekly_panel(
     daily_returns: pd.DataFrame,
     start: str | pd.Timestamp,
     end: str | pd.Timestamp,
-) -> pd.DataFrame:
+) -> tuple[pd.DataFrame, int]:
     """Aggregate daily log returns into weekly (Monday-start) log returns.
 
     Parameters
@@ -46,8 +46,10 @@ def weekly_panel(
 
     Returns
     -------
-    pandas.DataFrame
-        Weekly log returns indexed by week-start date.
+    tuple[pandas.DataFrame, int]
+        Tuple containing the weekly log return panel indexed by week-start
+        date, and the number of weeks dropped because they contained only
+        missing values.
     """
 
     if daily_returns.index.inferred_type != "datetime64":
@@ -66,9 +68,11 @@ def weekly_panel(
         raise TypeError("Weekly aggregation must yield a DatetimeIndex.")
     adjusted_index = week_index - pd.Timedelta(days=4)
     weekly.index = adjusted_index.rename("week_start")
+    total_weeks = int(weekly.shape[0])
     weekly = weekly.dropna(axis=0, how="all")
+    dropped_weeks = total_weeks - int(weekly.shape[0])
     weekly = weekly.dropna(axis=1, how="all")
-    return weekly
+    return weekly, dropped_weeks
 
 
 def balance_weeks(

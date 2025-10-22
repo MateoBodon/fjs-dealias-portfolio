@@ -121,13 +121,15 @@ def plot_spectrum_with_edges(
     ax.plot(indices, sorted_vals, marker="o", linestyle="-", label="Spectrum")
 
     if edges is not None:
-        for idx, edge in enumerate(edges, start=1):
+        edge_values = list(edges)
+        if edge_values:
+            upper_edge = max(edge_values)
             ax.axhline(
-                edge,
-                color=f"C{idx}",
+                upper_edge,
+                color="C1",
                 linestyle="--",
                 linewidth=1.2,
-                label=f"Edge {idx}",
+                label="MP upper edge",
             )
 
     ax.set_xlabel(xlabel)

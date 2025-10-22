@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TypedDict
 
@@ -7,7 +8,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from fjs.balanced import mean_squares
-from fjs.mp import mp_edge
+from fjs.mp import estimate_Cs_from_MS, mp_edge
 
 
 class DesignParams(TypedDict):
@@ -24,6 +25,7 @@ class Detection(TypedDict):
     a: list[float]
     components: list[float]
     eigvec: NDArray[np.float64]
+    stability_margin: float
 
 
 @dataclass
@@ -91,32 +93,49 @@ def _default_design(stats: dict[str, int]) -> DesignParams:
 
 
 def _merge_detections(
-    detections: list[Detection], tol: float = 0.25
+    detections: list[Detection], eps_factor: float = 0.05
 ) -> list[Detection]:
     if not detections:
         return []
-    ordered = sorted(detections, key=lambda item: item["mu_hat"])
-    clusters: list[list[Detection]] = []
-    current_cluster: list[Detection] = [ordered[0]]
-    cluster_min = cluster_max = ordered[0]["mu_hat"]
 
-    for candidate in ordered[1:]:
-        mu_val = candidate["mu_hat"]
-        center = 0.5 * (cluster_min + cluster_max)
-        if abs(mu_val - center) <= tol:
-            current_cluster.append(candidate)
-            cluster_min = min(cluster_min, mu_val)
-            cluster_max = max(cluster_max, mu_val)
-        else:
-            clusters.append(current_cluster)
-            current_cluster = [candidate]
-            cluster_min = cluster_max = mu_val
-    clusters.append(current_cluster)
+    mu_vals = np.array([det["mu_hat"] for det in detections], dtype=np.float64)
+    order = np.argsort(mu_vals)
+    mu_sorted = mu_vals[order]
+    detections_sorted = [detections[idx] for idx in order]
 
+    n = len(detections_sorted)
+    adjacency: list[list[int]] = [[] for _ in range(n)]
+    for i in range(n):
+        for j in range(i + 1, n):
+            mu_i = mu_sorted[i]
+            mu_j = mu_sorted[j]
+            radius = eps_factor * max(mu_i, mu_j, 1e-12)
+            if abs(mu_i - mu_j) <= radius:
+                adjacency[i].append(j)
+                adjacency[j].append(i)
+
+    visited = [False] * n
     merged: list[Detection] = []
-    for cluster in clusters:
-        best = max(cluster, key=lambda item: item["lambda_hat"])
+    for idx in range(n):
+        if visited[idx]:
+            continue
+        stack = [idx]
+        cluster_indices: list[int] = []
+        visited[idx] = True
+        while stack:
+            current = stack.pop()
+            cluster_indices.append(current)
+            for neighbour in adjacency[current]:
+                if not visited[neighbour]:
+                    visited[neighbour] = True
+                    stack.append(neighbour)
+        cluster = [detections_sorted[i] for i in cluster_indices]
+        best = max(
+            cluster,
+            key=lambda item: (item["stability_margin"], item["lambda_hat"]),
+        )
         merged.append(best)
+    merged.sort(key=lambda det: det["mu_hat"])
     return merged
 
 
@@ -125,6 +144,7 @@ def dealias_search(
     groups: np.ndarray,
     target_r: int,
     *,
+    Cs: Sequence[float] | None = None,  # noqa: N803
     a_grid: int = 120,
     delta: float = 0.5,
     eps: float = 0.02,
@@ -166,24 +186,38 @@ def dealias_search(
     if not (0 <= target_r < component_count):
         raise ValueError("target_r must reference a valid component index.")
 
+    if Cs is None:
+        drop_count = min(5, max(1, ms1_scaled.shape[0] // 20))
+        cs_vec = estimate_Cs_from_MS(
+            [ms1_scaled, ms2_scaled],
+            d_vec.tolist(),
+            np.asarray(design_params["c"], dtype=np.float64).tolist(),
+            drop_top=drop_count,
+        )
+    else:
+        cs_vec = np.asarray(Cs, dtype=np.float64)
+        if cs_vec.ndim != 1 or cs_vec.shape[0] != component_count:
+            raise ValueError("Cs must match the number of mean square components.")
+
     angles = np.linspace(0.0, 2.0 * np.pi, num=a_grid, endpoint=False, dtype=np.float64)
     eta_rad = np.deg2rad(stability_eta_deg)
     detections: list[Detection] = []
 
-    def _check_angle(angle: float, lam_val: float) -> bool:
+    def _edge_margin(angle: float, lam_val: float) -> float | None:
         a_vec = np.array([np.cos(angle), np.sin(angle)], dtype=np.float64)
         if np.any(a_vec < -1e-8):
-            return True
+            return float("inf")
         try:
             z_plus = mp_edge(
                 a_vec.tolist(),
                 c_weights.tolist(),
                 d_vec.tolist(),
                 n_total,
+                Cs=cs_vec,
             )
         except (RuntimeError, ValueError):
-            return False
-        return lam_val >= z_plus + delta
+            return None
+        return lam_val - (z_plus + delta)
 
     for theta in angles:
         a_vec = np.array([np.cos(theta), np.sin(theta)], dtype=np.float64)
@@ -195,13 +229,14 @@ def dealias_search(
                 c_weights.tolist(),
                 d_vec.tolist(),
                 n_total,
+                Cs=cs_vec,
             )
         except (RuntimeError, ValueError):
             continue
 
-        sigma_hat = a_vec[0] * ms1_scaled + a_vec[1] * ms2_scaled
+        sigma_a = a_vec[0] * ms1_scaled + a_vec[1] * ms2_scaled
         try:
-            eigvals, eigvecs = np.linalg.eigh(sigma_hat)
+            eigvals, eigvecs = np.linalg.eigh(sigma_a)
         except np.linalg.LinAlgError:
             continue
 
@@ -212,6 +247,9 @@ def dealias_search(
         for idx, lam_val in enumerate(eigvals):
             if lam_val < z_plus + delta:
                 break
+            margin_main = lam_val - (z_plus + delta)
+            if margin_main < 0.0:
+                continue
             component_vals = [
                 float(eigvecs[:, idx].T @ component @ eigvecs[:, idx])
                 for component in sigma_components
@@ -227,11 +265,13 @@ def dealias_search(
             ):
                 continue
 
-            if not (
-                _check_angle(theta + eta_rad, lam_val)
-                and _check_angle(theta - eta_rad, lam_val)
-            ):
+            margin_plus = _edge_margin(theta + eta_rad, lam_val)
+            if margin_plus is None or margin_plus < 0.0:
                 continue
+            margin_minus = _edge_margin(theta - eta_rad, lam_val)
+            if margin_minus is None or margin_minus < 0.0:
+                continue
+            stability_margin = float(min(margin_main, margin_plus, margin_minus))
 
             detection = Detection(
                 mu_hat=float(target_val),
@@ -239,6 +279,7 @@ def dealias_search(
                 a=a_vec.tolist(),
                 components=component_vals,
                 eigvec=eigvecs[:, idx].copy(),
+                stability_margin=stability_margin,
             )
             detections.append(detection)
 

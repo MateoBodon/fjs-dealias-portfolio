@@ -51,6 +51,84 @@ def _prepare_inputs(  # noqa: N803
     return a_arr, c_arr, d_arr, n_float
 
 
+def _prepare_cs(
+    Cs: ArrayLike | None,
+    template: np.ndarray,
+) -> np.ndarray:
+    if Cs is None:
+        return np.zeros_like(template, dtype=np.float64)
+    cs_arr = np.asarray(Cs, dtype=np.float64)
+    if cs_arr.ndim != 1:
+        raise ValueError("Cs must be one-dimensional.")
+    if cs_arr.shape != template.shape:
+        raise ValueError("Cs must match the shape of a.")
+    return cs_arr
+
+
+def estimate_Cs_from_MS(  # noqa: N802
+    MS_list: Sequence[ArrayLike],
+    d_list: Sequence[float],
+    c_list: Sequence[float],
+    drop_top: int = 1,
+) -> np.ndarray:
+    """
+    Estimate trace-based noise plug-ins C_s from the supplied mean squares.
+
+    Parameters
+    ----------
+    MS_list
+        Sequence of mean square matrices (one per stratum).
+    d_list
+        Degrees of freedom associated with each stratum (used for validation).
+    c_list
+        Design coefficients associated with each stratum.
+    drop_top
+        Number of leading eigenvalues to discard before averaging.
+    """
+
+    if drop_top < 0:
+        raise ValueError("drop_top must be non-negative.")
+    ms_arrays = [np.asarray(ms, dtype=np.float64) for ms in MS_list]
+    if not ms_arrays:
+        raise ValueError("MS_list must contain at least one matrix.")
+
+    first_shape = ms_arrays[0].shape
+    if len(first_shape) != 2 or first_shape[0] != first_shape[1]:
+        raise ValueError("Mean squares must be square matrices.")
+    for ms in ms_arrays[1:]:
+        if ms.shape != first_shape:
+            raise ValueError("All mean squares must share the same shape.")
+
+    d_arr = np.asarray(d_list, dtype=np.float64).reshape(-1)
+    c_arr = np.asarray(c_list, dtype=np.float64).reshape(-1)
+    if d_arr.size != len(ms_arrays) or c_arr.size != len(ms_arrays):
+        raise ValueError("d_list and c_list must match the number of mean squares.")
+    if np.any(d_arr <= 0):
+        raise ValueError("Degrees of freedom must be positive.")
+
+    p = first_shape[0]
+    drop_count = min(int(drop_top), max(p - 1, 0))
+
+    sigma_estimates = np.zeros(len(ms_arrays), dtype=np.float64)
+    for idx, ms in enumerate(ms_arrays):
+        sym = 0.5 * (ms + ms.T)
+        eigenvalues = np.linalg.eigvalsh(sym)
+        if eigenvalues.size == 0:
+            raise ValueError("Encountered empty eigenvalue spectrum.")
+        discard = min(drop_count, eigenvalues.size - 1)
+        if discard > 0:
+            trimmed = eigenvalues[:-discard]
+        else:
+            trimmed = eigenvalues
+        sigma_sq = float(np.mean(trimmed))
+        sigma_estimates[idx] = max(sigma_sq, 0.0)
+
+    cs_values = np.zeros(len(ms_arrays), dtype=np.float64)
+    for idx in range(len(ms_arrays) - 1, -1, -1):
+        cs_values[idx] = float(np.dot(c_arr[idx:], sigma_estimates[idx:]))
+    return cs_values
+
+
 def _k_values(  # noqa: N803
     a: np.ndarray,
     C: np.ndarray,
@@ -66,6 +144,7 @@ def z_of_m(  # noqa: N803
     C: ArrayLike,
     d: ArrayLike,
     N: int | float,
+    Cs: ArrayLike | None = None,
 ) -> float:
     """
     Evaluate the closed-form Marčenko--Pastur z(m) transform.
@@ -81,43 +160,39 @@ def z_of_m(  # noqa: N803
     m_val = float(m)
     if not np.isfinite(m_val) or m_val == 0.0:
         raise ValueError("m must be a non-zero finite scalar.")
+    cs_arr = _prepare_cs(Cs, a_arr)
     k_vals = _k_values(a_arr, c_arr, d_arr, n_float)
     denom = 1.0 + k_vals * m_val
     if np.any(np.isclose(denom, 0.0, atol=1e-12, rtol=0.0)):
         raise ValueError("Denominator becomes singular for the supplied m.")
-    contributions = c_arr * a_arr / denom
+    numerators = c_arr * a_arr + cs_arr
+    contributions = numerators / denom
     return float(-1.0 / m_val + np.sum(contributions))
 
 
 def _dz_dm(  # noqa: N803
     m: float,
-    a: np.ndarray,
-    C: np.ndarray,
-    d: np.ndarray,
-    N: float,
     k_vals: np.ndarray,
+    numerators: np.ndarray,
 ) -> float:
     denom = 1.0 + k_vals * m
     if np.any(np.isclose(denom, 0.0, atol=1e-12, rtol=0.0)):
         return float("nan")
     term1 = 1.0 / (m * m)
-    term2 = float(np.sum((N / d) * (a**2) * (C**2) / (denom**2)))
+    term2 = float(np.sum(numerators * k_vals / (denom**2)))
     return term1 - term2
 
 
 def _d2z_dm2(  # noqa: N803
     m: float,
-    a: np.ndarray,
-    C: np.ndarray,
-    d: np.ndarray,
-    N: float,
     k_vals: np.ndarray,
+    numerators: np.ndarray,
 ) -> float:
     denom = 1.0 + k_vals * m
     if np.any(np.isclose(denom, 0.0, atol=1e-12, rtol=0.0)):
         return float("nan")
     term1 = -2.0 / (m**3)
-    term2 = float(np.sum(2.0 * (N / d) * (a**2) * (C**2) * k_vals / (denom**3)))
+    term2 = float(np.sum(2.0 * numerators * (k_vals**2) / (denom**3)))
     return term1 + term2
 
 
@@ -223,20 +298,23 @@ def mp_edge(  # noqa: N803
     C: ArrayLike,
     d: ArrayLike,
     N: int | float,
+    Cs: ArrayLike | None = None,
 ) -> float:
     """
     Locate the upper bulk edge of the Marčenko--Pastur distribution.
     """
     a_arr, c_arr, d_arr, n_float = _prepare_inputs(a, C, d, N)
+    cs_arr = _prepare_cs(Cs, a_arr)
     k_vals = _k_values(a_arr, c_arr, d_arr, n_float)
+    numerators = c_arr * a_arr + cs_arr
 
     grid = _augment_with_singularities(_logspace_grid(), k_vals)
 
     def derivative(m_val: float) -> float:
-        return _dz_dm(m_val, a_arr, c_arr, d_arr, n_float, k_vals)
+        return _dz_dm(m_val, k_vals, numerators)
 
     def curvature(m_val: float) -> float:
-        return _d2z_dm2(m_val, a_arr, c_arr, d_arr, n_float, k_vals)
+        return _d2z_dm2(m_val, k_vals, numerators)
 
     brackets = _root_brackets(derivative, grid)
 
@@ -268,11 +346,11 @@ def mp_edge(  # noqa: N803
     for root in roots_sorted:
         curvature_val = curvature(root)
         if np.isfinite(curvature_val) and curvature_val < 0:
-            return float(z_of_m(root, a_arr, c_arr, d_arr, n_float))
+            return float(z_of_m(root, a_arr, c_arr, d_arr, n_float, cs_arr))
 
     # If no root satisfies curvature < 0, return the best available candidate.
     best_root = min(roots_sorted, key=lambda r: abs(derivative(r)))
-    return float(z_of_m(best_root, a_arr, c_arr, d_arr, n_float))
+    return float(z_of_m(best_root, a_arr, c_arr, d_arr, n_float, cs_arr))
 
 
 def admissible_m_from_lambda(  # noqa: N803
@@ -281,6 +359,7 @@ def admissible_m_from_lambda(  # noqa: N803
     C: ArrayLike,
     d: ArrayLike,
     N: int | float,
+    Cs: ArrayLike | None = None,
 ) -> float:
     """
     Recover the admissible real root of z(m) = λ with positive slope.
@@ -289,10 +368,12 @@ def admissible_m_from_lambda(  # noqa: N803
     lam_val = float(lam)
     if not np.isfinite(lam_val):
         raise ValueError("λ must be a finite scalar.")
+    cs_arr = _prepare_cs(Cs, a_arr)
     k_vals = _k_values(a_arr, c_arr, d_arr, n_float)
+    numerators = c_arr * a_arr + cs_arr
 
     def equation(m_val: float) -> float:
-        return z_of_m(m_val, a_arr, c_arr, d_arr, n_float) - lam_val
+        return z_of_m(m_val, a_arr, c_arr, d_arr, n_float, cs_arr) - lam_val
 
     grid = _augment_with_singularities(_logspace_grid(), k_vals)
     brackets = _root_brackets(equation, grid)
@@ -313,7 +394,7 @@ def admissible_m_from_lambda(  # noqa: N803
         raise RuntimeError("No real root found for the supplied λ.")
 
     def derivative(m_val: float) -> float:
-        return _dz_dm(m_val, a_arr, c_arr, d_arr, n_float, k_vals)
+        return _dz_dm(m_val, k_vals, numerators)
 
     admissible_roots = [
         root for root in roots if derivative(root) > 0 and root < -1e-12
@@ -359,6 +440,7 @@ def t_vec(  # noqa: N803
     N: int | float,
     c: Sequence[float],
     order: Sequence[Sequence[int]],
+    Cs: Sequence[float] | None = None,
 ) -> np.ndarray:
     """
     Evaluate the t-vector associated with λ using the admissible root m(λ).
@@ -370,12 +452,16 @@ def t_vec(  # noqa: N803
     if len(order) != c_vec.shape[0]:
         raise ValueError("Order length must match the length of c.")
 
-    m_root = admissible_m_from_lambda(lam, a_arr, c_weights, d_arr, n_float)
+    cs_arr = _prepare_cs(Cs, a_arr)
+    m_root = admissible_m_from_lambda(lam, a_arr, c_weights, d_arr, n_float, cs_arr)
     k_vals = _k_values(a_arr, c_weights, d_arr, n_float)
     denom = 1.0 + k_vals * m_root
     if np.any(np.isclose(denom, 0.0, atol=1e-12, rtol=0.0)):
         raise ValueError("Encountered singularity while computing the t-vector.")
-    base_terms = a_arr / denom
+    numerators = c_weights * a_arr + cs_arr
+    base_terms = np.zeros_like(a_arr, dtype=np.float64)
+    mask = np.abs(c_weights) > 1e-12
+    base_terms[mask] = numerators[mask] / (c_weights[mask] * denom[mask])
 
     normalised_order = _normalise_order(order, len(a_arr))
     t_values = np.zeros_like(c_vec, dtype=np.float64)

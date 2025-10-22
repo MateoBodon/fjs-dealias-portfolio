@@ -5,7 +5,20 @@ import pandas as pd
 
 
 def build_design_matrix(returns: pd.DataFrame, factors: pd.DataFrame) -> pd.DataFrame:
-    """Join returns with factor realisations on their common timeline."""
+    """Join returns with factor realisations on their common timeline.
+
+    Parameters
+    ----------
+    returns
+        Wide matrix of asset returns indexed by datetime.
+    factors
+        DataFrame of factor returns indexed by datetime.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Combined DataFrame retaining rows present in both inputs.
+    """
 
     if returns.index.inferred_type != "datetime64":
         raise ValueError("returns must use a DatetimeIndex.")
@@ -19,7 +32,18 @@ def build_design_matrix(returns: pd.DataFrame, factors: pd.DataFrame) -> pd.Data
 
 
 def groups_from_weeks(index: pd.DatetimeIndex) -> np.ndarray:
-    """Assign an integer group id to each timestamp based on its week."""
+    """Assign an integer group id to each timestamp based on its week.
+
+    Parameters
+    ----------
+    index
+        DatetimeIndex that will be grouped by ISO week starting Monday.
+
+    Returns
+    -------
+    numpy.ndarray
+        Integer group labels aligned with ``index``.
+    """
 
     if index.inferred_type != "datetime64":
         raise ValueError("Index must be datetime-like.")

@@ -23,7 +23,18 @@ class OptimizationResult:
 
 
 def equal_weight(p: int) -> NDArray[np.float64]:
-    """Return the equal-weight vector for ``p`` assets."""
+    """Return the equal-weight vector for ``p`` assets.
+
+    Parameters
+    ----------
+    p
+        Number of assets in the universe.
+
+    Returns
+    -------
+    numpy.ndarray
+        Weight vector summing to one.
+    """
 
     if p <= 0:
         raise ValueError("Number of assets must be positive.")
@@ -36,7 +47,22 @@ def minimum_variance(
     allow_short: bool = False,
     solver: str | None = None,
 ) -> OptimizationResult:
-    """Solve the minimum-variance problem using cvxpy (if available)."""
+    """Solve the minimum-variance problem using cvxpy (if available).
+
+    Parameters
+    ----------
+    covariance
+        Sample covariance matrix shaped ``(p, p)``.
+    allow_short
+        If ``False`` (default), impose non-negativity on weights.
+    solver
+        Optional cvxpy solver name.
+
+    Returns
+    -------
+    OptimizationResult
+        Portfolio weights and objective value.
+    """
 
     if covariance.ndim != 2 or covariance.shape[0] != covariance.shape[1]:
         raise ValueError("covariance must be a square matrix.")
@@ -77,7 +103,22 @@ def optimize_portfolio(
     *,
     allow_short: bool = False,
 ) -> OptimizationResult:
-    """Return the minimum-variance portfolio when possible, otherwise equal-weight."""
+    """Return the minimum-variance portfolio when possible, else equal-weight.
+
+    Parameters
+    ----------
+    covariance
+        Sample covariance matrix shaped ``(p, p)``.
+    target_return
+        Unused placeholder for future extensions.
+    allow_short
+        If ``False`` (default), impose non-negativity.
+
+    Returns
+    -------
+    OptimizationResult
+        Candidate solution with convergence flag.
+    """
 
     try:
         return minimum_variance(covariance, allow_short=allow_short)

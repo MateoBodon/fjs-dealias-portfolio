@@ -40,6 +40,8 @@ DEFAULT_CONFIG = {
 
 
 def load_config(path: Path | None) -> dict[str, Any]:
+    """Load experiment configuration from YAML, falling back to defaults."""
+
     if path is None or not path.exists():
         return DEFAULT_CONFIG.copy()
     with path.open("r", encoding="utf-8") as handle:
@@ -52,6 +54,8 @@ def load_config(path: Path | None) -> dict[str, Any]:
 
 
 def ensure_dir(path: Path) -> None:
+    """Create ``path`` and parents if they do not yet exist."""
+
     path.mkdir(parents=True, exist_ok=True)
 
 
@@ -65,6 +69,8 @@ def simulate_panel(
     noise_variance: float,
     signal_to_noise: float,
 ) -> tuple[np.ndarray, np.ndarray]:
+    """Simulate a balanced MANOVA panel with a single spike."""
+
     observations = np.zeros((n_groups * replicates, n_assets), dtype=np.float64)
     groups = np.repeat(np.arange(n_groups, dtype=np.intp), replicates)
 
@@ -89,6 +95,7 @@ def simulate_panel(
 
 
 def mp_upper_edge(noise_variance: float, n_assets: int, n_groups: int) -> float:
+    """Return the Marčenko–Pastur upper edge for the supplied regime."""
     aspect_ratio = n_assets / max(n_groups - 1, 1)
     sqrt_ratio = np.sqrt(aspect_ratio)
     return noise_variance * (1.0 + sqrt_ratio) ** 2
@@ -99,6 +106,8 @@ def histogram_s1(
     edge: float,
     out_dir: Path,
 ) -> None:
+    """Save the S1 histogram visualising the empirical spectrum."""
+
     ensure_dir(out_dir)
     fig, ax = plt.subplots(figsize=(7, 4))
     ax.hist(eigenvalues, bins=50, alpha=0.7, color="C0", label="Eigenvalues")
@@ -113,17 +122,20 @@ def histogram_s1(
 
 
 def bias_table_s3(df: pd.DataFrame, out_dir: Path) -> None:
+    """Persist the S3 bias summary to disk."""
     ensure_dir(out_dir)
     df.to_csv(out_dir / "bias_table.csv", index=False)
 
 
 def summary_to_json(summary: dict[str, Any], out_dir: Path) -> None:
+    """Write a JSON summary of the synthetic experiments."""
     ensure_dir(out_dir)
     with (out_dir / "summary.json").open("w", encoding="utf-8") as handle:
         json.dump(summary, handle, indent=2, default=float)
 
 
 def s1_monte_carlo(config: dict[str, Any], rng: np.random.Generator) -> dict[str, Any]:
+    """Run the S1 Monte Carlo sweep and return summary statistics."""
     eigenvalues_accum: list[float] = []
     top_eigs: list[float] = []
 
@@ -154,6 +166,7 @@ def s1_monte_carlo(config: dict[str, Any], rng: np.random.Generator) -> dict[str
 
 
 def s3_bias(config: dict[str, Any], rng: np.random.Generator) -> pd.DataFrame:
+    """Evaluate aliased versus de-aliased bias across spike strengths."""
     rows: list[dict[str, Any]] = []
     snr_grid = config.get("snr_grid", [4.0, 6.0, 8.0])
     mc = int(config["mc"])
@@ -218,6 +231,8 @@ def plot_bias_timeseries(
     spike: float,
     output_dir: Path,
 ) -> None:
+    """Plot a diagnostic bias timeseries for an individual spike size."""
+
     plot_spike_timeseries(
         prefixes,
         aliased,
@@ -235,6 +250,8 @@ def run_experiment(
     *,
     seed: int | None = None,
 ) -> None:
+    """Execute the S1/S3 synthetic experiments."""
+
     config = load_config(Path(config_path) if config_path else None)
     output_dir = Path(config["output_dir"])
     ensure_dir(output_dir)
@@ -249,6 +266,8 @@ def run_experiment(
 
 
 def main() -> None:
+    """Entry point for CLI execution."""
+
     parser = argparse.ArgumentParser(description="Synthetic de-aliasing experiments")
     parser.add_argument(
         "--config",

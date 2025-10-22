@@ -1,7 +1,12 @@
 from __future__ import annotations
 
 from .design import build_design_matrix, groups_from_weeks
-from .eval import evaluate_portfolio, oos_variance_forecast, risk_metrics, rolling_windows
+from .eval import (
+    evaluate_portfolio,
+    oos_variance_forecast,
+    risk_metrics,
+    rolling_windows,
+)
 from .io import load_market_data, load_prices_csv, to_daily_returns
 from .ledoit import ledoit_wolf_shrinkage, lw_cov
 from .portfolios import (

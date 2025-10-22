@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Generator, Iterable
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
@@ -15,7 +15,22 @@ def rolling_windows(
     window_weeks: int,
     horizon_weeks: int,
 ) -> Generator[tuple[pd.DataFrame, pd.DataFrame], None, None]:
-    """Yield expanding fit/hold windows over the weekly panel."""
+    """Yield expanding fit/hold windows over the weekly panel.
+
+    Parameters
+    ----------
+    panel
+        Weekly return matrix indexed by week start date.
+    window_weeks
+        Number of weeks used for estimation.
+    horizon_weeks
+        Number of weeks reserved for the hold-out period.
+
+    Yields
+    ------
+    tuple[pd.DataFrame, pd.DataFrame]
+        The fit window followed by the hold window.
+    """
 
     if window_weeks <= 0 or horizon_weeks <= 0:
         raise ValueError("window_weeks and horizon_weeks must be positive.")
@@ -29,7 +44,20 @@ def rolling_windows(
 def risk_metrics(
     forecasts: Iterable[float], realised: Iterable[float]
 ) -> dict[str, float]:
-    """Compute mean squared error and 95% VaR coverage error."""
+    """Compute mean squared error and 95% VaR coverage error.
+
+    Parameters
+    ----------
+    forecasts
+        Iterable of variance or VaR forecasts.
+    realised
+        Iterable of realised outcomes matched with ``forecasts``.
+
+    Returns
+    -------
+    dict[str, float]
+        Keys ``mse`` and ``var95_coverage_error``.
+    """
 
     forecasts_arr = np.asarray(list(forecasts), dtype=float)
     realised_arr = np.asarray(list(realised), dtype=float)
@@ -50,9 +78,28 @@ def oos_variance_forecast(
     y_hold: NDArray[np.float64],
     w: NDArray[np.float64],
     estimator: Literal["dealias", "lw"],
-    **kwargs,
+    **kwargs: Any,
 ) -> tuple[float, float]:
-    """Compute out-of-sample variance forecasts and realised variance."""
+    """Compute out-of-sample variance forecasts and realised variance.
+
+    Parameters
+    ----------
+    y_fit
+        In-sample observations shaped ``(n_fit, p)``.
+    y_hold
+        Hold-out observations shaped ``(n_hold, p)``.
+    w
+        Portfolio weight vector of length ``p``.
+    estimator
+        Covariance estimator to use (``"dealias"`` or ``"lw"``).
+    **kwargs
+        Optional estimator-specific parameters.
+
+    Returns
+    -------
+    tuple[float, float]
+        Forecasted portfolio variance and realised variance.
+    """
 
     x_fit = np.asarray(y_fit, dtype=np.float64)
     x_hold = np.asarray(y_hold, dtype=np.float64)
@@ -85,7 +132,20 @@ def evaluate_portfolio(
     returns: pd.DataFrame,
     weights: NDArray[np.float64],
 ) -> dict[str, float]:
-    """Compute realised return and volatility for the supplied weights."""
+    """Compute realised return and volatility for the supplied weights.
+
+    Parameters
+    ----------
+    returns
+        Matrix of asset returns with assets as columns.
+    weights
+        Weight vector aligned with ``returns`` columns.
+
+    Returns
+    -------
+    dict[str, float]
+        Mean and standard deviation of realised portfolio returns.
+    """
 
     portfolio_returns = returns.to_numpy() @ weights
     mean_return = float(np.mean(portfolio_returns))

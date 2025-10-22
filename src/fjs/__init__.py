@@ -10,8 +10,8 @@ from .dealias import DealiasingResult, dealias_covariance, dealias_search
 from .mp import MarchenkoPasturModel, marchenko_pastur_edges, marchenko_pastur_pdf
 from .spectra import (
     estimate_spectrum,
-    plot_spike_timeseries,
     plot_spectrum_with_edges,
+    plot_spike_timeseries,
     project_alignment,
     topk_eigh,
 )

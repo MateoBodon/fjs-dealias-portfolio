@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray
 
 # ruff: noqa: N803
+
+ArrayLike = Sequence[float] | NDArray[np.float64]
 
 
 @dataclass(frozen=True)
@@ -29,9 +31,9 @@ class MarchenkoPasturModel:
 
 
 def _prepare_inputs(  # noqa: N803
-    a: Sequence[float],
-    C: Sequence[float],
-    d: Sequence[float],
+    a: ArrayLike,
+    C: ArrayLike,
+    d: ArrayLike,
     N: int | float,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, float]:
     a_arr = np.asarray(a, dtype=np.float64)
@@ -55,14 +57,14 @@ def _k_values(  # noqa: N803
     d: np.ndarray,
     N: float,
 ) -> np.ndarray:
-    return (N / d) * a * C
+    return np.asarray((N / d) * a * C, dtype=np.float64)
 
 
 def z_of_m(  # noqa: N803
     m: float,
-    a: Sequence[float],
-    C: Sequence[float],
-    d: Sequence[float],
+    a: ArrayLike,
+    C: ArrayLike,
+    d: ArrayLike,
     N: int | float,
 ) -> float:
     """
@@ -97,9 +99,9 @@ def _dz_dm(  # noqa: N803
 ) -> float:
     denom = 1.0 + k_vals * m
     if np.any(np.isclose(denom, 0.0, atol=1e-12, rtol=0.0)):
-        return np.nan
+        return float("nan")
     term1 = 1.0 / (m * m)
-    term2 = np.sum((N / d) * (a**2) * (C**2) / (denom**2))
+    term2 = float(np.sum((N / d) * (a**2) * (C**2) / (denom**2)))
     return term1 - term2
 
 
@@ -113,9 +115,9 @@ def _d2z_dm2(  # noqa: N803
 ) -> float:
     denom = 1.0 + k_vals * m
     if np.any(np.isclose(denom, 0.0, atol=1e-12, rtol=0.0)):
-        return np.nan
+        return float("nan")
     term1 = -2.0 / (m**3)
-    term2 = np.sum(2.0 * (N / d) * (a**2) * (C**2) * k_vals / (denom**3))
+    term2 = float(np.sum(2.0 * (N / d) * (a**2) * (C**2) * k_vals / (denom**3)))
     return term1 + term2
 
 
@@ -141,7 +143,7 @@ def _augment_with_singularities(grid: np.ndarray, k_vals: np.ndarray) -> np.ndar
 
 
 def _bisect(
-    func,
+    func: Callable[[float], float],
     left: float,
     right: float,
     *,
@@ -192,7 +194,7 @@ def _bisect(
 
 
 def _root_brackets(
-    func,
+    func: Callable[[float], float],
     points: np.ndarray,
 ) -> list[tuple[float, float]]:
     brackets: list[tuple[float, float]] = []
@@ -217,9 +219,9 @@ def _root_brackets(
 
 
 def mp_edge(  # noqa: N803
-    a: Sequence[float],
-    C: Sequence[float],
-    d: Sequence[float],
+    a: ArrayLike,
+    C: ArrayLike,
+    d: ArrayLike,
     N: int | float,
 ) -> float:
     """
@@ -275,9 +277,9 @@ def mp_edge(  # noqa: N803
 
 def admissible_m_from_lambda(  # noqa: N803
     lam: float,
-    a: Sequence[float],
-    C: Sequence[float],
-    d: Sequence[float],
+    a: ArrayLike,
+    C: ArrayLike,
+    d: ArrayLike,
     N: int | float,
 ) -> float:
     """

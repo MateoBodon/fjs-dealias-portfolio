@@ -9,11 +9,18 @@ REQUIRED_PRICE_COLUMNS = {"date", "ticker", "price_close"}
 
 
 def load_prices_csv(path: str | Path) -> pd.DataFrame:
-    """
-    Load a tidy price history CSV.
+    """Load a tidy price history CSV.
 
-    The input file must contain the columns ``date`` (YYYY-MM-DD), ``ticker``,
-    and ``price_close``. Additional columns are preserved but ignored.
+    Parameters
+    ----------
+    path
+        Location of the CSV file containing `date`, `ticker`, and
+        `price_close` columns.
+
+    Returns
+    -------
+    pandas.DataFrame
+        DataFrame sorted by date/ticker and limited to the required columns.
     """
 
     csv_path = Path(path)
@@ -34,18 +41,17 @@ def load_prices_csv(path: str | Path) -> pd.DataFrame:
 
 
 def to_daily_returns(price_frame: pd.DataFrame) -> pd.DataFrame:
-    """
-    Convert tidy prices to a wide matrix of daily log returns.
+    """Convert tidy prices to a wide matrix of daily log returns.
 
     Parameters
     ----------
-    price_frame:
-        DataFrame returned by :func:`load_prices_csv`.
+    price_frame
+        DataFrame produced by :func:`load_prices_csv`.
 
     Returns
     -------
     pandas.DataFrame
-        Wide matrix with DatetimeIndex (daily) and columns per ticker.
+        Matrix of log returns indexed by date with tickers as columns.
     """
 
     required = REQUIRED_PRICE_COLUMNS - set(price_frame.columns)
@@ -62,6 +68,20 @@ def to_daily_returns(price_frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def load_market_data(path: str | Path, *, parse_dates: bool = True) -> pd.DataFrame:
-    """Backward-compatible alias for :func:`load_prices_csv`."""
+    """Backward-compatible alias for :func:`load_prices_csv`.
 
+    Parameters
+    ----------
+    path
+        Location of the pricing CSV.
+    parse_dates
+        Unused compatibility flag; maintained for legacy callers.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Same object returned by :func:`load_prices_csv`.
+    """
+
+    _ = parse_dates  # kept for API compatibility
     return load_prices_csv(path)

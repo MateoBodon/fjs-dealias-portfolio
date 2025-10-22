@@ -61,9 +61,7 @@ def test_dealias_search_detects_sigma1_spike() -> None:
         mu_sigma2=0.0,
         noise_scale=0.5,
     )
-    detections = dealias_search(
-        y, groups, target_r=0, a_grid=120, delta=0.3, eps=0.05
-    )
+    detections = dealias_search(y, groups, target_r=0, a_grid=120, delta=0.3, eps=0.05)
     assert detections, "Expected a detection for Sigma1 spike."
     assert len(detections) == 1
     lambda_est = detections[0]["lambda_hat"]

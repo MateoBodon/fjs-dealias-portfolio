@@ -5,7 +5,19 @@ import pandas as pd
 
 
 def compute_log_returns(prices: pd.DataFrame) -> pd.DataFrame:
-    """Compute log returns for a wide price DataFrame."""
+    """Compute log returns for a wide price DataFrame.
+
+    Parameters
+    ----------
+    prices
+        Wide DataFrame of prices indexed by business date with tickers as
+        columns.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Log return matrix sorted by date.
+    """
 
     if prices.index.inferred_type != "datetime64":
         raise ValueError("Prices index must be a DatetimeIndex.")
@@ -21,7 +33,20 @@ def weekly_panel(
     start: str | pd.Timestamp,
     end: str | pd.Timestamp,
 ) -> pd.DataFrame:
-    """Aggregate daily log returns into weekly (Monday-start) log returns."""
+    """Aggregate daily log returns into weekly (Monday-start) log returns.
+
+    Parameters
+    ----------
+    daily_returns
+        Wide matrix of daily log returns indexed by date.
+    start, end
+        Inclusive date range delimiting the sample window.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Weekly log returns indexed by week-start date.
+    """
 
     if daily_returns.index.inferred_type != "datetime64":
         raise ValueError("daily_returns must use a DatetimeIndex.")
@@ -43,7 +68,19 @@ def weekly_panel(
 def balance_weeks(
     panel: pd.DataFrame,
 ) -> tuple[np.ndarray, np.ndarray, pd.DatetimeIndex]:
-    """Create a balanced week/day design from daily returns."""
+    """Create a balanced week/day design from daily returns.
+
+    Parameters
+    ----------
+    panel
+        DataFrame of log returns indexed by date with tickers as columns.
+
+    Returns
+    -------
+    tuple of (numpy.ndarray, numpy.ndarray, pandas.DatetimeIndex)
+        Balanced observation matrix shaped ``(5 * W, P)``, group labels per
+        row, and the corresponding week start dates.
+    """
 
     if panel.index.inferred_type != "datetime64":
         raise ValueError("panel must use a DatetimeIndex.")

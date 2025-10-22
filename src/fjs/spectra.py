@@ -16,7 +16,20 @@ from scipy import linalg
 def topk_eigh(
     matrix: NDArray[np.float64], k: int
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
-    """Return the largest ``k`` eigenpairs of a symmetric matrix."""
+    """Return the largest ``k`` eigenpairs of a symmetric matrix.
+
+    Parameters
+    ----------
+    matrix
+        Symmetric matrix shaped ``(n, n)``.
+    k
+        Number of leading eigenpairs to return.
+
+    Returns
+    -------
+    tuple[numpy.ndarray, numpy.ndarray]
+        Eigenvalues and eigenvectors ordered from largest to smallest.
+    """
 
     array = np.asarray(matrix, dtype=np.float64)
     if array.ndim != 2 or array.shape[0] != array.shape[1]:
@@ -35,7 +48,20 @@ def topk_eigh(
 def project_alignment(
     vector: NDArray[np.float64], subspace: NDArray[np.float64]
 ) -> float:
-    """Compute the projection norm of ``vector`` onto the span of ``subspace``."""
+    """Compute the projection norm of ``vector`` onto the span of ``subspace``.
+
+    Parameters
+    ----------
+    vector
+        Ambient vector to project.
+    subspace
+        Matrix whose columns span the target subspace.
+
+    Returns
+    -------
+    float
+        Euclidean norm of the projected vector.
+    """
 
     v = np.asarray(vector, dtype=np.float64).reshape(-1)
     basis = np.asarray(subspace, dtype=np.float64)
@@ -66,7 +92,24 @@ def plot_spectrum_with_edges(
     xlabel: str = "Eigenvalue index (descending)",
     ylabel: str = "Eigenvalue",
 ) -> Path:
-    """Plot an empirical spectrum together with optional reference edge lines."""
+    """Plot an empirical spectrum together with optional reference edge lines.
+
+    Parameters
+    ----------
+    eigenvalues
+        Sequence of eigenvalues.
+    edges
+        Iterable of reference edge locations; ``None`` skips overlays.
+    out_path
+        Output path for the saved figure (PNG/PDF).
+    title, xlabel, ylabel
+        Plot annotations.
+
+    Returns
+    -------
+    pathlib.Path
+        Path where the figure was saved.
+    """
 
     values = np.asarray(eigenvalues, dtype=np.float64)
     if values.ndim != 1:
@@ -110,7 +153,24 @@ def plot_spike_timeseries(
     xlabel: str = "Prefix groups",
     ylabel: str = "Spike magnitude",
 ) -> Path:
-    """Plot aliased and de-aliased spike estimates against a time index."""
+    """Plot aliased and de-aliased spike estimates against a time index.
+
+    Parameters
+    ----------
+    time_index
+        Sequence of time points at which estimates are available.
+    aliased_series, dealiased_series
+        Corresponding spike estimates.
+    out_path
+        Output path for the saved figure.
+    title, true_value, xlabel, ylabel
+        Plot annotations.
+
+    Returns
+    -------
+    pathlib.Path
+        Path where the figure was saved.
+    """
 
     times = np.asarray(time_index, dtype=np.float64)
     if times.ndim != 1:
@@ -145,7 +205,20 @@ def estimate_spectrum(
     *,
     bandwidth: float | None = None,
 ) -> NDArray[np.float64]:
-    """Return a sorted copy of ``eigenvalues`` (placeholder estimator)."""
+    """Return a sorted copy of ``eigenvalues`` (placeholder estimator).
+
+    Parameters
+    ----------
+    eigenvalues
+        Raw eigenvalues to be sorted.
+    bandwidth
+        Optional smoothing bandwidth (unused placeholder).
+
+    Returns
+    -------
+    numpy.ndarray
+        Sorted eigenvalues.
+    """
 
     values = np.asarray(eigenvalues, dtype=np.float64)
     if values.ndim != 1:

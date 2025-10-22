@@ -32,6 +32,8 @@ DEFAULT_CONFIG = {
 
 
 def load_config(path: Path | str) -> dict[str, Any]:
+    """Load experiment configuration, falling back to defaults."""
+
     file_path = Path(path)
     with file_path.open("r", encoding="utf-8") as handle:
         data = yaml.safe_load(handle) or {}
@@ -42,6 +44,8 @@ def load_config(path: Path | str) -> dict[str, Any]:
 
 
 def _generate_synthetic_prices(path: Path) -> None:
+    """Create a synthetic price panel for quick smoke testing."""
+
     path.parent.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(0)
     start = pd.Timestamp("2010-01-01")
@@ -67,6 +71,8 @@ def _generate_synthetic_prices(path: Path) -> None:
 def _mp_edges(
     noise_variance: float, n_assets: int, n_samples: int
 ) -> tuple[float, float]:
+    """Return approximate Marčenko–Pastur bulk edges."""
+
     aspect_ratio = n_assets / max(n_samples, 1)
     sqrt_ratio = np.sqrt(aspect_ratio)
     upper = noise_variance * (1.0 + sqrt_ratio) ** 2
@@ -75,6 +81,8 @@ def _mp_edges(
 
 
 def _prepare_data(config: dict[str, Any]) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Load prices (or synthesise) and return daily/weekly returns."""
+
     data_path = Path(config["data_path"])
     if not data_path.exists():
         _generate_synthetic_prices(data_path)
@@ -90,6 +98,7 @@ def _prepare_data(config: dict[str, Any]) -> tuple[pd.DataFrame, pd.DataFrame]:
 
 
 def run_experiment(config_path: Path | str | None = None) -> None:
+    """Execute the rolling equity forecasting experiment."""
     path = (
         Path(config_path)
         if config_path is not None
@@ -209,6 +218,8 @@ def run_experiment(config_path: Path | str | None = None) -> None:
 
 
 def main() -> None:
+    """Entry point for CLI execution."""
+
     run_experiment()
 
 

@@ -10,31 +10,61 @@ highlighting why both the aliased and de-aliased estimators must target the same
 
 ## Quickstart
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-make setup
-make fmt
-make lint
-make test
-```
+1. Create and activate a virtual environment:
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate
+   ```
+2. Install project and tooling:
+   ```bash
+   make setup
+   ```
+3. Regenerate the synthetic evidence suite (S1/S2/S3/S4/S5):
+   ```bash
+   make run-synth
+   ```
+4. Reproduce the rolling equity experiment:
+   ```bash
+   make run-equity
+   ```
 
-## Running the experiments
+`make test` remains available to run the full pytest suite; `make fmt` / `make lint` apply formatting and static checks.
 
-- **Synthetic (S1/S3)** – `make run-synth`
-  - Outputs: `figures/synthetic/s1_histogram.(png|pdf)` ![S1 histogram](figures/synthetic/s1_histogram.png), `figures/synthetic/bias_table.csv`, `figures/synthetic/summary.json`.
-- **Equity rolling forecast** – `make run-equity`
-  - Outputs: `experiments/equity_panel/outputs/` (rolling CSV summaries and variance/VaR figures). Key artefacts include:
-    - `experiments/equity_panel/outputs/E3_variance_mse.png` ![E3 variance MSE](experiments/equity_panel/outputs/E3_variance_mse.png)
-    - `experiments/equity_panel/outputs/E4_var95_coverage_error.png` ![E4 VaR coverage](experiments/equity_panel/outputs/E4_var95_coverage_error.png)
-    - `experiments/equity_panel/outputs/metrics_summary.csv`
-- **Crisis window reruns** – pass `--crisis "YYYY-MM-DD:YYYY-MM-DD"` to `experiments/equity_panel/run.py` to repeat the rolling evaluation on a focused, high-volatility interval. Outputs land in a dedicated `crisis_*/` subdirectory alongside the full-sample results.
+## Methods at a glance
 
-Both scripts accept optional `--config` YAML files mirroring the defaults in the corresponding `experiments/*/config.yaml`.
+- **Balanced MANOVA decomposition:** weekly returns are partitioned into between-group (`\(\widehat{\Sigma}_1\)`) and within-group (`\(\widehat{\Sigma}_2\)`) mean squares using `fjs.balanced.mean_squares`.
+- **t-vector acceptance:** spikes are accepted only when the Marchenko–Pastur t-vector has dominant support on the target component, ensuring `\(\hat{\mu} = \hat{\lambda} / t_r\)` remains self-consistent.
+- **Guardrails:** candidates must clear an MP edge buffer (`δ`), survive angular perturbations (`η`), and win cluster merges based on stability margin.
+- **Risk forecasting:** detected spikes are substituted into `\(\widehat{\Sigma}_1\)` before recombining weekly covariance for equal-weight and box-constrained min-variance portfolios; Ledoit–Wolf provides the shrinkage baseline.
 
-## Reproducing figures
+## Configuration & CLI flags
 
-Running the commands above regenerates all main figures and tables in the `figures/` and `experiments/equity_panel/outputs/` directories. The synthetic pipeline emits S1 spectra histograms and S3 bias tables; the equity experiment writes variance/VaR comparison plots (E3/E4) alongside CSV logs of every rolling window.
+| Option | Default | Description |
+| --- | --- | --- |
+| `dealias_delta` | `0.3` | Safety buffer added to the MP edge before accepting eigenvalue outliers. |
+| `dealias_eps` | `0.05` | Minimum absolute t-vector mass for the target component and tolerance for off-target entries. |
+| `stability_eta_deg` | `1.0` | Angular perturbation (in degrees) applied when checking directional stability. |
+| `--sigma-ablation` | `False` | When passed to `experiments/equity_panel/run.py`, perturbs empirical Cs by ±10 % and records detection robustness. |
+| `--crisis "YYYY-MM-DD:YYYY-MM-DD"` | `None` | Restrict the equity run to a crisis window; results are written to `outputs/crisis_*`. |
+| `--config path/to/config.yaml` | — | Override defaults for data paths, horizons, or delta/eps/eta settings. |
+
+The equity configuration file (`experiments/equity_panel/config.yaml`) mirrors these keys; adding `dealias_delta`, `dealias_eps`, or `stability_eta_deg` entries will override the defaults above.
+
+## Figure gallery
+
+- **Synthetic suite:**  
+  `figures/synthetic/s1_histogram.(png|pdf)` – spectrum of \(\widehat{\Sigma}_1\).  
+  `figures/synthetic/s2_vectors.(png|pdf)` – alignment of the recovered eigvector with the planted spike.  
+  `figures/synthetic/s4_guardrails.(csv|png|pdf)` – false-positive rates with and without guardrails.  
+  `figures/synthetic/s5_multispike.(csv|png|pdf)` – aliased vs de-aliased bias across multiple spikes.  
+  `figures/synthetic/bias_table.csv`, `figures/synthetic/summary.json` – tabulated S1–S5 metrics.
+
+- **Equity panel:**  
+  `experiments/equity_panel/outputs/E3_variance_mse.(png|pdf)` – variance forecast MSE comparison.  
+  `experiments/equity_panel/outputs/E4_var95_coverage_error.(png|pdf)` – VaR coverage error bars.  
+  `experiments/equity_panel/outputs/rolling_results.csv`, `metrics_summary.csv`, `summary.json` – per-window diagnostics (`n_detections`, forecasts, realised risk).
+
+Running `make run-synth` and `make run-equity` is sufficient to refresh the full gallery.
 
 ## Matching targets across estimators
 
@@ -51,10 +81,6 @@ De-aliasing only substitutes selected spike magnitudes in \(\widehat{\Sigma}_1\)
 - **δ-buffer:** candidate spikes must exceed the Marčenko–Pastur bulk edge plus a safety buffer before they are considered.
 - **Angular stability:** every accepted spike must persist when the search direction \(a\) is rotated by ±η degrees.
 - **Cluster merge:** detections with nearby \(\hat{\mu}\) values are merged; the most stable representative is kept.
-
-## Citation
-
-Fan, J., Johnstone, I. M., & Sun, Q. (2018). Eigenvalue shrinkage estimation of large covariance matrices. *Journal of the Royal Statistical Society: Series B (Statistical Methodology)*.
 
 ## Citation
 

@@ -7,3 +7,6 @@ start_date: "2015-01-01"
 end_date: "2020-12-31"
 frequency: "daily"
 risk_free_rate: 0.02
+dealias_delta: 0.3
+dealias_eps: 0.05
+stability_eta_deg: 1.0

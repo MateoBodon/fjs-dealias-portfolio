@@ -33,7 +33,7 @@ highlighting why both the aliased and de-aliased estimators must target the same
 ## Methods at a glance
 
 - **Balanced MANOVA decomposition:** weekly returns are partitioned into between-group (`\(\widehat{\Sigma}_1\)`) and within-group (`\(\widehat{\Sigma}_2\)`) mean squares using `fjs.balanced.mean_squares`.
-- **t-vector acceptance:** spikes are accepted only when the Marchenko–Pastur t-vector has dominant support on the target component, ensuring `\(\hat{\mu} = \hat{\lambda} / t_r\)` remains self-consistent.
+- **t-vector acceptance:** spikes are accepted only when the Marchenko–Pastur t-vector has dominant support on the target component, ensuring `\(\hat{\mu} = \hat{\lambda} / t_r\)` remains self-consistent. A relative δ buffer `dealias_delta_frac` can be used to scale the MP edge decision by a fraction of the edge.
 - **Guardrails:** candidates must clear an MP edge buffer (`δ`), survive angular perturbations (`η`), and win cluster merges based on stability margin.
 - **Risk forecasting:** detected spikes are substituted into `\(\widehat{\Sigma}_1\)` before recombining weekly covariance for equal-weight and box-constrained min-variance portfolios; Ledoit–Wolf provides the shrinkage baseline.
 
@@ -44,11 +44,14 @@ highlighting why both the aliased and de-aliased estimators must target the same
 | `dealias_delta` | `0.3` | Safety buffer added to the MP edge before accepting eigenvalue outliers. |
 | `dealias_eps` | `0.05` | Minimum absolute t-vector mass for the target component and tolerance for off-target entries. |
 | `stability_eta_deg` | `1.0` | Angular perturbation (in degrees) applied when checking directional stability. |
-| `--sigma-ablation` | `False` | When passed to `experiments/equity_panel/run.py`, perturbs empirical Cs by ±10 % and records detection robustness. |
+| `dealias_delta_frac` | `None` | Relative δ buffer as a fraction of the MP edge (e.g., 0.05 → 5%). Overrides `dealias_delta` when set. |
+| `signed_a` | `True` | Search both positive and negative `a` directions (recommended for equity). |
+| `cs_drop_top_frac` | `0.1` | Fraction of top eigenvalues dropped when estimating Cs from mean squares. |
+| `--sigma-ablation` | `False` | When passed to `experiments/equity_panel/run.py`, perturbs empirical Cs by ±10% and records detection robustness. |
 | `--crisis "YYYY-MM-DD:YYYY-MM-DD"` | `None` | Restrict the equity run to a crisis window; results are written to `outputs/crisis_*`. |
 | `--config path/to/config.yaml` | — | Override defaults for data paths, horizons, or delta/eps/eta settings. |
 
-The equity configuration file (`experiments/equity_panel/config.yaml`) mirrors these keys; adding `dealias_delta`, `dealias_eps`, or `stability_eta_deg` entries will override the defaults above.
+The equity configuration file (`experiments/equity_panel/config.yaml`) mirrors these keys; adding `dealias_delta`, `dealias_delta_frac`, `signed_a`, `cs_drop_top_frac`, `dealias_eps`, or `stability_eta_deg` entries will override the defaults above.
 
 ## Figure gallery
 

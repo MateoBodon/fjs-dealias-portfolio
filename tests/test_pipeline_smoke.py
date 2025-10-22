@@ -226,3 +226,64 @@ def test_relative_delta_and_signed_a_integration() -> None:
     )
     # It is OK if no detection occurs; this is an integration smoke test
     assert isinstance(detections, list)
+
+
+def test_rolling_synthetic_oos_gain() -> None:
+    rng = np.random.default_rng(1234)
+    p = 8
+    replicates = 3
+    total_weeks = 36
+    fit_weeks = 20
+    hold_weeks = 4
+
+    # Single spiked between-group component with strong signal
+    v = rng.standard_normal(p)
+    v /= np.linalg.norm(v)
+    mu = 6.0
+    sigma_within = 0.25
+
+    group_scores = rng.normal(scale=np.sqrt(mu), size=total_weeks)
+    between = np.outer(group_scores, v)
+    residuals = rng.normal(scale=sigma_within, size=(total_weeks, replicates, p))
+    observations = between[:, None, :] + residuals
+
+    y_matrix = observations.reshape(total_weeks * replicates, p)
+    groups = np.repeat(np.arange(total_weeks), replicates)
+
+    w = np.full(p, 1.0 / p, dtype=np.float64)
+
+    errs_alias: list[float] = []
+    errs_de: list[float] = []
+    for start in range(0, total_weeks - fit_weeks - hold_weeks + 1):
+        fit_range = slice(start * replicates, (start + fit_weeks) * replicates)
+        hold_range = slice(
+            (start + fit_weeks) * replicates,
+            (start + fit_weeks + hold_weeks) * replicates,
+        )
+        y_fit = y_matrix[fit_range]
+        y_hold = y_matrix[hold_range]
+        groups_fit = np.repeat(np.arange(fit_weeks), replicates)
+
+        detections = dealias_search(
+            y_fit,
+            groups_fit,
+            target_r=0,
+            a_grid=72,
+            delta=0.3,
+            eps=0.05,
+            stability_eta_deg=0.4,
+        )
+        f_alias, r_alias = variance_forecast_from_components(
+            y_fit, y_hold, replicates, w
+        )
+        f_de, r_de = variance_forecast_from_components(
+            y_fit, y_hold, replicates, w, detections=detections
+        )
+        realized = r_de if np.isfinite(r_de) else r_alias
+        errs_alias.append(float((f_alias - realized) ** 2))
+        errs_de.append(float((f_de - realized) ** 2))
+
+    mse_alias = float(np.mean(errs_alias))
+    mse_de = float(np.mean(errs_de))
+    # Non-inferiority: de-aliased should not be worse than aliased
+    assert mse_de <= mse_alias

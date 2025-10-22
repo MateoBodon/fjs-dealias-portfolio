@@ -3,7 +3,14 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from fjs.dealias import DealiasingResult, dealias_covariance, dealias_search
+from fjs.balanced import mean_squares
+from fjs.dealias import (
+    DealiasingResult,
+    _default_design,
+    dealias_covariance,
+    dealias_search,
+)
+from fjs.mp import t_vec
 
 
 def _simulate_one_way(
@@ -69,6 +76,56 @@ def test_dealias_search_detects_sigma1_spike() -> None:
     assert detections[0]["stability_margin"] >= 0.0
 
 
+def test_t_vector_acceptance_consistency_toy_spike() -> None:
+    rng = np.random.default_rng(314159)
+    p, n_groups, replicates = 24, 48, 3
+    y, groups = _simulate_one_way(
+        rng,
+        p=p,
+        n_groups=n_groups,
+        replicates=replicates,
+        mu_sigma1=6.0,
+        mu_sigma2=0.0,
+        noise_scale=0.6,
+    )
+    detections = dealias_search(
+        y,
+        groups,
+        target_r=0,
+        a_grid=100,
+        delta=0.35,
+        eps=0.04,
+    )
+    assert detections, "Expected at least one detection in the toy spike setting."
+
+    stats = mean_squares(y, groups)
+    design_params = _default_design(stats)
+    c_weights = np.asarray(design_params["C"], dtype=np.float64).tolist()
+    d_vec = np.asarray(design_params["d"], dtype=np.float64).tolist()
+    n_total = float(design_params["N"])
+    c_vec = np.asarray(design_params["c"], dtype=np.float64).tolist()
+    order = design_params["order"]
+
+    for det in detections:
+        lam_val = float(det["lambda_hat"])
+        mu_hat = float(det["mu_hat"])
+        assert mu_hat > 0.0
+        t_vals = t_vec(
+            lam_val,
+            det["a"],
+            c_weights,
+            d_vec,
+            n_total,
+            c_vec,
+            order,
+        )
+        ratio = lam_val / mu_hat
+        t_target = float(t_vals[0])
+        assert ratio > 0.0
+        assert np.isfinite(t_target)
+        assert abs(ratio - t_target) < 0.1
+
+
 def test_dealias_search_limits_sigma2_false_positives() -> None:
     p, n_groups, replicates = 60, 60, 2
     trials = 20
@@ -112,6 +169,27 @@ def test_dealias_search_has_low_false_positive_rate() -> None:
             delta=0.5,
             eps=0.05,
         )
+        if detections:
+            false_positives += 1
+    assert false_positives <= max(1, int(0.01 * trials))
+
+
+def test_dealias_search_isotropic_trials_under_one_percent() -> None:
+    rng = np.random.default_rng(2024)
+    p, n_groups, replicates = 12, 24, 2
+    trials = 200
+    false_positives = 0
+    for _ in range(trials):
+        y, groups = _simulate_one_way(
+            rng,
+            p=p,
+            n_groups=n_groups,
+            replicates=replicates,
+            mu_sigma1=0.0,
+            mu_sigma2=0.0,
+            noise_scale=1.0,
+        )
+        detections = dealias_search(y, groups, target_r=0)
         if detections:
             false_positives += 1
     assert false_positives <= max(1, int(0.01 * trials))

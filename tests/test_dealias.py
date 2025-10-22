@@ -148,6 +148,33 @@ def test_relative_delta_enables_detection_when_absolute_blocks() -> None:
     assert allowed
 
 
+def test_signed_a_grid_no_crash() -> None:
+    rng = np.random.default_rng(7)
+    p, n_groups, replicates = 20, 24, 3
+    y, groups = _simulate_one_way(
+        rng,
+        p=p,
+        n_groups=n_groups,
+        replicates=replicates,
+        mu_sigma1=4.0,
+        mu_sigma2=0.0,
+        noise_scale=0.8,
+    )
+    out1 = dealias_search(
+        y, groups, target_r=0, a_grid=60, delta=0.3, nonnegative_a=True
+    )
+    out2 = dealias_search(
+        y,
+        groups,
+        target_r=0,
+        a_grid=60,
+        delta=0.3,
+        nonnegative_a=False,
+    )
+    assert isinstance(out1, list)
+    assert isinstance(out2, list)
+
+
 def test_dealias_search_limits_sigma2_false_positives() -> None:
     p, n_groups, replicates = 60, 60, 2
     trials = 20

@@ -1,0 +1,31 @@
+{
+  "s1_noise_estimate": 0.6538128529066545,
+  "s1_edge": 2.637367997126386,
+  "s1_top_mean": 14.198768697519153,
+  "s3_bias": [
+    {
+      "spike_strength": 4.0,
+      "aliased_mean": 10.004027569532273,
+      "aliased_bias": 6.004027569532273,
+      "dealiased_mean": 3.6468534041134353,
+      "dealiased_bias": -0.3531465958865647,
+      "detection_rate": 0.995
+    },
+    {
+      "spike_strength": 6.0,
+      "aliased_mean": 14.132158308740358,
+      "aliased_bias": 8.132158308740358,
+      "dealiased_mean": 4.677664181075993,
+      "dealiased_bias": -1.3223358189240066,
+      "detection_rate": 1.0
+    },
+    {
+      "spike_strength": 8.0,
+      "aliased_mean": 17.857535748601457,
+      "aliased_bias": 9.857535748601457,
+      "dealiased_mean": 5.625416484139796,
+      "dealiased_bias": -2.3745835158602038,
+      "detection_rate": 1.0
+    }
+  ]
+}

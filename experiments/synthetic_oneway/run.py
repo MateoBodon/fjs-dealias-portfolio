@@ -1,47 +1,80 @@
+# ruff: noqa: E402
 from __future__ import annotations
 
+import argparse
+import json
+import sys
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
+import matplotlib
+
+matplotlib.use("Agg")
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import yaml
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+SRC_ROOT = PROJECT_ROOT / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
+
 from fjs.balanced import mean_squares
 from fjs.dealias import dealias_search
-from fjs.spectra import plot_spectrum_with_edges, plot_spike_timeseries, topk_eigh
+from fjs.spectra import plot_spike_timeseries
+
+DEFAULT_CONFIG = {
+    "n_assets": 60,
+    "n_groups": 60,
+    "replicates": 2,
+    "noise_variance": 1.0,
+    "signal_to_noise": 0.5,
+    "spike_strength": 6.0,
+    "mc": 200,
+    "snr_grid": [4.0, 6.0, 8.0],
+    "output_dir": "figures/synthetic",
+}
 
 
-def load_config(path: Path | str) -> dict[str, Any]:
-    """Load the synthetic experiment configuration from disk."""
-
-    file_path = Path(path)
-    with file_path.open("r", encoding="utf-8") as handle:
+def load_config(path: Path | None) -> dict[str, Any]:
+    if path is None or not path.exists():
+        return DEFAULT_CONFIG.copy()
+    with path.open("r", encoding="utf-8") as handle:
         data = yaml.safe_load(handle) or {}
     if not isinstance(data, dict):
         raise ValueError("Configuration file must contain a mapping.")
-    return data
+    config = DEFAULT_CONFIG.copy()
+    config.update(data)
+    return config
 
 
-def _simulate_balanced_panel(config: dict[str, Any]) -> tuple[np.ndarray, np.ndarray]:
-    rng = np.random.default_rng(int(config.get("seed", 0)))
-    n_assets = int(config.get("n_assets", 60))
-    n_groups = int(config.get("n_samples", 60))
-    replicates = int(config.get("replicates", 2))
-    spike_strength = float(config.get("spike_strength", 3.0))
-    noise_variance = float(config.get("noise_variance", 1.0))
-    signal_to_noise = float(config.get("signal_to_noise", 0.5))
+def ensure_dir(path: Path) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+
+
+def simulate_panel(
+    rng: np.random.Generator,
+    *,
+    n_assets: int,
+    n_groups: int,
+    replicates: int,
+    spike_strength: float,
+    noise_variance: float,
+    signal_to_noise: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    observations = np.zeros((n_groups * replicates, n_assets), dtype=np.float64)
+    groups = np.repeat(np.arange(n_groups, dtype=np.intp), replicates)
 
     signal_dir = rng.normal(size=n_assets)
     signal_dir /= np.linalg.norm(signal_dir)
     aux_dir = rng.normal(size=n_assets)
     aux_dir /= np.linalg.norm(aux_dir)
 
-    observations = np.zeros((n_groups * replicates, n_assets), dtype=np.float64)
-    groups = np.repeat(np.arange(n_groups, dtype=np.int64), replicates)
-
-    spike_scale = np.sqrt(spike_strength)
     noise_scale = np.sqrt(noise_variance)
+    spike_scale = np.sqrt(spike_strength)
 
     idx = 0
     for _ in range(n_groups):
@@ -49,150 +82,183 @@ def _simulate_balanced_panel(config: dict[str, Any]) -> tuple[np.ndarray, np.nda
         group_effect = factor * signal_dir
         for _ in range(replicates):
             common_noise = signal_to_noise * noise_scale * rng.normal() * aux_dir
-            idiosyncratic_noise = noise_scale * rng.normal(size=n_assets)
-            observations[idx] = group_effect + common_noise + idiosyncratic_noise
+            idio_noise = noise_scale * rng.normal(size=n_assets)
+            observations[idx] = group_effect + common_noise + idio_noise
             idx += 1
-
     return observations, groups
 
 
-def _mp_edges(
-    noise_variance: float, n_assets: int, sample_count: int
-) -> tuple[float, float]:
-    aspect_ratio = n_assets / sample_count
+def mp_upper_edge(noise_variance: float, n_assets: int, n_groups: int) -> float:
+    aspect_ratio = n_assets / max(n_groups - 1, 1)
     sqrt_ratio = np.sqrt(aspect_ratio)
-    upper = noise_variance * (1.0 + sqrt_ratio) ** 2
-    lower = noise_variance * max(0.0, (1.0 - sqrt_ratio) ** 2)
-    return lower, upper
+    return noise_variance * (1.0 + sqrt_ratio) ** 2
 
 
-def _series_bias(
-    observations: np.ndarray,
-    groups: np.ndarray,
-    true_spike: float,
-    *,
-    delta: float,
-    eps: float,
-    step: int,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    unique_groups = np.unique(groups)
-    prefixes: list[int] = []
-    aliased: list[float] = []
-    dealiased: list[float] = []
+def histogram_s1(
+    eigenvalues: Sequence[float],
+    edge: float,
+    out_dir: Path,
+) -> None:
+    ensure_dir(out_dir)
+    fig, ax = plt.subplots(figsize=(7, 4))
+    ax.hist(eigenvalues, bins=50, alpha=0.7, color="C0", label="Eigenvalues")
+    ax.axvline(edge, color="C1", linestyle="--", linewidth=1.5, label="MP edge")
+    ax.set_xlabel("Eigenvalue")
+    ax.set_ylabel("Frequency")
+    ax.set_title("S1: Spectrum of $\\Sigma_1$")
+    ax.legend()
+    fig.savefig(out_dir / "s1_histogram.png", bbox_inches="tight")
+    fig.savefig(out_dir / "s1_histogram.pdf", bbox_inches="tight")
+    plt.close(fig)
 
-    for end in range(step, unique_groups.size + 1, step):
-        mask = groups < end
-        ms_stats = mean_squares(observations[mask], groups[mask])
-        eigenvalues, _ = topk_eigh(ms_stats["MS1"], 1)
-        lambda_hat = float(eigenvalues[0])
-        detections = dealias_search(
-            observations[mask],
-            groups[mask],
-            target_r=0,
-            a_grid=90,
-            delta=delta,
-            eps=eps,
+
+def bias_table_s3(df: pd.DataFrame, out_dir: Path) -> None:
+    ensure_dir(out_dir)
+    df.to_csv(out_dir / "bias_table.csv", index=False)
+
+
+def summary_to_json(summary: dict[str, Any], out_dir: Path) -> None:
+    ensure_dir(out_dir)
+    with (out_dir / "summary.json").open("w", encoding="utf-8") as handle:
+        json.dump(summary, handle, indent=2, default=float)
+
+
+def s1_monte_carlo(config: dict[str, Any], rng: np.random.Generator) -> dict[str, Any]:
+    eigenvalues_accum: list[float] = []
+    top_eigs: list[float] = []
+
+    for _ in range(int(config["mc"])):
+        y_mat, groups = simulate_panel(
+            rng,
+            n_assets=config["n_assets"],
+            n_groups=config["n_groups"],
+            replicates=config["replicates"],
+            spike_strength=config["spike_strength"],
+            noise_variance=config["noise_variance"],
+            signal_to_noise=config["signal_to_noise"],
         )
-        mu_hat = detections[0]["mu_hat"] if detections else np.nan
+        stats = mean_squares(y_mat, groups)
+        eigenvalues = np.linalg.eigvalsh(stats["MS1"].astype(np.float64))
+        eigenvalues_accum.extend(eigenvalues.tolist())
+        top_eigs.append(float(eigenvalues[-1]))
 
-        prefixes.append(end)
-        aliased.append(lambda_hat)
-        dealiased.append(mu_hat)
+    noise_estimate = float(np.median(eigenvalues_accum))
+    edge = mp_upper_edge(noise_estimate, config["n_assets"], config["n_groups"])
+    histogram_s1(eigenvalues_accum, edge=edge, out_dir=Path(config["output_dir"]))
 
-    return np.asarray(prefixes), np.asarray(aliased), np.asarray(dealiased)
-
-
-def _output_directory(config: dict[str, Any]) -> Path:
-    if "output_dir" in config:
-        return Path(config["output_dir"])
-    return Path(__file__).with_name("outputs")
+    return {
+        "s1_noise_estimate": noise_estimate,
+        "s1_edge": edge,
+        "s1_top_mean": float(np.mean(top_eigs)),
+    }
 
 
-def run_experiment(config_path: Path | str | None = None) -> None:
-    """Execute the synthetic MANOVA experiment pipeline."""
+def s3_bias(config: dict[str, Any], rng: np.random.Generator) -> pd.DataFrame:
+    rows: list[dict[str, Any]] = []
+    snr_grid = config.get("snr_grid", [4.0, 6.0, 8.0])
+    mc = int(config["mc"])
+    delta = float(config.get("delta", 0.3))
+    eps = float(config.get("eps", 0.05))
 
-    path = (
-        Path(config_path)
-        if config_path is not None
-        else Path(__file__).with_name("config.yaml")
-    )
-    config = load_config(path)
+    for spike in snr_grid:
+        aliased_vals: list[float] = []
+        dealiased_vals: list[float] = []
+        detects = 0
 
-    observations, groups = _simulate_balanced_panel(config)
-    ms_stats = mean_squares(observations, groups)
-    ms1 = ms_stats["MS1"].astype(np.float64)
+        for _ in range(mc):
+            y_mat, groups = simulate_panel(
+                rng,
+                n_assets=config["n_assets"],
+                n_groups=config["n_groups"],
+                replicates=config["replicates"],
+                spike_strength=spike,
+                noise_variance=config["noise_variance"],
+                signal_to_noise=config["signal_to_noise"],
+            )
+            stats = mean_squares(y_mat, groups)
+            eigenvalues = np.linalg.eigvalsh(stats["MS1"].astype(np.float64))
+            aliased_vals.append(float(eigenvalues[-1]))
 
-    eigenvalues = np.linalg.eigvalsh(ms1)
-    n_assets = ms1.shape[0]
-    total_samples = observations.shape[0]
-    lower_edge, upper_edge = _mp_edges(
-        float(config.get("noise_variance", 1.0)), n_assets, total_samples
-    )
+            detections = dealias_search(
+                y_mat,
+                groups,
+                target_r=0,
+                a_grid=72,
+                delta=delta,
+                eps=eps,
+            )
+            if detections:
+                detects += 1
+                dealiased_vals.append(float(detections[0]["mu_hat"]))
+            else:
+                dealiased_vals.append(np.nan)
 
-    output_dir = _output_directory(config)
-    output_dir.mkdir(parents=True, exist_ok=True)
+        aliased_arr = np.asarray(aliased_vals)
+        dealiased_arr = np.asarray(dealiased_vals)
 
-    spectrum_png = output_dir / "spectrum.png"
-    spectrum_pdf = output_dir / "spectrum.pdf"
-    plot_spectrum_with_edges(
-        eigenvalues,
-        edges=(lower_edge, upper_edge),
-        out_path=spectrum_png,
-        title="Empirical MS1 spectrum",
-    )
-    plot_spectrum_with_edges(
-        eigenvalues,
-        edges=(lower_edge, upper_edge),
-        out_path=spectrum_pdf,
-        title="Empirical MS1 spectrum",
-    )
-
-    signal_strength = float(config.get("spike_strength", 3.0))
-    prefixes, aliased, dealiased = _series_bias(
-        observations,
-        groups,
-        signal_strength,
-        delta=0.3,
-        eps=0.05,
-        step=max(5, int(groups.max() + 1) // 20 or 1),
-    )
-
-    spike_png = output_dir / "spike_timeseries.png"
-    spike_pdf = output_dir / "spike_timeseries.pdf"
-    plot_spike_timeseries(
-        prefixes,
-        aliased,
-        dealiased,
-        out_path=spike_png,
-        title="Outlier tracking",
-        true_value=signal_strength,
-    )
-    plot_spike_timeseries(
-        prefixes,
-        aliased,
-        dealiased,
-        out_path=spike_pdf,
-        title="Outlier tracking",
-        true_value=signal_strength,
-    )
-
-    table = pd.DataFrame(
-        {
-            "prefix_groups": prefixes,
-            "aliased": aliased,
-            "dealiased": dealiased,
-            "aliased_bias": aliased - signal_strength,
-            "dealiased_bias": dealiased - signal_strength,
+        row = {
+            "spike_strength": spike,
+            "aliased_mean": float(np.mean(aliased_arr)),
+            "aliased_bias": float(np.mean(aliased_arr) - spike),
+            "dealiased_mean": float(np.nanmean(dealiased_arr)),
+            "dealiased_bias": float(np.nanmean(dealiased_arr) - spike),
+            "detection_rate": detects / mc,
         }
+        rows.append(row)
+
+    df = pd.DataFrame(rows)
+    bias_table_s3(df, Path(config["output_dir"]))
+    return df
+
+
+def plot_bias_timeseries(
+    prefixes: Sequence[int],
+    aliased: Sequence[float],
+    dealiased: Sequence[float],
+    spike: float,
+    output_dir: Path,
+) -> None:
+    plot_spike_timeseries(
+        prefixes,
+        aliased,
+        dealiased,
+        out_path=output_dir / f"bias_timeseries_mu{int(spike)}.png",
+        title=f"S3 Bias tracking µ={spike}",
+        true_value=spike,
+        xlabel="Prefix",
+        ylabel="Estimate",
     )
-    table_path = output_dir / "bias_table.csv"
-    table.to_csv(table_path, index=False)
+
+
+def run_experiment(
+    config_path: Path | str | None = None,
+    *,
+    seed: int | None = None,
+) -> None:
+    config = load_config(Path(config_path) if config_path else None)
+    output_dir = Path(config["output_dir"])
+    ensure_dir(output_dir)
+
+    rng = np.random.default_rng(seed if seed is not None else config.get("seed", 0))
+
+    summary = s1_monte_carlo(config, rng)
+    bias_df = s3_bias(config, rng)
+
+    summary["s3_bias"] = bias_df.to_dict(orient="records")
+    summary_to_json(summary, output_dir)
 
 
 def main() -> None:
-    """Entry point for CLI execution."""
-
-    run_experiment()
+    parser = argparse.ArgumentParser(description="Synthetic de-aliasing experiments")
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help="Optional YAML config",
+    )
+    parser.add_argument("--seed", type=int, default=0, help="Random seed")
+    args = parser.parse_args()
+    run_experiment(args.config, seed=args.seed)
 
 
 if __name__ == "__main__":

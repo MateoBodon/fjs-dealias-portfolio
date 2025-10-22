@@ -126,6 +126,28 @@ def test_t_vector_acceptance_consistency_toy_spike() -> None:
         assert abs(ratio - t_target) < 0.1
 
 
+def test_relative_delta_enables_detection_when_absolute_blocks() -> None:
+    rng = np.random.default_rng(2025)
+    p, n_groups, replicates = 24, 36, 3
+    y, groups = _simulate_one_way(
+        rng,
+        p=p,
+        n_groups=n_groups,
+        replicates=replicates,
+        mu_sigma1=5.0,
+        mu_sigma2=0.0,
+        noise_scale=0.7,
+    )
+    # With a large absolute delta, we expect no detections
+    blocked = dealias_search(y, groups, target_r=0, a_grid=72, delta=10.0)
+    assert not blocked
+    # With a small relative delta, expect at least one detection
+    allowed = dealias_search(
+        y, groups, target_r=0, a_grid=90, delta=0.0, delta_frac=0.03
+    )
+    assert allowed
+
+
 def test_dealias_search_limits_sigma2_false_positives() -> None:
     p, n_groups, replicates = 60, 60, 2
     trials = 20

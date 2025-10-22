@@ -700,6 +700,10 @@ def run_experiment(
     *,
     sigma_ablation: bool = False,
     crisis: str | None = None,
+    delta_frac_override: float | None = None,
+    signed_a_override: bool | None = None,
+    target_component_override: int | None = None,
+    cs_drop_top_frac_override: float | None = None,
 ) -> None:
     """Execute the rolling equity forecasting experiment."""
 
@@ -709,6 +713,14 @@ def run_experiment(
         else Path(__file__).with_name("config.yaml")
     )
     config = load_config(path)
+    if delta_frac_override is not None:
+        config["dealias_delta_frac"] = float(delta_frac_override)
+    if signed_a_override is not None:
+        config["signed_a"] = bool(signed_a_override)
+    if target_component_override is not None:
+        config["target_component"] = int(target_component_override)
+    if cs_drop_top_frac_override is not None:
+        config["cs_drop_top_frac"] = float(cs_drop_top_frac_override)
     daily_returns = _prepare_data(config)
 
     output_dir = Path(config["output_dir"])
@@ -793,12 +805,39 @@ def main() -> None:
         default=None,
         help="Optional crisis window as 'YYYY-MM-DD:YYYY-MM-DD' for a focused rerun.",
     )
+    parser.add_argument(
+        "--delta-frac",
+        type=float,
+        default=None,
+        help="Relative delta buffer (fraction of MP edge)",
+    )
+    parser.add_argument(
+        "--signed-a",
+        action="store_true",
+        help="Enable signed a-grid search (default true)",
+    )
+    parser.add_argument(
+        "--target-component",
+        type=int,
+        default=None,
+        help="Target component index (0 or 1)",
+    )
+    parser.add_argument(
+        "--cs-drop-top-frac",
+        type=float,
+        default=None,
+        help="Fraction of top eigenvalues dropped when estimating Cs",
+    )
     args = parser.parse_args()
 
     run_experiment(
         args.config,
         sigma_ablation=args.sigma_ablation,
         crisis=args.crisis,
+        delta_frac_override=args.delta_frac,
+        signed_a_override=args.signed_a,
+        target_component_override=args.target_component,
+        cs_drop_top_frac_override=args.cs_drop_top_frac,
     )
 
 

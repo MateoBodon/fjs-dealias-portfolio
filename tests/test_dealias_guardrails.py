@@ -58,6 +58,50 @@ def test_dealias_rejects_isotropic_panels() -> None:
     assert acceptances <= math.ceil(0.01 * trials)
 
 
+def test_lax_guardrails_raise_fpr() -> None:
+    rng = np.random.default_rng(42)
+    features = 30
+    groups = 40
+    replicates = 2
+    trials = 30
+
+    default_hits = 0
+    lax_hits = 0
+    for _ in range(trials):
+        y_matrix, group_labels = _simulate_balanced_panel(
+            rng,
+            groups=groups,
+            replicates=replicates,
+            features=features,
+            sigma_between=0.0,
+            sigma_within=1.0,
+        )
+        default = dealias_search(
+            y_matrix,
+            group_labels,
+            target_r=0,
+            delta=0.3,
+            eps=0.02,
+            a_grid=60,
+        )
+        lax = dealias_search(
+            y_matrix,
+            group_labels,
+            target_r=0,
+            delta=0.0,
+            eps=0.02,
+            a_grid=60,
+            stability_eta_deg=0.0,
+            use_tvector=False,
+        )
+        if default:
+            default_hits += 1
+        if lax:
+            lax_hits += 1
+
+    assert lax_hits >= default_hits
+
+
 def test_dealias_detections_are_angularly_stable() -> None:
     rng = np.random.default_rng(0)
     features = 30

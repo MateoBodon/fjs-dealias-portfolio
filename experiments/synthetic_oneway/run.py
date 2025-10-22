@@ -361,6 +361,7 @@ def s4_guardrail_analysis(
             delta=0.0,
             eps=eps_default,
             stability_eta_deg=0.0,
+            use_tvector=False,
         )
         if detections_default:
             default_hits += 1
@@ -420,6 +421,8 @@ def s5_multi_spike_bias(
     stability = float(config.get("stability_eta_deg", 1.0))
     k = len(spike_strengths)
 
+    # Apples-to-apples: pair top-k sample eigenvalues (aliased λ̂_j)
+    # with top-k µ̂_j from detections sorted by λ̂, compare to true strengths.
     aliased_store: list[list[float]] = [[] for _ in range(k)]
     dealiased_store: list[list[float]] = [[] for _ in range(k)]
     detection_counts = np.zeros(k, dtype=np.int64)
@@ -436,7 +439,6 @@ def s5_multi_spike_bias(
         )
         stats = mean_squares(y_mat, groups)
         sigma1 = stats["Sigma1_hat"].astype(np.float64)
-        signal_dirs = np.asarray(dirs, dtype=np.float64)
         detections = dealias_search(
             y_mat,
             groups,
@@ -446,41 +448,51 @@ def s5_multi_spike_bias(
             eps=eps,
             stability_eta_deg=stability,
         )
-        assigned_mu = [np.nan] * k
-        assigned_score = [0.0] * k
-        for det in detections:
-            eigvec = np.asarray(det["eigvec"], dtype=np.float64).reshape(-1)
-            alignments = np.abs(signal_dirs @ eigvec)
-            spike_idx = int(np.argmax(alignments))
-            score = float(alignments[spike_idx])
-            if score > assigned_score[spike_idx]:
-                assigned_score[spike_idx] = score
-                assigned_mu[spike_idx] = float(det["mu_hat"])
+        # Top-k aliased eigenvalues
+        eigvals, eigvecs = np.linalg.eigh(sigma1)
+        order = np.argsort(eigvals)[::-1]
+        eigvals = eigvals[order]
 
+        # Sort detections by their lambda_hat descending to pair with eigvals
+        det_sorted = sorted(
+            detections, key=lambda d: float(d["lambda_hat"]), reverse=True
+        )
+        pairs = min(k, len(det_sorted), eigvals.size)
         for j in range(k):
-            dir_vec = signal_dirs[j]
-            aliased_est = float(dir_vec @ sigma1 @ dir_vec)
-            aliased_store[j].append(aliased_est)
-            if not np.isnan(assigned_mu[j]):
-                dealiased_store[j].append(assigned_mu[j])
+            if j < pairs:
+                aliased_store[j].append(float(eigvals[j]))
+                dealiased_store[j].append(float(det_sorted[j]["mu_hat"]))
                 detection_counts[j] += 1
             else:
+                aliased_store[j].append(np.nan)
                 dealiased_store[j].append(np.nan)
 
+    # Sort true strengths descending to align with top-k pairing
+    true_sorted = list(sorted([float(s) for s in spike_strengths], reverse=True))
     rows: list[dict[str, Any]] = []
-    for j, strength in enumerate(spike_strengths):
+    for j in range(k):
         aliased_arr = np.asarray(aliased_store[j], dtype=np.float64)
         dealiased_arr = np.asarray(dealiased_store[j], dtype=np.float64)
-        row = {
-            "spike_index": j,
-            "true_strength": float(strength),
-            "aliased_mean": float(np.mean(aliased_arr)),
-            "aliased_bias": float(np.mean(aliased_arr) - strength),
-            "dealiased_mean": float(np.nanmean(dealiased_arr)),
-            "dealiased_bias": float(np.nanmean(dealiased_arr) - strength),
-            "detection_rate": float(detection_counts[j] / trials),
-        }
-        rows.append(row)
+        truth = true_sorted[j] if j < len(true_sorted) else np.nan
+        rows.append(
+            {
+                "spike_index": j,
+                "true_strength": float(truth),
+                "aliased_mean": float(np.nanmean(aliased_arr)),
+                "aliased_bias": (
+                    float(np.nanmean(aliased_arr) - truth)
+                    if np.isfinite(truth)
+                    else np.nan
+                ),
+                "dealiased_mean": float(np.nanmean(dealiased_arr)),
+                "dealiased_bias": (
+                    float(np.nanmean(dealiased_arr) - truth)
+                    if np.isfinite(truth)
+                    else np.nan
+                ),
+                "detection_rate": float(detection_counts[j] / trials),
+            }
+        )
 
     df = pd.DataFrame(rows)
     out_dir = Path(config["output_dir"])

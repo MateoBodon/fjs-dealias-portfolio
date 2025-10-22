@@ -36,6 +36,7 @@ from fjs import (
     marchenko_pastur_pdf,
     mean_squares,
 )
+from fjs.dealias import dealias_search
 
 
 def test_core_types_are_accessible() -> None:
@@ -196,3 +197,32 @@ def test_weekly_components_identity_and_detection_gain() -> None:
     mse_alias = (forecast_alias - realized_var) ** 2
     mse_detected = (forecast_detected - realized_var) ** 2
     assert mse_detected <= mse_alias * 0.9
+
+
+def test_relative_delta_and_signed_a_integration() -> None:
+    # Small synthetic weekly panel; smoke that signed-a and delta_frac wire through
+    rng = np.random.default_rng(17)
+    p = 5
+    days_per_week = 3
+    total_weeks = 24
+    group_effects = rng.normal(scale=0.4, size=(total_weeks, p))
+    residuals = rng.normal(scale=0.2, size=(total_weeks, days_per_week, p))
+    panel = (group_effects[:, None, :] + residuals).reshape(
+        total_weeks * days_per_week, p
+    )
+    groups = np.repeat(np.arange(total_weeks), days_per_week)
+
+    stats = mean_squares(panel, groups)
+    assert stats["MS1"].shape == (p, p)
+
+    detections = dealias_search(
+        panel,
+        groups,
+        target_r=0,
+        a_grid=36,
+        delta=0.0,
+        delta_frac=0.05,
+        nonnegative_a=False,
+    )
+    # It is OK if no detection occurs; this is an integration smoke test
+    assert isinstance(detections, list)

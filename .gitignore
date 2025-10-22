@@ -1,12 +1,27 @@
+# Virtual environments
 .venv/
+
+# Python artefacts
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
+*.py[cod]
+*.so
+
+# Caches and build outputs
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
 build/
 dist/
 *.egg-info/
-.mypy_cache/
-.pytest_cache/
-.ipynb_checkpoints/
+
+# OS cruft
+.DS_Store
+
+# Experiment outputs
+experiments/**/outputs/
+figures/
+
+# Local data drops
+data/*.csv
+

@@ -25,3 +25,5 @@ figures/
 # Local data drops
 data/*.csv
 
+# Local paper materials
+Paper and Project Context/

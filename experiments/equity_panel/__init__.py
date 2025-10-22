@@ -1,0 +1,1 @@
+"""Equity panel experiment package."""

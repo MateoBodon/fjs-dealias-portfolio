@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: "pyproject.toml"
+      - name: Install project
+        run: make setup
+      - name: Format
+        run: make fmt
+      - name: Lint
+        run: make lint
+      - name: Test
+        run: make test

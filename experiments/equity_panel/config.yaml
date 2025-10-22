@@ -1,0 +1,9 @@
+universe:
+  - AAPL
+  - MSFT
+  - GOOGL
+  - AMZN
+start_date: "2015-01-01"
+end_date: "2020-12-31"
+frequency: "daily"
+risk_free_rate: 0.02

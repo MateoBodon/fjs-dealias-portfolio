@@ -1,0 +1,7 @@
+line-length = 88
+target-version = "py311"
+src = ["src", "tests", "experiments"]
+
+[lint]
+select = ["E", "F", "I", "B", "UP", "N"]
+ignore = ["B905"]

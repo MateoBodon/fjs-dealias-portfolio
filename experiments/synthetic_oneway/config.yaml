@@ -1,0 +1,6 @@
+seed: 42
+n_assets: 60
+n_samples: 600
+signal_to_noise: 0.5
+noise_variance: 1.0
+spike_strength: 3.0

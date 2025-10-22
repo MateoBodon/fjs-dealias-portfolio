@@ -72,7 +72,10 @@ def simulate_panel(
     noise_variance: float,
     signal_to_noise: float,
     return_dirs: bool = False,
-) -> tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> (
+    tuple[np.ndarray, np.ndarray]
+    | tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+):
     """Simulate a balanced MANOVA panel with a single spike."""
 
     observations = np.zeros((n_groups * replicates, n_assets), dtype=np.float64)
@@ -173,7 +176,9 @@ def bias_table_s3(df: pd.DataFrame, out_dir: Path) -> None:
     df.to_csv(out_dir / "bias_table.csv", index=False)
 
 
-def s2_vector_alignment(config: dict[str, Any], rng: np.random.Generator) -> dict[str, float]:
+def s2_vector_alignment(
+    config: dict[str, Any], rng: np.random.Generator
+) -> dict[str, float]:
     """Evaluate alignment between the leading eigvector and the planted spike."""
     y_mat, groups, signal_dir, _ = simulate_panel(
         rng,
@@ -317,7 +322,9 @@ def s3_bias(config: dict[str, Any], rng: np.random.Generator) -> pd.DataFrame:
     return df
 
 
-def s4_guardrail_analysis(config: dict[str, Any], rng: np.random.Generator) -> pd.DataFrame:
+def s4_guardrail_analysis(
+    config: dict[str, Any], rng: np.random.Generator
+) -> pd.DataFrame:
     """Compare false-positive rates under default versus lax guardrails."""
     trials = int(config.get("guardrail_trials", 200))
     delta_default = float(config.get("delta", 0.3))
@@ -402,7 +409,9 @@ def s4_guardrail_analysis(config: dict[str, Any], rng: np.random.Generator) -> p
     return df
 
 
-def s5_multi_spike_bias(config: dict[str, Any], rng: np.random.Generator) -> pd.DataFrame:
+def s5_multi_spike_bias(
+    config: dict[str, Any], rng: np.random.Generator
+) -> pd.DataFrame:
     """Assess bias reduction in a multi-spike setting."""
     spike_strengths = list(config.get("multi_spike_strengths", [7.0, 5.0, 3.5]))
     trials = int(config.get("multi_spike_trials", 120))

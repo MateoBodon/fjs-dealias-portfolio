@@ -169,8 +169,10 @@ def dealias_search(
     Cs: Sequence[float] | None = None,  # noqa: N803
     a_grid: int = 120,
     delta: float = 0.5,
+    delta_frac: float | None = None,
     eps: float = 0.02,
     stability_eta_deg: float = 1.0,
+    use_tvector: bool = True,
     design: dict | None = None,
 ) -> list[Detection]:
     """
@@ -231,8 +233,6 @@ def dealias_search(
 
     def _edge_margin(angle: float, lam_val: float) -> float | None:
         a_vec = np.array([np.cos(angle), np.sin(angle)], dtype=np.float64)
-        if np.any(a_vec < -1e-8):
-            return float("inf")
         try:
             z_plus = mp_edge(
                 a_vec.tolist(),
@@ -243,12 +243,14 @@ def dealias_search(
             )
         except (RuntimeError, ValueError):
             return None
-        return lam_val - (z_plus + delta)
+        if delta_frac is None:
+            threshold_val = z_plus + delta
+        else:
+            threshold_val = z_plus * (1.0 + delta_frac)
+        return lam_val - threshold_val
 
     for theta in angles:
         a_vec = np.array([np.cos(theta), np.sin(theta)], dtype=np.float64)
-        if np.any(a_vec < -1e-8):
-            continue
         try:
             z_plus = mp_edge(
                 a_vec.tolist(),
@@ -270,14 +272,21 @@ def dealias_search(
         eigvals = eigvals[order_idx]
         eigvecs = eigvecs[:, order_idx]
 
+        if delta_frac is None:
+            threshold_main = z_plus + delta
+        else:
+            threshold_main = z_plus * (1.0 + delta_frac)
+
         for idx, lam_val in enumerate(eigvals):
-            if lam_val < z_plus + delta:
+            if lam_val < threshold_main:
                 break
-            margin_main = lam_val - (z_plus + delta)
+            margin_main = lam_val - threshold_main
             if margin_main < 0.0:
                 continue
+            t_vals: np.ndarray | None
+            t_target: float | None
             try:
-                t_vals = t_vec(
+                raw_t = t_vec(
                     float(lam_val),
                     a_vec.tolist(),
                     c_weights.tolist(),
@@ -286,20 +295,28 @@ def dealias_search(
                     c_vec.tolist(),
                     design_params["order"],
                 )
+                t_vals = np.asarray(raw_t, dtype=np.float64)
+                if t_vals.shape[0] <= target_r:
+                    t_target = None
+                else:
+                    t_target = float(t_vals[target_r])
             except (RuntimeError, ValueError):
-                continue
+                if use_tvector:
+                    continue
+                t_vals = None
+                t_target = None
 
-            t_vals = np.asarray(t_vals, dtype=np.float64)
-            if t_vals.shape[0] <= target_r:
-                continue
-            t_target = float(t_vals[target_r])
-            if abs(t_target) <= eps:
-                continue
-            t_off = np.delete(t_vals, target_r)
-            if t_off.size and float(np.max(np.abs(t_off))) > eps:
-                continue
+            if use_tvector:
+                if t_vals is None or t_target is None or abs(t_target) <= eps:
+                    continue
+                t_off = np.delete(t_vals, target_r)
+                if t_off.size and float(np.max(np.abs(t_off))) > eps:
+                    continue
 
-            mu_hat = float(lam_val / t_target)
+            if t_target is None or abs(t_target) < 1e-12:
+                mu_hat = float(lam_val)
+            else:
+                mu_hat = float(lam_val / t_target)
             component_vals = [
                 float(eigvecs[:, idx].T @ component @ eigvecs[:, idx])
                 for component in sigma_components

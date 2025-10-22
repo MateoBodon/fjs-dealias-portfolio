@@ -5,6 +5,13 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
+try:  # pragma: no cover - optional dependency
+    import cvxpy as cp
+
+    HAS_CVXPY = True
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    HAS_CVXPY = False
+
 
 @dataclass
 class OptimizationResult:
@@ -15,23 +22,70 @@ class OptimizationResult:
     converged: bool
 
 
+def equal_weight(p: int) -> NDArray[np.float64]:
+    """Return the equal-weight vector for ``p`` assets."""
+
+    if p <= 0:
+        raise ValueError("Number of assets must be positive.")
+    return np.full(p, 1.0 / p, dtype=np.float64)
+
+
+def minimum_variance(
+    covariance: NDArray[np.float64],
+    *,
+    allow_short: bool = False,
+    solver: str | None = None,
+) -> OptimizationResult:
+    """Solve the minimum-variance problem using cvxpy (if available)."""
+
+    if covariance.ndim != 2 or covariance.shape[0] != covariance.shape[1]:
+        raise ValueError("covariance must be a square matrix.")
+    if not HAS_CVXPY:
+        raise ImportError("cvxpy is required for the minimum-variance optimiser.")
+
+    n = covariance.shape[0]
+    cov = (covariance + covariance.T) / 2.0
+    w = cp.Variable(n)
+    objective = cp.Minimize(cp.quad_form(w, cov))
+    constraints = [cp.sum(w) == 1]
+    if not allow_short:
+        constraints.append(w >= 0)
+
+    problem = cp.Problem(objective, constraints)
+    problem.solve(solver=solver, warm_start=True)
+
+    if problem.status not in {cp.OPTIMAL, cp.OPTIMAL_INACCURATE}:
+        weights = equal_weight(n)
+        return OptimizationResult(
+            weights=weights,
+            objective=float("nan"),
+            converged=False,
+        )
+
+    weights = np.asarray(w.value, dtype=np.float64).flatten()
+    objective_value = float(problem.value)
+    return OptimizationResult(
+        weights=weights,
+        objective=objective_value,
+        converged=True,
+    )
+
+
 def optimize_portfolio(
     covariance: NDArray[np.float64],
-    target_return: float,
+    target_return: float | None = None,
+    *,
+    allow_short: bool = False,
 ) -> OptimizationResult:
-    """
-    Solve a risk-aware portfolio optimisation problem.
+    """Return the minimum-variance portfolio when possible, otherwise equal-weight."""
 
-    Parameters
-    ----------
-    covariance:
-        Covariance matrix used for risk evaluation.
-    target_return:
-        Required expected return for the optimal portfolio.
-
-    Returns
-    -------
-    OptimizationResult
-        Candidate solution and metadata about solver convergence.
-    """
-    raise NotImplementedError("Portfolio optimisation is not implemented yet.")
+    try:
+        return minimum_variance(covariance, allow_short=allow_short)
+    except ImportError:
+        weights = equal_weight(covariance.shape[0])
+        objective = float(weights @ covariance @ weights)
+        return OptimizationResult(
+            weights=weights,
+            objective=objective,
+            converged=False,
+        )

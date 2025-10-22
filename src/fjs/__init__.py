@@ -6,7 +6,7 @@ from .balanced import (
     group_means,
     mean_squares,
 )
-from .dealias import DealiasingResult, dealias_covariance
+from .dealias import DealiasingResult, dealias_covariance, dealias_search
 from .mp import MarchenkoPasturModel, marchenko_pastur_edges, marchenko_pastur_pdf
 from .spectra import estimate_spectrum
 
@@ -17,6 +17,7 @@ __all__ = [
     "mean_squares",
     "DealiasingResult",
     "dealias_covariance",
+    "dealias_search",
     "MarchenkoPasturModel",
     "marchenko_pastur_edges",
     "marchenko_pastur_pdf",

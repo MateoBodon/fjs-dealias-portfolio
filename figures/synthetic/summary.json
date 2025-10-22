@@ -7,25 +7,69 @@
       "spike_strength": 4.0,
       "aliased_mean": 10.004027569532273,
       "aliased_bias": 6.004027569532273,
-      "dealiased_mean": 3.6468534041134353,
-      "dealiased_bias": -0.3531465958865647,
-      "detection_rate": 0.995
+      "dealiased_mean": 4.983114268574708,
+      "dealiased_bias": 0.9831142685747079,
+      "detection_rate": 1.0
     },
     {
       "spike_strength": 6.0,
       "aliased_mean": 14.132158308740358,
       "aliased_bias": 8.132158308740358,
-      "dealiased_mean": 4.677664181075993,
-      "dealiased_bias": -1.3223358189240066,
+      "dealiased_mean": 7.047789763644305,
+      "dealiased_bias": 1.047789763644305,
       "detection_rate": 1.0
     },
     {
       "spike_strength": 8.0,
       "aliased_mean": 17.857535748601457,
       "aliased_bias": 9.857535748601457,
-      "dealiased_mean": 5.625416484139796,
-      "dealiased_bias": -2.3745835158602038,
+      "dealiased_mean": 8.910777550637633,
+      "dealiased_bias": 0.9107775506376328,
       "detection_rate": 1.0
+    }
+  ],
+  "s2_alignment": 0.9387568346260456,
+  "s4_guardrails": [
+    {
+      "setting": "default",
+      "false_positive_rate": 0.0,
+      "detections": 0,
+      "trials": 200
+    },
+    {
+      "setting": "delta=0, no stability",
+      "false_positive_rate": 0.0,
+      "detections": 0,
+      "trials": 200
+    }
+  ],
+  "s5_multispike": [
+    {
+      "spike_index": 0,
+      "true_strength": 7.0,
+      "aliased_mean": 6.955385056864221,
+      "aliased_bias": -0.044614943135779406,
+      "dealiased_mean": 8.232090627754905,
+      "dealiased_bias": 1.2320906277549053,
+      "detection_rate": 1.0
+    },
+    {
+      "spike_index": 1,
+      "true_strength": 5.0,
+      "aliased_mean": 4.985285389612483,
+      "aliased_bias": -0.01471461038751709,
+      "dealiased_mean": 5.948675203598478,
+      "dealiased_bias": 0.9486752035984782,
+      "detection_rate": 0.9416666666666667
+    },
+    {
+      "spike_index": 2,
+      "true_strength": 3.5,
+      "aliased_mean": 3.47045985678849,
+      "aliased_bias": -0.029540143211510106,
+      "dealiased_mean": 4.229792169157096,
+      "dealiased_bias": 0.7297921691570961,
+      "detection_rate": 0.9916666666666667
     }
   ]
 }

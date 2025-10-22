@@ -35,6 +35,9 @@ DEFAULT_CONFIG = {
     "spike_strength": 6.0,
     "mc": 200,
     "snr_grid": [4.0, 6.0, 8.0],
+    "guardrail_trials": 200,
+    "multi_spike_trials": 120,
+    "multi_spike_strengths": [7.0, 5.0, 3.5],
     "output_dir": "figures/synthetic",
 }
 
@@ -68,7 +71,8 @@ def simulate_panel(
     spike_strength: float,
     noise_variance: float,
     signal_to_noise: float,
-) -> tuple[np.ndarray, np.ndarray]:
+    return_dirs: bool = False,
+) -> tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Simulate a balanced MANOVA panel with a single spike."""
 
     observations = np.zeros((n_groups * replicates, n_assets), dtype=np.float64)
@@ -91,7 +95,49 @@ def simulate_panel(
             idio_noise = noise_scale * rng.normal(size=n_assets)
             observations[idx] = group_effect + common_noise + idio_noise
             idx += 1
+    if return_dirs:
+        return observations, groups, signal_dir, aux_dir
     return observations, groups
+
+
+def simulate_multi_spike(
+    rng: np.random.Generator,
+    *,
+    n_assets: int,
+    n_groups: int,
+    replicates: int,
+    spike_strengths: Sequence[float],
+    noise_variance: float,
+    signal_to_noise: float,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Simulate a panel with multiple planted spikes."""
+    spike_strengths = [float(x) for x in spike_strengths]
+    n_spikes = len(spike_strengths)
+    observations = np.zeros((n_groups * replicates, n_assets), dtype=np.float64)
+    groups = np.repeat(np.arange(n_groups, dtype=np.intp), replicates)
+
+    raw = rng.normal(size=(n_assets, n_spikes))
+    q, _ = np.linalg.qr(raw)
+    signal_dirs = q[:, :n_spikes].T  # shape (n_spikes, n_assets)
+
+    aux_dir = rng.normal(size=n_assets)
+    aux_dir /= np.linalg.norm(aux_dir)
+
+    noise_scale = np.sqrt(noise_variance)
+    spike_scales = np.sqrt(np.asarray(spike_strengths, dtype=np.float64))
+
+    idx = 0
+    for _ in range(n_groups):
+        coeffs = rng.normal(size=n_spikes)
+        group_effect = np.sum(
+            spike_scales[:, None] * coeffs[:, None] * signal_dirs, axis=0
+        )
+        for _ in range(replicates):
+            common_noise = signal_to_noise * noise_scale * rng.normal() * aux_dir
+            idio_noise = noise_scale * rng.normal(size=n_assets)
+            observations[idx] = group_effect + common_noise + idio_noise
+            idx += 1
+    return observations, groups, signal_dirs
 
 
 def mp_upper_edge(noise_variance: float, n_assets: int, n_groups: int) -> float:
@@ -125,6 +171,53 @@ def bias_table_s3(df: pd.DataFrame, out_dir: Path) -> None:
     """Persist the S3 bias summary to disk."""
     ensure_dir(out_dir)
     df.to_csv(out_dir / "bias_table.csv", index=False)
+
+
+def s2_vector_alignment(config: dict[str, Any], rng: np.random.Generator) -> dict[str, float]:
+    """Evaluate alignment between the leading eigvector and the planted spike."""
+    y_mat, groups, signal_dir, _ = simulate_panel(
+        rng,
+        n_assets=config["n_assets"],
+        n_groups=config["n_groups"],
+        replicates=config["replicates"],
+        spike_strength=config["spike_strength"],
+        noise_variance=config["noise_variance"],
+        signal_to_noise=config["signal_to_noise"],
+        return_dirs=True,
+    )
+    stats = mean_squares(y_mat, groups)
+    sigma1 = stats["Sigma1_hat"].astype(np.float64)
+    eigvals, eigvecs = np.linalg.eigh(sigma1)
+    leading_vec = eigvecs[:, -1]
+    # Align sign for a meaningful comparison.
+    if float(np.dot(leading_vec, signal_dir)) < 0.0:
+        leading_vec = -leading_vec
+    alignment = float(np.dot(signal_dir, leading_vec))
+
+    components = np.arange(signal_dir.shape[0])
+    ensure_dir(Path(config["output_dir"]))
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.plot(components, signal_dir, label="Ground truth", linewidth=2.0, color="C0")
+    ax.plot(
+        components,
+        leading_vec,
+        label="Estimated eigvec",
+        linewidth=2.0,
+        linestyle="--",
+        color="C1",
+    )
+    ax.set_xlabel("Component index")
+    ax.set_ylabel("Vector entry")
+    ax.set_title(f"S2: Leading eigenvector alignment (cosine={alignment:.3f})")
+    ax.legend()
+    ax.set_xlim(0, signal_dir.shape[0] - 1)
+    fig.tight_layout()
+    out_dir = Path(config["output_dir"])
+    fig.savefig(out_dir / "s2_vectors.png", bbox_inches="tight")
+    fig.savefig(out_dir / "s2_vectors.pdf", bbox_inches="tight")
+    plt.close(fig)
+
+    return {"s2_alignment": alignment}
 
 
 def summary_to_json(summary: dict[str, Any], out_dir: Path) -> None:
@@ -224,6 +317,201 @@ def s3_bias(config: dict[str, Any], rng: np.random.Generator) -> pd.DataFrame:
     return df
 
 
+def s4_guardrail_analysis(config: dict[str, Any], rng: np.random.Generator) -> pd.DataFrame:
+    """Compare false-positive rates under default versus lax guardrails."""
+    trials = int(config.get("guardrail_trials", 200))
+    delta_default = float(config.get("delta", 0.3))
+    eps_default = float(config.get("eps", 0.05))
+    stability_default = float(config.get("stability_eta_deg", 1.0))
+
+    default_hits = 0
+    lax_hits = 0
+    for _ in range(trials):
+        y_mat, groups = simulate_panel(
+            rng,
+            n_assets=config["n_assets"],
+            n_groups=config["n_groups"],
+            replicates=config["replicates"],
+            spike_strength=0.0,
+            noise_variance=config["noise_variance"],
+            signal_to_noise=config["signal_to_noise"],
+        )
+
+        detections_default = dealias_search(
+            y_mat,
+            groups,
+            target_r=0,
+            a_grid=72,
+            delta=delta_default,
+            eps=eps_default,
+            stability_eta_deg=stability_default,
+        )
+        detections_lax = dealias_search(
+            y_mat,
+            groups,
+            target_r=0,
+            a_grid=72,
+            delta=0.0,
+            eps=eps_default,
+            stability_eta_deg=0.0,
+        )
+        if detections_default:
+            default_hits += 1
+        if detections_lax:
+            lax_hits += 1
+
+    df = pd.DataFrame(
+        [
+            {
+                "setting": "default",
+                "false_positive_rate": default_hits / trials,
+                "detections": default_hits,
+                "trials": trials,
+            },
+            {
+                "setting": "delta=0, no stability",
+                "false_positive_rate": lax_hits / trials,
+                "detections": lax_hits,
+                "trials": trials,
+            },
+        ]
+    )
+    out_dir = Path(config["output_dir"])
+    ensure_dir(out_dir)
+    df.to_csv(out_dir / "s4_guardrails.csv", index=False)
+
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.bar(df["setting"], df["false_positive_rate"], color=["C0", "C3"])
+    ax.set_ylabel("False positive rate")
+    ax.set_ylim(0.0, max(0.05, df["false_positive_rate"].max() * 1.1))
+    ax.set_title("S4: Guardrail comparison on isotropic data")
+    for idx, row in df.iterrows():
+        ax.text(
+            idx,
+            row["false_positive_rate"] + 0.002,
+            f"{row['detections']}/{row['trials']}",
+            ha="center",
+            va="bottom",
+            fontsize=9,
+        )
+    ax.grid(axis="y", linestyle=":", alpha=0.4)
+    fig.tight_layout()
+    fig.savefig(out_dir / "s4_guardrails.png", bbox_inches="tight")
+    fig.savefig(out_dir / "s4_guardrails.pdf", bbox_inches="tight")
+    plt.close(fig)
+    return df
+
+
+def s5_multi_spike_bias(config: dict[str, Any], rng: np.random.Generator) -> pd.DataFrame:
+    """Assess bias reduction in a multi-spike setting."""
+    spike_strengths = list(config.get("multi_spike_strengths", [7.0, 5.0, 3.5]))
+    trials = int(config.get("multi_spike_trials", 120))
+    delta = float(config.get("delta", 0.3))
+    eps = float(config.get("eps", 0.05))
+    stability = float(config.get("stability_eta_deg", 1.0))
+    k = len(spike_strengths)
+
+    aliased_store: list[list[float]] = [[] for _ in range(k)]
+    dealiased_store: list[list[float]] = [[] for _ in range(k)]
+    detection_counts = np.zeros(k, dtype=np.int64)
+
+    for _ in range(trials):
+        y_mat, groups, dirs = simulate_multi_spike(
+            rng,
+            n_assets=config["n_assets"],
+            n_groups=config["n_groups"],
+            replicates=config["replicates"],
+            spike_strengths=spike_strengths,
+            noise_variance=config["noise_variance"],
+            signal_to_noise=config["signal_to_noise"],
+        )
+        stats = mean_squares(y_mat, groups)
+        sigma1 = stats["Sigma1_hat"].astype(np.float64)
+        signal_dirs = np.asarray(dirs, dtype=np.float64)
+        detections = dealias_search(
+            y_mat,
+            groups,
+            target_r=0,
+            a_grid=120,
+            delta=delta,
+            eps=eps,
+            stability_eta_deg=stability,
+        )
+        assigned_mu = [np.nan] * k
+        assigned_score = [0.0] * k
+        for det in detections:
+            eigvec = np.asarray(det["eigvec"], dtype=np.float64).reshape(-1)
+            alignments = np.abs(signal_dirs @ eigvec)
+            spike_idx = int(np.argmax(alignments))
+            score = float(alignments[spike_idx])
+            if score > assigned_score[spike_idx]:
+                assigned_score[spike_idx] = score
+                assigned_mu[spike_idx] = float(det["mu_hat"])
+
+        for j in range(k):
+            dir_vec = signal_dirs[j]
+            aliased_est = float(dir_vec @ sigma1 @ dir_vec)
+            aliased_store[j].append(aliased_est)
+            if not np.isnan(assigned_mu[j]):
+                dealiased_store[j].append(assigned_mu[j])
+                detection_counts[j] += 1
+            else:
+                dealiased_store[j].append(np.nan)
+
+    rows: list[dict[str, Any]] = []
+    for j, strength in enumerate(spike_strengths):
+        aliased_arr = np.asarray(aliased_store[j], dtype=np.float64)
+        dealiased_arr = np.asarray(dealiased_store[j], dtype=np.float64)
+        row = {
+            "spike_index": j,
+            "true_strength": float(strength),
+            "aliased_mean": float(np.mean(aliased_arr)),
+            "aliased_bias": float(np.mean(aliased_arr) - strength),
+            "dealiased_mean": float(np.nanmean(dealiased_arr)),
+            "dealiased_bias": float(np.nanmean(dealiased_arr) - strength),
+            "detection_rate": float(detection_counts[j] / trials),
+        }
+        rows.append(row)
+
+    df = pd.DataFrame(rows)
+    out_dir = Path(config["output_dir"])
+    ensure_dir(out_dir)
+    df.to_csv(out_dir / "s5_multispike.csv", index=False)
+
+    indices = np.arange(len(rows))
+    width = 0.35
+    fig, ax = plt.subplots(figsize=(7, 4))
+    ax.bar(
+        indices - width / 2,
+        [row["aliased_bias"] for row in rows],
+        width=width,
+        label="Aliased",
+        color="C2",
+    )
+    ax.bar(
+        indices + width / 2,
+        [row["dealiased_bias"] for row in rows],
+        width=width,
+        label="De-aliased",
+        color="C0",
+    )
+    ax.set_xticks(indices)
+    ax.set_xticklabels(
+        [f"Spike {row['spike_index']} (µ={row['true_strength']:.1f})" for row in rows],
+        rotation=15,
+    )
+    ax.set_ylabel("Bias")
+    ax.set_title("S5: Bias across multiple spikes")
+    ax.axhline(0.0, color="black", linestyle=":", linewidth=1.0)
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(out_dir / "s5_multispike.png", bbox_inches="tight")
+    fig.savefig(out_dir / "s5_multispike.pdf", bbox_inches="tight")
+    plt.close(fig)
+
+    return df
+
+
 def plot_bias_timeseries(
     prefixes: Sequence[int],
     aliased: Sequence[float],
@@ -260,8 +548,14 @@ def run_experiment(
 
     summary = s1_monte_carlo(config, rng)
     bias_df = s3_bias(config, rng)
+    s2_info = s2_vector_alignment(config, rng)
+    guardrail_df = s4_guardrail_analysis(config, rng)
+    multispike_df = s5_multi_spike_bias(config, rng)
 
     summary["s3_bias"] = bias_df.to_dict(orient="records")
+    summary.update(s2_info)
+    summary["s4_guardrails"] = guardrail_df.to_dict(orient="records")
+    summary["s5_multispike"] = multispike_df.to_dict(orient="records")
     summary_to_json(summary, output_dir)
 
 

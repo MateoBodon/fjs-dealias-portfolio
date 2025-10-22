@@ -6,12 +6,15 @@ from .eval import (
     oos_variance_forecast,
     risk_metrics,
     rolling_windows,
+    variance_forecast_from_components,
+    weekly_cov_from_components,
 )
 from .io import load_market_data, load_prices_csv, to_daily_returns
 from .ledoit import ledoit_wolf_shrinkage, lw_cov
 from .portfolios import (
     OptimizationResult,
     equal_weight,
+    min_variance_box,
     minimum_variance,
     optimize_portfolio,
 )
@@ -23,6 +26,8 @@ __all__ = [
     "evaluate_portfolio",
     "rolling_windows",
     "risk_metrics",
+    "weekly_cov_from_components",
+    "variance_forecast_from_components",
     "oos_variance_forecast",
     "load_prices_csv",
     "to_daily_returns",
@@ -31,6 +36,7 @@ __all__ = [
     "ledoit_wolf_shrinkage",
     "OptimizationResult",
     "equal_weight",
+    "min_variance_box",
     "minimum_variance",
     "optimize_portfolio",
     "compute_log_returns",

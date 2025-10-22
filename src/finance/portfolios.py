@@ -97,6 +97,71 @@ def minimum_variance(
     )
 
 
+def min_variance_box(
+    covariance: NDArray[np.float64],
+    lb: float = -0.02,
+    ub: float = 0.02,
+    *,
+    solver: str | None = None,
+) -> OptimizationResult:
+    """
+    Solve the minimum-variance problem with box constraints.
+
+    Parameters
+    ----------
+    covariance
+        Sample covariance matrix shaped ``(p, p)``.
+    lb, ub
+        Lower/upper bounds for each weight. Defaults to +/-2%.
+    solver
+        Optional cvxpy solver name.
+
+    Returns
+    -------
+    OptimizationResult
+        Portfolio weights and objective value.
+    """
+
+    if covariance.ndim != 2 or covariance.shape[0] != covariance.shape[1]:
+        raise ValueError("covariance must be a square matrix.")
+    if lb >= ub:
+        raise ValueError("Lower bound must be strictly less than upper bound.")
+
+    if not HAS_CVXPY:
+        raise ImportError(
+            "cvxpy is required for the box-constrained minimum-variance optimiser."
+        )
+
+    n = covariance.shape[0]
+    cov = (covariance + covariance.T) / 2.0
+    w = cp.Variable(n)
+    objective = cp.Minimize(cp.quad_form(w, cov))
+    constraints = [
+        cp.sum(w) == 1,
+        w >= lb,
+        w <= ub,
+    ]
+
+    problem = cp.Problem(objective, constraints)
+    problem.solve(solver=solver, warm_start=True)
+
+    if problem.status not in {cp.OPTIMAL, cp.OPTIMAL_INACCURATE}:
+        weights = equal_weight(n)
+        return OptimizationResult(
+            weights=weights,
+            objective=float("nan"),
+            converged=False,
+        )
+
+    weights = np.asarray(w.value, dtype=np.float64).flatten()
+    objective_value = float(problem.value)
+    return OptimizationResult(
+        weights=weights,
+        objective=objective_value,
+        converged=True,
+    )
+
+
 def optimize_portfolio(
     covariance: NDArray[np.float64],
     target_return: float | None = None,

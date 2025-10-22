@@ -28,6 +28,7 @@ make test
     - `experiments/equity_panel/outputs/E3_variance_mse.png` ![E3 variance MSE](experiments/equity_panel/outputs/E3_variance_mse.png)
     - `experiments/equity_panel/outputs/E4_var95_coverage_error.png` ![E4 VaR coverage](experiments/equity_panel/outputs/E4_var95_coverage_error.png)
     - `experiments/equity_panel/outputs/metrics_summary.csv`
+- **Crisis window reruns** – pass `--crisis "YYYY-MM-DD:YYYY-MM-DD"` to `experiments/equity_panel/run.py` to repeat the rolling evaluation on a focused, high-volatility interval. Outputs land in a dedicated `crisis_*/` subdirectory alongside the full-sample results.
 
 Both scripts accept optional `--config` YAML files mirroring the defaults in the corresponding `experiments/*/config.yaml`.
 

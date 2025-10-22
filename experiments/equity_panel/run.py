@@ -8,7 +8,7 @@ import sys
 from collections import defaultdict
 from math import comb
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -41,6 +41,10 @@ DEFAULT_CONFIG = {
     "window_weeks": 156,
     "horizon_weeks": 4,
     "output_dir": "experiments/equity_panel/outputs",
+    "dealias_delta_frac": None,
+    "signed_a": True,
+    "cs_drop_top_frac": 0.1,
+    "target_component": 0,
 }
 
 
@@ -256,8 +260,12 @@ def _run_single_period(
     window_weeks: int,
     horizon_weeks: int,
     delta: float,
+    delta_frac: float | None,
     eps: float,
     stability_eta: float,
+    signed_a: bool,
+    target_component: int,
+    cs_drop_top_frac: float,
     sigma_ablation: bool,
     label: str,
 ) -> None:
@@ -361,10 +369,13 @@ def _run_single_period(
         detections = dealias_search(
             y_fit_daily,
             groups_fit,
-            target_r=0,
+            target_r=target_component,
             delta=delta,
+            delta_frac=delta_frac,
             eps=eps,
             stability_eta_deg=stability_eta,
+            use_tvector=True,
+            nonnegative_a=not signed_a,
         )
 
         fit_matrix = fit.to_numpy(dtype=np.float64)
@@ -585,10 +596,30 @@ def _run_single_period(
         )
 
     if sigma_ablation:
-        _run_sigma_ablation(daily_subset, output_dir)
+        _run_sigma_ablation(
+            daily_subset,
+            output_dir,
+            cs_drop_top_frac,
+            delta,
+            delta_frac,
+            eps,
+            stability_eta,
+            signed_a,
+            target_component,
+        )
 
 
-def _run_sigma_ablation(daily_returns: pd.DataFrame, output_dir: Path) -> None:
+def _run_sigma_ablation(
+    daily_returns: pd.DataFrame,
+    output_dir: Path,
+    cs_drop_top_frac: float,
+    delta: float,
+    delta_frac: float | None,
+    eps: float,
+    stability_eta: float,
+    signed_a: bool,
+    target_component: int,
+) -> None:
     """Evaluate Cs perturbations and persist sensitivity diagnostics."""
 
     try:
@@ -612,12 +643,13 @@ def _run_sigma_ablation(daily_returns: pd.DataFrame, output_dir: Path) -> None:
     ms1 = stats["MS1"].astype(np.float64)
     ms2 = stats["MS2"].astype(np.float64)
     p_dim = ms1.shape[0]
-    drop_top = min(5, max(1, p_dim // 20))
     d_vec = np.array(
         [float(stats["I"] - 1), float(stats["n"] - stats["I"])],
         dtype=np.float64,
     )
     c_vec = np.array([float(stats["J"]), 1.0], dtype=np.float64)
+    drop_frac = float(max(cs_drop_top_frac, 0.0))
+    drop_top = min(p_dim - 1, max(1, int(round(p_dim * drop_frac))))
     cs_base = estimate_Cs_from_MS([ms1, ms2], d_vec, c_vec, drop_top=drop_top)
     design_c = np.ones_like(cs_base, dtype=np.float64)
     base_a = np.zeros_like(cs_base, dtype=np.float64)
@@ -632,8 +664,14 @@ def _run_sigma_ablation(daily_returns: pd.DataFrame, output_dir: Path) -> None:
             detections = dealias_search(
                 balanced_obs,
                 groups,
-                target_r=0,
+                target_r=target_component,
                 Cs=cs_scaled,
+                delta=delta,
+                delta_frac=delta_frac,
+                eps=eps,
+                stability_eta_deg=stability_eta,
+                use_tvector=True,
+                nonnegative_a=not signed_a,
             )
             error_msg = ""
         except Exception as exc:  # pragma: no cover - defensive
@@ -723,8 +761,12 @@ def run_experiment(
             window_weeks=int(config["window_weeks"]),
             horizon_weeks=int(config["horizon_weeks"]),
             delta=float(config.get("dealias_delta", 0.3)),
+            delta_frac=cast(float | None, config.get("dealias_delta_frac")),
             eps=float(config.get("dealias_eps", 0.05)),
             stability_eta=float(config.get("stability_eta_deg", 1.0)),
+            signed_a=bool(config.get("signed_a", True)),
+            target_component=int(config.get("target_component", 0)),
+            cs_drop_top_frac=float(config.get("cs_drop_top_frac", 0.1)),
             sigma_ablation=bool(run_cfg["sigma_ablation"]),
             label=str(run_cfg["label"]),
         )

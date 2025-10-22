@@ -173,6 +173,7 @@ def dealias_search(
     eps: float = 0.02,
     stability_eta_deg: float = 1.0,
     use_tvector: bool = True,
+    nonnegative_a: bool = False,
     design: dict | None = None,
 ) -> list[Detection]:
     """
@@ -233,6 +234,8 @@ def dealias_search(
 
     def _edge_margin(angle: float, lam_val: float) -> float | None:
         a_vec = np.array([np.cos(angle), np.sin(angle)], dtype=np.float64)
+        if nonnegative_a and np.any(a_vec < -1e-8):
+            return float("inf")
         try:
             z_plus = mp_edge(
                 a_vec.tolist(),
@@ -251,6 +254,8 @@ def dealias_search(
 
     for theta in angles:
         a_vec = np.array([np.cos(theta), np.sin(theta)], dtype=np.float64)
+        if nonnegative_a and np.any(a_vec < -1e-8):
+            continue
         try:
             z_plus = mp_edge(
                 a_vec.tolist(),

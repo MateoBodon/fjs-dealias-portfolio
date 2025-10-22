@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -60,7 +61,7 @@ def to_daily_returns(price_frame: pd.DataFrame) -> pd.DataFrame:
 
     pivot = price_frame.pivot(index="date", columns="ticker", values="price_close")
     pivot = pivot.sort_index()
-    log_prices = np.log(pivot)
+    log_prices = cast(pd.DataFrame, np.log(pivot))
     log_returns = log_prices.diff().dropna(how="all")
     log_returns = log_returns.dropna(axis=0, how="any")
     log_returns.index.name = "date"

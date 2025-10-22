@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import cast
+
 import numpy as np
 import pandas as pd
 
@@ -22,7 +24,7 @@ def compute_log_returns(prices: pd.DataFrame) -> pd.DataFrame:
     if prices.index.inferred_type != "datetime64":
         raise ValueError("Prices index must be a DatetimeIndex.")
     prices = prices.sort_index()
-    log_prices = np.log(prices)
+    log_prices = cast(pd.DataFrame, np.log(prices))
     returns = log_prices.diff().dropna(how="all")
     returns = returns.dropna(axis=1, how="all")
     return returns
@@ -59,7 +61,11 @@ def weekly_panel(
         raise ValueError("No data within the requested window.")
 
     weekly = subset.resample("W-FRI").sum(min_count=1)
-    weekly.index = (weekly.index - pd.Timedelta(days=4)).rename("week_start")
+    week_index = weekly.index
+    if not isinstance(week_index, pd.DatetimeIndex):
+        raise TypeError("Weekly aggregation must yield a DatetimeIndex.")
+    adjusted_index = week_index - pd.Timedelta(days=4)
+    weekly.index = adjusted_index.rename("week_start")
     weekly = weekly.dropna(axis=0, how="all")
     weekly = weekly.dropna(axis=1, how="all")
     return weekly
@@ -86,7 +92,8 @@ def balance_weeks(
         raise ValueError("panel must use a DatetimeIndex.")
 
     panel = panel.sort_index()
-    week_periods = panel.index.to_period("W-MON")
+    panel_index = cast(pd.DatetimeIndex, panel.index)
+    week_periods = panel_index.to_period("W-MON")
     grouped = panel.groupby(week_periods)
 
     frames: list[pd.DataFrame] = []

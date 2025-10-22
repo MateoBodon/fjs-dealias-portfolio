@@ -37,6 +37,28 @@ class DealiasingResult:
     iterations: int
 
 
+# fmt: off
+def _sigma_of_a_from_MS(a: np.ndarray, MS_list: list[np.ndarray]) -> np.ndarray:  # noqa: N802,N803
+# fmt: on
+    """Return Σ̂(a)=∑_s a_s MS_s (balanced design)."""
+    a_vec = np.asarray(a, dtype=np.float64)
+    if a_vec.ndim != 1:
+        raise ValueError("a must be a one-dimensional array.")
+    if not MS_list:
+        raise ValueError("MS_list must contain at least one matrix.")
+    if len(MS_list) != a_vec.shape[0]:
+        raise ValueError("a and MS_list must have matching lengths.")
+
+    reference = np.asarray(MS_list[0], dtype=np.float64)
+    sigma = np.zeros_like(reference, dtype=np.float64)
+    for idx, ms in enumerate(MS_list):
+        ms_array = np.asarray(ms, dtype=np.float64)
+        if ms_array.shape != reference.shape:
+            raise ValueError("All mean square matrices must share the same shape.")
+        sigma += a_vec[idx] * ms_array
+    return sigma
+
+
 def dealias_covariance(
     covariance: NDArray[np.float64],
     spectrum: NDArray[np.float64],
@@ -234,7 +256,7 @@ def dealias_search(
         except (RuntimeError, ValueError):
             continue
 
-        sigma_a = a_vec[0] * ms1_scaled + a_vec[1] * ms2_scaled
+        sigma_a = _sigma_of_a_from_MS(a_vec, [ms1_scaled, ms2_scaled])
         try:
             eigvals, eigvecs = np.linalg.eigh(sigma_a)
         except np.linalg.LinAlgError:

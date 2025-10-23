@@ -14,6 +14,11 @@ from plotting import (
     e4_plot_var_coverage,
     s4_plot_guardrails_from_csv,
 )
+try:  # optional nicety: show quick progress in tests
+    from tqdm import tqdm  # type: ignore
+except Exception:  # pragma: no cover
+    def tqdm(x, **kwargs):  # type: ignore
+        return x
 
 
 @pytest.mark.parametrize(
@@ -30,29 +35,32 @@ def test_e1_e2_e3_e4_and_s4_create_pdfs(tmp_path: Path, run_name: str) -> None:
     # E1: spectrum with MP edge
     eig = np.linspace(0.5, 3.0, 50)
     mp_edges = (1.0, 1.8)
-    p_e1 = e1_plot_spectrum_with_mp(eig, mp_edges, run=run, title="Test spectrum")
-    assert p_e1.exists() and p_e1.stat().st_size > 0
 
-    # E2: spike time series
-    t = np.arange(20)
-    aliased = np.sin(t / 3.0) + 2
-    dealiased = aliased * 0.9
-    p_e2 = e2_plot_spike_timeseries(t, aliased, dealiased, run=run, title="Spikes")
-    assert p_e2.exists() and p_e2.stat().st_size > 0
+    tasks = [
+        ("E1", lambda: e1_plot_spectrum_with_mp(eig, mp_edges, run=run, title="Test spectrum")),
+        (
+            "E2",
+            lambda: e2_plot_spike_timeseries(
+                np.arange(20), np.sin(np.arange(20) / 3.0) + 2, (np.sin(np.arange(20) / 3.0) + 2) * 0.9, run=run, title="Spikes"
+            ),
+        ),
+        (
+            "E3",
+            lambda: e3_plot_var_mse(
+                {
+                    "Aliased": (np.random.default_rng(0).random(12) ** 2).tolist(),
+                    "De-aliased": (np.random.default_rng(1).random(12) ** 2).tolist(),
+                    "Ledoit-Wolf": (np.random.default_rng(2).random(12) ** 2).tolist(),
+                },
+                run=run,
+            ),
+        ),
+        ("E4", lambda: e4_plot_var_coverage({"Aliased": -0.02, "De-aliased": 0.01, "Ledoit-Wolf": 0.005}, run=run)),
+    ]
 
-    # E3: Var-MSE comparison
-    errors = {
-        "Aliased": (np.random.default_rng(0).random(12) ** 2).tolist(),
-        "De-aliased": (np.random.default_rng(1).random(12) ** 2).tolist(),
-        "Ledoit-Wolf": (np.random.default_rng(2).random(12) ** 2).tolist(),
-    }
-    p_e3 = e3_plot_var_mse(errors, run=run)
-    assert p_e3.exists() and p_e3.stat().st_size > 0
-
-    # E4: VaR(95%) coverage error
-    cov = {"Aliased": -0.02, "De-aliased": 0.01, "Ledoit-Wolf": 0.005}
-    p_e4 = e4_plot_var_coverage(cov, run=run)
-    assert p_e4.exists() and p_e4.stat().st_size > 0
+    for _, fn in tqdm(tasks, desc="Plots", unit="plot"):
+        p = fn()
+        assert p.exists() and p.stat().st_size > 0
 
     # S4: guardrails from CSV
     csv_path = tmp_path / "s4_guardrails.csv"
@@ -68,4 +76,3 @@ def test_e1_e2_e3_e4_and_s4_create_pdfs(tmp_path: Path, run_name: str) -> None:
     # All PDFs should be under experiments/<run>/figures
     expected_dir = Path("experiments") / run / "figures"
     assert expected_dir.exists()
-

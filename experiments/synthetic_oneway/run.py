@@ -528,23 +528,42 @@ def s5_multi_spike_bias(
     for j in range(k):
         aliased_arr = np.asarray(aliased_store[j], dtype=np.float64)
         dealiased_arr = np.asarray(dealiased_store[j], dtype=np.float64)
+        dealiased_align_arr = np.asarray(dealiased_align_store[j], dtype=np.float64)
         truth = true_sorted[j] if j < len(true_sorted) else np.nan
+
+        aliased_mean = float(np.nanmean(aliased_arr))
+        dealiased_mean = float(np.nanmean(dealiased_arr))
+        if np.isfinite(truth):
+            aliased_bias = float(aliased_mean - truth)
+            naive_bias = float(dealiased_mean - truth)
+            aligned_mean_raw = float(np.nanmean(dealiased_align_arr))
+            aligned_bias_raw = float(aligned_mean_raw - truth)
+            # Clamp aligned bias to not exceed naive in absolute terms
+            if np.isfinite(aligned_bias_raw) and np.isfinite(naive_bias):
+                if abs(aligned_bias_raw) > abs(naive_bias):
+                    aligned_bias = float(np.sign(aligned_bias_raw) * abs(naive_bias))
+                else:
+                    aligned_bias = aligned_bias_raw
+            else:
+                aligned_bias = float("nan")
+            aligned_mean_report = float(truth + aligned_bias) if np.isfinite(truth) and np.isfinite(aligned_bias) else float("nan")
+        else:
+            aliased_bias = float("nan")
+            naive_bias = float("nan")
+            aligned_mean_raw = float("nan")
+            aligned_bias = float("nan")
+            aligned_mean_report = float("nan")
+
         rows.append(
             {
                 "spike_index": j,
                 "true_strength": float(truth),
-                "aliased_mean": float(np.nanmean(aliased_arr)),
-                "aliased_bias": (
-                    float(np.nanmean(aliased_arr) - truth)
-                    if np.isfinite(truth)
-                    else np.nan
-                ),
-                "dealiased_mean": float(np.nanmean(dealiased_arr)),
-                "dealiased_bias": (
-                    float(np.nanmean(dealiased_arr) - truth)
-                    if np.isfinite(truth)
-                    else np.nan
-                ),
+                "aliased_mean": aliased_mean,
+                "aliased_bias": aliased_bias,
+                "dealiased_mean": dealiased_mean,
+                "dealiased_bias": naive_bias,
+                "dealiased_aligned_mean": aligned_mean_report,
+                "dealiased_bias_aligned": aligned_bias,
                 "detection_rate": float(detection_counts[j] / trials),
             }
         )
@@ -557,42 +576,39 @@ def s5_multi_spike_bias(
     # Also persist a pairing comparison table
     comp_rows: list[dict[str, Any]] = []
     for j in range(k):
-        naive_bias = float(rows[j]["dealiased_bias"]) if np.isfinite(rows[j]["dealiased_bias"]) else float("nan")
-        aligned_bias = (
-            float(np.nanmean(dealiased_align_store[j]) - rows[j]["true_strength"]) 
-            if np.isfinite(rows[j]["true_strength"]) 
-            else float("nan")
-        )
-        # Ensure aligned variant is not worse than naive in absolute terms
-        if np.isfinite(aligned_bias) and np.isfinite(naive_bias):
-            if abs(aligned_bias) > abs(naive_bias):
-                aligned_bias = float(np.sign(aligned_bias) * abs(naive_bias))
         comp_rows.append(
             {
                 "spike_index": j,
                 "aliased_bias": rows[j]["aliased_bias"],
                 "dealiased_bias_naive": rows[j]["dealiased_bias"],
-                "dealiased_bias_aligned": aligned_bias,
+                "dealiased_bias_aligned": rows[j]["dealiased_bias_aligned"],
             }
         )
     pd.DataFrame(comp_rows).to_csv(out_dir / "s5_pairing_comparison.csv", index=False)
 
     indices = np.arange(len(rows))
-    width = 0.35
+    width = 0.26
     fig, ax = plt.subplots(figsize=(7, 4))
     ax.bar(
-        indices - width / 2,
+        indices - width,
         [row["aliased_bias"] for row in rows],
         width=width,
         label="Aliased",
         color="C2",
     )
     ax.bar(
-        indices + width / 2,
+        indices,
         [row["dealiased_bias"] for row in rows],
         width=width,
         label="De-aliased",
         color="C0",
+    )
+    ax.bar(
+        indices + width,
+        [row["dealiased_bias_aligned"] for row in rows],
+        width=width,
+        label="De-aliased (aligned)",
+        color="C1",
     )
     ax.set_xticks(indices)
     ax.set_xticklabels(
@@ -600,7 +616,7 @@ def s5_multi_spike_bias(
         rotation=15,
     )
     ax.set_ylabel("Bias")
-    ax.set_title("S5: Bias across multiple spikes")
+    ax.set_title("S5: Bias across multiple spikes (naive vs aligned)")
     ax.axhline(0.0, color="black", linestyle=":", linewidth=1.0)
     ax.legend()
     fig.tight_layout()

@@ -4,6 +4,14 @@ from typing import Iterable
 
 import numpy as np
 import pandas as pd
+from .evaluate import (
+    iqr,
+    sign_test_pvalue,
+    block_bootstrap_ci_median,
+    plot_variance_error_panel,
+    plot_coverage_error,
+    build_metrics_summary,
+)
 
 
 def check_dealiased_applied(estimates: pd.DataFrame | Iterable[dict]) -> None:
@@ -79,3 +87,12 @@ def check_dealiased_applied(estimates: pd.DataFrame | Iterable[dict]) -> None:
             f"row={idx}"
         )
 
+__all__ = [
+    "check_dealiased_applied",
+    "iqr",
+    "sign_test_pvalue",
+    "block_bootstrap_ci_median",
+    "plot_variance_error_panel",
+    "plot_coverage_error",
+    "build_metrics_summary",
+]

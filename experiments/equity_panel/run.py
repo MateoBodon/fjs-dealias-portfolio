@@ -44,6 +44,13 @@ from fjs.mp import estimate_Cs_from_MS, mp_edge
 from fjs.spectra import plot_spectrum_with_edges, plot_spike_timeseries
 from meta.run_meta import write_run_meta
 from evaluation import check_dealiased_applied
+from evaluation.evaluate import (
+    iqr as eval_iqr,
+    sign_test_pvalue as eval_sign_test_p,
+    plot_variance_error_panel as eval_plot_var_panel,
+    plot_coverage_error as eval_plot_cov_err,
+    build_metrics_summary as eval_build_metrics_summary,
+)
 
 DEFAULT_CONFIG = {
     "data_path": "data/prices_sample.csv",
@@ -292,102 +299,10 @@ def _run_param_ablation(
         pass
 
 
-def _iqr(values: list[float] | np.ndarray) -> float:
-    arr = np.asarray(values, dtype=np.float64)
-    if arr.size == 0:
-        return float("nan")
-    q75, q25 = np.percentile(arr, [75.0, 25.0])
-    return float(q75 - q25)
+## Stats moved to evaluation.evaluate (eval_iqr, eval_sign_test_p)
 
 
-def _sign_test_pvalue(differences: list[float] | np.ndarray) -> float:
-    arr = np.asarray(differences, dtype=np.float64)
-    mask = np.abs(arr) > 1e-12
-    arr = arr[mask]
-    n = arr.size
-    if n == 0:
-        return float("nan")
-    positives = int(np.count_nonzero(arr > 0))
-    tail = min(positives, n - positives)
-    cumulative = sum(comb(n, k) for k in range(0, tail + 1)) * (0.5**n)
-    p_value = min(1.0, 2.0 * cumulative)
-    return float(p_value)
-
-
-def _plot_variance_error_panel(
-    errors: dict[str, list[float] | np.ndarray], base_path: Path
-) -> None:
-    if not errors:
-        return
-    filtered: dict[str, np.ndarray] = {}
-    for key, values in errors.items():
-        arr = np.asarray(values, dtype=np.float64).ravel()
-        if arr.size == 0:
-            continue
-        mask = np.isfinite(arr)
-        if not mask.any():
-            continue
-        filtered[key] = arr[mask]
-    if not filtered:
-        return
-
-    methods = list(filtered.keys())
-    means = [float(np.mean(filtered[m])) for m in methods]
-    violin_data = [filtered[m] for m in methods]
-
-    fig, axes = plt.subplots(1, 2, figsize=(11, 4.8))
-    colors = [f"C{i}" for i in range(len(methods))]
-
-    axes[0].bar(methods, means, color=colors)
-    axes[0].set_ylabel("Squared error")
-    axes[0].set_title("Mean variance MSE")
-    # Reduce label overlap for long method names
-    for tick in axes[0].get_xticklabels():
-        tick.set_rotation(20)
-        tick.set_horizontalalignment("right")
-
-    parts = axes[1].violinplot(
-        violin_data, showmeans=True, showmedians=False, widths=0.7
-    )
-    for idx, body in enumerate(parts["bodies"]):
-        body.set_facecolor(colors[idx])
-        body.set_edgecolor("black")
-        body.set_alpha(0.6)
-    axes[1].set_xticks(np.arange(1, len(methods) + 1))
-    axes[1].set_xticklabels(methods, rotation=20, ha="right")
-    axes[1].set_ylabel("Squared error")
-    axes[1].set_title("Distribution across windows")
-
-    fig.suptitle("E3: Variance forecast errors", fontsize=12)
-    # Add a bit more bottom margin for rotated tick labels
-    fig.tight_layout()
-    fig.subplots_adjust(bottom=0.22)
-    base_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(base_path.with_suffix(".png"), bbox_inches="tight")
-    fig.savefig(base_path.with_suffix(".pdf"), bbox_inches="tight")
-    plt.close(fig)
-
-
-def _plot_coverage_error(coverage_errors: dict[str, float], base_path: Path) -> None:
-    if not coverage_errors:
-        return
-    methods = list(coverage_errors.keys())
-    values = [coverage_errors[m] for m in methods]
-    fig, ax = plt.subplots(figsize=(9, 4.8))
-    ax.bar(methods, values, color=[f"C{i}" for i in range(len(methods))])
-    ax.axhline(0.0, color="black", linestyle=":", linewidth=1.0)
-    ax.set_ylabel("Coverage error")
-    ax.set_title("E4: 95% VaR coverage error")
-    # Rotate long method labels, right-align, and increase bottom margin
-    for tick in ax.get_xticklabels():
-        tick.set_rotation(20)
-        tick.set_horizontalalignment("right")
-    fig.tight_layout()
-    fig.subplots_adjust(bottom=0.25)
-    base_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(base_path.with_suffix(".png"), bbox_inches="tight")
-    fig.savefig(base_path.with_suffix(".pdf"), bbox_inches="tight")
-    plt.close(fig)
+## Plotters moved to evaluation.evaluate (eval_plot_var_panel, eval_plot_cov_err)
 
 
 def _balanced_weekly_panel(
@@ -812,45 +727,25 @@ def _run_single_period(
     }
 
     if errors_for_plot:
-        _plot_variance_error_panel(errors_for_plot, output_dir / "E3_variance_mse")
+        eval_plot_var_panel(errors_for_plot, output_dir / "E3_variance_mse")
     if coverage_errors:
-        _plot_coverage_error(coverage_errors, output_dir / "E4_var95_coverage_error")
+        eval_plot_cov_err(coverage_errors, output_dir / "E4_var95_coverage_error")
 
     baseline_errors_map = errors_by_combo.get(baseline_alias_key, {})
     baseline_keys = set(baseline_errors_map.keys())
 
-    metrics_rows: list[dict[str, Any]] = []
-    for combo_key, error_map in errors_by_combo.items():
-        if not error_map:
-            continue
-        errors_array = np.array(
-            [error_map[idx] for idx in sorted(error_map.keys())], dtype=np.float64
-        )
-        strategy_label, estimator_label = combo_key.split("::", maxsplit=1)
-        metrics_entry: dict[str, Any] = {
-            "label": label,
-            "strategy": strategy_label,
-            "estimator": estimator_label,
-            "n_windows": int(len(error_map)),
-            "mean_mse": float(np.mean(errors_array)),
-            "median_mse": float(np.median(errors_array)),
-            "iqr_mse": _iqr(errors_array),
-            "coverage_error": coverage_errors.get(combo_key, float("nan")),
-        }
-        if combo_key == baseline_alias_key or not baseline_errors_map:
-            metrics_entry["sign_test_p"] = float("nan")
-        else:
-            common_keys = sorted(baseline_keys & set(error_map.keys()))
-            if not common_keys:
-                metrics_entry["sign_test_p"] = float("nan")
-            else:
-                diffs = [
-                    baseline_errors_map[idx] - error_map[idx] for idx in common_keys
-                ]
-                metrics_entry["sign_test_p"] = _sign_test_pvalue(diffs)
-        metrics_rows.append(metrics_entry)
-
-    metrics_summary = pd.DataFrame(metrics_rows)
+    # Build metrics summary, with paired tests and CIs for De-aliased vs LW/Aliased
+    import os
+    fast = os.environ.get("FAST_TESTS", "0") == "1"
+    n_boot = 200 if fast else 1000
+    metrics_summary = eval_build_metrics_summary(
+        errors_by_combo=errors_by_combo,
+        coverage_errors=coverage_errors,
+        label=label,
+        block_len=12,
+        n_boot=n_boot,
+        alpha=0.05,
+    )
     metrics_summary.to_csv(output_dir / "metrics_summary.csv", index=False)
 
     results_df = pd.DataFrame(records)

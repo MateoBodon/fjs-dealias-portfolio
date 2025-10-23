@@ -30,6 +30,17 @@ highlighting why both the aliased and de-aliased estimators must target the same
 
 `make test` remains available to run the full pytest suite; `make fmt` / `make lint` apply formatting and static checks.
 
+## Weekly Dataset Builder
+
+- Build a balanced weekly p≈200 equity dataset (Mon–Fri, fixed universe) from daily adjusted prices:
+  - Dry-run (stats only):
+    - `python scripts/data/make_weekly.py --input data/prices_sample.csv --start 2015-01-01 --end 2020-12-31 --dry-run`
+  - Write dataset and metadata:
+    - `python scripts/data/make_weekly.py --input data/prices_sample.csv --start 2015-01-01 --end 2020-12-31 --output-csv data/prices_weekly_200.csv -p 200`
+  - Outputs:
+    - Wide weekly CSV at `data/prices_weekly_200.csv` (index `week_start`, columns are tickers)
+    - Metadata JSON next to the CSV (`.meta.json`) with `balanced_weeks`, `dropped_weeks`, and `p`.
+
 ## Testing
 
 - Fast feedback (skips long statistical tests):

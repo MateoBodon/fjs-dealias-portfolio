@@ -55,6 +55,7 @@ DEFAULT_CONFIG = {
     "dealias_delta_frac": None,
     "signed_a": True,
     "cs_drop_top_frac": 0.1,
+    "cs_sensitivity_frac": 0.0,
     "target_component": 0,
     "a_grid": 120,
     "dealias_eps": 0.05,
@@ -595,6 +596,7 @@ def _run_single_period(
             nonnegative_a=not signed_a,
             a_grid=int(a_grid),
             cs_drop_top_frac=float(cs_drop_top_frac),
+            cs_sensitivity_frac=float(config.get("cs_sensitivity_frac", 0.0)),
         )
 
         fit_matrix = fit.to_numpy(dtype=np.float64)

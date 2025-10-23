@@ -29,6 +29,15 @@ class Detection(TypedDict):
     # Optional diagnostics
     z_plus: float | None
     threshold_main: float | None
+    # Optional sensitivity band diagnostics (±fraction on Cs)
+    z_plus_low: float | None
+    z_plus_high: float | None
+    threshold_low: float | None
+    threshold_high: float | None
+    stability_margin_low: float | None
+    stability_margin_high: float | None
+    sensitivity_low_accept: bool | None
+    sensitivity_high_accept: bool | None
 
 
 @dataclass
@@ -179,6 +188,7 @@ def dealias_search(
     nonnegative_a: bool = False,
     design: dict | None = None,
     cs_drop_top_frac: float | None = None,
+    cs_sensitivity_frac: float | None = None,
 ) -> list[Detection]:
     """
     Perform Algorithm 1 de-aliasing search for one-way balanced designs.
@@ -242,25 +252,49 @@ def dealias_search(
     eta_rad = np.deg2rad(stability_eta_deg)
     detections: list[Detection] = []
 
-    def _edge_margin(angle: float, lam_val: float) -> float | None:
-        a_vec = np.array([np.cos(angle), np.sin(angle)], dtype=np.float64)
-        if nonnegative_a and np.any(a_vec < -1e-8):
-            return float("inf")
-        try:
-            z_plus = mp_edge(
-                a_vec.tolist(),
-                c_weights.tolist(),
-                d_vec.tolist(),
-                n_total,
-                Cs=cs_vec,
-            )
-        except (RuntimeError, ValueError):
-            return None
-        if delta_frac is None:
-            threshold_main = z_plus + delta
-        else:
-            threshold_main = z_plus * (1.0 + delta_frac)
-        return lam_val - threshold_main
+    def _threshold_from_z(z_plus_val: float) -> float:
+        # Per-window delta: add the larger of absolute and relative offsets
+        rel = 0.0 if (delta_frac is None) else float(delta_frac) * float(z_plus_val)
+        return float(z_plus_val + max(float(delta), rel))
+
+    def _edge_margin_for(Cs_local: np.ndarray):
+        def margin(angle: float, lam_val: float) -> float | None:
+            a_vec = np.array([np.cos(angle), np.sin(angle)], dtype=np.float64)
+            if nonnegative_a and np.any(a_vec < -1e-8):
+                return float("inf")
+            try:
+                z_plus_local = mp_edge(
+                    a_vec.tolist(),
+                    c_weights.tolist(),
+                    d_vec.tolist(),
+                    n_total,
+                    Cs=Cs_local,
+                )
+            except (RuntimeError, ValueError):
+                return None
+            threshold_local = _threshold_from_z(z_plus_local)
+            return float(lam_val - threshold_local)
+
+        return margin
+
+    _edge_margin = _edge_margin_for(cs_vec)
+
+    # Sensitivity band configuration (optional diagnostics only)
+    band_frac = None if cs_sensitivity_frac is None else float(cs_sensitivity_frac)
+    if band_frac is not None and band_frac < 0.0:
+        band_frac = abs(band_frac)
+    cs_vec_low: np.ndarray | None
+    cs_vec_high: np.ndarray | None
+    if band_frac is not None and band_frac > 0.0:
+        cs_vec_low = (1.0 - band_frac) * cs_vec
+        cs_vec_high = (1.0 + band_frac) * cs_vec
+        _edge_margin_low = _edge_margin_for(cs_vec_low)
+        _edge_margin_high = _edge_margin_for(cs_vec_high)
+    else:
+        cs_vec_low = None
+        cs_vec_high = None
+        _edge_margin_low = None  # type: ignore[assignment]
+        _edge_margin_high = None  # type: ignore[assignment]
 
     for theta in angles:
         a_vec = np.array([np.cos(theta), np.sin(theta)], dtype=np.float64)
@@ -287,10 +321,41 @@ def dealias_search(
         eigvals = eigvals[order_idx]
         eigvecs = eigvecs[:, order_idx]
 
-        if delta_frac is None:
-            threshold_main = z_plus + delta
+        threshold_main = _threshold_from_z(z_plus)
+
+        # Optional band diagnostics for this orientation
+        if cs_vec_low is not None:
+            try:
+                z_plus_low = mp_edge(
+                    a_vec.tolist(),
+                    c_weights.tolist(),
+                    d_vec.tolist(),
+                    n_total,
+                    Cs=cs_vec_low,
+                )
+                threshold_low = _threshold_from_z(z_plus_low)
+            except (RuntimeError, ValueError):
+                z_plus_low = float("nan")
+                threshold_low = float("nan")
         else:
-            threshold_main = z_plus * (1.0 + delta_frac)
+            z_plus_low = None
+            threshold_low = None
+        if cs_vec_high is not None:
+            try:
+                z_plus_high = mp_edge(
+                    a_vec.tolist(),
+                    c_weights.tolist(),
+                    d_vec.tolist(),
+                    n_total,
+                    Cs=cs_vec_high,
+                )
+                threshold_high = _threshold_from_z(z_plus_high)
+            except (RuntimeError, ValueError):
+                z_plus_high = float("nan")
+                threshold_high = float("nan")
+        else:
+            z_plus_high = None
+            threshold_high = None
 
         for idx, lam_val in enumerate(eigvals):
             if lam_val < threshold_main:
@@ -355,6 +420,59 @@ def dealias_search(
                 continue
             stability_margin = float(min(margin_main, margin_plus, margin_minus))
 
+            # Sensitivity margins/decisions (diagnostics only)
+            stability_margin_low: float | None
+            stability_margin_high: float | None
+            accept_low: bool | None
+            accept_high: bool | None
+            if cs_vec_low is not None and _edge_margin_low is not None:
+                mp_main_low = (
+                    float(lam_val - threshold_low)
+                    if (isinstance(threshold_low, float) and np.isfinite(threshold_low))
+                    else float("nan")
+                )
+                mp_plus_low = _edge_margin_low(theta + eta_rad, lam_val)
+                mp_minus_low = _edge_margin_low(theta - eta_rad, lam_val)
+                if (
+                    np.isfinite(mp_main_low)
+                    and mp_plus_low is not None
+                    and mp_minus_low is not None
+                ):
+                    stability_margin_low = float(
+                        min(mp_main_low, mp_plus_low, mp_minus_low)
+                    )
+                    accept_low = bool(stability_margin_low >= 0.0)
+                else:
+                    stability_margin_low = float("nan")
+                    accept_low = None
+            else:
+                stability_margin_low = None
+                accept_low = None
+
+            if cs_vec_high is not None and _edge_margin_high is not None:
+                mp_main_high = (
+                    float(lam_val - threshold_high)
+                    if (isinstance(threshold_high, float) and np.isfinite(threshold_high))
+                    else float("nan")
+                )
+                mp_plus_high = _edge_margin_high(theta + eta_rad, lam_val)
+                mp_minus_high = _edge_margin_high(theta - eta_rad, lam_val)
+                if (
+                    np.isfinite(mp_main_high)
+                    and mp_plus_high is not None
+                    and mp_minus_high is not None
+                ):
+                    stability_margin_high = float(
+                        min(mp_main_high, mp_plus_high, mp_minus_high)
+                    )
+                    accept_high = bool(stability_margin_high >= 0.0)
+                else:
+                    stability_margin_high = float("nan")
+                    accept_high = None
+            else:
+                stability_margin_high = None
+                accept_high = None
+
             detection = Detection(
                 mu_hat=mu_hat,
                 lambda_hat=float(lam_val),
@@ -364,6 +482,18 @@ def dealias_search(
                 stability_margin=stability_margin,
                 z_plus=float(z_plus),
                 threshold_main=float(threshold_main),
+                z_plus_low=(None if z_plus_low is None else float(z_plus_low)),
+                z_plus_high=(None if z_plus_high is None else float(z_plus_high)),
+                threshold_low=(
+                    None if threshold_low is None else float(threshold_low)
+                ),
+                threshold_high=(
+                    None if threshold_high is None else float(threshold_high)
+                ),
+                stability_margin_low=stability_margin_low,
+                stability_margin_high=stability_margin_high,
+                sensitivity_low_accept=accept_low,
+                sensitivity_high_accept=accept_high,
             )
             detections.append(detection)
 

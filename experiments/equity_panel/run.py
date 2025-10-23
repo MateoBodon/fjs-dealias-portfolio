@@ -158,12 +158,16 @@ def _plot_variance_error_panel(
     means = [float(np.mean(filtered[m])) for m in methods]
     violin_data = [filtered[m] for m in methods]
 
-    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.8))
     colors = [f"C{i}" for i in range(len(methods))]
 
     axes[0].bar(methods, means, color=colors)
     axes[0].set_ylabel("Squared error")
     axes[0].set_title("Mean variance MSE")
+    # Reduce label overlap for long method names
+    for tick in axes[0].get_xticklabels():
+        tick.set_rotation(20)
+        tick.set_horizontalalignment("right")
 
     parts = axes[1].violinplot(
         violin_data, showmeans=True, showmedians=False, widths=0.7
@@ -173,12 +177,14 @@ def _plot_variance_error_panel(
         body.set_edgecolor("black")
         body.set_alpha(0.6)
     axes[1].set_xticks(np.arange(1, len(methods) + 1))
-    axes[1].set_xticklabels(methods, rotation=15)
+    axes[1].set_xticklabels(methods, rotation=20, ha="right")
     axes[1].set_ylabel("Squared error")
     axes[1].set_title("Distribution across windows")
 
     fig.suptitle("E3: Variance forecast errors", fontsize=12)
+    # Add a bit more bottom margin for rotated tick labels
     fig.tight_layout()
+    fig.subplots_adjust(bottom=0.22)
     base_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(base_path.with_suffix(".png"), bbox_inches="tight")
     fig.savefig(base_path.with_suffix(".pdf"), bbox_inches="tight")
@@ -190,12 +196,17 @@ def _plot_coverage_error(coverage_errors: dict[str, float], base_path: Path) -> 
         return
     methods = list(coverage_errors.keys())
     values = [coverage_errors[m] for m in methods]
-    fig, ax = plt.subplots(figsize=(6, 4))
-    ax.bar(methods, values, color=[f"C{i}" for i in range(len(methods))])
+    fig, ax = plt.subplots(figsize=(9, 4.8))
+    bars = ax.bar(methods, values, color=[f"C{i}" for i in range(len(methods))])
     ax.axhline(0.0, color="black", linestyle=":", linewidth=1.0)
     ax.set_ylabel("Coverage error")
     ax.set_title("E4: 95% VaR coverage error")
+    # Rotate long method labels, right-align, and increase bottom margin
+    for tick in ax.get_xticklabels():
+        tick.set_rotation(20)
+        tick.set_horizontalalignment("right")
     fig.tight_layout()
+    fig.subplots_adjust(bottom=0.25)
     base_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(base_path.with_suffix(".png"), bbox_inches="tight")
     fig.savefig(base_path.with_suffix(".pdf"), bbox_inches="tight")

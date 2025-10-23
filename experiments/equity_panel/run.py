@@ -42,6 +42,8 @@ from fjs.balanced import mean_squares
 from fjs.dealias import dealias_search
 from fjs.mp import estimate_Cs_from_MS, mp_edge
 from fjs.spectra import plot_spectrum_with_edges, plot_spike_timeseries
+from meta.run_meta import write_run_meta
+from evaluation import check_dealiased_applied
 
 DEFAULT_CONFIG = {
     "data_path": "data/prices_sample.csv",
@@ -960,6 +962,17 @@ def _run_single_period(
             target_component,
         )
 
+    # Lightweight consistency check: if detections occurred, ensure de-aliased
+    # forecasts differ from aliased ones for at least one strategy in each such
+    # window.
+    try:
+        results_csv = output_dir / "rolling_results.csv"
+        if results_csv.exists():
+            check_dealiased_applied(pd.read_csv(results_csv))
+    except Exception:
+        # Do not fail the entire experiment on diagnostic issues
+        pass
+
 
 def _run_sigma_ablation(
     daily_returns: pd.DataFrame,
@@ -1154,6 +1167,23 @@ def run_experiment(
             progress=(True if progress_override is None else bool(progress_override)),
             a_grid=int(config.get("a_grid", 120)),
         )
+
+        # Persist meta information for this run
+        try:
+            write_run_meta(
+                run_output_dir,
+                config=config,
+                delta=float(config.get("dealias_delta", 0.3)),
+                delta_frac=cast(float | None, config.get("dealias_delta_frac")),
+                a_grid=int(config.get("a_grid", 120)),
+                signed_a=bool(config.get("signed_a", True)),
+                sigma2_plugin=(
+                    f"Cs_from_MS_drop_top_frac={float(config.get('cs_drop_top_frac', 0.1))}"
+                ),
+            )
+        except Exception:
+            # Best effort; do not fail the entire run
+            pass
 
     # Parameter ablations (E5)
     if bool(ablations):

@@ -34,6 +34,7 @@ if str(SRC_ROOT) not in sys.path:
 from fjs.balanced import mean_squares
 from fjs.dealias import dealias_search
 from fjs.spectra import plot_spike_timeseries
+from meta.run_meta import write_run_meta
 
 DEFAULT_CONFIG = {
     "n_assets": 60,
@@ -668,6 +669,20 @@ def run_experiment(
     summary["s4_guardrails"] = guardrail_df.to_dict(orient="records")
     summary["s5_multispike"] = multispike_df.to_dict(orient="records")
     summary_to_json(summary, output_dir)
+
+    # Persist run meta for reproducibility (best-effort)
+    try:
+        write_run_meta(
+            output_dir,
+            config=config,
+            delta=float(config.get("delta", 0.3)),
+            delta_frac=None,
+            a_grid=None,
+            signed_a=True,
+            sigma2_plugin=None,
+        )
+    except Exception:
+        pass
 
 
 def main() -> None:

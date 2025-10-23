@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import os
 from inspect import isclass, isfunction
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 from experiments.equity_panel import run as equity_run
 from experiments.synthetic_oneway import run as synthetic_run
 
@@ -237,6 +239,7 @@ def test_relative_delta_and_signed_a_integration() -> None:
     assert isinstance(detections, list)
 
 
+@pytest.mark.slow
 def test_rolling_synthetic_oos_gain() -> None:
     rng = np.random.default_rng(1234)
     p = 8
@@ -271,11 +274,13 @@ def test_rolling_synthetic_oos_gain() -> None:
         y_hold = y_matrix[hold_range]
         groups_fit = np.repeat(np.arange(fit_weeks), replicates)
 
+        fast = bool(int(os.getenv("FAST_TESTS", "0")))
+        grid = 24 if fast else 72
         detections = dealias_search(
             y_fit,
             groups_fit,
             target_r=0,
-            a_grid=72,
+            a_grid=grid,
             delta=0.3,
             eps=0.05,
             stability_eta_deg=0.4,

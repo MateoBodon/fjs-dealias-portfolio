@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import numpy as np
 import pytest
 
@@ -68,7 +69,9 @@ def test_dealias_search_detects_sigma1_spike() -> None:
         mu_sigma2=0.0,
         noise_scale=0.5,
     )
-    detections = dealias_search(y, groups, target_r=0, a_grid=120, delta=0.3, eps=0.05)
+    fast = bool(int(os.getenv("FAST_TESTS", "0")))
+    grid = 48 if fast else 120
+    detections = dealias_search(y, groups, target_r=0, a_grid=grid, delta=0.3, eps=0.05)
     assert detections, "Expected a detection for Sigma1 spike."
     assert len(detections) == 1
     lambda_est = detections[0]["lambda_hat"]
@@ -76,6 +79,7 @@ def test_dealias_search_detects_sigma1_spike() -> None:
     assert detections[0]["stability_margin"] >= 0.0
 
 
+@pytest.mark.slow
 def test_t_vector_acceptance_consistency_toy_spike() -> None:
     rng = np.random.default_rng(314159)
     p, n_groups, replicates = 24, 48, 3
@@ -88,11 +92,13 @@ def test_t_vector_acceptance_consistency_toy_spike() -> None:
         mu_sigma2=0.0,
         noise_scale=0.6,
     )
+    fast = bool(int(os.getenv("FAST_TESTS", "0")))
+    grid = 36 if fast else 100
     detections = dealias_search(
         y,
         groups,
         target_r=0,
-        a_grid=100,
+        a_grid=grid,
         delta=0.35,
         eps=0.04,
     )
@@ -139,11 +145,14 @@ def test_relative_delta_enables_detection_when_absolute_blocks() -> None:
         noise_scale=0.7,
     )
     # With a large absolute delta, we expect no detections
-    blocked = dealias_search(y, groups, target_r=0, a_grid=72, delta=10.0)
+    fast = bool(int(os.getenv("FAST_TESTS", "0")))
+    grid = 24 if fast else 72
+    blocked = dealias_search(y, groups, target_r=0, a_grid=grid, delta=10.0)
     assert not blocked
     # With a small relative delta, expect at least one detection
+    grid2 = 36 if fast else 90
     allowed = dealias_search(
-        y, groups, target_r=0, a_grid=90, delta=0.0, delta_frac=0.03
+        y, groups, target_r=0, a_grid=grid2, delta=0.0, delta_frac=0.03
     )
     assert allowed
 
@@ -160,11 +169,13 @@ def test_detections_include_diagnostics_fields() -> None:
         mu_sigma2=0.0,
         noise_scale=0.6,
     )
+    fast = bool(int(os.getenv("FAST_TESTS", "0")))
+    grid = 36 if fast else 72
     detections = dealias_search(
         y,
         groups,
         target_r=0,
-        a_grid=72,
+        a_grid=grid,
         delta=0.3,
         eps=0.04,
     )
@@ -193,14 +204,16 @@ def test_signed_a_grid_no_crash() -> None:
         mu_sigma2=0.0,
         noise_scale=0.8,
     )
+    fast = bool(int(os.getenv("FAST_TESTS", "0")))
+    grid = 24 if fast else 60
     out1 = dealias_search(
-        y, groups, target_r=0, a_grid=60, delta=0.3, nonnegative_a=True
+        y, groups, target_r=0, a_grid=grid, delta=0.3, nonnegative_a=True
     )
     out2 = dealias_search(
         y,
         groups,
         target_r=0,
-        a_grid=60,
+        a_grid=grid,
         delta=0.3,
         nonnegative_a=False,
     )
@@ -208,9 +221,11 @@ def test_signed_a_grid_no_crash() -> None:
     assert isinstance(out2, list)
 
 
+@pytest.mark.slow
 def test_dealias_search_limits_sigma2_false_positives() -> None:
     p, n_groups, replicates = 60, 60, 2
-    trials = 20
+    fast = bool(int(os.getenv("FAST_TESTS", "0")))
+    trials = 8 if fast else 20
     false_positives = 0
     for seed in range(trials):
         trial_rng = np.random.default_rng(seed)
@@ -222,15 +237,18 @@ def test_dealias_search_limits_sigma2_false_positives() -> None:
             mu_sigma1=0.0,
             mu_sigma2=8.0,
         )
-        detections = dealias_search(y, groups, target_r=0, a_grid=90, delta=0.5)
+        grid = 36 if fast else 90
+        detections = dealias_search(y, groups, target_r=0, a_grid=grid, delta=0.5)
         if detections:
             false_positives += 1
     assert false_positives <= max(2, int(0.1 * trials))
 
 
+@pytest.mark.slow
 def test_dealias_search_has_low_false_positive_rate() -> None:
     p, n_groups, replicates = 32, 48, 2
-    trials = 100
+    fast = bool(int(os.getenv("FAST_TESTS", "0")))
+    trials = 30 if fast else 100
     rng = np.random.default_rng(123)
     false_positives = 0
     for seed in rng.integers(0, 10_000, size=trials):
@@ -243,11 +261,12 @@ def test_dealias_search_has_low_false_positive_rate() -> None:
             mu_sigma1=0.0,
             mu_sigma2=4.0,
         )
+        grid = 36 if fast else 90
         detections = dealias_search(
             y,
             groups,
             target_r=0,
-            a_grid=90,
+            a_grid=grid,
             delta=0.5,
             eps=0.05,
         )
@@ -256,10 +275,12 @@ def test_dealias_search_has_low_false_positive_rate() -> None:
     assert false_positives <= max(1, int(0.01 * trials))
 
 
+@pytest.mark.slow
 def test_dealias_search_isotropic_trials_under_one_percent() -> None:
     rng = np.random.default_rng(2024)
     p, n_groups, replicates = 12, 24, 2
-    trials = 200
+    fast = bool(int(os.getenv("FAST_TESTS", "0")))
+    trials = 40 if fast else 200
     false_positives = 0
     for _ in range(trials):
         y, groups = _simulate_one_way(
@@ -271,7 +292,8 @@ def test_dealias_search_isotropic_trials_under_one_percent() -> None:
             mu_sigma2=0.0,
             noise_scale=1.0,
         )
-        detections = dealias_search(y, groups, target_r=0)
+        grid = 36 if fast else 120
+        detections = dealias_search(y, groups, target_r=0, a_grid=grid)
         if detections:
             false_positives += 1
     assert false_positives <= max(1, int(0.01 * trials))
@@ -289,11 +311,13 @@ def test_cs_drop_top_frac_influences_threshold_or_detections() -> None:
         mu_sigma2=0.0,
         noise_scale=0.6,
     )
+    fast = bool(int(os.getenv("FAST_TESTS", "0")))
+    grid_lo = 36 if fast else 90
     det_lo = dealias_search(
         y,
         groups,
         target_r=0,
-        a_grid=90,
+        a_grid=grid_lo,
         delta=0.3,
         eps=0.04,
         cs_drop_top_frac=0.05,
@@ -302,7 +326,7 @@ def test_cs_drop_top_frac_influences_threshold_or_detections() -> None:
         y,
         groups,
         target_r=0,
-        a_grid=90,
+        a_grid=grid_lo,
         delta=0.3,
         eps=0.04,
         cs_drop_top_frac=0.4,
@@ -316,6 +340,7 @@ def test_cs_drop_top_frac_influences_threshold_or_detections() -> None:
         assert len(det_lo) != len(det_hi)
 
 
+@pytest.mark.slow
 def test_dealias_search_stability_consistent_across_eta() -> None:
     rng = np.random.default_rng(99)
     p, n_groups, replicates = 48, 48, 2
@@ -328,11 +353,13 @@ def test_dealias_search_stability_consistent_across_eta() -> None:
         mu_sigma2=0.0,
         noise_scale=0.6,
     )
+    fast = bool(int(os.getenv("FAST_TESTS", "0")))
+    grid = 48 if fast else 120
     base = dealias_search(
         y,
         groups,
         target_r=0,
-        a_grid=120,
+        a_grid=grid,
         delta=0.3,
         eps=0.05,
         stability_eta_deg=0.4,
@@ -342,7 +369,7 @@ def test_dealias_search_stability_consistent_across_eta() -> None:
         y,
         groups,
         target_r=0,
-        a_grid=120,
+        a_grid=grid,
         delta=0.3,
         eps=0.05,
         stability_eta_deg=1.0,

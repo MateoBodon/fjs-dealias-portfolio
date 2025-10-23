@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+import warnings
 
 import numpy as np
 from numpy.typing import NDArray
@@ -147,7 +148,7 @@ def z_of_m(  # noqa: N803
     Cs: ArrayLike | None = None,
 ) -> float:
     """
-    Evaluate the closed-form Marčenko--Pastur z(m) transform.
+    Evaluate the closed-form Marčenko–Pastur z(m) transform.
 
     Parameters
     ----------
@@ -168,6 +169,29 @@ def z_of_m(  # noqa: N803
     numerators = c_arr * a_arr + cs_arr
     contributions = numerators / denom
     return float(-1.0 / m_val + np.sum(contributions))
+
+
+def z0(  # noqa: N802
+    m: float,
+    a: ArrayLike,
+    C: ArrayLike,
+    d: ArrayLike,
+    N: int | float,
+    Cs: ArrayLike | None = None,
+) -> float:
+    """Balanced one-way z0(m) in closed form.
+
+    This is a thin wrapper over :func:`z_of_m` specialised for the
+    balanced MANOVA setting used throughout the codebase.
+
+    Parameters
+    ----------
+    m
+        Real argument for the Stieltjes transform branch (negative real line).
+    a, C, d, N, Cs
+        Design parameters matching :func:`z_of_m`.
+    """
+    return z_of_m(m, a, C, d, N, Cs)
 
 
 def _dz_dm(  # noqa: N803
@@ -196,6 +220,47 @@ def _d2z_dm2(  # noqa: N803
     return term1 + term2
 
 
+def z0_prime(  # noqa: N802
+    m: float,
+    a: ArrayLike,
+    C: ArrayLike,
+    d: ArrayLike,
+    N: int | float,
+    Cs: ArrayLike | None = None,
+) -> float:
+    """Closed-form first derivative z0'(m) for balanced one-way design.
+
+    Uses the identity
+    z'(m) = 1/m^2 - sum_s ( (c_s a_s + Cs_s) k_s / (1 + k_s m)^2 ),
+    where k_s = (N/d_s) a_s C_s.
+    """
+    a_arr, c_arr, d_arr, n_float = _prepare_inputs(a, C, d, N)
+    cs_arr = _prepare_cs(Cs, a_arr)
+    k_vals = _k_values(a_arr, c_arr, d_arr, n_float)
+    numerators = c_arr * a_arr + cs_arr
+    return _dz_dm(float(m), k_vals, numerators)
+
+
+def z0_double_prime(  # noqa: N802
+    m: float,
+    a: ArrayLike,
+    C: ArrayLike,
+    d: ArrayLike,
+    N: int | float,
+    Cs: ArrayLike | None = None,
+) -> float:
+    """Closed-form second derivative z0''(m) for balanced one-way design.
+
+    Uses the identity
+    z''(m) = -2/m^3 + sum_s ( 2 (c_s a_s + Cs_s) k_s^2 / (1 + k_s m)^3 ).
+    """
+    a_arr, c_arr, d_arr, n_float = _prepare_inputs(a, C, d, N)
+    cs_arr = _prepare_cs(Cs, a_arr)
+    k_vals = _k_values(a_arr, c_arr, d_arr, n_float)
+    numerators = c_arr * a_arr + cs_arr
+    return _d2z_dm2(float(m), k_vals, numerators)
+
+
 def _logspace_grid() -> np.ndarray:
     grid = np.logspace(-12, 6, num=200, dtype=np.float64)
     return -grid
@@ -215,6 +280,67 @@ def _augment_with_singularities(grid: np.ndarray, k_vals: np.ndarray) -> np.ndar
     points.append(-1e-12)
     points = sorted(set(pt for pt in points if pt < -1e-12))
     return np.array(points, dtype=np.float64)
+
+
+def _newton_refine(
+    x0: float,
+    f: Callable[[float], float],
+    fp: Callable[[float], float],
+    *,
+    max_iter: int = 8,
+    tol: float = 1e-14,
+) -> float:
+    """One-step Newton refinement with simple safeguards.
+
+    If the derivative is ill-conditioned or an update produces NaNs, the
+    current iterate is returned unchanged.
+    """
+    x = float(x0)
+    for _ in range(max_iter):
+        fx = f(x)
+        fpx = fp(x)
+        if not (np.isfinite(fx) and np.isfinite(fpx)):
+            break
+        if abs(fpx) < 1e-18:
+            break
+        step = fx / fpx
+        x_new = x - step
+        if not np.isfinite(x_new):
+            break
+        if abs(x_new - x) < tol:
+            return float(x_new)
+        x = x_new
+    return float(x)
+
+
+def _stationary_points(
+    k_vals: np.ndarray,
+    numerators: np.ndarray,
+) -> tuple[list[float], Callable[[float], float], Callable[[float], float]]:
+    """Locate stationary points of z(m) by bracketing zeros of z'(m)."""
+
+    def derivative(m_val: float) -> float:
+        return _dz_dm(m_val, k_vals, numerators)
+
+    def curvature(m_val: float) -> float:
+        return _d2z_dm2(m_val, k_vals, numerators)
+
+    grid = _augment_with_singularities(_logspace_grid(), k_vals)
+    brackets = _brackets_sign_change(derivative, grid, k_vals)
+    roots: list[float] = []
+    for left, right in brackets:
+        if left == right:
+            root = left
+        else:
+            try:
+                root = _bisect(derivative, left, right)
+            except RuntimeError:
+                continue
+        # Optional Newton polish
+        root = _newton_refine(root, derivative, curvature)
+        if np.isfinite(root):
+            roots.append(float(root))
+    return roots, derivative, curvature
 
 
 def _bisect(
@@ -268,28 +394,82 @@ def _bisect(
     return 0.5 * (a + b)
 
 
+def _crosses_pole(m1: float, m2: float, k_vals: np.ndarray) -> bool:
+    """Return True if the interval [m1, m2] crosses a pole 1 + k m = 0."""
+    for k in k_vals:
+        if k <= 0:
+            continue
+        s1 = 1.0 + k * m1
+        s2 = 1.0 + k * m2
+        if s1 == 0.0 or s2 == 0.0 or (s1 < 0.0 and s2 > 0.0) or (s1 > 0.0 and s2 < 0.0):
+            return True
+    return False
+
+
 def _root_brackets(
     func: Callable[[float], float],
     points: np.ndarray,
+    k_vals: np.ndarray | None = None,
 ) -> list[tuple[float, float]]:
     brackets: list[tuple[float, float]] = []
     prev_x: float | None = None
     prev_val: float | None = None
     for x in points:
-        val = func(x)
-        if not np.isfinite(val):
-            prev_x = None
-            prev_val = None
-            continue
+        raw = func(x)
+        # Treat infinities as very large finite values preserving the sign
+        if not np.isfinite(raw):
+            if np.isnan(raw):
+                prev_x = None
+                prev_val = None
+                continue
+            val = float(np.sign(raw)) * 1e300
+        else:
+            val = float(raw)
         if prev_x is not None and prev_val is not None:
             if val == 0.0:
-                brackets.append((x, x))
+                if k_vals is None or not _crosses_pole(prev_x, x, k_vals):
+                    brackets.append((x, x))
             elif prev_val == 0.0:
-                brackets.append((prev_x, prev_x))
+                if k_vals is None or not _crosses_pole(prev_x, x, k_vals):
+                    brackets.append((prev_x, prev_x))
             elif val * prev_val < 0:
-                brackets.append((prev_x, x))
+                if k_vals is None or not _crosses_pole(prev_x, x, k_vals):
+                    brackets.append((prev_x, x))
+    prev_x = x
+    prev_val = val
+    return brackets
+
+
+def _brackets_sign_change(
+    func: Callable[[float], float],
+    points: np.ndarray,
+    k_vals: np.ndarray,
+) -> list[tuple[float, float]]:
+    """Find sign-change brackets while guarding against poles.
+
+    This is a more permissive variant used for robust edge/root finding.
+    """
+    brackets: list[tuple[float, float]] = []
+    prev_x: float | None = None
+    prev_v: float | None = None
+    for x in points:
+        try:
+            v = float(func(x))
+        except Exception:
+            v = float("nan")
+        if not np.isfinite(v):
+            # Skip NaNs only; keep ±inf by clipping to large magnitude preserving sign
+            if np.isnan(v):
+                prev_x = None
+                prev_v = None
+                continue
+            v = float(np.sign(v)) * 1e300
+        if prev_x is not None and prev_v is not None:
+            if v == 0.0 or prev_v == 0.0 or (v * prev_v < 0.0):
+                if not _crosses_pole(prev_x, x, k_vals):
+                    brackets.append((prev_x, x))
         prev_x = x
-        prev_val = val
+        prev_v = v
     return brackets
 
 
@@ -308,29 +488,11 @@ def mp_edge(  # noqa: N803
     k_vals = _k_values(a_arr, c_arr, d_arr, n_float)
     numerators = c_arr * a_arr + cs_arr
 
-    grid = _augment_with_singularities(_logspace_grid(), k_vals)
-
-    def derivative(m_val: float) -> float:
-        return _dz_dm(m_val, k_vals, numerators)
-
-    def curvature(m_val: float) -> float:
-        return _d2z_dm2(m_val, k_vals, numerators)
-
-    brackets = _root_brackets(derivative, grid)
-
-    roots: list[float] = []
-    for left, right in brackets:
-        if left == right:
-            root = left
-        else:
-            try:
-                root = _bisect(derivative, left, right)
-            except RuntimeError:
-                continue
-        roots.append(root)
+    roots, derivative, curvature = _stationary_points(k_vals, numerators)
 
     if not roots:
-        # fall back to the point with minimal absolute derivative
+        # fall back: pick point with minimal |z'(m)| on the search grid
+        grid = _augment_with_singularities(_logspace_grid(), k_vals)
         values = [
             (abs(derivative(point)), point)
             for point in grid
@@ -339,9 +501,9 @@ def mp_edge(  # noqa: N803
         if not values:
             raise RuntimeError("Unable to locate a stationary point for z(m).")
         _, candidate = min(values, key=lambda pair: pair[0])
-        roots.append(candidate)
+        roots = [candidate]
 
-    # Prefer roots with negative second derivative.
+    # Prefer roots with negative second derivative (concave maximum).
     roots_sorted = sorted(roots, reverse=True)
     for root in roots_sorted:
         curvature_val = curvature(root)
@@ -351,6 +513,32 @@ def mp_edge(  # noqa: N803
     # If no root satisfies curvature < 0, return the best available candidate.
     best_root = min(roots_sorted, key=lambda r: abs(derivative(r)))
     return float(z_of_m(best_root, a_arr, c_arr, d_arr, n_float, cs_arr))
+
+
+def m_edge(  # noqa: N803
+    a: ArrayLike,
+    C: ArrayLike,
+    d: ArrayLike,
+    N: int | float,
+    Cs: ArrayLike | None = None,
+) -> float:
+    """Return m_plus where z'(m_plus)=0 and z''(m_plus)<0 (upper edge).
+
+    Parameters mirror :func:`mp_edge`. This provides the stationary m used to
+    compute the upper spectral edge via ``z_plus = z0(m_plus)``.
+    """
+    a_arr, c_arr, d_arr, n_float = _prepare_inputs(a, C, d, N)
+    cs_arr = _prepare_cs(Cs, a_arr)
+    k_vals = _k_values(a_arr, c_arr, d_arr, n_float)
+    numerators = c_arr * a_arr + cs_arr
+    roots, derivative, curvature = _stationary_points(k_vals, numerators)
+    if not roots:
+        raise RuntimeError("No stationary point located for z(m).")
+    roots_sorted = sorted(roots, reverse=True)
+    for root in roots_sorted:
+        if curvature(root) < 0:
+            return float(root)
+    return float(roots_sorted[0])
 
 
 def admissible_m_from_lambda(  # noqa: N803
@@ -376,7 +564,7 @@ def admissible_m_from_lambda(  # noqa: N803
         return z_of_m(m_val, a_arr, c_arr, d_arr, n_float, cs_arr) - lam_val
 
     grid = _augment_with_singularities(_logspace_grid(), k_vals)
-    brackets = _root_brackets(equation, grid)
+    brackets = _brackets_sign_change(equation, grid, k_vals)
     roots: list[float] = []
 
     for left, right in brackets:
@@ -387,6 +575,8 @@ def admissible_m_from_lambda(  # noqa: N803
                 root = _bisect(equation, left, right)
             except RuntimeError:
                 continue
+        # Optional Newton polish using derivative of z(m)
+        root = _newton_refine(root, equation, lambda m_val: _dz_dm(m_val, k_vals, numerators))
         if np.isfinite(root):
             roots.append(root)
 
@@ -404,6 +594,23 @@ def admissible_m_from_lambda(  # noqa: N803
 
     # Choose the root closest to the real axis (largest m, i.e., least negative).
     best_root = max(admissible_roots)
+
+    # Diagnostics: warn if very close to the edge stationary point or a singularity.
+    try:
+        m_plus = m_edge(a_arr, c_arr, d_arr, n_float, cs_arr)
+        if abs(best_root - m_plus) <= max(1e-8, 1e-6 * abs(m_plus)):
+            warnings.warn(
+                "Root m(λ) lies extremely close to the spectral edge; results may be unstable.",
+                RuntimeWarning,
+            )
+    except Exception:
+        pass
+    denom = 1.0 + k_vals * best_root
+    if np.min(np.abs(denom)) < 1e-8:
+        warnings.warn(
+            "Root m(λ) is close to a pole of z(m); numerical conditioning is poor.",
+            RuntimeWarning,
+        )
     return float(best_root)
 
 

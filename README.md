@@ -30,6 +30,28 @@ highlighting why both the aliased and de-aliased estimators must target the same
 
 `make test` remains available to run the full pytest suite; `make fmt` / `make lint` apply formatting and static checks.
 
+## Testing
+
+- Fast feedback (skips long statistical tests):
+  - `make test-fast` (equivalent to `pytest -m "not slow" -n auto` with fallback to serial if xdist is missing)
+- Full suite with parallel workers:
+  - `make test-all` (equivalent to `pytest -n auto`, also falls back to serial)
+- Only the slow group (for targeted checks):
+  - `pytest -m slow -n auto`
+
+Optional fast mode for slow tests
+- Set `FAST_TESTS=1` to reduce angle grid sizes (`a_grid`) and trial counts in the heaviest property-style tests while preserving their intent. Without `FAST_TESTS`, slow tests run at their original strict settings.
+- Examples:
+  - `FAST_TESTS=1 make test-all`
+  - `FAST_TESTS=1 pytest -m slow -n auto`
+
+Parallelism
+- Parallel execution is provided by `pytest-xdist` (installed by `make setup`).
+- `-n auto` uses all logical cores; on laptops you can set a fixed worker count, e.g., `-n 6` to limit thermal/CPU load.
+
+Notes
+- `cvxpy` loads lazily in portfolio optimizers; if not present, the code falls back to equal-weight behavior where appropriate, and tests remain valid.
+
 ## Methods at a glance
 
 - **Balanced MANOVA decomposition:** weekly returns are partitioned into between-group ($\widehat{\Sigma}_1$) and within-group ($\widehat{\Sigma}_2$) mean squares using `fjs.balanced.mean_squares`.

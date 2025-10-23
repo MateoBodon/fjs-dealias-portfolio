@@ -15,6 +15,13 @@ lint:
 test:
 	pytest -q
 
+.PHONY: test-fast test-all
+test-fast:
+	pytest -q -m "not slow" -n auto --maxfail=1 || pytest -q -m "not slow" --maxfail=1
+
+test-all:
+	pytest -q -n auto || pytest -q
+
 run-synth:
 	python experiments/synthetic_oneway/run.py
 

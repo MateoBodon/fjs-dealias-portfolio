@@ -31,6 +31,7 @@ dev = [
     "ruff",
     "mypy",
     "pytest-cov",
+    "pytest-xdist",
 ]
 
 [tool.setuptools]
@@ -42,3 +43,8 @@ where = ["src"]
 [tool.black]
 line-length = 88
 target-version = ["py311"]
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: long-running statistical tests that are accurate but expensive",
+]

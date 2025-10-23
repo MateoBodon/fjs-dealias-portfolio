@@ -5,12 +5,15 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
-try:  # pragma: no cover - optional dependency
-    import cvxpy as cp
 
-    HAS_CVXPY = True
-except ModuleNotFoundError:  # pragma: no cover - optional dependency
-    HAS_CVXPY = False
+def _get_cvxpy():  # pragma: no cover - optional dependency
+    try:
+        import cvxpy as cp  # type: ignore
+    except ModuleNotFoundError as exc:  # pragma: no cover - optional dependency
+        raise ImportError(
+            "cvxpy is required for the minimum-variance optimiser."
+        ) from exc
+    return cp
 
 
 @dataclass
@@ -66,8 +69,7 @@ def minimum_variance(
 
     if covariance.ndim != 2 or covariance.shape[0] != covariance.shape[1]:
         raise ValueError("covariance must be a square matrix.")
-    if not HAS_CVXPY:
-        raise ImportError("cvxpy is required for the minimum-variance optimiser.")
+    cp = _get_cvxpy()
 
     n = covariance.shape[0]
     cov = (covariance + covariance.T) / 2.0
@@ -127,10 +129,7 @@ def min_variance_box(
     if lb >= ub:
         raise ValueError("Lower bound must be strictly less than upper bound.")
 
-    if not HAS_CVXPY:
-        raise ImportError(
-            "cvxpy is required for the box-constrained minimum-variance optimiser."
-        )
+    cp = _get_cvxpy()
 
     n = covariance.shape[0]
     cov = (covariance + covariance.T) / 2.0

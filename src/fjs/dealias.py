@@ -26,6 +26,9 @@ class Detection(TypedDict):
     components: list[float]
     eigvec: NDArray[np.float64]
     stability_margin: float
+    # Optional diagnostics
+    z_plus: float | None
+    threshold_main: float | None
 
 
 @dataclass
@@ -175,6 +178,7 @@ def dealias_search(
     use_tvector: bool = True,
     nonnegative_a: bool = False,
     design: dict | None = None,
+    cs_drop_top_frac: float | None = None,
 ) -> list[Detection]:
     """
     Perform Algorithm 1 de-aliasing search for one-way balanced designs.
@@ -213,13 +217,19 @@ def dealias_search(
         raise ValueError("target_r must reference a valid component index.")
 
     if Cs is None:
-        drop_count = min(5, max(1, ms1_scaled.shape[0] // 20))
+        # Determine trimming via fraction when provided; else fall back to heuristic
+        if cs_drop_top_frac is not None:
+            p_dim = int(ms1_scaled.shape[0])
+            fraction = float(cs_drop_top_frac)
+            drop_top = min(p_dim - 1, max(1, int(round(p_dim * fraction))))
+        else:
+            drop_top = min(5, max(1, ms1_scaled.shape[0] // 20))
         cs_vec = np.asarray(
             estimate_Cs_from_MS(
                 [ms1_scaled, ms2_scaled],
                 d_vec.tolist(),
                 c_vec.tolist(),
-                drop_top=drop_count,
+                drop_top=drop_top,
             ),
             dtype=np.float64,
         )
@@ -247,10 +257,10 @@ def dealias_search(
         except (RuntimeError, ValueError):
             return None
         if delta_frac is None:
-            threshold_val = z_plus + delta
+            threshold_main = z_plus + delta
         else:
-            threshold_val = z_plus * (1.0 + delta_frac)
-        return lam_val - threshold_val
+            threshold_main = z_plus * (1.0 + delta_frac)
+        return lam_val - threshold_main
 
     for theta in angles:
         a_vec = np.array([np.cos(theta), np.sin(theta)], dtype=np.float64)
@@ -352,6 +362,8 @@ def dealias_search(
                 components=component_vals,
                 eigvec=eigvecs[:, idx].copy(),
                 stability_margin=stability_margin,
+                z_plus=float(z_plus),
+                threshold_main=float(threshold_main),
             )
             detections.append(detection)
 

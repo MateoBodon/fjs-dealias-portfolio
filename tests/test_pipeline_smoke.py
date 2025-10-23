@@ -129,6 +129,15 @@ def test_single_equity_window_smoke(tmp_path: Path) -> None:
     assert np.isfinite(forecast_lw)
     assert np.isfinite(metrics["mse"])
 
+    # SCM smoke test
+    forecast_scm, realized_scm = oos_variance_forecast(
+        fit.to_numpy(dtype=np.float64),
+        hold.to_numpy(dtype=np.float64),
+        weights,
+        estimator="scm",
+    )
+    assert np.isfinite(forecast_scm)
+
 
 def test_weekly_components_identity_and_detection_gain() -> None:
     rng = np.random.default_rng(7)

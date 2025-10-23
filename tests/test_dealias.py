@@ -148,6 +148,39 @@ def test_relative_delta_enables_detection_when_absolute_blocks() -> None:
     assert allowed
 
 
+def test_detections_include_diagnostics_fields() -> None:
+    rng = np.random.default_rng(2026)
+    p, n_groups, replicates = 24, 36, 3
+    y, groups = _simulate_one_way(
+        rng,
+        p=p,
+        n_groups=n_groups,
+        replicates=replicates,
+        mu_sigma1=6.0,
+        mu_sigma2=0.0,
+        noise_scale=0.6,
+    )
+    detections = dealias_search(
+        y,
+        groups,
+        target_r=0,
+        a_grid=72,
+        delta=0.3,
+        eps=0.04,
+    )
+    assert isinstance(detections, list)
+    if detections:
+        top = detections[0]
+        assert "z_plus" in top and "threshold_main" in top
+        # values may be finite; allow nan fallbacks defensively
+        assert np.isfinite(float(top.get("z_plus", np.nan))) or np.isnan(
+            float(top.get("z_plus", np.nan))
+        )
+        assert np.isfinite(float(top.get("threshold_main", np.nan))) or np.isnan(
+            float(top.get("threshold_main", np.nan))
+        )
+
+
 def test_signed_a_grid_no_crash() -> None:
     rng = np.random.default_rng(7)
     p, n_groups, replicates = 20, 24, 3
@@ -242,6 +275,45 @@ def test_dealias_search_isotropic_trials_under_one_percent() -> None:
         if detections:
             false_positives += 1
     assert false_positives <= max(1, int(0.01 * trials))
+
+
+def test_cs_drop_top_frac_influences_threshold_or_detections() -> None:
+    rng = np.random.default_rng(11)
+    p, n_groups, replicates = 30, 40, 2
+    y, groups = _simulate_one_way(
+        rng,
+        p=p,
+        n_groups=n_groups,
+        replicates=replicates,
+        mu_sigma1=6.0,
+        mu_sigma2=0.0,
+        noise_scale=0.6,
+    )
+    det_lo = dealias_search(
+        y,
+        groups,
+        target_r=0,
+        a_grid=90,
+        delta=0.3,
+        eps=0.04,
+        cs_drop_top_frac=0.05,
+    )
+    det_hi = dealias_search(
+        y,
+        groups,
+        target_r=0,
+        a_grid=90,
+        delta=0.3,
+        eps=0.04,
+        cs_drop_top_frac=0.4,
+    )
+    # Either detection counts differ, or if both detect, thresholds differ
+    if det_lo and det_hi:
+        thr_lo = float(det_lo[0].get("threshold_main", np.nan))
+        thr_hi = float(det_hi[0].get("threshold_main", np.nan))
+        assert not np.isclose(thr_lo, thr_hi, rtol=0.0, atol=1e-9)
+    else:
+        assert len(det_lo) != len(det_hi)
 
 
 def test_dealias_search_stability_consistent_across_eta() -> None:

@@ -147,7 +147,17 @@ De-aliasing only substitutes selected spike magnitudes in \(\widehat{\Sigma}_1\)
 - Recommended equity defaults: `dealias_delta=0.0`, `dealias_delta_frac=0.03`, `dealias_eps=0.03`, `stability_eta_deg=0.4`, `cs_drop_top_frac=0.05`, `signed_a=true`, `a_grid=144`.
 - Equity CLI flags: `--delta-frac`, `--eps`, `--a-grid`, `--eta`, `--sigma-ablation`, `--ablations`, `--crisis`, `--no-progress`.
 
-See `METHODS.md` for a compact technical summary of Algorithm 1 and guardrails.
+See `METHODS.md` for a compact technical summary of Algorithm 1, acceptance criteria, and the weekly aggregation identity.
+
+## Recommended equity knobs
+
+- Conservative (fewer false positives): `dealias_delta_frac=0.03`, `dealias_eps=0.03`, `stability_eta_deg=0.4`, `a_grid=144`, `signed_a=true`.
+- Tuned demo (more detections): `--delta-frac 0.02 --eps 0.02 --eta 0.2 --a-grid 180 --signed-a`.
+- Crisis subperiods often reveal outliers; use `--crisis "YYYY-MM-DD:YYYY-MM-DD"` (e.g., early 2020).
+
+## Baselines
+
+Alongside Aliased/De-aliased, we compare Ledoit–Wolf and (when applicable) sample covariance (SCM). The equity runner emits all methods’ errors and coverage.
 
 ## Citation
 

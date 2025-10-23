@@ -55,6 +55,7 @@ DEFAULT_CONFIG = {
     "cs_drop_top_frac": 0.1,
     "target_component": 0,
     "a_grid": 120,
+    "dealias_eps": 0.05,
 }
 
 
@@ -591,6 +592,7 @@ def _run_single_period(
             use_tvector=True,
             nonnegative_a=not signed_a,
             a_grid=int(a_grid),
+            cs_drop_top_frac=float(cs_drop_top_frac),
         )
 
         fit_matrix = fit.to_numpy(dtype=np.float64)
@@ -621,12 +623,35 @@ def _run_single_period(
             window_record["top_a0"] = float(top["a"][0])
             window_record["top_a1"] = float(top["a"][1])
             window_record["top_stability_margin"] = float(top["stability_margin"])
+            # Optional diagnostics populated by dealias_search
+            window_record["top_z_plus"] = (
+                float(top.get("z_plus", np.nan))
+                if isinstance(top, dict)
+                else float("nan")
+            )
+            window_record["top_threshold_main"] = (
+                float(top.get("threshold_main", np.nan))
+                if isinstance(top, dict)
+                else float("nan")
+            )
         else:
             window_record["top_lambda_hat"] = float("nan")
             window_record["top_mu_hat"] = float("nan")
             window_record["top_a0"] = float("nan")
             window_record["top_a1"] = float("nan")
             window_record["top_stability_margin"] = float("nan")
+            window_record["top_z_plus"] = float("nan")
+            window_record["top_threshold_main"] = float("nan")
+
+        # Always record the top aliased Σ1 eigenvalue (for E2-alt)
+        try:
+            stats_local = mean_squares(y_fit_daily, groups_fit)
+            sigma1_local = stats_local["Sigma1_hat"].astype(np.float64)
+            window_record["top_sigma1_eigval"] = float(
+                np.linalg.eigvalsh(sigma1_local)[-1]
+            )
+        except Exception:
+            window_record["top_sigma1_eigval"] = float("nan")
 
         for strategy_label, cfg in strategies.items():
             if not cfg.get("available", True):
@@ -685,12 +710,56 @@ def _run_single_period(
                 ("Aliased", forecast_alias, realised_var, alias_error),
                 ("De-aliased", forecast_dealias, realised_var, dealias_error),
                 ("Ledoit-Wolf", forecast_lw, realised_var_lw, lw_error),
+                (
+                    "SCM",
+                    oos_variance_forecast(
+                        fit_matrix,
+                        hold_matrix,
+                        weights,
+                        estimator="scm",
+                    )[0],
+                    oos_variance_forecast(
+                        fit_matrix,
+                        hold_matrix,
+                        weights,
+                        estimator="scm",
+                    )[1],
+                    float(
+                        (
+                            oos_variance_forecast(
+                                fit_matrix,
+                                hold_matrix,
+                                weights,
+                                estimator="scm",
+                            )[0]
+                            - oos_variance_forecast(
+                                fit_matrix,
+                                hold_matrix,
+                                weights,
+                                estimator="scm",
+                            )[1]
+                        )
+                        ** 2
+                    ),
+                ),
             ]
 
             var95_values = {
                 "Aliased": -1.65 * np.sqrt(max(forecast_alias, 0.0)),
                 "De-aliased": -1.65 * np.sqrt(max(forecast_dealias, 0.0)),
                 "Ledoit-Wolf": -1.65 * np.sqrt(max(forecast_lw, 0.0)),
+                "SCM": -1.65
+                * np.sqrt(
+                    max(
+                        oos_variance_forecast(
+                            fit_matrix,
+                            hold_matrix,
+                            weights,
+                            estimator="scm",
+                        )[0],
+                        0.0,
+                    )
+                ),
             }
 
             for estimator_name, forecast_value, realised_value, error_value in combos:
@@ -796,6 +865,9 @@ def _run_single_period(
                 "top_a0",
                 "top_a1",
                 "top_stability_margin",
+                "top_sigma1_eigval",
+                "top_z_plus",
+                "top_threshold_main",
             ]
         ].copy()
         det_summary.to_csv(output_dir / "detection_summary.csv", index=False)
@@ -813,6 +885,21 @@ def _run_single_period(
                 xlabel="Window",
                 ylabel="Spike magnitude",
             )
+        else:
+            # E2-alt: plot top aliased Σ1 eigenvalue series when no detections
+            if "top_sigma1_eigval" in det_summary.columns:
+                top_alias = det_summary["top_sigma1_eigval"].to_numpy(dtype=float)
+                if np.isfinite(top_alias).any():
+                    x_axis = np.arange(top_alias.shape[0])
+                    plot_spike_timeseries(
+                        x_axis,
+                        np.nan_to_num(top_alias, nan=np.nan),
+                        np.nan_to_num(top_alias, nan=np.nan),
+                        out_path=output_dir / "spike_timeseries.png",
+                        title=f"{label.title()} - Top aliased Σ1 eigenvalue (E2 alt)",
+                        xlabel="Window",
+                        ylabel="Eigenvalue",
+                    )
 
     summary_payload: dict[str, Any] = {
         "label": label,

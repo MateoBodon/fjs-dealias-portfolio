@@ -80,7 +80,7 @@ def oos_variance_forecast(
     y_fit: NDArray[np.float64],
     y_hold: NDArray[np.float64],
     w: NDArray[np.float64],
-    estimator: Literal["dealias", "lw"],
+    estimator: Literal["dealias", "lw", "scm"],
     **kwargs: Any,
 ) -> tuple[float, float]:
     """Compute out-of-sample variance forecasts and realised variance.
@@ -110,6 +110,12 @@ def oos_variance_forecast(
 
     if estimator == "lw":
         sigma = lw_cov(x_fit)
+    elif estimator == "scm":
+        # Unbiased sample covariance on fit data
+        if x_fit.shape[0] <= 1:
+            sigma = np.asarray(np.cov(x_fit, rowvar=False), dtype=np.float64)
+        else:
+            sigma = np.asarray(np.cov(x_fit, rowvar=False, ddof=1), dtype=np.float64)
     elif estimator == "dealias":
         sigma_emp = np.cov(x_fit, rowvar=False, ddof=1)
         clip = float(kwargs.get("clip", 1e-4))

@@ -35,6 +35,7 @@ from fjs.balanced import mean_squares
 from fjs.dealias import dealias_search
 from pairing import align_spikes
 from fjs.spectra import plot_spike_timeseries
+from plotting import s4_plot_guardrails_from_csv
 from meta.run_meta import write_run_meta
 
 DEFAULT_CONFIG = {
@@ -411,7 +412,8 @@ def s4_guardrail_analysis(
     )
     out_dir = Path(config["output_dir"])
     ensure_dir(out_dir)
-    df.to_csv(out_dir / "s4_guardrails.csv", index=False)
+    csv_path = out_dir / "s4_guardrails.csv"
+    df.to_csv(csv_path, index=False)
 
     fig, ax = plt.subplots(figsize=(6, 4))
     ax.bar(df["setting"], df["false_positive_rate"], color=["C0", "C3"])
@@ -432,6 +434,11 @@ def s4_guardrail_analysis(
     fig.savefig(out_dir / "s4_guardrails.png", bbox_inches="tight")
     fig.savefig(out_dir / "s4_guardrails.pdf", bbox_inches="tight")
     plt.close(fig)
+    # Also store S4 into experiments/<run>/figures
+    try:
+        s4_plot_guardrails_from_csv(csv_path, run="synthetic_oneway")
+    except Exception:
+        pass
     return df
 
 

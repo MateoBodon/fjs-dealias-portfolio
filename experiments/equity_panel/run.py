@@ -42,6 +42,12 @@ from fjs.balanced import mean_squares
 from fjs.dealias import dealias_search
 from fjs.mp import estimate_Cs_from_MS, mp_edge
 from fjs.spectra import plot_spectrum_with_edges, plot_spike_timeseries
+from plotting import (
+    e1_plot_spectrum_with_mp,
+    e2_plot_spike_timeseries,
+    e3_plot_var_mse,
+    e4_plot_var_coverage,
+)
 from meta.run_meta import write_run_meta
 from evaluation import check_dealiased_applied
 from evaluation.evaluate import (
@@ -433,6 +439,12 @@ def _run_single_period(
         title=plot_title,
         highlight_threshold=max(edges) if edges else None,
     )
+    # Also save E1 into experiments/<run>/figures
+    try:
+        run_name = output_dir.parents[1].name if len(output_dir.parents) >= 2 else output_dir.parent.name
+        e1_plot_spectrum_with_mp(eigenvalues, edges, run=run_name, title=plot_title)
+    except Exception:
+        pass
 
     def _equal_weight_weights(_: np.ndarray) -> np.ndarray:
         return equal_weights.copy()
@@ -728,8 +740,34 @@ def _run_single_period(
 
     if errors_for_plot:
         eval_plot_var_panel(errors_for_plot, output_dir / "E3_variance_mse")
+        # Baseline-only E3 into experiments/<run>/figures
+        try:
+            baseline_name = "Equal Weight"
+            baseline_map: dict[str, np.ndarray] = {}
+            for est in ("Aliased", "De-aliased", "Ledoit-Wolf", "DA+LW"):
+                key = f"{baseline_name}::{est}"
+                if key in errors_for_plot:
+                    baseline_map[est] = errors_for_plot[key]
+            if baseline_map:
+                run_name = output_dir.parents[1].name if len(output_dir.parents) >= 2 else output_dir.parent.name
+                e3_plot_var_mse(baseline_map, run=run_name)
+        except Exception:
+            pass
     if coverage_errors:
         eval_plot_cov_err(coverage_errors, output_dir / "E4_var95_coverage_error")
+        # Baseline-only E4 into experiments/<run>/figures
+        try:
+            baseline_name = "Equal Weight"
+            cov_baseline: dict[str, float] = {}
+            for est in ("Aliased", "De-aliased", "Ledoit-Wolf", "DA+LW"):
+                key = f"{baseline_name}::{est}"
+                if key in coverage_errors:
+                    cov_baseline[est] = float(coverage_errors[key])
+            if cov_baseline:
+                run_name = output_dir.parents[1].name if len(output_dir.parents) >= 2 else output_dir.parent.name
+                e4_plot_var_coverage(cov_baseline, run=run_name)
+        except Exception:
+            pass
 
     baseline_errors_map = errors_by_combo.get(baseline_alias_key, {})
     baseline_keys = set(baseline_errors_map.keys())
@@ -785,6 +823,19 @@ def _run_single_period(
                 xlabel="Window",
                 ylabel="Spike magnitude",
             )
+            try:
+                run_name = output_dir.parents[1].name if len(output_dir.parents) >= 2 else output_dir.parent.name
+                e2_plot_spike_timeseries(
+                    x_axis,
+                    np.nan_to_num(lambda_series, nan=np.nan),
+                    np.nan_to_num(mu_series, nan=np.nan),
+                    run=run_name,
+                    title=f"{label.title()} - Aliased λ̂ vs De-aliased µ̂",
+                    xlabel="Window",
+                    ylabel="Spike magnitude",
+                )
+            except Exception:
+                pass
         else:
             # E2-alt: plot top aliased Σ1 eigenvalue series when no detections
             if "top_sigma1_eigval" in det_summary.columns:
@@ -800,6 +851,19 @@ def _run_single_period(
                         xlabel="Window",
                         ylabel="Eigenvalue",
                     )
+                    try:
+                        run_name = output_dir.parents[1].name if len(output_dir.parents) >= 2 else output_dir.parent.name
+                        e2_plot_spike_timeseries(
+                            x_axis,
+                            np.nan_to_num(top_alias, nan=np.nan),
+                            np.nan_to_num(top_alias, nan=np.nan),
+                            run=run_name,
+                            title=f"{label.title()} - Top aliased Σ1 eigenvalue (E2 alt)",
+                            xlabel="Window",
+                            ylabel="Eigenvalue",
+                        )
+                    except Exception:
+                        pass
 
     summary_payload: dict[str, Any] = {
         "label": label,

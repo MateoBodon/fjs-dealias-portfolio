@@ -22,6 +22,10 @@ dist/
 experiments/**/outputs/
 figures/
 
+# Publish fast synthetic figure previews in README
+!figures/synthetic_fast/
+!figures/synthetic_fast/*.png
+
 # Local data drops
 data/*.csv
 

@@ -71,25 +71,25 @@ Running `make run-synth` and `make run-equity` is sufficient to refresh the full
 
 ### Embedded previews
 
-Note: The paths below point to locally generated artefacts. By default, `figures/` and `experiments/**/outputs/` are git-ignored (see `.gitignore`). If you want these images to render on GitHub, commit selected outputs or adjust ignore rules.
+Note: The paths below point to locally generated artefacts. We now publish the fast synthetic previews (figures/synthetic_fast) so they render on GitHub. Equity outputs remain local by default unless explicitly committed.
 
-#### Synthetic suite
+#### Synthetic suite (fast)
 
 S1 — Spectrum of \(\widehat{\Sigma}_1\)
 
-![S1 histogram](figures/synthetic/s1_histogram.png)
+![S1 histogram](figures/synthetic_fast/s1_histogram.png)
 
 S2 — Leading eigenvector vs. planted spike
 
-![S2 vectors](figures/synthetic/s2_vectors.png)
+![S2 vectors](figures/synthetic_fast/s2_vectors.png)
 
 S4 — Guardrail false-positive comparison
 
-![S4 guardrails](figures/synthetic/s4_guardrails.png)
+![S4 guardrails](figures/synthetic_fast/s4_guardrails.png)
 
 S5 — Multi-spike bias (aliased vs. de-aliased)
 
-![S5 multispike](figures/synthetic/s5_multispike.png)
+![S5 multispike](figures/synthetic_fast/s5_multispike.png)
 
 #### Equity panel
 

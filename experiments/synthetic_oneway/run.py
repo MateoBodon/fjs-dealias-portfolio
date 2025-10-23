@@ -17,6 +17,13 @@ import numpy as np
 import pandas as pd
 import yaml
 
+# Progress bar (fallback to no-op if unavailable)
+try:  # pragma: no cover - UI nicety
+    from tqdm import tqdm  # type: ignore
+except Exception:  # pragma: no cover - best-effort import
+    def tqdm(iterable, **kwargs):  # type: ignore
+        return iterable
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SRC_ROOT = PROJECT_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
@@ -39,6 +46,7 @@ DEFAULT_CONFIG = {
     "multi_spike_trials": 120,
     "multi_spike_strengths": [7.0, 5.0, 3.5],
     "output_dir": "figures/synthetic",
+    "progress": True,
 }
 
 
@@ -236,8 +244,11 @@ def s1_monte_carlo(config: dict[str, Any], rng: np.random.Generator) -> dict[str
     """Run the S1 Monte Carlo sweep and return summary statistics."""
     eigenvalues_accum: list[float] = []
     top_eigs: list[float] = []
-
-    for _ in range(int(config["mc"])):
+    total = int(config["mc"])
+    iterator = range(total)
+    if bool(config.get("progress", True)):
+        iterator = tqdm(iterator, desc="S1 Monte Carlo", unit="trial")  # type: ignore
+    for _ in iterator:
         y_mat, groups = simulate_panel(
             rng,
             n_assets=config["n_assets"],
@@ -275,8 +286,10 @@ def s3_bias(config: dict[str, Any], rng: np.random.Generator) -> pd.DataFrame:
         aliased_vals: list[float] = []
         dealiased_vals: list[float] = []
         detects = 0
-
-        for _ in range(mc):
+        inner = range(mc)
+        if bool(config.get("progress", True)):
+            inner = tqdm(inner, desc=f"S3 µ={spike} trials", unit="trial")  # type: ignore
+        for _ in inner:
             y_mat, groups = simulate_panel(
                 rng,
                 n_assets=config["n_assets"],
@@ -333,7 +346,10 @@ def s4_guardrail_analysis(
 
     default_hits = 0
     lax_hits = 0
-    for _ in range(trials):
+    iterator = range(trials)
+    if bool(config.get("progress", True)):
+        iterator = tqdm(iterator, desc="S4 guardrails", unit="trial")  # type: ignore
+    for _ in iterator:
         y_mat, groups = simulate_panel(
             rng,
             n_assets=config["n_assets"],
@@ -427,7 +443,10 @@ def s5_multi_spike_bias(
     dealiased_store: list[list[float]] = [[] for _ in range(k)]
     detection_counts = np.zeros(k, dtype=np.int64)
 
-    for _ in range(trials):
+    iterator = range(trials)
+    if bool(config.get("progress", True)):
+        iterator = tqdm(iterator, desc="S5 multi-spike", unit="trial")  # type: ignore
+    for _ in iterator:
         y_mat, groups, dirs = simulate_multi_spike(
             rng,
             n_assets=config["n_assets"],
@@ -558,10 +577,17 @@ def run_experiment(
     config_path: Path | str | None = None,
     *,
     seed: int | None = None,
+    progress: bool | None = None,
 ) -> None:
     """Execute the S1/S3 synthetic experiments."""
 
     config = load_config(Path(config_path) if config_path else None)
+    # Resolve progress preference
+    if progress is not None:
+        config["progress"] = bool(progress)
+    else:
+        config["progress"] = bool(config.get("progress", True))
+
     output_dir = Path(config["output_dir"])
     ensure_dir(output_dir)
 
@@ -591,8 +617,13 @@ def main() -> None:
         help="Optional YAML config",
     )
     parser.add_argument("--seed", type=int, default=0, help="Random seed")
+    parser.add_argument(
+        "--no-progress",
+        action="store_true",
+        help="Disable progress bars",
+    )
     args = parser.parse_args()
-    run_experiment(args.config, seed=args.seed)
+    run_experiment(args.config, seed=args.seed, progress=(not args.no_progress))
 
 
 if __name__ == "__main__":

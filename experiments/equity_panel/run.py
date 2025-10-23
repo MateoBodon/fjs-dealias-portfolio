@@ -20,6 +20,13 @@ SRC_ROOT = PROJECT_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
+# Progress bar (fallback to no-op if unavailable)
+try:  # pragma: no cover - UI nicety
+    from tqdm import tqdm  # type: ignore
+except Exception:  # pragma: no cover - best-effort import
+    def tqdm(iterable, **kwargs):  # type: ignore
+        return iterable
+
 from finance.eval import (
     oos_variance_forecast,
     risk_metrics,
@@ -268,6 +275,7 @@ def _run_single_period(
     cs_drop_top_frac: float,
     sigma_ablation: bool,
     label: str,
+    progress: bool = True,
 ) -> None:
     """Execute the rolling evaluation for a single date range."""
 
@@ -351,9 +359,16 @@ def _run_single_period(
     var_forecasts_de_baseline: list[float] = []
     var_forecasts_lw_baseline: list[float] = []
 
-    for window_idx, (fit, hold) in enumerate(
-        rolling_windows(weekly_balanced, window_weeks, horizon_weeks)
-    ):
+    total_windows = weekly_balanced.shape[0] - (window_weeks + horizon_weeks) + 1
+    window_iter = rolling_windows(weekly_balanced, window_weeks, horizon_weeks)
+    if progress and total_windows > 0:
+        window_iter = tqdm(
+            window_iter,
+            total=total_windows,
+            desc=f"Rolling windows ({label})",
+            unit="window",
+        )  # type: ignore
+    for window_idx, (fit, hold) in enumerate(window_iter):
         if hold.empty:
             continue
 
@@ -704,6 +719,7 @@ def run_experiment(
     signed_a_override: bool | None = None,
     target_component_override: int | None = None,
     cs_drop_top_frac_override: float | None = None,
+    progress_override: bool | None = None,
 ) -> None:
     """Execute the rolling equity forecasting experiment."""
 
@@ -781,6 +797,7 @@ def run_experiment(
             cs_drop_top_frac=float(config.get("cs_drop_top_frac", 0.1)),
             sigma_ablation=bool(run_cfg["sigma_ablation"]),
             label=str(run_cfg["label"]),
+            progress=(True if progress_override is None else bool(progress_override)),
         )
 
 
@@ -828,6 +845,11 @@ def main() -> None:
         default=None,
         help="Fraction of top eigenvalues dropped when estimating Cs",
     )
+    parser.add_argument(
+        "--no-progress",
+        action="store_true",
+        help="Disable progress bars",
+    )
     args = parser.parse_args()
 
     run_experiment(
@@ -838,6 +860,7 @@ def main() -> None:
         signed_a_override=args.signed_a,
         target_component_override=args.target_component,
         cs_drop_top_frac_override=args.cs_drop_top_frac,
+        progress_override=(not args.no_progress),
     )
 
 

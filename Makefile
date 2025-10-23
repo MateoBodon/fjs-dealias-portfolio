@@ -22,6 +22,11 @@ test-fast:
 test-all:
 	pytest -q -n auto || pytest -q
 
+.PHONY: test-progress
+test-progress:
+	# Verbose output with progress bar (pytest-sugar), parallel if available
+	pytest -v -n auto || pytest -v
+
 run-synth:
 	python experiments/synthetic_oneway/run.py
 

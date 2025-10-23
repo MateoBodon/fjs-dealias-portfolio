@@ -50,6 +50,9 @@ highlighting why both the aliased and de-aliased estimators must target the same
 - Only the slow group (for targeted checks):
   - `pytest -m slow -n auto`
 
+Progress bar (local)
+- Install dev deps (`make setup`), then run `make test-progress` for a progress bar and verbose output provided by `pytest-sugar`. This works with `-n auto` (parallel) and is handy during local iteration. CI logs typically prefer minimal output, so use progress locally.
+
 Optional fast mode for slow tests
 - Set `FAST_TESTS=1` to reduce angle grid sizes (`a_grid`) and trial counts in the heaviest property-style tests while preserving their intent. Without `FAST_TESTS`, slow tests run at their original strict settings.
 - Examples:

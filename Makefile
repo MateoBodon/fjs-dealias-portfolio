@@ -20,3 +20,8 @@ run-synth:
 
 run-equity:
 	python experiments/equity_panel/run.py
+
+.PHONY: figures
+figures: ## regenerate all figures (synthetic + equity)
+	python experiments/synthetic_oneway/run.py
+	python experiments/equity_panel/run.py

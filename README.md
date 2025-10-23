@@ -63,9 +63,12 @@ The equity configuration file (`experiments/equity_panel/config.yaml`) mirrors t
   `figures/synthetic/bias_table.csv`, `figures/synthetic/summary.json` – tabulated S1–S5 metrics.
 
 - **Equity panel:**  
-  `experiments/equity_panel/outputs/E3_variance_mse.(png|pdf)` – variance forecast MSE comparison.  
-  `experiments/equity_panel/outputs/E4_var95_coverage_error.(png|pdf)` – VaR coverage error bars.  
-  `experiments/equity_panel/outputs/rolling_results.csv`, `metrics_summary.csv`, `summary.json` – per-window diagnostics (`n_detections`, forecasts, realised risk).
+  `experiments/equity_panel/outputs/spectrum.(png|pdf)` – weekly covariance spectrum with MP edge and highlighted outliers.  
+  `experiments/equity_panel/outputs/spike_timeseries.png` – E2: aliased λ̂ vs de‑aliased µ̂ over windows (if detections occur).  
+  `experiments/equity_panel/outputs/E3_variance_mse.(png|pdf)` – E3: variance forecast MSE comparison.  
+  `experiments/equity_panel/outputs/E4_var95_coverage_error.(png|pdf)` – E4: VaR coverage error bars.  
+  `experiments/equity_panel/outputs/ablation_summary.csv`, `E5_ablation_eta*.png` – E5: parameter ablations (delta_frac, eps, a_grid, eta) surfaces.  
+  `experiments/equity_panel/outputs/rolling_results.csv`, `metrics_summary.csv`, `detection_summary.csv`, `summary.json` – per-window diagnostics (detections and forecasts).
 
 Running `make run-synth` and `make run-equity` is sufficient to refresh the full gallery.
 
@@ -113,6 +116,10 @@ E4 — 95% VaR coverage error
 
 ![E4 VaR coverage error](experiments/equity_panel/outputs/E4_var95_coverage_error.png)
 
+E5 — Parameter ablations (example)
+
+![E5 ablations](experiments/equity_panel/outputs/E5_ablation_eta0.4.png)
+
 Rolling overlays — variance and VaR forecasts (baseline vs. de-aliased)
 
 ![Variance forecasts](experiments/equity_panel/outputs/variance_forecasts.png)
@@ -134,6 +141,13 @@ De-aliasing only substitutes selected spike magnitudes in \(\widehat{\Sigma}_1\)
 - **δ-buffer:** candidate spikes must exceed the Marčenko–Pastur bulk edge plus a safety buffer before they are considered.
 - **Angular stability:** every accepted spike must persist when the search direction \(a\) is rotated by ±η degrees.
 - **Cluster merge:** detections with nearby \(\hat{\mu}\) values are merged; the most stable representative is kept.
+
+## Recommended defaults and CLI flags
+
+- Recommended equity defaults: `dealias_delta=0.0`, `dealias_delta_frac=0.03`, `dealias_eps=0.03`, `stability_eta_deg=0.4`, `cs_drop_top_frac=0.05`, `signed_a=true`, `a_grid=144`.
+- Equity CLI flags: `--delta-frac`, `--eps`, `--a-grid`, `--eta`, `--sigma-ablation`, `--ablations`, `--crisis`, `--no-progress`.
+
+See `METHODS.md` for a compact technical summary of Algorithm 1 and guardrails.
 
 ## Citation
 

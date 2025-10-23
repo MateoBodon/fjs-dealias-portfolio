@@ -24,8 +24,10 @@ if str(SRC_ROOT) not in sys.path:
 try:  # pragma: no cover - UI nicety
     from tqdm import tqdm  # type: ignore
 except Exception:  # pragma: no cover - best-effort import
+
     def tqdm(iterable, **kwargs):  # type: ignore
         return iterable
+
 
 from finance.eval import (
     oos_variance_forecast,
@@ -34,7 +36,7 @@ from finance.eval import (
     variance_forecast_from_components,
 )
 from finance.io import load_prices_csv, to_daily_returns
-from finance.portfolios import equal_weight, min_variance_box
+from finance.portfolios import equal_weight, min_variance_box, minimum_variance
 from finance.returns import balance_weeks, weekly_panel
 from fjs.balanced import mean_squares
 from fjs.dealias import dealias_search
@@ -52,6 +54,7 @@ DEFAULT_CONFIG = {
     "signed_a": True,
     "cs_drop_top_frac": 0.1,
     "target_component": 0,
+    "a_grid": 120,
 }
 
 
@@ -113,6 +116,176 @@ def _prepare_data(config: dict[str, Any]) -> pd.DataFrame:
 
     prices = load_prices_csv(str(data_path))
     return to_daily_returns(prices)
+
+
+def _run_param_ablation(
+    daily_returns: pd.DataFrame,
+    output_dir: Path,
+    *,
+    target_component: int,
+    base_delta: float,
+    base_delta_frac: float | None,
+    base_eps: float,
+    base_eta: float,
+    signed_a: bool,
+) -> None:
+    """Grid sweep over detection parameters; emit CSV and heatmaps (E5).
+
+    This routine uses a shorter rolling setup for speed and reproducibility.
+    """
+
+    weekly_balanced, week_map, replicates, _ = _balanced_weekly_panel(daily_returns)
+    # Use a compact rolling scheme for ablations
+    # Choose a compact rolling setup that guarantees at least one window when possible
+    total_weeks = int(weekly_balanced.shape[0])
+    horizon_weeks = 1
+    window_weeks = max(4, min(12, max(2, total_weeks - horizon_weeks)))
+    windows = (
+        list(rolling_windows(weekly_balanced, window_weeks, horizon_weeks))
+        if total_weeks > horizon_weeks
+        else []
+    )
+    if not windows:
+        # Emit an empty summary so callers can rely on the artifact
+        empty = pd.DataFrame(
+            columns=[
+                "delta_frac",
+                "eps",
+                "a_grid",
+                "eta",
+                "detection_rate",
+                "mse_alias",
+                "mse_de",
+            ]
+        )
+        empty.to_csv(output_dir / "ablation_summary.csv", index=False)
+        return
+
+    delta_fracs = [0.02, 0.03, 0.05]
+    eps_vals = [0.02, 0.03, 0.05]
+    a_grids = [72, 120, 144]
+    etas = [0.4, 1.0]
+
+    records: list[dict[str, Any]] = []
+    for df in delta_fracs:
+        for eps in eps_vals:
+            for ag in a_grids:
+                for eta in etas:
+                    det_count = 0
+                    mse_alias_list: list[float] = []
+                    mse_de_list: list[float] = []
+                    for fit, hold in windows:
+                        fit_blocks = [
+                            week_map[idx] for idx in fit.index if idx in week_map
+                        ]
+                        hold_blocks = [
+                            week_map[idx] for idx in hold.index if idx in week_map
+                        ]
+                        if len(fit_blocks) != len(fit.index) or len(hold_blocks) != len(
+                            hold.index
+                        ):
+                            continue
+                        y_fit_daily = np.vstack(fit_blocks)
+                        y_hold_daily = np.vstack(hold_blocks)
+                        groups_fit = np.repeat(np.arange(len(fit_blocks)), replicates)
+                        detections = dealias_search(
+                            y_fit_daily,
+                            groups_fit,
+                            target_r=target_component,
+                            delta=0.0,
+                            delta_frac=df,
+                            eps=eps,
+                            stability_eta_deg=eta,
+                            use_tvector=True,
+                            nonnegative_a=not signed_a,
+                            a_grid=int(ag),
+                        )
+                        det_count += int(bool(detections))
+                        # Equal-weight weights for speed/consistency
+                        w = np.full(
+                            y_fit_daily.shape[1],
+                            1.0 / y_fit_daily.shape[1],
+                            dtype=np.float64,
+                        )
+                        f_alias, r_alias = variance_forecast_from_components(
+                            y_fit_daily, y_hold_daily, replicates, w
+                        )
+                        f_de, r_de = variance_forecast_from_components(
+                            y_fit_daily,
+                            y_hold_daily,
+                            replicates,
+                            w,
+                            detections=detections,
+                        )
+                        realized = r_de if np.isfinite(r_de) else r_alias
+                        if np.isfinite(realized):
+                            mse_alias_list.append(float((f_alias - realized) ** 2))
+                            mse_de_list.append(float((f_de - realized) ** 2))
+
+                    record = {
+                        "delta_frac": df,
+                        "eps": eps,
+                        "a_grid": int(ag),
+                        "eta": eta,
+                        "detection_rate": det_count / max(len(windows), 1),
+                        "mse_alias": (
+                            float(np.mean(mse_alias_list))
+                            if mse_alias_list
+                            else float("nan")
+                        ),
+                        "mse_de": (
+                            float(np.mean(mse_de_list)) if mse_de_list else float("nan")
+                        ),
+                    }
+                    records.append(record)
+
+    ablation_df = pd.DataFrame(records)
+    ablation_df.to_csv(output_dir / "ablation_summary.csv", index=False)
+
+    # Simple heatmaps for detection rate and MSE delta at a fixed eta
+    try:
+        for eta in etas:
+            subset = ablation_df[ablation_df["eta"] == eta]
+            if subset.empty:
+                continue
+            pivot_det = subset.pivot_table(
+                index="delta_frac",
+                columns="eps",
+                values="detection_rate",
+                aggfunc="mean",
+            )
+            # Compute mean MSE gain matrix explicitly to avoid closure over loop var
+            mse_gain = subset.copy()
+            mse_gain["mse_gain"] = mse_gain["mse_alias"] - mse_gain["mse_de"]
+            pivot_gain = mse_gain.pivot_table(
+                index="delta_frac",
+                columns="eps",
+                values="mse_gain",
+                aggfunc=lambda s: float(np.nanmean(s)),
+            )
+            fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+            im0 = axes[0].imshow(pivot_det.values, cmap="viridis", aspect="auto")
+            axes[0].set_title(f"Detection rate (eta={eta})")
+            axes[0].set_xticks(range(pivot_det.shape[1]))
+            axes[0].set_xticklabels(pivot_det.columns)
+            axes[0].set_yticks(range(pivot_det.shape[0]))
+            axes[0].set_yticklabels(pivot_det.index)
+            fig.colorbar(im0, ax=axes[0])
+            im1 = axes[1].imshow(pivot_gain.values, cmap="RdBu", aspect="auto")
+            axes[1].set_title(f"MSE gain (alias - de) (eta={eta})")
+            axes[1].set_xticks(range(pivot_gain.shape[1]))
+            axes[1].set_xticklabels(pivot_gain.columns)
+            axes[1].set_yticks(range(pivot_gain.shape[0]))
+            axes[1].set_yticklabels(pivot_gain.index)
+            fig.colorbar(im1, ax=axes[1])
+            fig.tight_layout()
+            fig.savefig(
+                output_dir / f"E5_ablation_eta{eta:.1f}.png", bbox_inches="tight"
+            )
+            plt.close(fig)
+    except Exception:
+        # Best-effort plotting; CSV is the primary artifact
+        pass
 
 
 def _iqr(values: list[float] | np.ndarray) -> float:
@@ -197,7 +370,7 @@ def _plot_coverage_error(coverage_errors: dict[str, float], base_path: Path) -> 
     methods = list(coverage_errors.keys())
     values = [coverage_errors[m] for m in methods]
     fig, ax = plt.subplots(figsize=(9, 4.8))
-    bars = ax.bar(methods, values, color=[f"C{i}" for i in range(len(methods))])
+    ax.bar(methods, values, color=[f"C{i}" for i in range(len(methods))])
     ax.axhline(0.0, color="black", linestyle=":", linewidth=1.0)
     ax.set_ylabel("Coverage error")
     ax.set_title("E4: 95% VaR coverage error")
@@ -287,6 +460,7 @@ def _run_single_period(
     sigma_ablation: bool,
     label: str,
     progress: bool = True,
+    a_grid: int = 120,
 ) -> None:
     """Execute the rolling evaluation for a single date range."""
 
@@ -330,12 +504,14 @@ def _run_single_period(
         edges=edges,
         out_path=output_dir / "spectrum.png",
         title=plot_title,
+        highlight_threshold=max(edges) if edges else None,
     )
     plot_spectrum_with_edges(
         eigenvalues,
         edges=edges,
         out_path=output_dir / "spectrum.pdf",
         title=plot_title,
+        highlight_threshold=max(edges) if edges else None,
     )
 
     def _equal_weight_weights(_: np.ndarray) -> np.ndarray:
@@ -344,6 +520,13 @@ def _run_single_period(
     def _min_var_weights(covariance: np.ndarray) -> np.ndarray:
         result = min_variance_box(covariance, lb=-0.02, ub=0.02)
         return np.asarray(result.weights, dtype=np.float64)
+
+    def _min_var_longonly_weights(covariance: np.ndarray) -> np.ndarray:
+        try:
+            result = minimum_variance(covariance, allow_short=False)
+            return np.asarray(result.weights, dtype=np.float64)
+        except ImportError:
+            raise
 
     strategies: dict[str, dict[str, Any]] = {
         "Equal Weight": {
@@ -354,6 +537,11 @@ def _run_single_period(
         "Min-Variance (box)": {
             "prefix": "mv",
             "get_weights": _min_var_weights,
+            "available": True,
+        },
+        "Min-Variance (long-only)": {
+            "prefix": "mvlo",
+            "get_weights": _min_var_longonly_weights,
             "available": True,
         },
     }
@@ -402,6 +590,7 @@ def _run_single_period(
             stability_eta_deg=stability_eta,
             use_tvector=True,
             nonnegative_a=not signed_a,
+            a_grid=int(a_grid),
         )
 
         fit_matrix = fit.to_numpy(dtype=np.float64)
@@ -420,6 +609,24 @@ def _run_single_period(
             "hold_end": hold.index[-1],
             "n_detections": len(detections),
         }
+
+        # Log top detection (by lambda_hat) for diagnostics/time series
+        if detections:
+            det_sorted = sorted(
+                detections, key=lambda d: float(d["lambda_hat"]), reverse=True
+            )
+            top = det_sorted[0]
+            window_record["top_lambda_hat"] = float(top["lambda_hat"])
+            window_record["top_mu_hat"] = float(top["mu_hat"])
+            window_record["top_a0"] = float(top["a"][0])
+            window_record["top_a1"] = float(top["a"][1])
+            window_record["top_stability_margin"] = float(top["stability_margin"])
+        else:
+            window_record["top_lambda_hat"] = float("nan")
+            window_record["top_mu_hat"] = float("nan")
+            window_record["top_a0"] = float("nan")
+            window_record["top_a1"] = float("nan")
+            window_record["top_stability_margin"] = float("nan")
 
         for strategy_label, cfg in strategies.items():
             if not cfg.get("available", True):
@@ -574,6 +781,38 @@ def _run_single_period(
 
     results_df = pd.DataFrame(records)
     results_df.to_csv(output_dir / "rolling_results.csv", index=False)
+
+    # Persist detection summary and spike timeseries (E2)
+    if not results_df.empty and "top_lambda_hat" in results_df.columns:
+        det_summary = results_df[
+            [
+                "fit_start",
+                "fit_end",
+                "hold_start",
+                "hold_end",
+                "n_detections",
+                "top_lambda_hat",
+                "top_mu_hat",
+                "top_a0",
+                "top_a1",
+                "top_stability_margin",
+            ]
+        ].copy()
+        det_summary.to_csv(output_dir / "detection_summary.csv", index=False)
+
+        lambda_series = det_summary["top_lambda_hat"].to_numpy(dtype=float)
+        mu_series = det_summary["top_mu_hat"].to_numpy(dtype=float)
+        if np.isfinite(lambda_series).any() and np.isfinite(mu_series).any():
+            x_axis = np.arange(lambda_series.shape[0])
+            plot_spike_timeseries(
+                x_axis,
+                np.nan_to_num(lambda_series, nan=np.nan),
+                np.nan_to_num(mu_series, nan=np.nan),
+                out_path=output_dir / "spike_timeseries.png",
+                title=f"{label.title()} - Aliased λ̂ vs De-aliased µ̂",
+                xlabel="Window",
+                ylabel="Spike magnitude",
+            )
 
     summary_payload: dict[str, Any] = {
         "label": label,
@@ -731,6 +970,10 @@ def run_experiment(
     target_component_override: int | None = None,
     cs_drop_top_frac_override: float | None = None,
     progress_override: bool | None = None,
+    eps_override: float | None = None,
+    a_grid_override: int | None = None,
+    ablations: bool | None = None,
+    eta_override: float | None = None,
 ) -> None:
     """Execute the rolling equity forecasting experiment."""
 
@@ -748,10 +991,23 @@ def run_experiment(
         config["target_component"] = int(target_component_override)
     if cs_drop_top_frac_override is not None:
         config["cs_drop_top_frac"] = float(cs_drop_top_frac_override)
+    if eps_override is not None:
+        config["dealias_eps"] = float(eps_override)
+    if a_grid_override is not None:
+        config["a_grid"] = int(a_grid_override)
+    if eta_override is not None:
+        config["stability_eta_deg"] = float(eta_override)
+    # Values from YAML remain if overrides not provided
     daily_returns = _prepare_data(config)
 
     output_dir = Path(config["output_dir"])
     output_dir.mkdir(parents=True, exist_ok=True)
+    # Persist resolved configuration for reproducibility
+    try:
+        with (output_dir / "config_resolved.yaml").open("w", encoding="utf-8") as fh:
+            yaml.safe_dump(config, fh, sort_keys=True)
+    except Exception:
+        pass
 
     runs: list[dict[str, Any]] = [
         {
@@ -809,6 +1065,20 @@ def run_experiment(
             sigma_ablation=bool(run_cfg["sigma_ablation"]),
             label=str(run_cfg["label"]),
             progress=(True if progress_override is None else bool(progress_override)),
+            a_grid=int(config.get("a_grid", 120)),
+        )
+
+    # Parameter ablations (E5)
+    if bool(ablations):
+        _run_param_ablation(
+            daily_returns,
+            output_dir,
+            target_component=int(config.get("target_component", 0)),
+            base_delta=float(config.get("dealias_delta", 0.0)),
+            base_delta_frac=cast(float | None, config.get("dealias_delta_frac")),
+            base_eps=float(config.get("dealias_eps", 0.03)),
+            base_eta=float(config.get("stability_eta_deg", 0.4)),
+            signed_a=bool(config.get("signed_a", True)),
         )
 
 
@@ -840,6 +1110,24 @@ def main() -> None:
         help="Relative delta buffer (fraction of MP edge)",
     )
     parser.add_argument(
+        "--eps",
+        type=float,
+        default=None,
+        help="t-vector acceptance threshold (epsilon)",
+    )
+    parser.add_argument(
+        "--a-grid",
+        type=int,
+        default=None,
+        help="Number of angular grid points for a (S^1)",
+    )
+    parser.add_argument(
+        "--eta",
+        type=float,
+        default=None,
+        help="Stability perturbation in degrees",
+    )
+    parser.add_argument(
         "--signed-a",
         action="store_true",
         help="Enable signed a-grid search (default true)",
@@ -861,6 +1149,11 @@ def main() -> None:
         action="store_true",
         help="Disable progress bars",
     )
+    parser.add_argument(
+        "--ablations",
+        action="store_true",
+        help="Run parameter ablations and emit E5 outputs",
+    )
     args = parser.parse_args()
 
     run_experiment(
@@ -872,6 +1165,10 @@ def main() -> None:
         target_component_override=args.target_component,
         cs_drop_top_frac_override=args.cs_drop_top_frac,
         progress_override=(not args.no_progress),
+        eps_override=args.eps,
+        a_grid_override=args.a_grid,
+        ablations=args.ablations,
+        eta_override=args.eta,
     )
 
 

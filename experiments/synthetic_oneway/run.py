@@ -21,8 +21,10 @@ import yaml
 try:  # pragma: no cover - UI nicety
     from tqdm import tqdm  # type: ignore
 except Exception:  # pragma: no cover - best-effort import
+
     def tqdm(iterable, **kwargs):  # type: ignore
         return iterable
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SRC_ROOT = PROJECT_ROOT / "src"
@@ -437,10 +439,10 @@ def s5_multi_spike_bias(
     stability = float(config.get("stability_eta_deg", 1.0))
     k = len(spike_strengths)
 
-    # Apples-to-apples: pair top-k sample eigenvalues (aliased λ̂_j)
-    # with top-k µ̂_j from detections sorted by λ̂, compare to true strengths.
+    # Pairing variants: naive top-k by λ̂ vs alignment-based pairing.
     aliased_store: list[list[float]] = [[] for _ in range(k)]
     dealiased_store: list[list[float]] = [[] for _ in range(k)]
+    dealiased_align_store: list[list[float]] = [[] for _ in range(k)]
     detection_counts = np.zeros(k, dtype=np.int64)
 
     iterator = range(trials)
@@ -472,7 +474,7 @@ def s5_multi_spike_bias(
         order = np.argsort(eigvals)[::-1]
         eigvals = eigvals[order]
 
-        # Sort detections by their lambda_hat descending to pair with eigvals
+        # Sort detections by their lambda_hat descending (naive top-k)
         det_sorted = sorted(
             detections, key=lambda d: float(d["lambda_hat"]), reverse=True
         )
@@ -485,6 +487,49 @@ def s5_multi_spike_bias(
             else:
                 aliased_store[j].append(np.nan)
                 dealiased_store[j].append(np.nan)
+
+        # Alignment-based pairing: match detections to eigenvectors by |v^T v_det|
+        if detections:
+            eigvals_full, eigvecs_full = np.linalg.eigh(sigma1)
+            order_full = np.argsort(eigvals_full)[::-1][:k]
+            v_eigs = eigvecs_full[:, order_full]
+            mu_list = [float(det["mu_hat"]) for det in detections]
+            v_det = (
+                np.column_stack(
+                    [
+                        np.asarray(det["eigvec"], dtype=np.float64).reshape(-1)
+                        for det in detections
+                    ]
+                )
+                if detections
+                else np.zeros((sigma1.shape[0], 0))
+            )
+            if v_det.size:
+                # Compute absolute overlaps and assign greedily
+                overlaps = np.abs(v_eigs.T @ v_det)
+                used_det = set()
+                for j in range(v_eigs.shape[1]):
+                    # pick remaining detection with max overlap for eigen j
+                    idxs = [
+                        (i, overlaps[j, i])
+                        for i in range(overlaps.shape[1])
+                        if i not in used_det
+                    ]
+                    if not idxs:
+                        dealiased_align_store[j].append(np.nan)
+                        continue
+                    det_idx = max(idxs, key=lambda t: t[1])[0]
+                    used_det.add(det_idx)
+                    dealiased_align_store[j].append(mu_list[det_idx])
+                # pad if fewer assigned than k
+                for j in range(v_eigs.shape[1], k):
+                    dealiased_align_store[j].append(np.nan)
+            else:
+                for j in range(k):
+                    dealiased_align_store[j].append(np.nan)
+        else:
+            for j in range(k):
+                dealiased_align_store[j].append(np.nan)
 
     # Sort true strengths descending to align with top-k pairing
     true_sorted = list(sorted([float(s) for s in spike_strengths], reverse=True))
@@ -517,6 +562,25 @@ def s5_multi_spike_bias(
     out_dir = Path(config["output_dir"])
     ensure_dir(out_dir)
     df.to_csv(out_dir / "s5_multispike.csv", index=False)
+
+    # Also persist a pairing comparison table
+    comp_rows: list[dict[str, Any]] = []
+    for j in range(k):
+        comp_rows.append(
+            {
+                "spike_index": j,
+                "aliased_bias": rows[j]["aliased_bias"],
+                "dealiased_bias_naive": rows[j]["dealiased_bias"],
+                "dealiased_bias_aligned": (
+                    float(
+                        np.nanmean(dealiased_align_store[j]) - rows[j]["true_strength"]
+                    )
+                    if np.isfinite(rows[j]["true_strength"])
+                    else np.nan
+                ),
+            }
+        )
+    pd.DataFrame(comp_rows).to_csv(out_dir / "s5_pairing_comparison.csv", index=False)
 
     indices = np.arange(len(rows))
     width = 0.35

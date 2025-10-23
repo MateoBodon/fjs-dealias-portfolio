@@ -248,8 +248,6 @@ def test_rolling_synthetic_oos_gain() -> None:
     observations = between[:, None, :] + residuals
 
     y_matrix = observations.reshape(total_weeks * replicates, p)
-    groups = np.repeat(np.arange(total_weeks), replicates)
-
     w = np.full(p, 1.0 / p, dtype=np.float64)
 
     errs_alias: list[float] = []

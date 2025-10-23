@@ -91,6 +91,8 @@ def plot_spectrum_with_edges(
     title: str | None = None,
     xlabel: str = "Eigenvalue index (descending)",
     ylabel: str = "Eigenvalue",
+    highlight_threshold: float | None = None,
+    highlight_color: str = "C3",
 ) -> Path:
     """Plot an empirical spectrum together with optional reference edge lines.
 
@@ -130,6 +132,18 @@ def plot_spectrum_with_edges(
                 linestyle="--",
                 linewidth=1.2,
                 label="MP upper edge",
+            )
+
+    if highlight_threshold is not None:
+        thr = float(highlight_threshold)
+        mask = sorted_vals > thr
+        if mask.any():
+            ax.scatter(
+                indices[mask],
+                sorted_vals[mask],
+                color=highlight_color,
+                s=30,
+                label="> edge",
             )
 
     ax.set_xlabel(xlabel)

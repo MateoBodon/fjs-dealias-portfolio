@@ -461,6 +461,7 @@ def _run_single_period(
     signed_a: bool,
     target_component: int,
     cs_drop_top_frac: float,
+    cs_sensitivity_frac: float,
     sigma_ablation: bool,
     label: str,
     progress: bool = True,
@@ -596,7 +597,7 @@ def _run_single_period(
             nonnegative_a=not signed_a,
             a_grid=int(a_grid),
             cs_drop_top_frac=float(cs_drop_top_frac),
-            cs_sensitivity_frac=float(config.get("cs_sensitivity_frac", 0.0)),
+            cs_sensitivity_frac=float(cs_sensitivity_frac),
         )
 
         fit_matrix = fit.to_numpy(dtype=np.float64)
@@ -1164,6 +1165,7 @@ def run_experiment(
             signed_a=bool(config.get("signed_a", True)),
             target_component=int(config.get("target_component", 0)),
             cs_drop_top_frac=float(config.get("cs_drop_top_frac", 0.1)),
+            cs_sensitivity_frac=float(config.get("cs_sensitivity_frac", 0.0)),
             sigma_ablation=bool(run_cfg["sigma_ablation"]),
             label=str(run_cfg["label"]),
             progress=(True if progress_override is None else bool(progress_override)),

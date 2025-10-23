@@ -28,6 +28,9 @@ except Exception:  # pragma: no cover - best-effort import
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SRC_ROOT = PROJECT_ROOT / "src"
+# Ensure both project root (for top-level utilities like pairing.py) and src are importable
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
@@ -253,10 +256,7 @@ def s1_monte_carlo(config: dict[str, Any], rng: np.random.Generator) -> dict[str
     iterator = range(total)
     if bool(config.get("progress", True)):
         iterator = tqdm(iterator, desc="S1 Monte Carlo", unit="trial")  # type: ignore
-    # Pre-compute truth order (descending strength) to keep alignment consistent
-    truth_strengths = np.asarray(spike_strengths, dtype=np.float64)
-    truth_order = np.argsort(truth_strengths)[::-1]
-    truth_sorted = truth_strengths[truth_order].tolist()
+    # S1 uses a single spike strength; no multi-spike truth ordering needed here.
 
     for _ in iterator:
         y_mat, groups = simulate_panel(

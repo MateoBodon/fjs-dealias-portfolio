@@ -3,4 +3,10 @@ n_assets: 60
 n_samples: 600
 signal_to_noise: 0.5
 noise_variance: 1.0
-spike_strength: 3.0
+spike_strength: 6.0
+# Speed controls for figure regeneration
+mc: 60               # trials for S1/S3 Monte Carlo
+guardrail_trials: 80 # trials for S4 guardrails
+multi_spike_trials: 60
+snr_grid: [4.0, 6.0]
+progress: false

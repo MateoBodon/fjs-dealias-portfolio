@@ -63,12 +63,11 @@ The equity configuration file (`experiments/equity_panel/config.yaml`) mirrors t
   `figures/synthetic/bias_table.csv`, `figures/synthetic/summary.json` – tabulated S1–S5 metrics.
 
 - **Equity panel:**  
-  `experiments/equity_panel/outputs/spectrum.(png|pdf)` – weekly covariance spectrum with MP edge and highlighted outliers.  
-  `experiments/equity_panel/outputs/spike_timeseries.png` – E2: aliased λ̂ vs de‑aliased µ̂ over windows (if detections occur).  
-  `experiments/equity_panel/outputs/E3_variance_mse.(png|pdf)` – E3: variance forecast MSE comparison.  
-  `experiments/equity_panel/outputs/E4_var95_coverage_error.(png|pdf)` – E4: VaR coverage error bars.  
-  `experiments/equity_panel/outputs/ablation_summary.csv`, `E5_ablation_eta*.png` – E5: parameter ablations (delta_frac, eps, a_grid, eta) surfaces.  
-  `experiments/equity_panel/outputs/rolling_results.csv`, `metrics_summary.csv`, `detection_summary.csv`, `summary.json` – per-window diagnostics (detections and forecasts).
+  `experiments/equity_panel/outputs/spectrum.(png|pdf)` – weekly covariance spectrum.  
+  `experiments/equity_panel/outputs/E3_variance_mse.(png|pdf)` – variance forecast MSE comparison.  
+  `experiments/equity_panel/outputs/E4_var95_coverage_error.(png|pdf)` – VaR coverage error bars.  
+  `experiments/equity_panel/outputs/variance_forecasts.png`, `var95_forecasts.png` – forecast time‑series overlays (baseline vs de‑aliased).  
+  `experiments/equity_panel/outputs/rolling_results.csv`, `metrics_summary.csv`, `summary.json` – per‑window diagnostics (detections, forecasts, realised risk).
 
 Running `make run-synth` and `make run-equity` is sufficient to refresh the full gallery.
 
@@ -116,9 +115,7 @@ E4 — 95% VaR coverage error
 
 ![E4 VaR coverage error](experiments/equity_panel/outputs/E4_var95_coverage_error.png)
 
-E5 — Parameter ablations (example)
-
-![E5 ablations](experiments/equity_panel/outputs/E5_ablation_eta0.4.png)
+<!-- E5 ablation visuals are not generated in this repo version; omitted from preview. -->
 
 Rolling overlays — variance and VaR forecasts (baseline vs. de-aliased)
 

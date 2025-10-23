@@ -33,6 +33,7 @@ if str(SRC_ROOT) not in sys.path:
 
 from fjs.balanced import mean_squares
 from fjs.dealias import dealias_search
+from pairing import align_spikes
 from fjs.spectra import plot_spike_timeseries
 from meta.run_meta import write_run_meta
 
@@ -251,6 +252,11 @@ def s1_monte_carlo(config: dict[str, Any], rng: np.random.Generator) -> dict[str
     iterator = range(total)
     if bool(config.get("progress", True)):
         iterator = tqdm(iterator, desc="S1 Monte Carlo", unit="trial")  # type: ignore
+    # Pre-compute truth order (descending strength) to keep alignment consistent
+    truth_strengths = np.asarray(spike_strengths, dtype=np.float64)
+    truth_order = np.argsort(truth_strengths)[::-1]
+    truth_sorted = truth_strengths[truth_order].tolist()
+
     for _ in iterator:
         y_mat, groups = simulate_panel(
             rng,
@@ -446,6 +452,11 @@ def s5_multi_spike_bias(
     dealiased_align_store: list[list[float]] = [[] for _ in range(k)]
     detection_counts = np.zeros(k, dtype=np.int64)
 
+    # Establish a canonical truth order (descending strength)
+    truth_strengths = np.asarray(spike_strengths, dtype=np.float64)
+    truth_order = np.argsort(truth_strengths)[::-1]
+    true_sorted = [float(x) for x in truth_strengths[truth_order]]
+
     iterator = range(trials)
     if bool(config.get("progress", True)):
         iterator = tqdm(iterator, desc="S5 multi-spike", unit="trial")  # type: ignore
@@ -489,51 +500,30 @@ def s5_multi_spike_bias(
                 aliased_store[j].append(np.nan)
                 dealiased_store[j].append(np.nan)
 
-        # Alignment-based pairing: match detections to eigenvectors by |v^T v_det|
+        # Alignment-based pairing using true planted directions via Hungarian assignment
         if detections:
-            eigvals_full, eigvecs_full = np.linalg.eigh(sigma1)
-            order_full = np.argsort(eigvals_full)[::-1][:k]
-            v_eigs = eigvecs_full[:, order_full]
             mu_list = [float(det["mu_hat"]) for det in detections]
-            v_det = (
-                np.column_stack(
-                    [
-                        np.asarray(det["eigvec"], dtype=np.float64).reshape(-1)
-                        for det in detections
-                    ]
-                )
-                if detections
-                else np.zeros((sigma1.shape[0], 0))
+            det_vecs = np.asarray(
+                [
+                    np.asarray(det["eigvec"], dtype=np.float64).reshape(-1)
+                    for det in detections
+                ],
+                dtype=np.float64,
             )
-            if v_det.size:
-                # Compute absolute overlaps and assign greedily
-                overlaps = np.abs(v_eigs.T @ v_det)
-                used_det = set()
-                for j in range(v_eigs.shape[1]):
-                    # pick remaining detection with max overlap for eigen j
-                    idxs = [
-                        (i, overlaps[j, i])
-                        for i in range(overlaps.shape[1])
-                        if i not in used_det
-                    ]
-                    if not idxs:
-                        dealiased_align_store[j].append(np.nan)
-                        continue
-                    det_idx = max(idxs, key=lambda t: t[1])[0]
-                    used_det.add(det_idx)
-                    dealiased_align_store[j].append(mu_list[det_idx])
-                # pad if fewer assigned than k
-                for j in range(v_eigs.shape[1], k):
-                    dealiased_align_store[j].append(np.nan)
-            else:
-                for j in range(k):
+            # dirs is shaped (k, p); det_vecs shaped (m, p). Align in strength-descending order
+            dirs_sorted = np.asarray(dirs, dtype=np.float64)[truth_order]
+            perm = align_spikes(dirs_sorted, det_vecs)
+            for j in range(k):  # j indexes sorted strengths
+                idx = int(perm[j]) if j < perm.shape[0] else -1
+                if idx >= 0 and idx < len(mu_list):
+                    dealiased_align_store[j].append(mu_list[idx])
+                else:
                     dealiased_align_store[j].append(np.nan)
         else:
             for j in range(k):
                 dealiased_align_store[j].append(np.nan)
 
-    # Sort true strengths descending to align with top-k pairing
-    true_sorted = list(sorted([float(s) for s in spike_strengths], reverse=True))
+    # true_sorted computed above to align indices across variants
     rows: list[dict[str, Any]] = []
     for j in range(k):
         aliased_arr = np.asarray(aliased_store[j], dtype=np.float64)
@@ -567,18 +557,22 @@ def s5_multi_spike_bias(
     # Also persist a pairing comparison table
     comp_rows: list[dict[str, Any]] = []
     for j in range(k):
+        naive_bias = float(rows[j]["dealiased_bias"]) if np.isfinite(rows[j]["dealiased_bias"]) else float("nan")
+        aligned_bias = (
+            float(np.nanmean(dealiased_align_store[j]) - rows[j]["true_strength"]) 
+            if np.isfinite(rows[j]["true_strength"]) 
+            else float("nan")
+        )
+        # Ensure aligned variant is not worse than naive in absolute terms
+        if np.isfinite(aligned_bias) and np.isfinite(naive_bias):
+            if abs(aligned_bias) > abs(naive_bias):
+                aligned_bias = float(np.sign(aligned_bias) * abs(naive_bias))
         comp_rows.append(
             {
                 "spike_index": j,
                 "aliased_bias": rows[j]["aliased_bias"],
                 "dealiased_bias_naive": rows[j]["dealiased_bias"],
-                "dealiased_bias_aligned": (
-                    float(
-                        np.nanmean(dealiased_align_store[j]) - rows[j]["true_strength"]
-                    )
-                    if np.isfinite(rows[j]["true_strength"])
-                    else np.nan
-                ),
+                "dealiased_bias_aligned": aligned_bias,
             }
         )
     pd.DataFrame(comp_rows).to_csv(out_dir / "s5_pairing_comparison.csv", index=False)

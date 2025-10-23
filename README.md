@@ -1,12 +1,12 @@
 # fjs-dealias-portfolio
 
-De-aliasing the spurious spikes that arise when MANOVA spectra are aliased in high-dimensional regimes yields materially better out-of-sample covariance and risk forecasts than Ledoit–Wolf shrinkage, enabling more reliable portfolio design under market noise. In a balanced one-way design with \(J\) daily replicates per week, the weekly risk of a portfolio with weights \(w\) decomposes into
+De-aliasing the spurious spikes that arise when MANOVA spectra are aliased in high-dimensional regimes yields materially better out-of-sample covariance and risk forecasts than Ledoit–Wolf shrinkage, enabling more reliable portfolio design under market noise. In a balanced one-way design with $J$ daily replicates per week, the weekly risk of a portfolio with weights $w$ decomposes into
 
-\[
+$$
 \mathbb{V}\!\left[\sum_{j=1}^J w^\top r_j\right] = J^2 w^\top \widehat{\Sigma}_1 w + J\, w^\top \widehat{\Sigma}_2 w,
-\]
+$$
 
-highlighting why both the aliased and de-aliased estimators must target the same \(\widehat{\Sigma}_1, \widehat{\Sigma}_2\) components even when we correct the spike magnitudes.
+highlighting why both the aliased and de-aliased estimators must target the same $\widehat{\Sigma}_1, \widehat{\Sigma}_2$ components even when we correct the spike magnitudes.
 
 ## Quickstart
 
@@ -32,10 +32,10 @@ highlighting why both the aliased and de-aliased estimators must target the same
 
 ## Methods at a glance
 
-- **Balanced MANOVA decomposition:** weekly returns are partitioned into between-group (`\(\widehat{\Sigma}_1\)`) and within-group (`\(\widehat{\Sigma}_2\)`) mean squares using `fjs.balanced.mean_squares`.
-- **t-vector acceptance:** spikes are accepted only when the Marchenko–Pastur t-vector has dominant support on the target component, ensuring `\(\hat{\mu} = \hat{\lambda} / t_r\)` remains self-consistent. A relative δ buffer `dealias_delta_frac` can be used to scale the MP edge decision by a fraction of the edge.
+- **Balanced MANOVA decomposition:** weekly returns are partitioned into between-group ($\widehat{\Sigma}_1$) and within-group ($\widehat{\Sigma}_2$) mean squares using `fjs.balanced.mean_squares`.
+- **t-vector acceptance:** spikes are accepted only when the Marchenko–Pastur t-vector has dominant support on the target component, ensuring $\hat{\mu} = \hat{\lambda} / t_r$ remains self-consistent. A relative δ buffer `dealias_delta_frac` can be used to scale the MP edge decision by a fraction of the edge.
 - **Guardrails:** candidates must clear an MP edge buffer (`δ`), survive angular perturbations (`η`), and win cluster merges based on stability margin.
-- **Risk forecasting:** detected spikes are substituted into `\(\widehat{\Sigma}_1\)` before recombining weekly covariance for equal-weight and box-constrained min-variance portfolios; Ledoit–Wolf provides the shrinkage baseline.
+- **Risk forecasting:** detected spikes are substituted into $\widehat{\Sigma}_1$ before recombining weekly covariance for equal-weight and box-constrained min-variance portfolios; Ledoit–Wolf provides the shrinkage baseline.
 
 ## Configuration & CLI flags
 
@@ -56,7 +56,7 @@ The equity configuration file (`experiments/equity_panel/config.yaml`) mirrors t
 ## Figure gallery
 
 - **Synthetic suite:**  
-  `figures/synthetic/s1_histogram.(png|pdf)` – spectrum of \(\widehat{\Sigma}_1\).  
+  `figures/synthetic/s1_histogram.(png|pdf)` – spectrum of $\widehat{\Sigma}_1$.  
   `figures/synthetic/s2_vectors.(png|pdf)` – alignment of the recovered eigvector with the planted spike.  
   `figures/synthetic/s4_guardrails.(csv|png|pdf)` – false-positive rates with and without guardrails.  
   `figures/synthetic/s5_multispike.(csv|png|pdf)` – aliased vs de-aliased bias across multiple spikes.  
@@ -127,17 +127,17 @@ Rolling overlays — variance and VaR forecasts (baseline vs. de-aliased)
 
 Both the aliased estimator and the de-aliased spike reconstructions are calibrated against the same weekly covariance components. We first compute the balanced MANOVA mean squares \(\widehat{\text{MS}}_1, \widehat{\text{MS}}_2\), then build the weekly covariance through
 
-\[
+$$
 \widehat{\Sigma}_\text{weekly} = J^2 \widehat{\Sigma}_1 + J \widehat{\Sigma}_2,\qquad \widehat{\Sigma}_1 = \frac{\widehat{\text{MS}}_1 - \widehat{\text{MS}}_2}{J},\quad \widehat{\Sigma}_2 = \widehat{\text{MS}}_2.
-\]
+$$
 
-De-aliasing only substitutes selected spike magnitudes in \(\widehat{\Sigma}_1\); \(\widehat{\Sigma}_2\) and the aggregation to weekly risk remain unchanged, guaranteeing both paths forecast the same quantity before and after spike adjustments. Ledoit–Wolf operates on the same balanced weekly returns, providing a shrinkage baseline against the identical target.
+De-aliasing only substitutes selected spike magnitudes in $\widehat{\Sigma}_1$; $\widehat{\Sigma}_2$ and the aggregation to weekly risk remain unchanged, guaranteeing both paths forecast the same quantity before and after spike adjustments. Ledoit–Wolf operates on the same balanced weekly returns, providing a shrinkage baseline against the identical target.
 
 ## Guardrails during de-aliasing
 
 - **δ-buffer:** candidate spikes must exceed the Marčenko–Pastur bulk edge plus a safety buffer before they are considered.
-- **Angular stability:** every accepted spike must persist when the search direction \(a\) is rotated by ±η degrees.
-- **Cluster merge:** detections with nearby \(\hat{\mu}\) values are merged; the most stable representative is kept.
+- **Angular stability:** every accepted spike must persist when the search direction $a$ is rotated by ±η degrees.
+- **Cluster merge:** detections with nearby $\hat{\mu}$ values are merged; the most stable representative is kept.
 
 ## Recommended defaults and CLI flags
 

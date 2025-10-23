@@ -91,6 +91,14 @@ S5 — Multi-spike bias (aliased vs. de-aliased)
 
 ![S5 multispike](figures/synthetic_fast/s5_multispike.png)
 
+### Fast Synthetic Results (Summary)
+
+- S1 spectrum: Clear outlier above MP edge; the empirical noise median and edge indicate a well-separated spike consistent with the planted signal.
+- S2 alignment: Leading eigvector aligns strongly with the planted direction (cosine ≈ 0.92 in a representative run).
+- S3 bias (µ=6): Aliased top eigenvalue shows large positive bias; de-aliased estimate reduces bias to near the true magnitude with ~100% detection in the fast run.
+- S4 guardrails: Default guardrails suppress false positives on isotropic data (≈0% FPR), while lax settings admit many spurious detections—highlighting the guardrails’ importance.
+- S5 multi-spike: With two planted spikes, simple top-k pairing by λ̂ can yield higher de-aliased bias than aliased. This suggests refining pairing (e.g., Rayleigh alignment) or tightening acceptance (smaller eps, larger a_grid) for interacting spikes.
+
 #### Equity panel
 
 E1 — Weekly covariance spectrum (fit window)

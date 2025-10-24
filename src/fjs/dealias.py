@@ -189,7 +189,7 @@ def dealias_search(
     design: dict | None = None,
     cs_drop_top_frac: float | None = None,
     cs_sensitivity_frac: float | None = None,
-    use_design_c_for_C: bool = False,
+    use_design_c_for_C: bool = True,
 ) -> list[Detection]:
     """
     Perform Algorithm 1 de-aliasing search for one-way balanced designs.

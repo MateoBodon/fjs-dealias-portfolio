@@ -568,7 +568,7 @@ def _run_single_period(
         y_hold_daily = np.vstack(hold_blocks)
         groups_fit = np.repeat(np.arange(len(fit_blocks)), replicates)
         
-        detections = dealias_search(
+            detections = dealias_search(
             y_fit_daily,
             groups_fit,
             target_r=target_component,
@@ -581,8 +581,8 @@ def _run_single_period(
             a_grid=int(a_grid),
             cs_drop_top_frac=float(cs_drop_top_frac),
             cs_sensitivity_frac=float(cs_sensitivity_frac),
-            scan_basis="ms",
-            off_component_leak_cap=float(config.get("off_component_leak_cap", 0.7)),
+                scan_basis="ms",
+                off_component_leak_cap=float(config.get("off_component_leak_cap", DEFAULT_CONFIG["off_component_leak_cap"])),
         )
 
         # Optional per-window diagnostics: MP edge vs top eigenvalue across angles

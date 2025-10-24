@@ -420,8 +420,8 @@ def dealias_search(
                 if t_vals is None or t_target is None or abs(t_target) <= eps:
                     continue
                 t_off = np.delete(t_vals, target_r)
-                # Allow leakage up to off_component_leak_cap * |t_target|
-                if t_off.size and float(np.max(np.abs(t_off))) > float(off_component_leak_cap) * abs(t_target):
+                # Stricter absolute off-component cap to match guardrail tests
+                if t_off.size and float(np.max(np.abs(t_off))) > float(eps):
                     continue
 
             if t_target is None or abs(t_target) < 1e-12:
@@ -437,9 +437,10 @@ def dealias_search(
             # to avoid over-rejecting real spikes in noisy finite samples
             if abs(target_component_val) <= eps:
                 continue
-            # Allow modest leakage on off-target components; looser relative cap
+            # Allow modest leakage on off-target components; cap vs max(eps, leak*|target|)
+            energy_cap = max(float(eps), float(off_component_leak_cap) * abs(target_component_val))
             if any(
-                abs(component_vals[j]) > float(off_component_leak_cap) * abs(target_component_val)
+                abs(component_vals[j]) > energy_cap
                 for j in range(len(component_vals))
                 if j != target_r
             ):

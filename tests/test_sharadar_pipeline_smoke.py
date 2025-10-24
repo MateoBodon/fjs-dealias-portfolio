@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import subprocess
 from pathlib import Path
+import sys
 
 import numpy as np
 import pandas as pd
@@ -20,7 +21,7 @@ def test_sharadar_fetch_and_balance_smoke(tmp_path: Path) -> None:
 
     # Small universe and narrow window for speed
     cmd_fetch = [
-        "python",
+        sys.executable,
         "scripts/data/fetch_sharadar.py",
         "--start",
         "2020-01-15",
@@ -41,7 +42,7 @@ def test_sharadar_fetch_and_balance_smoke(tmp_path: Path) -> None:
     assert prices_csv.exists()
 
     cmd_bal = [
-        "python",
+        sys.executable,
         "scripts/data/make_balanced_weekly.py",
         "--prices",
         str(prices_csv),
@@ -60,7 +61,8 @@ def test_sharadar_fetch_and_balance_smoke(tmp_path: Path) -> None:
     df["date"] = pd.to_datetime(df["date"]).dt.tz_localize(None)
     df = df.dropna(subset=["ret"])  # type: ignore[list-item]
     periods = df["date"].dt.to_period("W-FRI")
-    week_start = (periods.asfreq("D", "start") - pd.Timedelta(days=4)).dt.normalize()
+    # Robust start-of-week computation across pandas versions
+    week_start = (periods.dt.start_time - pd.Timedelta(days=4)).dt.normalize()
     df["week_start"] = week_start
     week_counts = df.groupby("week_start")["date"].nunique()
     kept_weeks = week_counts[week_counts == 5].index

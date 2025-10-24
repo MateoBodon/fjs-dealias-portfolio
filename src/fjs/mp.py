@@ -723,3 +723,24 @@ def marchenko_pastur_pdf(
         Density values matching the grid shape.
     """
     raise NotImplementedError("Marchenko–Pastur PDF evaluation is not implemented.")
+
+
+def scale_Cs(Cs: ArrayLike, alpha: float) -> np.ndarray:  # noqa: N802
+    """
+    Return a scaled copy of the Cs plug-ins by factor ``alpha``.
+
+    Parameters
+    ----------
+    Cs
+        Sequence of Cs values (one per stratum).
+    alpha
+        Scaling factor; must be finite. Negative factors are allowed for diagnostics
+        but typical usage is alpha in (0, +inf).
+    """
+
+    cs_arr = np.asarray(Cs, dtype=np.float64)
+    if cs_arr.ndim != 1:
+        raise ValueError("Cs must be one-dimensional.")
+    if not np.isfinite(alpha):
+        raise ValueError("alpha must be a finite scalar.")
+    return (float(alpha) * cs_arr).astype(np.float64, copy=False)

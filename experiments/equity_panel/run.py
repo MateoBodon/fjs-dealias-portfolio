@@ -553,7 +553,12 @@ def _run_single_period(
             continue
         # Intersect tickers across the native per-week frames for current window
         tickers_sets = [set(df.columns) for df in (fit_blocks_raw + hold_blocks_raw)]
-        ordered_tickers = sorted(set.intersection(*tickers_sets)) if tickers_sets else []
+        if tickers_sets:
+            candidate = set.intersection(*tickers_sets)
+            # Constrain to columns available in the rectangular weekly panel
+            ordered_tickers = sorted(candidate & set(weekly_balanced.columns))
+        else:
+            ordered_tickers = []
         if not ordered_tickers:
             continue
         # Reindex each weekly frame to the intersection and stack

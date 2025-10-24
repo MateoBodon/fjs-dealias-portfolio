@@ -239,7 +239,7 @@ def _run_param_ablation(
                             use_tvector=True,
                             nonnegative_a=not signed_a,
                             a_grid=int(ag),
-                            scan_basis="ms",
+                            scan_basis="sigma",
                             off_component_leak_cap=float(DEFAULT_CONFIG["off_component_leak_cap"]),
                         )
                         det_count += int(bool(detections))
@@ -581,7 +581,7 @@ def _run_single_period(
             a_grid=int(a_grid),
             cs_drop_top_frac=float(cs_drop_top_frac),
             cs_sensitivity_frac=float(cs_sensitivity_frac),
-            scan_basis="ms",
+            scan_basis="sigma",
             off_component_leak_cap=float(DEFAULT_CONFIG.get("off_component_leak_cap", 0.7)),
         )
 

@@ -33,6 +33,12 @@ run-synth:
 run-equity:
 	python experiments/equity_panel/run.py
 
+.PHONY: run-equity-crisis
+run-equity-crisis:
+	python experiments/equity_panel/run.py \
+	  --crisis 2020-02-01:2020-05-31 \
+	  --delta-frac 0.03 --eps 0.03 --a-grid 180 --eta 0.4 --signed-a
+
 .PHONY: figures
 figures: ## regenerate all figures (synthetic + equity)
 	python experiments/synthetic_oneway/run.py

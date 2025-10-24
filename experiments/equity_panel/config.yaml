@@ -1,10 +1,6 @@
-universe:
-  - AAPL
-  - MSFT
-  - GOOGL
-  - AMZN
+data_path: "data/returns_daily.csv"
 start_date: "2015-01-01"
-end_date: "2020-12-31"
+end_date: "2024-12-31"
 frequency: "daily"
 risk_free_rate: 0.02
 dealias_delta: 0.0
@@ -13,5 +9,7 @@ dealias_eps: 0.03
 stability_eta_deg: 0.4
 signed_a: true
 cs_drop_top_frac: 0.05
-a_grid: 144
-cs_sensitivity_frac: 0.1
+a_grid: 180
+cs_sensitivity_frac: 0.0
+window_weeks: 156
+horizon_weeks: 4

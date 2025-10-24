@@ -38,7 +38,7 @@ from finance.eval import (
     rolling_windows,
     variance_forecast_from_components,
 )
-from finance.io import load_prices_csv, to_daily_returns
+from finance.io import load_prices_csv, to_daily_returns, load_returns_csv
 from finance.portfolios import equal_weight, min_variance_box, minimum_variance
 from finance.returns import balance_weeks, weekly_panel
 from fjs.balanced import mean_squares
@@ -62,7 +62,7 @@ from evaluation.evaluate import (
 )
 
 DEFAULT_CONFIG = {
-    "data_path": "data/prices_sample.csv",
+    "data_path": "data/returns_daily.csv",
     "start_date": "2015-01-01",
     "end_date": "2024-12-31",
     "window_weeks": 156,
@@ -128,12 +128,26 @@ def _mp_edges(
 
 
 def _prepare_data(config: dict[str, Any]) -> pd.DataFrame:
-    """Load prices (or synthesise) and return daily log returns."""
+    """Load daily returns from returns CSV or derive from prices CSV.
+
+    If the configured path does not exist, a synthetic prices CSV is generated
+    (legacy behavior) and returns are computed from prices.
+    """
 
     data_path = Path(config["data_path"])
-    if not data_path.exists():
-        _generate_synthetic_prices(data_path)
-
+    if data_path.exists():
+        # Peek at header to decide schema
+        try:
+            head = pd.read_csv(data_path, nrows=1)
+        except Exception:
+            head = pd.DataFrame()
+        if {"date", "ticker", "ret"}.issubset(set(head.columns)):
+            return load_returns_csv(data_path)
+        # else assume prices schema
+        prices = load_prices_csv(str(data_path))
+        return to_daily_returns(prices)
+    # Fallback: synthesize a price file and compute returns
+    _generate_synthetic_prices(data_path)
     prices = load_prices_csv(str(data_path))
     return to_daily_returns(prices)
 

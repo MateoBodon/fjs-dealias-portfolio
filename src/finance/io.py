@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 REQUIRED_PRICE_COLUMNS = {"date", "ticker", "price_close"}
+REQUIRED_RET_COLUMNS = {"date", "ticker", "ret"}
 
 
 def load_prices_csv(path: str) -> pd.DataFrame:
@@ -91,3 +92,26 @@ def load_market_data(path: str | Path, *, parse_dates: bool = True) -> pd.DataFr
 
     _ = parse_dates  # kept for API compatibility
     return load_prices_csv(str(path))
+
+
+def load_returns_csv(path: str | Path) -> pd.DataFrame:
+    """
+    Load a tidy daily returns CSV into a wide date-indexed matrix.
+
+    Expected columns: ``date``, ``ticker``, ``ret``.
+    """
+    p = Path(path)
+    if not p.exists():
+        raise FileNotFoundError(f"Returns file not found: {p}")
+    df = pd.read_csv(p)
+    missing = REQUIRED_RET_COLUMNS - set(df.columns)
+    if missing:
+        raise ValueError(f"Returns file missing required columns: {sorted(missing)}")
+    df = df.loc[:, ["date", "ticker", "ret"]].copy()
+    df["date"] = pd.to_datetime(df["date"], utc=False).dt.tz_localize(None)
+    df["ticker"] = df["ticker"].astype("string")
+    df["ret"] = pd.to_numeric(df["ret"], errors="coerce")
+    df = df.dropna(subset=["ret"]).sort_values(["date", "ticker"])  # type: ignore[list-item]
+    # Wide pivot
+    wide = df.pivot(index="date", columns="ticker", values="ret").sort_index()
+    return wide

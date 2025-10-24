@@ -4,12 +4,13 @@ end_date: "2024-12-31"
 frequency: "daily"
 risk_free_rate: 0.02
 dealias_delta: 0.0
-dealias_delta_frac: 0.03
-dealias_eps: 0.03
+dealias_delta_frac: 0.005
+dealias_eps: 0.10
 stability_eta_deg: 0.4
 signed_a: true
-cs_drop_top_frac: 0.05
+cs_drop_top_frac: 0.10
 a_grid: 180
 cs_sensitivity_frac: 0.0
 window_weeks: 156
 horizon_weeks: 4
+off_component_leak_cap: 0.7

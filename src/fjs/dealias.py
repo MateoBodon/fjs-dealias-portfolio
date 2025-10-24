@@ -38,6 +38,11 @@ class Detection(TypedDict):
     stability_margin_high: float | None
     sensitivity_low_accept: bool | None
     sensitivity_high_accept: bool | None
+    # Target component diagnostics
+    target_energy: float | None
+    target_index: int | None
+    # Pre-gating diagnostics
+    pre_outlier_count: int | None
 
 
 @dataclass
@@ -164,9 +169,13 @@ def _merge_detections(
                     visited[neighbour] = True
                     stack.append(neighbour)
         cluster = [detections_sorted[i] for i in cluster_indices]
+        # Prefer higher stability; break ties by larger target component energy when available
         best = max(
             cluster,
-            key=lambda item: (item["stability_margin"], item["lambda_hat"]),
+            key=lambda item: (
+                item["stability_margin"],
+                item.get("target_energy", item["lambda_hat"]),
+            ),
         )
         merged.append(best)
     merged.sort(key=lambda det: det["mu_hat"])
@@ -190,6 +199,8 @@ def dealias_search(
     cs_drop_top_frac: float | None = None,
     cs_sensitivity_frac: float | None = None,
     use_design_c_for_C: bool = False,
+    scan_basis: str = "sigma",
+    off_component_leak_cap: float = 0.7,
 ) -> list[Detection]:
     """
     Perform Algorithm 1 de-aliasing search for one-way balanced designs.
@@ -304,6 +315,10 @@ def dealias_search(
         _edge_margin_low = None  # type: ignore[assignment]
         _edge_margin_high = None  # type: ignore[assignment]
 
+    scan_basis_norm = (scan_basis or "sigma").strip().lower()
+    if scan_basis_norm not in {"sigma", "ms"}:
+        raise ValueError("scan_basis must be 'sigma' or 'ms'.")
+
     for theta in angles:
         a_vec = np.array([np.cos(theta), np.sin(theta)], dtype=np.float64)
         if nonnegative_a and np.any(a_vec < -1e-8):
@@ -319,7 +334,11 @@ def dealias_search(
         except (RuntimeError, ValueError):
             continue
 
-        sigma_a = _sigma_of_a_from_MS(a_vec, [ms1_scaled, ms2_scaled])
+        # Evaluate scanning matrix per chosen basis
+        if scan_basis_norm == "sigma":
+            sigma_a = float(a_vec[0]) * sigma_components[0] + float(a_vec[1]) * sigma_components[1]
+        else:
+            sigma_a = _sigma_of_a_from_MS(a_vec, [ms1_scaled, ms2_scaled])
         try:
             eigvals, eigvecs = np.linalg.eigh(sigma_a)
         except np.linalg.LinAlgError:
@@ -365,6 +384,9 @@ def dealias_search(
             z_plus_high = None
             threshold_high = None
 
+        # Pre-gating count of outliers for this angle
+        pre_outlier_count_angle = int(np.count_nonzero(eigvals >= threshold_main))
+
         for idx, lam_val in enumerate(eigvals):
             if lam_val < threshold_main:
                 break
@@ -398,7 +420,8 @@ def dealias_search(
                 if t_vals is None or t_target is None or abs(t_target) <= eps:
                     continue
                 t_off = np.delete(t_vals, target_r)
-                if t_off.size and float(np.max(np.abs(t_off))) > eps:
+                # Allow leakage up to off_component_leak_cap * |t_target|
+                if t_off.size and float(np.max(np.abs(t_off))) > float(off_component_leak_cap) * abs(t_target):
                     continue
 
             if t_target is None or abs(t_target) < 1e-12:
@@ -409,13 +432,14 @@ def dealias_search(
                 float(eigvecs[:, idx].T @ component @ eigvecs[:, idx])
                 for component in sigma_components
             ]
-            target_component = component_vals[target_r]
-            # Component-energy gating: keep modest guard above epsilon
-            threshold = max(eps, 0.5 * abs(mu_hat))
-            if abs(target_component) <= threshold:
+            target_component_val = component_vals[target_r]
+            # Component-energy gating: fixed absolute gate; drop dependency on mu_hat
+            # to avoid over-rejecting real spikes in noisy finite samples
+            if abs(target_component_val) <= eps:
                 continue
+            # Allow modest leakage on off-target components; looser relative cap
             if any(
-                abs(component_vals[j]) > threshold
+                abs(component_vals[j]) > float(off_component_leak_cap) * abs(target_component_val)
                 for j in range(len(component_vals))
                 if j != target_r
             ):
@@ -503,6 +527,9 @@ def dealias_search(
                 stability_margin_high=stability_margin_high,
                 sensitivity_low_accept=accept_low,
                 sensitivity_high_accept=accept_high,
+                target_energy=float(abs(target_component_val)),
+                target_index=int(target_r),
+                pre_outlier_count=int(pre_outlier_count_angle),
             )
             detections.append(detection)
 

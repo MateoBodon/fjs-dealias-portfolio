@@ -75,6 +75,7 @@ DEFAULT_CONFIG = {
     "target_component": 0,
     "a_grid": 120,
     "dealias_eps": 0.05,
+    "off_component_leak_cap": 0.7,
 }
 
 
@@ -209,16 +210,21 @@ def _run_param_ablation(
                     mse_alias_list: list[float] = []
                     mse_de_list: list[float] = []
                     for fit, hold in windows:
+                        fit_blocks_raw = [week_map[idx] for idx in fit.index if idx in week_map]
+                        hold_blocks_raw = [week_map[idx] for idx in hold.index if idx in week_map]
+                        if len(fit_blocks_raw) != len(fit.index) or len(hold_blocks_raw) != len(hold.index):
+                            continue
+                        # Intersect tickers across the native per-week frames in this window
+                        tickers_sets = [set(df.columns) for df in (fit_blocks_raw + hold_blocks_raw)]
+                        ordered_tickers = sorted(set.intersection(*tickers_sets)) if tickers_sets else []
+                        if not ordered_tickers:
+                            continue
                         fit_blocks = [
-                            week_map[idx] for idx in fit.index if idx in week_map
+                            df.loc[:, ordered_tickers].to_numpy(dtype=np.float64) for df in fit_blocks_raw
                         ]
                         hold_blocks = [
-                            week_map[idx] for idx in hold.index if idx in week_map
+                            df.loc[:, ordered_tickers].to_numpy(dtype=np.float64) for df in hold_blocks_raw
                         ]
-                        if len(fit_blocks) != len(fit.index) or len(hold_blocks) != len(
-                            hold.index
-                        ):
-                            continue
                         y_fit_daily = np.vstack(fit_blocks)
                         y_hold_daily = np.vstack(hold_blocks)
                         groups_fit = np.repeat(np.arange(len(fit_blocks)), replicates)
@@ -233,6 +239,8 @@ def _run_param_ablation(
                             use_tvector=True,
                             nonnegative_a=not signed_a,
                             a_grid=int(ag),
+                            scan_basis="sigma",
+                            off_component_leak_cap=float(DEFAULT_CONFIG["off_component_leak_cap"]),
                         )
                         det_count += int(bool(detections))
                         # Equal-weight weights for speed/consistency
@@ -332,8 +340,13 @@ def _balanced_weekly_panel(
     daily_returns: pd.DataFrame,
     *,
     replicates: int = 5,
-) -> tuple[pd.DataFrame, dict[pd.Timestamp, np.ndarray], int, list[str]]:
-    """Build a balanced weekly panel with consistent tickers and daily slices."""
+) -> tuple[pd.DataFrame, dict[pd.Timestamp, pd.DataFrame], int, list[str]]:
+    """Build a balanced weekly panel.
+
+    Returns a weekly aggregate DataFrame using a global ticker intersection for
+    plotting, and a week→DataFrame map of balanced daily blocks with native
+    per-week tickers to enable per-window intersections downstream.
+    """
 
     if daily_returns.index.inferred_type != "datetime64":
         raise ValueError("daily_returns must use a DatetimeIndex.")
@@ -345,20 +358,23 @@ def _balanced_weekly_panel(
     week_labels: list[pd.Timestamp] = []
 
     for period, frame in grouped:
-        cleaned = frame.dropna(axis=1, how="all")
-        cleaned = cleaned.dropna(axis=0, how="any")
-        cleaned = cleaned.sort_index()
+        # Drop columns that are entirely NaN this week; keep all day rows
+        cleaned = frame.dropna(axis=1, how="all").sort_index()
         if cleaned.shape[0] < replicates:
             continue
+        # Take first `replicates` business days; then keep only tickers fully observed within the week
         trimmed = cleaned.iloc[:replicates]
-        if trimmed.isna().any().any():
+        cols_complete = trimmed.columns[~trimmed.isna().any(axis=0)]
+        if len(cols_complete) == 0:
             continue
+        trimmed = trimmed.loc[:, cols_complete]
         week_frames.append(trimmed)
         week_labels.append(period.start_time)
 
     if not week_frames:
         raise ValueError("No balanced weeks available for evaluation.")
 
+    # Global intersection for rectangular weekly aggregates (E1 plots)
     common_tickers = set(week_frames[0].columns)
     for frame in week_frames[1:]:
         common_tickers &= set(frame.columns)
@@ -366,21 +382,22 @@ def _balanced_weekly_panel(
         raise ValueError("No common tickers across balanced weeks.")
     ordered_tickers = sorted(common_tickers)
 
-    week_arrays = [
+    replicate_count = int(week_frames[0].shape[0])
+    if any(frame.shape[0] != replicate_count for frame in week_frames):
+        raise ValueError("Replicate count varies across balanced weeks.")
+
+    weekly_arrays = [
         frame.loc[:, ordered_tickers].to_numpy(dtype=np.float64)
         for frame in week_frames
     ]
-    replicate_count = week_arrays[0].shape[0]
-    if any(arr.shape[0] != replicate_count for arr in week_arrays):
-        raise ValueError("Replicate count varies across balanced weeks.")
-
-    week_map = {week_labels[idx]: week_arrays[idx] for idx in range(len(week_labels))}
-    weekly_data = np.stack([arr.sum(axis=0) for arr in week_arrays], axis=0)
+    weekly_data = np.stack([arr.sum(axis=0) for arr in weekly_arrays], axis=0)
     weekly_df = pd.DataFrame(
         weekly_data,
         index=pd.Index(week_labels, name="week_start"),
         columns=ordered_tickers,
     )
+    # Map each week to its native balanced daily frame (no global intersection)
+    week_map = {week_labels[idx]: week_frames[idx].copy() for idx in range(len(week_labels))}
     return weekly_df, week_map, replicate_count, ordered_tickers
 
 
@@ -423,10 +440,16 @@ def _run_single_period(
     weekly_balanced, week_map, replicates, tickers = _balanced_weekly_panel(
         daily_subset
     )
-    if weekly_balanced.shape[0] < window_weeks + horizon_weeks:
-        raise ValueError(
-            "Not enough balanced weeks for the requested rolling evaluation window."
-        )
+    total_weeks = int(weekly_balanced.shape[0])
+    if total_weeks < window_weeks + horizon_weeks:
+        # Auto-shrink to a minimal viable rolling scheme when possible
+        if total_weeks >= 3:
+            window_weeks = max(2, total_weeks - 1)
+            horizon_weeks = 1
+        else:
+            raise ValueError(
+                "Not enough balanced weeks for the requested rolling evaluation window."
+            )
 
     p_assets = len(tickers)
     equal_weights = equal_weight(p_assets)
@@ -463,8 +486,11 @@ def _run_single_period(
     except Exception:
         pass
 
-    def _equal_weight_weights(_: np.ndarray) -> np.ndarray:
-        return equal_weights.copy()
+    def _equal_weight_weights(covariance: np.ndarray) -> np.ndarray:
+        n = int(covariance.shape[0])
+        if n <= 0:
+            return np.array([], dtype=np.float64)
+        return np.full(n, 1.0 / float(n), dtype=np.float64)
 
     def _min_var_weights(covariance: np.ndarray) -> np.ndarray:
         result = min_variance_box(covariance, lb=-0.02, ub=0.02)
@@ -525,20 +551,23 @@ def _run_single_period(
         hold_blocks_raw = [week_map[idx] for idx in hold.index if idx in week_map]
         if len(fit_blocks_raw) != len(fit.index) or len(hold_blocks_raw) != len(hold.index):
             continue
-
-        # Intersect tickers across fit and hold windows using the weekly frames' columns
-        # Reconstruct DataFrames to access column labels via weekly_balanced
-        # (All blocks share the same column order as constructed earlier.)
-        tickers_all = set(weekly_balanced.columns)
-        # Keep as-is since blocks were built with ordered_tickers; intersection equals full set here
-        ordered_tickers = sorted(tickers_all)
-        fit_blocks = [block for block in fit_blocks_raw]
-        hold_blocks = [block for block in hold_blocks_raw]
+        # Intersect tickers across the native per-week frames for current window
+        tickers_sets = [set(df.columns) for df in (fit_blocks_raw + hold_blocks_raw)]
+        ordered_tickers = sorted(set.intersection(*tickers_sets)) if tickers_sets else []
+        if not ordered_tickers:
+            continue
+        # Reindex each weekly frame to the intersection and stack
+        fit_blocks = [
+            df.loc[:, ordered_tickers].to_numpy(dtype=np.float64) for df in fit_blocks_raw
+        ]
+        hold_blocks = [
+            df.loc[:, ordered_tickers].to_numpy(dtype=np.float64) for df in hold_blocks_raw
+        ]
 
         y_fit_daily = np.vstack(fit_blocks)
         y_hold_daily = np.vstack(hold_blocks)
         groups_fit = np.repeat(np.arange(len(fit_blocks)), replicates)
-
+        
         detections = dealias_search(
             y_fit_daily,
             groups_fit,
@@ -552,8 +581,8 @@ def _run_single_period(
             a_grid=int(a_grid),
             cs_drop_top_frac=float(cs_drop_top_frac),
             cs_sensitivity_frac=float(cs_sensitivity_frac),
-            # Use the design coefficients for MP edge/t-vector mapping in equity
-            use_design_c_for_C=True,
+            scan_basis="sigma",
+            off_component_leak_cap=float(config.get("off_component_leak_cap", 0.7)),
         )
 
         # Optional per-window diagnostics: MP edge vs top eigenvalue across angles
@@ -561,6 +590,8 @@ def _run_single_period(
             stats_local = mean_squares(y_fit_daily, groups_fit)
             ms1_local = stats_local["MS1"].astype(np.float64)
             ms2_local = stats_local["MS2"].astype(np.float64)
+            sigma1_local = stats_local["Sigma1_hat"].astype(np.float64)
+            sigma2_local = stats_local["Sigma2_hat"].astype(np.float64)
             p_dim = int(ms1_local.shape[0])
             drop_top = min(p_dim - 1, max(1, int(round(p_dim * float(cs_drop_top_frac)))))
             d_vec_local = np.array(
@@ -575,19 +606,38 @@ def _run_single_period(
             for theta in angles:
                 a_vec = np.array([np.cos(theta), np.sin(theta)], dtype=np.float64)
                 try:
-                    z_plus = mp_edge(a_vec.tolist(), c_vec_local.tolist(), d_vec_local.tolist(), float(stats_local["J"]), Cs=cs_vec_local)
+                    # Compute MP edge using design C=1 (aligned with Σ̂(a) units)
+                    z_plus = mp_edge(
+                        a_vec.tolist(),
+                        np.ones_like(c_vec_local, dtype=np.float64).tolist(),
+                        d_vec_local.tolist(),
+                        float(stats_local["J"]),
+                        Cs=cs_vec_local,
+                    )
                 except Exception:
                     continue
-                # Top eigenvalue of Sigma(a) = a1*MS1 + a2*MS2
-                sigma_a = float(a_vec[0]) * ms1_local + float(a_vec[1]) * ms2_local
+                # Top eigenvalue of Σ̂(a) = a1*Σ̂1 + a2*Σ̂2 (consistent with detection units)
+                sigma_a = float(a_vec[0]) * sigma1_local + float(a_vec[1]) * sigma2_local
                 try:
                     lam_top = float(np.linalg.eigvalsh(sigma_a)[-1])
                 except Exception:
                     continue
                 thr = z_plus + max(float(delta), (float(delta_frac) * z_plus) if (delta_frac is not None) else 0.0)
+                # Also log alternative mapping using C=c_vec for debugging
+                try:
+                    z_plus_cvec = mp_edge(
+                        a_vec.tolist(),
+                        c_vec_local.tolist(),
+                        d_vec_local.tolist(),
+                        float(stats_local["J"]),
+                        Cs=cs_vec_local,
+                    )
+                except Exception:
+                    z_plus_cvec = float("nan")
                 rows.append({
                     "theta": float(theta),
                     "z_plus": float(z_plus),
+                    "z_plus_cvec": float(z_plus_cvec),
                     "lambda_top": lam_top,
                     "edge_margin": float(lam_top - thr),
                 })
@@ -597,8 +647,8 @@ def _run_single_period(
         except Exception:
             pass
 
-        fit_matrix = fit.to_numpy(dtype=np.float64)
-        hold_matrix = hold.to_numpy(dtype=np.float64)
+        fit_matrix = fit.loc[:, ordered_tickers].to_numpy(dtype=np.float64)
+        hold_matrix = hold.loc[:, ordered_tickers].to_numpy(dtype=np.float64)
         if fit_matrix.shape[0] < 2:
             continue
         cov_fit = np.cov(fit_matrix, rowvar=False, ddof=1)
@@ -668,7 +718,8 @@ def _run_single_period(
             except Exception:
                 continue
 
-            if weights.size != p_assets or not np.all(np.isfinite(weights)):
+            p_assets_window = len(ordered_tickers)
+            if weights.size != p_assets_window or not np.all(np.isfinite(weights)):
                 continue
             weight_sum = float(weights.sum())
             if not np.isfinite(weight_sum) or abs(weight_sum) < 1e-12:

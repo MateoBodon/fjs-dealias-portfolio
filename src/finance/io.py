@@ -112,6 +112,8 @@ def load_returns_csv(path: str | Path) -> pd.DataFrame:
     df["ticker"] = df["ticker"].astype("string")
     df["ret"] = pd.to_numeric(df["ret"], errors="coerce")
     df = df.dropna(subset=["ret"]).sort_values(["date", "ticker"])  # type: ignore[list-item]
+    # Guard against duplicate (date, ticker) pairs that can arise from upstream merges
+    df = df.drop_duplicates(subset=["date", "ticker"], keep="last")
     # Wide pivot
     wide = df.pivot(index="date", columns="ticker", values="ret").sort_index()
     return wide

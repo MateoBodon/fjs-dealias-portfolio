@@ -28,6 +28,10 @@ figures/
 
 # Local data drops
 data/*.csv
+data/*.parquet
+
+# Local secrets (example committed separately)
+.env
 
 # Local paper materials
 Paper and Project Context/

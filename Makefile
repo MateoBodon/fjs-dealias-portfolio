@@ -35,9 +35,10 @@ run-equity:
 
 .PHONY: run-equity-crisis
 run-equity-crisis:
-	python experiments/equity_panel/run.py \
+	python3 experiments/equity_panel/run.py \
 	  --crisis 2020-02-01:2020-05-31 \
-	  --delta-frac 0.03 --eps 0.03 --a-grid 180 --eta 0.4 --signed-a
+	  --delta-frac 0.03 --eps 0.03 --a-grid 180 --eta 0.4 --signed-a \
+	  --window-weeks 8 --horizon-weeks 2
 
 .PHONY: figures
 figures: ## regenerate all figures (synthetic + equity)

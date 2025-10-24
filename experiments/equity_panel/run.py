@@ -520,10 +520,20 @@ def _run_single_period(
         if hold.empty:
             continue
 
-        fit_blocks = [week_map[idx] for idx in fit.index if idx in week_map]
-        hold_blocks = [week_map[idx] for idx in hold.index if idx in week_map]
-        if len(fit_blocks) != len(fit.index) or len(hold_blocks) != len(hold.index):
+        # Per-window universe intersection to maximize balanced weeks
+        fit_blocks_raw = [week_map[idx] for idx in fit.index if idx in week_map]
+        hold_blocks_raw = [week_map[idx] for idx in hold.index if idx in week_map]
+        if len(fit_blocks_raw) != len(fit.index) or len(hold_blocks_raw) != len(hold.index):
             continue
+
+        # Intersect tickers across fit and hold windows using the weekly frames' columns
+        # Reconstruct DataFrames to access column labels via weekly_balanced
+        # (All blocks share the same column order as constructed earlier.)
+        tickers_all = set(weekly_balanced.columns)
+        # Keep as-is since blocks were built with ordered_tickers; intersection equals full set here
+        ordered_tickers = sorted(tickers_all)
+        fit_blocks = [block for block in fit_blocks_raw]
+        hold_blocks = [block for block in hold_blocks_raw]
 
         y_fit_daily = np.vstack(fit_blocks)
         y_hold_daily = np.vstack(hold_blocks)
@@ -542,7 +552,50 @@ def _run_single_period(
             a_grid=int(a_grid),
             cs_drop_top_frac=float(cs_drop_top_frac),
             cs_sensitivity_frac=float(cs_sensitivity_frac),
+            # Use the design coefficients for MP edge/t-vector mapping in equity
+            use_design_c_for_C=True,
         )
+
+        # Optional per-window diagnostics: MP edge vs top eigenvalue across angles
+        try:
+            stats_local = mean_squares(y_fit_daily, groups_fit)
+            ms1_local = stats_local["MS1"].astype(np.float64)
+            ms2_local = stats_local["MS2"].astype(np.float64)
+            p_dim = int(ms1_local.shape[0])
+            drop_top = min(p_dim - 1, max(1, int(round(p_dim * float(cs_drop_top_frac)))))
+            d_vec_local = np.array(
+                [float(stats_local["I"] - 1), float(stats_local["n"] - stats_local["I"])],
+                dtype=np.float64,
+            )
+            c_vec_local = np.array([float(stats_local["J"]), 1.0], dtype=np.float64)
+            cs_vec_local = estimate_Cs_from_MS([ms1_local, ms2_local], d_vec_local.tolist(), c_vec_local.tolist(), drop_top=drop_top)
+
+            angles = np.linspace(0.0, 2.0 * np.pi, num=int(a_grid), endpoint=False, dtype=np.float64)
+            rows = []
+            for theta in angles:
+                a_vec = np.array([np.cos(theta), np.sin(theta)], dtype=np.float64)
+                try:
+                    z_plus = mp_edge(a_vec.tolist(), c_vec_local.tolist(), d_vec_local.tolist(), float(stats_local["J"]), Cs=cs_vec_local)
+                except Exception:
+                    continue
+                # Top eigenvalue of Sigma(a) = a1*MS1 + a2*MS2
+                sigma_a = float(a_vec[0]) * ms1_local + float(a_vec[1]) * ms2_local
+                try:
+                    lam_top = float(np.linalg.eigvalsh(sigma_a)[-1])
+                except Exception:
+                    continue
+                thr = z_plus + max(float(delta), (float(delta_frac) * z_plus) if (delta_frac is not None) else 0.0)
+                rows.append({
+                    "theta": float(theta),
+                    "z_plus": float(z_plus),
+                    "lambda_top": lam_top,
+                    "edge_margin": float(lam_top - thr),
+                })
+            if rows:
+                diag_path = output_dir / f"edge_diag_window{window_idx:03d}.csv"
+                pd.DataFrame(rows).to_csv(diag_path, index=False)
+        except Exception:
+            pass
 
         fit_matrix = fit.to_numpy(dtype=np.float64)
         hold_matrix = hold.to_numpy(dtype=np.float64)
@@ -1053,6 +1106,8 @@ def run_experiment(
     a_grid_override: int | None = None,
     ablations: bool | None = None,
     eta_override: float | None = None,
+    window_weeks_override: int | None = None,
+    horizon_weeks_override: int | None = None,
 ) -> None:
     """Execute the rolling equity forecasting experiment."""
 
@@ -1076,6 +1131,10 @@ def run_experiment(
         config["a_grid"] = int(a_grid_override)
     if eta_override is not None:
         config["stability_eta_deg"] = float(eta_override)
+    if window_weeks_override is not None:
+        config["window_weeks"] = int(window_weeks_override)
+    if horizon_weeks_override is not None:
+        config["horizon_weeks"] = int(horizon_weeks_override)
     # Values from YAML remain if overrides not provided
     daily_returns = _prepare_data(config)
 
@@ -1225,6 +1284,18 @@ def main() -> None:
         help="Stability perturbation in degrees",
     )
     parser.add_argument(
+        "--window-weeks",
+        type=int,
+        default=None,
+        help="Override rolling window length in weeks",
+    )
+    parser.add_argument(
+        "--horizon-weeks",
+        type=int,
+        default=None,
+        help="Override holdout horizon length in weeks",
+    )
+    parser.add_argument(
         "--signed-a",
         action="store_true",
         help="Enable signed a-grid search (default true)",
@@ -1266,6 +1337,8 @@ def main() -> None:
         a_grid_override=args.a_grid,
         ablations=args.ablations,
         eta_override=args.eta,
+        window_weeks_override=args.window_weeks,
+        horizon_weeks_override=args.horizon_weeks,
     )
 
 

@@ -189,6 +189,7 @@ def dealias_search(
     design: dict | None = None,
     cs_drop_top_frac: float | None = None,
     cs_sensitivity_frac: float | None = None,
+    use_design_c_for_C: bool = False,
 ) -> list[Detection]:
     """
     Perform Algorithm 1 de-aliasing search for one-way balanced designs.
@@ -217,6 +218,10 @@ def dealias_search(
         stats["Sigma1_hat"].astype(np.float64),
         stats["Sigma2_hat"].astype(np.float64),
     ]
+    # Design parameters:
+    # - c_vec holds the design coefficients (e.g., [J, 1] in one-way)
+    # - design_params["C"] defaults to ones and is not used for MP mapping
+    #   in the de-aliasing search; we use c_vec consistently for the MP calls.
     c_weights = np.asarray(design_params["C"], dtype=np.float64)
     c_vec = np.asarray(design_params["c"], dtype=np.float64)
     d_vec = np.asarray(design_params["d"], dtype=np.float64)
@@ -257,6 +262,8 @@ def dealias_search(
         rel = 0.0 if (delta_frac is None) else float(delta_frac) * float(z_plus_val)
         return float(z_plus_val + max(float(delta), rel))
 
+    C_for_mp = c_vec if use_design_c_for_C else c_weights
+
     def _edge_margin_for(Cs_local: np.ndarray):
         def margin(angle: float, lam_val: float) -> float | None:
             a_vec = np.array([np.cos(angle), np.sin(angle)], dtype=np.float64)
@@ -265,7 +272,8 @@ def dealias_search(
             try:
                 z_plus_local = mp_edge(
                     a_vec.tolist(),
-                    c_weights.tolist(),
+                    # Use chosen mapping for MP edge
+                    C_for_mp.tolist(),
                     d_vec.tolist(),
                     n_total,
                     Cs=Cs_local,
@@ -303,7 +311,7 @@ def dealias_search(
         try:
             z_plus = mp_edge(
                 a_vec.tolist(),
-                c_weights.tolist(),
+                C_for_mp.tolist(),
                 d_vec.tolist(),
                 n_total,
                 Cs=cs_vec,
@@ -328,7 +336,7 @@ def dealias_search(
             try:
                 z_plus_low = mp_edge(
                     a_vec.tolist(),
-                    c_weights.tolist(),
+                    C_for_mp.tolist(),
                     d_vec.tolist(),
                     n_total,
                     Cs=cs_vec_low,
@@ -344,7 +352,7 @@ def dealias_search(
             try:
                 z_plus_high = mp_edge(
                     a_vec.tolist(),
-                    c_weights.tolist(),
+                    C_for_mp.tolist(),
                     d_vec.tolist(),
                     n_total,
                     Cs=cs_vec_high,
@@ -369,7 +377,7 @@ def dealias_search(
                 raw_t = t_vec(
                     float(lam_val),
                     a_vec.tolist(),
-                    c_weights.tolist(),
+                    C_for_mp.tolist(),
                     d_vec.tolist(),
                     n_total,
                     c_vec.tolist(),
@@ -402,6 +410,7 @@ def dealias_search(
                 for component in sigma_components
             ]
             target_component = component_vals[target_r]
+            # Component-energy gating: keep modest guard above epsilon
             threshold = max(eps, 0.5 * abs(mu_hat))
             if abs(target_component) <= threshold:
                 continue

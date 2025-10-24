@@ -582,7 +582,7 @@ def _run_single_period(
             cs_drop_top_frac=float(cs_drop_top_frac),
             cs_sensitivity_frac=float(cs_sensitivity_frac),
             scan_basis="ms",
-            off_component_leak_cap=float(config.get("off_component_leak_cap", DEFAULT_CONFIG["off_component_leak_cap"])),
+            off_component_leak_cap=float(DEFAULT_CONFIG.get("off_component_leak_cap", 0.7)),
         )
 
         # Optional per-window diagnostics: MP edge vs top eigenvalue across angles

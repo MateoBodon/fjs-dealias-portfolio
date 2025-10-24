@@ -48,40 +48,15 @@ def _require_api_key() -> str:
     return key
 
 
-def _export_table_csv(table: str, params: dict[str, object]) -> pd.DataFrame:
-    """Call export_table and return the CSV as a pandas DataFrame."""
-    # export_table returns a requests.Response-like object with binary content or a URL
-    # The client exposes a helper that returns a path; use its `.content` as bytes fallback.
-    # We handle both forms (path-like or bytes) for robustness across client versions.
-    export = ndl.export_table(table, **params)
-    # The object may have a 'file' attribute (path-like)
-    if hasattr(export, "file"):
-        path = Path(export.file)  # type: ignore[attr-defined]
-        with ZipFile(path) as zf:
-            names = zf.namelist()
-            if not names:
-                return pd.DataFrame()
-            with zf.open(names[0]) as fh:
-                return pd.read_csv(fh)
-    # Else assume it exposes .content
-    content = getattr(export, "content", None)
-    if content is None:
-        # Fallback: try to treat export as a path string
-        path_guess = Path(str(export))
-        if path_guess.exists():
-            with ZipFile(path_guess) as zf:
-                names = zf.namelist()
-                if not names:
-                    return pd.DataFrame()
-                with zf.open(names[0]) as fh:
-                    return pd.read_csv(fh)
-        raise RuntimeError("Unexpected export_table return type; cannot read content.")
-    with ZipFile(BytesIO(content)) as zf:
-        names = zf.namelist()
-        if not names:
-            return pd.DataFrame()
-        with zf.open(names[0]) as fh:
-            return pd.read_csv(fh)
+def _get_table_paginated(table: str, params: dict[str, object]) -> pd.DataFrame:
+    """Call get_table with pagination and return a DataFrame.
+
+    This avoids SSL idiosyncrasies with export_table in constrained environments.
+    """
+    df = ndl.get_table(table, paginate=True, **params)
+    if df is None or getattr(df, "empty", True):
+        return pd.DataFrame()
+    return df
 
 
 def _chunked(seq: Sequence[str], size: int) -> Iterable[list[str]]:
@@ -175,17 +150,17 @@ def _fetch_sep_for(
 ) -> pd.DataFrame:
     """Export SEP for provided tickers and date range in batches; concat to a DataFrame."""
     params_base: dict[str, object] = {
-        "date": {"gte": start, "lte": end},
+        "date.gte": start,
+        "date.lte": end,
     }
     if columns:
-        # qopts.columns expects comma-separated string
         params_base["qopts"] = {"columns": ",".join(columns)}
 
     frames: list[pd.DataFrame] = []
     for chunk in _chunked(list(tickers), batch):
         params = dict(params_base)
         params["ticker"] = ",".join(chunk)
-        df = _export_table_csv("SHARADAR/SEP", params)
+        df = _get_table_paginated("SHARADAR/SEP", params)
         if not df.empty:
             frames.append(df)
     if not frames:
@@ -249,6 +224,13 @@ def main(argv: Sequence[str] | None = None) -> None:
     args = parse_args(argv)
     key = _require_api_key()
     ndl.ApiConfig.api_key = key  # configure client
+    # Optional: allow insecure SSL for environments with broken root CAs
+    if os.getenv("ALLOW_INSECURE_SSL", "0") == "1":  # pragma: no cover - unsafe path
+        try:
+            ndl.ApiConfig.verify_ssl = False  # type: ignore[attr-defined]
+            print("[Sharadar] WARNING: SSL verification disabled (ALLOW_INSECURE_SSL=1)")
+        except Exception:
+            pass
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -303,4 +285,3 @@ if __name__ == "__main__":
     except Exception as e:  # pragma: no cover - CLI surface
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
-

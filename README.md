@@ -189,6 +189,17 @@ De-aliasing only substitutes selected spike magnitudes in $\widehat{\Sigma}_1$; 
 
 See `METHODS.md` for a compact technical summary of Algorithm 1, acceptance criteria, and the weekly aggregation identity.
 
+## Sharadar Data Path
+
+- Create `.env` from the template and set your key (do not commit secrets):
+  - `cp .env.example .env` then edit to set `NASDAQ_DATA_LINK_API_KEY=...`
+- Fetch daily adjusted prices (top‑p liquid universe by ADV on a pre‑period):
+  - `python scripts/data/fetch_sharadar.py --start 2010-01-01 --end 2025-06-30 --pre-start 2014-01-01 --pre-end 2018-12-31 --p 300 --min-price 5 --out data/prices_daily.csv`
+- Build daily returns and a balanced Week×Day panel (Mon–Fri, fixed universe):
+  - `python scripts/data/make_balanced_weekly.py --prices data/prices_daily.csv --returns-out data/returns_daily.csv --balanced-out data/returns_balanced_weekly.parquet --winsor 0.01`
+- Crisis run with detection‑friendly defaults:
+  - `make run-equity-crisis`
+
 ## Recommended equity knobs
 
 - Conservative (fewer false positives): `dealias_delta_frac=0.03`, `dealias_eps=0.03`, `stability_eta_deg=0.4`, `a_grid=144`, `signed_a=true`.

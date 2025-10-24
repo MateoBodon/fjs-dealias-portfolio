@@ -162,7 +162,9 @@ def z_of_m(  # noqa: N803
     if not np.isfinite(m_val) or m_val == 0.0:
         raise ValueError("m must be a non-zero finite scalar.")
     cs_arr = _prepare_cs(Cs, a_arr)
-    k_vals = _k_values(a_arr, c_arr, d_arr, n_float)
+    # Denominator uses Cs when provided (non-zero); otherwise fall back to design c
+    denom_weights = cs_arr if np.any(np.abs(cs_arr) > 0.0) else c_arr
+    k_vals = _k_values(a_arr, denom_weights, d_arr, n_float)
     denom = 1.0 + k_vals * m_val
     if np.any(np.isclose(denom, 0.0, atol=1e-12, rtol=0.0)):
         raise ValueError("Denominator becomes singular for the supplied m.")
@@ -236,7 +238,8 @@ def z0_prime(  # noqa: N802
     """
     a_arr, c_arr, d_arr, n_float = _prepare_inputs(a, C, d, N)
     cs_arr = _prepare_cs(Cs, a_arr)
-    k_vals = _k_values(a_arr, c_arr, d_arr, n_float)
+    denom_weights = cs_arr if np.any(np.abs(cs_arr) > 0.0) else c_arr
+    k_vals = _k_values(a_arr, denom_weights, d_arr, n_float)
     numerators = c_arr * a_arr + cs_arr
     return _dz_dm(float(m), k_vals, numerators)
 
@@ -256,7 +259,8 @@ def z0_double_prime(  # noqa: N802
     """
     a_arr, c_arr, d_arr, n_float = _prepare_inputs(a, C, d, N)
     cs_arr = _prepare_cs(Cs, a_arr)
-    k_vals = _k_values(a_arr, c_arr, d_arr, n_float)
+    denom_weights = cs_arr if np.any(np.abs(cs_arr) > 0.0) else c_arr
+    k_vals = _k_values(a_arr, denom_weights, d_arr, n_float)
     numerators = c_arr * a_arr + cs_arr
     return _d2z_dm2(float(m), k_vals, numerators)
 
@@ -485,7 +489,8 @@ def mp_edge(  # noqa: N803
     """
     a_arr, c_arr, d_arr, n_float = _prepare_inputs(a, C, d, N)
     cs_arr = _prepare_cs(Cs, a_arr)
-    k_vals = _k_values(a_arr, c_arr, d_arr, n_float)
+    denom_weights = cs_arr if np.any(np.abs(cs_arr) > 0.0) else c_arr
+    k_vals = _k_values(a_arr, denom_weights, d_arr, n_float)
     numerators = c_arr * a_arr + cs_arr
 
     roots, derivative, curvature = _stationary_points(k_vals, numerators)
@@ -529,7 +534,8 @@ def m_edge(  # noqa: N803
     """
     a_arr, c_arr, d_arr, n_float = _prepare_inputs(a, C, d, N)
     cs_arr = _prepare_cs(Cs, a_arr)
-    k_vals = _k_values(a_arr, c_arr, d_arr, n_float)
+    denom_weights = cs_arr if np.any(np.abs(cs_arr) > 0.0) else c_arr
+    k_vals = _k_values(a_arr, denom_weights, d_arr, n_float)
     numerators = c_arr * a_arr + cs_arr
     roots, derivative, curvature = _stationary_points(k_vals, numerators)
     if not roots:
@@ -557,7 +563,8 @@ def admissible_m_from_lambda(  # noqa: N803
     if not np.isfinite(lam_val):
         raise ValueError("λ must be a finite scalar.")
     cs_arr = _prepare_cs(Cs, a_arr)
-    k_vals = _k_values(a_arr, c_arr, d_arr, n_float)
+    denom_weights = cs_arr if np.any(np.abs(cs_arr) > 0.0) else c_arr
+    k_vals = _k_values(a_arr, denom_weights, d_arr, n_float)
     numerators = c_arr * a_arr + cs_arr
 
     def equation(m_val: float) -> float:
@@ -661,7 +668,8 @@ def t_vec(  # noqa: N803
 
     cs_arr = _prepare_cs(Cs, a_arr)
     m_root = admissible_m_from_lambda(lam, a_arr, c_weights, d_arr, n_float, cs_arr)
-    k_vals = _k_values(a_arr, c_weights, d_arr, n_float)
+    denom_weights = cs_arr if np.any(np.abs(cs_arr) > 0.0) else c_weights
+    k_vals = _k_values(a_arr, denom_weights, d_arr, n_float)
     denom = 1.0 + k_vals * m_root
     if np.any(np.isclose(denom, 0.0, atol=1e-12, rtol=0.0)):
         raise ValueError("Encountered singularity while computing the t-vector.")

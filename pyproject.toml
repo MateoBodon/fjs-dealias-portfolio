@@ -20,6 +20,7 @@ dependencies = [
     "scikit-learn",
     "numba",
     "nasdaq-data-link",
+    "wrds",
     "pyyaml",
     "tqdm",
     "pytest",

@@ -1,0 +1,15 @@
+a_grid: 240
+cs_drop_top_frac: 0.05
+cs_sensitivity_frac: 0.0
+data_path: data/returns_daily.csv
+dealias_delta: 0.0
+dealias_delta_frac: 0.015
+dealias_eps: 0.02
+end_date: '2020-05-31'
+horizon_weeks: 1
+output_dir: experiments/equity_panel/outputs_crisis
+signed_a: true
+stability_eta_deg: 0.2
+start_date: '2020-02-01'
+target_component: 0
+window_weeks: 10

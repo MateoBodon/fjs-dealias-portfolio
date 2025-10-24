@@ -1,0 +1,2 @@
+fit_start,fit_end,hold_start,hold_end,n_detections,top_lambda_hat,top_mu_hat,top_a0,top_a1,top_stability_margin,top_sigma1_eigval,top_z_plus,top_threshold_main
+2020-02-04,2020-04-28,2020-05-12,2020-05-12,0,,,,,,0.009439354121483468,,

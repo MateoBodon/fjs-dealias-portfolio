@@ -1,0 +1,17 @@
+{
+  "label": "full",
+  "start_date": "2019-10-01",
+  "end_date": "2020-12-31",
+  "balanced_weeks": 50,
+  "dropped_weeks": 0,
+  "window_weeks": 26,
+  "horizon_weeks": 2,
+  "rolling_windows_evaluated": 23,
+  "replicates_per_week": 5,
+  "n_assets": 205,
+  "strategies": {
+    "Equal Weight": true,
+    "Min-Variance (box)": true,
+    "Min-Variance (long-only)": true
+  }
+}

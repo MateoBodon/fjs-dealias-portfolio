@@ -29,13 +29,24 @@ import pandas as pd
 
 def _load_prices(path: Path) -> pd.DataFrame:
     df = pd.read_csv(path)
-    required = {"date", "ticker", "adj_close"}
+    # Accept common adjusted price columns
+    price_col = None
+    for cand in ("adj_close", "closeadj", "price_close", "close"):
+        if cand in df.columns:
+            price_col = cand
+            break
+    if price_col is None:
+        raise ValueError(
+            "prices CSV must contain one of: adj_close, closeadj, price_close, close"
+        )
+    required = {"date", "ticker", price_col}
     missing = required - set(df.columns)
     if missing:
         raise ValueError(
-            f"prices CSV must contain columns {sorted(required)}; missing {sorted(missing)}"
+            f"prices CSV missing required columns: {sorted(missing)}"
         )
-    df = df.loc[:, ["date", "ticker", "adj_close"]].copy()
+    df = df.loc[:, ["date", "ticker", price_col]].copy()
+    df = df.rename(columns={price_col: "adj_close"})
     df["date"] = pd.to_datetime(df["date"]).dt.tz_localize(None)
     df["ticker"] = df["ticker"].astype("string")
     df["adj_close"] = pd.to_numeric(df["adj_close"], errors="coerce")
@@ -86,7 +97,9 @@ def _balanced_weekday_panel(returns: pd.DataFrame) -> tuple[pd.DataFrame, int, i
     df["weekday"] = df["date"].dt.weekday
     # ISO weeks ending on Friday; convert to a canonical Monday-start label
     periods = df["date"].dt.to_period("W-FRI")
-    df["week_start"] = (periods.asfreq("D", "start") - pd.Timedelta(days=4)).dt.normalize()
+    # Convert to Monday start for readability (W-FRI start is a Saturday)
+    starts = periods.dt.start_time
+    df["week_start"] = (starts - pd.Timedelta(days=4)).dt.normalize()
 
     # Keep weeks with exactly 5 unique dates
     date_counts = df.groupby(["week_start"]) ["date"].nunique()
@@ -157,4 +170,3 @@ def main(argv: Sequence[str] | None = None) -> None:
 
 if __name__ == "__main__":  # pragma: no cover - CLI surface
     main()
-

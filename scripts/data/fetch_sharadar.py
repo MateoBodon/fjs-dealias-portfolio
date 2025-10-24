@@ -154,12 +154,13 @@ def _fetch_sep_for(
         "date.lte": end,
     }
     if columns:
-        params_base["qopts"] = {"columns": ",".join(columns)}
+        # Pass columns as list to qopts per official client docs
+        params_base["qopts"] = {"columns": list(columns)}
 
     frames: list[pd.DataFrame] = []
     for chunk in _chunked(list(tickers), batch):
         params = dict(params_base)
-        params["ticker"] = ",".join(chunk)
+        params["ticker"] = chunk  # list form supported by client
         df = _get_table_paginated("SHARADAR/SEP", params)
         if not df.empty:
             frames.append(df)

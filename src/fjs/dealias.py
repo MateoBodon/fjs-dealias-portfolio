@@ -199,8 +199,8 @@ def dealias_search(
     cs_drop_top_frac: float | None = None,
     cs_sensitivity_frac: float | None = None,
     use_design_c_for_C: bool = False,
-    scan_basis: str = "sigma",
-    off_component_leak_cap: float = 0.7,
+    scan_basis: str = "ms",
+    off_component_leak_cap: float = 0.5,
 ) -> list[Detection]:
     """
     Perform Algorithm 1 de-aliasing search for one-way balanced designs.

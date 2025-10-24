@@ -201,6 +201,7 @@ def dealias_search(
     use_design_c_for_C: bool = False,
     scan_basis: str = "ms",
     off_component_leak_cap: float = 0.5,
+    cs_scale: float | None = None,
 ) -> list[Detection]:
     """
     Perform Algorithm 1 de-aliasing search for one-way balanced designs.
@@ -264,6 +265,29 @@ def dealias_search(
         if cs_vec.ndim != 1 or cs_vec.shape[0] != component_count:
             raise ValueError("Cs must match the number of mean square components.")
 
+    # Auto-scale Cs to the Σ̂ basis magnitude when scanning Σ̂(a)
+    scan_basis_norm = (scan_basis or "sigma").strip().lower()
+    if scan_basis_norm not in {"sigma", "ms"}:
+        raise ValueError("scan_basis must be 'sigma' or 'ms'.")
+    if scan_basis_norm == "sigma":
+        try:
+            sigma_total = sigma_components[0] + sigma_components[1]
+            # Use average eigenvalue as the characteristic scale
+            eigvals_total = np.linalg.eigvalsh(0.5 * (sigma_total + sigma_total.T))
+            lam_mean = float(np.mean(eigvals_total)) if eigvals_total.size else float(np.nan)
+        except Exception:
+            lam_mean = float("nan")
+        cs_mean = float(np.mean(cs_vec)) if cs_vec.size else float("nan")
+        if np.isfinite(lam_mean) and np.isfinite(cs_mean) and cs_mean > 0:
+            auto_alpha = lam_mean / cs_mean
+        else:
+            auto_alpha = 1.0
+        alpha = float(cs_scale) if (cs_scale is not None and np.isfinite(cs_scale)) else auto_alpha
+        # Guard against underflow/overflow
+        if not np.isfinite(alpha) or alpha <= 0.0:
+            alpha = 1.0
+        cs_vec = (alpha * cs_vec).astype(np.float64, copy=False)
+
     angles = np.linspace(0.0, 2.0 * np.pi, num=a_grid, endpoint=False, dtype=np.float64)
     eta_rad = np.deg2rad(stability_eta_deg)
     detections: list[Detection] = []
@@ -314,10 +338,6 @@ def dealias_search(
         cs_vec_high = None
         _edge_margin_low = None  # type: ignore[assignment]
         _edge_margin_high = None  # type: ignore[assignment]
-
-    scan_basis_norm = (scan_basis or "sigma").strip().lower()
-    if scan_basis_norm not in {"sigma", "ms"}:
-        raise ValueError("scan_basis must be 'sigma' or 'ms'.")
 
     for theta in angles:
         a_vec = np.array([np.cos(theta), np.sin(theta)], dtype=np.float64)

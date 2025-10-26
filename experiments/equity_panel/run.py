@@ -75,7 +75,8 @@ DEFAULT_CONFIG = {
     "target_component": 0,
     "a_grid": 180,
     "dealias_eps": 0.03,
-    "off_component_leak_cap": None,
+    "off_component_leak_cap": 10.0,
+    "energy_min_abs": 1e-6,
 }
 
 
@@ -164,6 +165,7 @@ def _run_param_ablation(
     base_eta: float,
     signed_a: bool,
     off_component_leak_cap: float | None,
+    energy_min_abs: float | None,
 ) -> None:
     """Grid sweep over detection parameters; emit CSV and heatmaps (E5).
 
@@ -245,6 +247,7 @@ def _run_param_ablation(
                             off_component_leak_cap=(
                                 None if off_cap is None else float(off_cap)
                             ),
+                            energy_min_abs=energy_min_abs,
                         )
                         det_count += int(bool(detections))
                         # Equal-weight weights for speed/consistency
@@ -532,6 +535,7 @@ def _run_single_period(
     realised_returns_by_combo: dict[str, list[float]] = defaultdict(list)
     strategy_success: dict[str, bool] = {name: False for name in strategies}
     records: list[dict[str, Any]] = []
+    rejection_totals: dict[str, int] = {}
 
     baseline_name = "Equal Weight"
     baseline_alias_key = f"{baseline_name}::Aliased"
@@ -580,6 +584,7 @@ def _run_single_period(
         groups_fit = np.repeat(np.arange(len(fit_blocks)), replicates)
 
         off_cap = off_component_leak_cap
+        diag_local: dict[str, int] = {}
         detections = dealias_search(
             y_fit_daily,
             groups_fit,
@@ -598,7 +603,10 @@ def _run_single_period(
             off_component_leak_cap=(
                 None if off_cap is None else float(off_cap)
             ),
+            diagnostics=diag_local,
         )
+        for key, value in diag_local.items():
+            rejection_totals[key] = rejection_totals.get(key, 0) + int(value)
 
         # Optional per-window diagnostics: MP edge vs top eigenvalue across angles
         try:
@@ -1035,6 +1043,7 @@ def _run_single_period(
         "n_assets": int(weekly_balanced.shape[1]),
         "strategies": {name: bool(strategy_success[name]) for name in strategies},
     }
+    summary_payload["rejection_stats"] = rejection_totals
     with (output_dir / "summary.json").open("w", encoding="utf-8") as handle:
         json.dump(summary_payload, handle, indent=2)
 
@@ -1328,6 +1337,7 @@ def run_experiment(
             base_eta=float(config.get("stability_eta_deg", 0.4)),
             signed_a=bool(config.get("signed_a", True)),
             off_component_leak_cap=cast(float | None, config.get("off_component_leak_cap")),
+            energy_min_abs=cast(float | None, config.get("energy_min_abs")),
         )
 
 

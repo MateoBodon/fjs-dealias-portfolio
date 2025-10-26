@@ -13,4 +13,5 @@ a_grid: 180
 cs_sensitivity_frac: 0.0
 window_weeks: 156
 horizon_weeks: 4
-off_component_leak_cap: null
+off_component_leak_cap: 10.0
+energy_min_abs: 0.000001

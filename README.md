@@ -19,11 +19,11 @@ highlighting why both the aliased and de-aliased estimators must target the same
    ```bash
    make setup
    ```
-3. Regenerate the synthetic evidence suite (S1/S2/S3/S4/S5):
+3. Regenerate the synthetic evidence suite (S1–S5) with the latest guardrails:
    ```bash
    make run-synth
    ```
-4. Reproduce the rolling equity experiment:
+4. Reproduce the rolling equity experiment (2015–2024). This takes roughly 90 minutes on a laptop and rewrites `experiments/equity_panel/outputs/`:
    ```bash
    make run-equity
    ```
@@ -44,6 +44,17 @@ highlighting why both the aliased and de-aliased estimators must target the same
     - `PYTHONPATH=src python scripts/data/summarize_returns.py`
     - Reports duplicate `(date, ticker)` pairs removed (currently 1,568 across 892,529 raw rows) and the span of the tidy matrix (`2010-01-05` to `2024-12-31`).
   - The latest balanced panel used in the equity experiment covers 429 five-day weeks with 164 assets (see `experiments/equity_panel/outputs/summary.json`).
+
+## Current status (June 2025)
+
+| Slice | Detections | Median μ̂ | Median off-ratio | Equal-weight ΔMSE (aliased − de-aliased) |
+| --- | --- | --- | --- | --- |
+| 2015–2016 smoke (52+4 weeks) | 31 / 31 windows | 8.5×10⁻⁴ | 5.3 | −1.45×10⁻⁷ |
+| 2015–2024 full (156+4 weeks) | 9 / 270 windows | 2.1×10⁻⁴ | 9.8 | −6.0×10⁻¹⁰ |
+
+- The detector now rectifies negative spikes before substitution and logs how many candidates fail each guardrail (`summary.json → rejection_stats`). In the full run we rectified every spike but only nine cleared the strict energy/leak criteria; the smoke slice demonstrates the intended high-coverage behaviour.
+- Equal-weight MSE still improves on the full run (≈6×10⁻¹⁰) and substantially on the smoke slice (≈1.45×10⁻⁷). Portfolio metrics update automatically when you refresh `experiments/equity_panel/outputs/`.
+- Relaxing the guardrails (`off_component_leak_cap`, `energy_min_abs`) is the next lever to expand coverage while preserving sign safety. The rejection counters make it easy to quantify the effect of any change.
 
 ## Testing
 
@@ -81,17 +92,25 @@ Notes
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `dealias_delta` | `0.3` | Safety buffer added to the MP edge before accepting eigenvalue outliers. |
-| `dealias_eps` | `0.05` | Minimum absolute t-vector mass for the target component and tolerance for off-target entries. |
-| `stability_eta_deg` | `1.0` | Angular perturbation (in degrees) applied when checking directional stability. |
-| `dealias_delta_frac` | `None` | Relative δ buffer as a fraction of the MP edge (e.g., 0.05 → 5%). Overrides `dealias_delta` when set. |
-| `signed_a` | `True` | Search both positive and negative `a` directions (recommended for equity). |
-| `cs_drop_top_frac` | `0.1` | Fraction of top eigenvalues dropped when estimating Cs from mean squares. |
+| `dealias_delta` | `0.0` | Absolute MP edge buffer (superseded when `dealias_delta_frac` is set). |
+| `dealias_delta_frac` | `0.02` | 2% relative MP buffer (dominates the absolute buffer). |
+| `dealias_eps` | `0.03` | Required t-vector mass on the target component. |
+| `stability_eta_deg` | `0.4` | Angular perturbation (degrees) used for stability checks. |
+| `signed_a` | `True` | Search both positive and negative `a` directions (recommended). |
+| `cs_drop_top_frac` | `0.05` | Fraction of top eigenvalues trimmed when estimating Cs. |
+| `off_component_leak_cap` | `10.0` | Reject spikes whose Σ̂₂ leakage exceeds 10× the Σ̂₁ energy. |
+| `energy_min_abs` | `1e-6` | Minimum Σ̂₁ energy admitted before rectification/logging. |
 | `--sigma-ablation` | `False` | When passed to `experiments/equity_panel/run.py`, perturbs empirical Cs by ±10% and records detection robustness. |
 | `--crisis "YYYY-MM-DD:YYYY-MM-DD"` | `None` | Restrict the equity run to a crisis window; results are written to `outputs/crisis_*`. |
 | `--config path/to/config.yaml` | — | Override defaults for data paths, horizons, or delta/eps/eta settings. |
 
-The equity configuration file (`experiments/equity_panel/config.yaml`) mirrors these keys; adding `dealias_delta`, `dealias_delta_frac`, `signed_a`, `cs_drop_top_frac`, `dealias_eps`, or `stability_eta_deg` entries will override the defaults above.
+The equity configuration file (`experiments/equity_panel/config.yaml`) mirrors these keys; overriding any of `dealias_delta`, `dealias_delta_frac`, `dealias_eps`, `stability_eta_deg`, `off_component_leak_cap`, or `energy_min_abs` lets you trade off detection coverage versus guardrail strictness.
+
+### Diagnostics & tuning
+
+- Each run writes `summary.json → rejection_stats` with counters for `rectified_negative_mu`, `rectified_negative_energy`, and `reject_off_component_ratio`. These make it easy to see which guardrail is binding.
+- The smoke slice is a quick way to sanity-check changes (`PYTHONPATH=src python3 experiments/equity_panel/run.py --no-progress --config experiments/equity_panel/config.smoke.yaml` or by editing the default window to 52 weeks).
+- When widening coverage, monitor `detection_summary.csv` and the equal-weight rows in `metrics_summary.csv` to be sure the signal remains positive and MSE continues to improve.
 
 ## Figure gallery
 
@@ -108,6 +127,7 @@ The equity configuration file (`experiments/equity_panel/config.yaml`) mirrors t
   `experiments/equity_panel/outputs/E4_var95_coverage_error.(png|pdf)` – VaR coverage error bars.  
   `experiments/equity_panel/outputs/variance_forecasts.png`, `var95_forecasts.png` – forecast time‑series overlays (baseline vs de‑aliased).  
   `experiments/equity_panel/outputs/rolling_results.csv`, `metrics_summary.csv`, `summary.json` – per‑window diagnostics (detections, forecasts, realised risk).
+  A smoke-run variant (2015–2016) is produced locally when you switch the window to 52 weeks; it provides high-coverage diagnostics before launching the full 270-window run.
 
 Running `make run-synth` and `make run-equity` is sufficient to refresh the full gallery.
 
@@ -188,7 +208,7 @@ De-aliasing only substitutes selected spike magnitudes in $\widehat{\Sigma}_1$; 
 
 ## Recommended defaults and CLI flags
 
-- Recommended equity defaults: `dealias_delta=0.0`, `dealias_delta_frac=0.03`, `dealias_eps=0.03`, `stability_eta_deg=0.4`, `cs_drop_top_frac=0.05`, `signed_a=true`, `a_grid=144`.
+- Recommended equity defaults (smoke): `dealias_delta=0.0`, `dealias_delta_frac=0.02`, `dealias_eps=0.03`, `stability_eta_deg=0.4`, `cs_drop_top_frac=0.05`, `signed_a=true`, `off_component_leak_cap=10.0`, `energy_min_abs=1e-6`, `a_grid=144`.
 - Equity CLI flags: `--delta-frac`, `--eps`, `--a-grid`, `--eta`, `--sigma-ablation`, `--ablations`, `--crisis`, `--no-progress`.
 
 See `METHODS.md` for a compact technical summary of Algorithm 1, acceptance criteria, and the weekly aggregation identity.
@@ -206,7 +226,7 @@ See `METHODS.md` for a compact technical summary of Algorithm 1, acceptance crit
 
 ## Recommended equity knobs
 
-- Conservative (fewer false positives): `dealias_delta_frac=0.03`, `dealias_eps=0.03`, `stability_eta_deg=0.4`, `a_grid=144`, `signed_a=true`.
+- Conservative (fewer false positives): raise `dealias_delta_frac` to 0.03, keep `dealias_eps=0.03`, tighten `off_component_leak_cap` to 8, and preserve `signed_a=true`.
 - Tuned demo (more detections): `--delta-frac 0.02 --eps 0.02 --eta 0.2 --a-grid 180 --signed-a`.
 - Crisis subperiods often reveal outliers; use `--crisis "YYYY-MM-DD:YYYY-MM-DD"` (e.g., early 2020).
 

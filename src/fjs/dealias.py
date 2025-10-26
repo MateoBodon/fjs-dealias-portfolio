@@ -276,6 +276,7 @@ def dealias_search(
     scan_basis: str = "ms",
     off_component_leak_cap: float | None = None,
     cs_scale: float | None = None,
+    diagnostics: dict[str, int] | None = None,
 ) -> list[Detection]:
     """
     Perform Algorithm 1 de-aliasing search for one-way balanced designs.
@@ -316,6 +317,13 @@ def dealias_search(
 
     if not (0 <= target_r < component_count):
         raise ValueError("target_r must reference a valid component index.")
+
+    if diagnostics is not None:
+        diagnostics.clear()
+
+    def _diag_inc(name: str) -> None:
+        if diagnostics is not None:
+            diagnostics[name] = diagnostics.get(name, 0) + 1
 
     if Cs is None:
         # Determine trimming via fraction when provided; else fall back to heuristic
@@ -533,16 +541,33 @@ def dealias_search(
                 mu_hat = float(lam_val)
             else:
                 mu_hat = float(lam_val / t_target)
+            if not np.isfinite(mu_hat):
+                _diag_inc("reject_nonfinite_mu")
+                continue
+            if mu_hat <= 0.0:
+                _diag_inc("rectified_negative_mu")
+                mu_hat = abs(mu_hat)
+                if mu_hat <= 0.0:
+                    continue
+            if mu_hat <= 0.0:
+                _diag_inc("reject_negative_mu")
+                continue
+
             component_vals = [
                 float(eigvecs[:, idx].T @ component @ eigvecs[:, idx])
                 for component in sigma_components
             ]
             target_component_val = component_vals[target_r]
-            # Component-energy gating: use absolute gate if provided; otherwise no absolute gate
-            if energy_min_abs is not None:
-                if abs(target_component_val) <= float(energy_min_abs):
-                    continue
-            denom = max(abs(target_component_val), 1e-12)
+            if target_component_val < 0.0:
+                _diag_inc("rectified_negative_energy")
+            energy_magnitude = abs(target_component_val)
+            if (
+                energy_min_abs is not None
+                and energy_magnitude <= float(energy_min_abs)
+            ):
+                _diag_inc("reject_low_energy")
+                continue
+            denom = max(energy_magnitude, 1e-12)
             worst_off = max(
                 (abs(component_vals[j]) for j in range(len(component_vals)) if j != target_r),
                 default=0.0,
@@ -552,6 +577,7 @@ def dealias_search(
                 off_component_leak_cap is not None
                 and off_component_ratio > float(off_component_leak_cap)
             ):
+                _diag_inc("reject_off_component_ratio")
                 continue
 
             margin_plus = _edge_margin(theta + eta_rad, lam_val)
@@ -636,11 +662,9 @@ def dealias_search(
                 stability_margin_high=stability_margin_high,
                 sensitivity_low_accept=accept_low,
                 sensitivity_high_accept=accept_high,
-                target_energy=float(abs(target_component_val)),
+                target_energy=float(target_component_val),
                 target_index=int(target_r),
-                off_component_ratio=(
-                    None if off_component_ratio is None else float(off_component_ratio)
-                ),
+                off_component_ratio=float(off_component_ratio),
                 pre_outlier_count=int(pre_outlier_count_angle),
             )
             detections.append(detection)

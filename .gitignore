@@ -20,6 +20,7 @@ dist/
 
 # Experiment outputs
 experiments/**/outputs/
+experiments/**/outputs_*/
 figures/
 
 # Publish fast synthetic figure previews in README

@@ -59,6 +59,8 @@ DEFAULT_CONFIG = {
     "stability_eta_deg": 0.4,
     "a_grid": 120,
     "scan_basis": "ms",
+    "off_component_leak_cap": 10.0,
+    "energy_min_abs": 1e-6,
     "output_dir": "figures/synthetic",
     "progress": True,
 }
@@ -302,6 +304,8 @@ def s3_bias(config: dict[str, Any], rng: np.random.Generator) -> pd.DataFrame:
     a_grid = int(config.get("a_grid", 72))
     signed_a = bool(config.get("signed_a", True))
     scan_basis = str(config.get("scan_basis", "ms")).strip().lower()
+    off_cap = config.get("off_component_leak_cap")
+    energy_min = cast(float | None, config.get("energy_min_abs"))
     scan_basis = str(config.get("scan_basis", "ms")).strip().lower()
 
     for spike in snr_grid:
@@ -337,6 +341,10 @@ def s3_bias(config: dict[str, Any], rng: np.random.Generator) -> pd.DataFrame:
                 use_tvector=True,
                 nonnegative_a=not signed_a,
                 scan_basis=scan_basis,
+                off_component_leak_cap=(
+                    None if off_cap is None else float(off_cap)
+                ),
+                energy_min_abs=energy_min,
             )
             if detections:
                 detects += 1
@@ -374,7 +382,8 @@ def s4_guardrail_analysis(
     a_grid = int(config.get("a_grid", 120))
     signed_a = bool(config.get("signed_a", True))
     scan_basis = str(config.get("scan_basis", "ms")).strip().lower()
-    scan_basis = str(config.get("scan_basis", "ms")).strip().lower()
+    off_cap = config.get("off_component_leak_cap")
+    energy_min = cast(float | None, config.get("energy_min_abs"))
 
     default_hits = 0
     lax_hits = 0
@@ -404,6 +413,10 @@ def s4_guardrail_analysis(
             use_tvector=True,
             nonnegative_a=not signed_a,
             scan_basis=scan_basis,
+            off_component_leak_cap=(
+                None if off_cap is None else float(off_cap)
+            ),
+            energy_min_abs=energy_min,
         )
         detections_lax = dealias_search(
             y_mat,
@@ -417,6 +430,8 @@ def s4_guardrail_analysis(
             use_tvector=False,
             nonnegative_a=not signed_a,
             scan_basis=scan_basis,
+            off_component_leak_cap=None,
+            energy_min_abs=None,
         )
         if detections_default:
             default_hits += 1
@@ -484,6 +499,8 @@ def s5_multi_spike_bias(
     a_grid = int(config.get("a_grid", 120))
     signed_a = bool(config.get("signed_a", True))
     scan_basis = str(config.get("scan_basis", "ms")).strip().lower()
+    off_cap = config.get("off_component_leak_cap")
+    energy_min = cast(float | None, config.get("energy_min_abs"))
     k = len(spike_strengths)
 
     # Pairing variants: naive top-k by λ̂ vs alignment-based pairing.
@@ -524,6 +541,10 @@ def s5_multi_spike_bias(
             use_tvector=True,
             nonnegative_a=not signed_a,
             scan_basis=scan_basis,
+            off_component_leak_cap=(
+                None if off_cap is None else float(off_cap)
+            ),
+            energy_min_abs=energy_min,
         )
         # Top-k aliased eigenvalues
         eigvals, eigvecs = np.linalg.eigh(sigma1)

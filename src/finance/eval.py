@@ -264,20 +264,30 @@ def variance_forecast_from_components(
     ms2 = stats["MS2"].astype(np.float64)
 
     if detections:
-        mu_values = [float(item["mu_hat"]) for item in detections]
-        vec_columns = [
-            np.asarray(item["eigvec"], dtype=np.float64).reshape(-1)
-            for item in detections
-        ]
-        if vec_columns:
-            vec_matrix = np.column_stack(vec_columns)
+        filtered_mu: list[float] = []
+        filtered_vecs: list[np.ndarray] = []
+        for item in detections:
+            mu_val = float(item.get("mu_hat", float("nan")))
+            if not np.isfinite(mu_val) or mu_val <= 0.0:
+                continue
+            vec_val = item.get("eigvec")
+            if vec_val is None:
+                continue
+            vec_arr = np.asarray(vec_val, dtype=np.float64).reshape(-1)
+            if vec_arr.shape[0] != x_fit.shape[1]:
+                continue
+            filtered_mu.append(mu_val)
+            filtered_vecs.append(vec_arr)
+
+        if filtered_vecs:
+            vec_matrix = np.column_stack(filtered_vecs)
             weekly_covariance = weekly_cov_from_components(
                 ms1,
                 ms2,
                 replicates,
-                mu_hats=mu_values,
+                mu_hats=filtered_mu,
                 vecs=vec_matrix,
-                clip_top=len(mu_values),
+                clip_top=len(filtered_mu),
             )
         else:
             weekly_covariance = weekly_cov_from_components(ms1, ms2, replicates)

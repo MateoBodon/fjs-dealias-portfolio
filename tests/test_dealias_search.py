@@ -81,6 +81,7 @@ def test_permuted_group_labels_yield_no_detections() -> None:
         eps=0.03,
         stability_eta_deg=0.4,
         off_component_leak_cap=5.0,
+        energy_min_abs=1e-6,
     )
     assert not detections
 
@@ -170,6 +171,7 @@ def test_wrds_window_yields_detection_with_relaxed_leakage() -> None:
         cs_drop_top_frac=0.05,
         scan_basis="sigma",
         off_component_leak_cap=None,
+        energy_min_abs=1e-6,
     )
     assert detections, "Expected at least one detection on the WRDS weekly panel."
     ratios = [

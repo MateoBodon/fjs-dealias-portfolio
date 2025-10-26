@@ -68,14 +68,14 @@ DEFAULT_CONFIG = {
     "window_weeks": 156,
     "horizon_weeks": 4,
     "output_dir": "experiments/equity_panel/outputs",
-    "dealias_delta_frac": None,
+    "dealias_delta_frac": 0.02,
     "signed_a": True,
-    "cs_drop_top_frac": 0.1,
+    "cs_drop_top_frac": 0.05,
     "cs_sensitivity_frac": 0.0,
     "target_component": 0,
-    "a_grid": 120,
-    "dealias_eps": 0.05,
-    "off_component_leak_cap": 0.7,
+    "a_grid": 180,
+    "dealias_eps": 0.03,
+    "off_component_leak_cap": None,
 }
 
 
@@ -163,6 +163,7 @@ def _run_param_ablation(
     base_eps: float,
     base_eta: float,
     signed_a: bool,
+    off_component_leak_cap: float | None,
 ) -> None:
     """Grid sweep over detection parameters; emit CSV and heatmaps (E5).
 
@@ -228,6 +229,7 @@ def _run_param_ablation(
                         y_fit_daily = np.vstack(fit_blocks)
                         y_hold_daily = np.vstack(hold_blocks)
                         groups_fit = np.repeat(np.arange(len(fit_blocks)), replicates)
+                        off_cap = off_component_leak_cap
                         detections = dealias_search(
                             y_fit_daily,
                             groups_fit,
@@ -240,7 +242,9 @@ def _run_param_ablation(
                             nonnegative_a=not signed_a,
                             a_grid=int(ag),
                             scan_basis="sigma",
-                            off_component_leak_cap=float(DEFAULT_CONFIG["off_component_leak_cap"]),
+                            off_component_leak_cap=(
+                                None if off_cap is None else float(off_cap)
+                            ),
                         )
                         det_count += int(bool(detections))
                         # Equal-weight weights for speed/consistency
@@ -417,10 +421,12 @@ def _run_single_period(
     target_component: int,
     cs_drop_top_frac: float,
     cs_sensitivity_frac: float,
+    off_component_leak_cap: float | None,
     sigma_ablation: bool,
     label: str,
     progress: bool = True,
     a_grid: int = 120,
+    energy_min_abs: float | None = None,
 ) -> None:
     """Execute the rolling evaluation for a single date range."""
 
@@ -573,6 +579,7 @@ def _run_single_period(
         y_hold_daily = np.vstack(hold_blocks)
         groups_fit = np.repeat(np.arange(len(fit_blocks)), replicates)
 
+        off_cap = off_component_leak_cap
         detections = dealias_search(
             y_fit_daily,
             groups_fit,
@@ -580,6 +587,7 @@ def _run_single_period(
             delta=delta,
             delta_frac=delta_frac,
             eps=eps,
+            energy_min_abs=energy_min_abs,
             stability_eta_deg=stability_eta,
             use_tvector=True,
             nonnegative_a=not signed_a,
@@ -587,7 +595,9 @@ def _run_single_period(
             cs_drop_top_frac=float(cs_drop_top_frac),
             cs_sensitivity_frac=float(cs_sensitivity_frac),
             scan_basis="sigma",
-            off_component_leak_cap=float(DEFAULT_CONFIG.get("off_component_leak_cap", 0.7)),
+            off_component_leak_cap=(
+                None if off_cap is None else float(off_cap)
+            ),
         )
 
         # Optional per-window diagnostics: MP edge vs top eigenvalue across angles
@@ -606,43 +616,41 @@ def _run_single_period(
             c_vec_local = np.array([float(stats_local["J"]), 1.0], dtype=np.float64)
             cs_vec_local = estimate_Cs_from_MS([ms1_local, ms2_local], d_vec_local.tolist(), c_vec_local.tolist(), drop_top=drop_top)
 
+            # Build C mapping consistent with detector (sigma-basis): use lam_mean scale when available
+            sigma_total = sigma1_local + sigma2_local
+            try:
+                eigvals_total = np.linalg.eigvalsh(0.5 * (sigma_total + sigma_total.T))
+                lam_mean = float(np.mean(eigvals_total)) if eigvals_total.size else float("nan")
+            except Exception:
+                lam_mean = float("nan")
+            if np.isfinite(lam_mean) and lam_mean > 0.0:
+                C_diag = np.full_like(c_vec_local, lam_mean, dtype=np.float64)
+            else:
+                C_diag = np.array([1.0, 1.0], dtype=np.float64)
+
             angles = np.linspace(0.0, 2.0 * np.pi, num=int(a_grid), endpoint=False, dtype=np.float64)
             rows = []
             for theta in angles:
                 a_vec = np.array([np.cos(theta), np.sin(theta)], dtype=np.float64)
                 try:
-                    # Compute MP edge using design C=1 (aligned with Σ̂(a) units)
                     z_plus = mp_edge(
                         a_vec.tolist(),
-                        np.ones_like(c_vec_local, dtype=np.float64).tolist(),
+                        C_diag.tolist(),
                         d_vec_local.tolist(),
                         float(stats_local["J"]),
                         Cs=cs_vec_local,
                     )
                 except Exception:
                     continue
-                # Top eigenvalue of Σ̂(a) = a1*Σ̂1 + a2*Σ̂2 (consistent with detection units)
                 sigma_a = float(a_vec[0]) * sigma1_local + float(a_vec[1]) * sigma2_local
                 try:
                     lam_top = float(np.linalg.eigvalsh(sigma_a)[-1])
                 except Exception:
                     continue
                 thr = z_plus + max(float(delta), (float(delta_frac) * z_plus) if (delta_frac is not None) else 0.0)
-                # Also log alternative mapping using C=c_vec for debugging
-                try:
-                    z_plus_cvec = mp_edge(
-                        a_vec.tolist(),
-                        c_vec_local.tolist(),
-                        d_vec_local.tolist(),
-                        float(stats_local["J"]),
-                        Cs=cs_vec_local,
-                    )
-                except Exception:
-                    z_plus_cvec = float("nan")
                 rows.append({
                     "theta": float(theta),
                     "z_plus": float(z_plus),
-                    "z_plus_cvec": float(z_plus_cvec),
                     "lambda_top": lam_top,
                     "edge_margin": float(lam_top - thr),
                 })
@@ -691,6 +699,23 @@ def _run_single_period(
                 if isinstance(top, dict)
                 else float("nan")
             )
+            window_record["top_off_component_ratio"] = (
+                float(top.get("off_component_ratio", np.nan))
+                if isinstance(top, dict)
+                else float("nan")
+            )
+            components = top.get("components") if isinstance(top, dict) else None
+            window_record["top_component_sigma1"] = (
+                float(components[target_component])
+                if isinstance(components, (list, tuple))
+                and len(components) > target_component
+                else float("nan")
+            )
+            window_record["top_component_sigma2"] = (
+                float(components[1])
+                if isinstance(components, (list, tuple)) and len(components) > 1
+                else float("nan")
+            )
         else:
             window_record["top_lambda_hat"] = float("nan")
             window_record["top_mu_hat"] = float("nan")
@@ -699,6 +724,9 @@ def _run_single_period(
             window_record["top_stability_margin"] = float("nan")
             window_record["top_z_plus"] = float("nan")
             window_record["top_threshold_main"] = float("nan")
+            window_record["top_off_component_ratio"] = float("nan")
+            window_record["top_component_sigma1"] = float("nan")
+            window_record["top_component_sigma2"] = float("nan")
 
         # Always record the top aliased Σ1 eigenvalue (for E2-alt)
         try:
@@ -932,6 +960,9 @@ def _run_single_period(
                 "top_sigma1_eigval",
                 "top_z_plus",
                 "top_threshold_main",
+                "top_off_component_ratio",
+                "top_component_sigma1",
+                "top_component_sigma2",
             ]
         ].copy()
         det_summary.to_csv(output_dir / "detection_summary.csv", index=False)
@@ -1164,6 +1195,7 @@ def run_experiment(
     eta_override: float | None = None,
     window_weeks_override: int | None = None,
     horizon_weeks_override: int | None = None,
+    energy_min_abs_override: float | None = None,
 ) -> None:
     """Execute the rolling equity forecasting experiment."""
 
@@ -1191,6 +1223,8 @@ def run_experiment(
         config["window_weeks"] = int(window_weeks_override)
     if horizon_weeks_override is not None:
         config["horizon_weeks"] = int(horizon_weeks_override)
+    if energy_min_abs_override is not None:
+        config["energy_min_abs"] = float(energy_min_abs_override)
     # Values from YAML remain if overrides not provided
     daily_returns = _prepare_data(config)
 
@@ -1249,18 +1283,20 @@ def run_experiment(
             output_dir=run_output_dir,
             window_weeks=int(config["window_weeks"]),
             horizon_weeks=int(config["horizon_weeks"]),
-            delta=float(config.get("dealias_delta", 0.3)),
+            delta=float(config.get("dealias_delta", 0.0)),
             delta_frac=cast(float | None, config.get("dealias_delta_frac")),
-            eps=float(config.get("dealias_eps", 0.05)),
+            eps=float(config.get("dealias_eps", 0.03)),
             stability_eta=float(config.get("stability_eta_deg", 1.0)),
             signed_a=bool(config.get("signed_a", True)),
             target_component=int(config.get("target_component", 0)),
-            cs_drop_top_frac=float(config.get("cs_drop_top_frac", 0.1)),
+            cs_drop_top_frac=float(config.get("cs_drop_top_frac", 0.05)),
             cs_sensitivity_frac=float(config.get("cs_sensitivity_frac", 0.0)),
+            off_component_leak_cap=cast(float | None, config.get("off_component_leak_cap")),
             sigma_ablation=bool(run_cfg["sigma_ablation"]),
             label=str(run_cfg["label"]),
             progress=(True if progress_override is None else bool(progress_override)),
-            a_grid=int(config.get("a_grid", 120)),
+            a_grid=int(config.get("a_grid", 180)),
+            energy_min_abs=cast(float | None, config.get("energy_min_abs")),
         )
 
         # Persist meta information for this run
@@ -1291,6 +1327,7 @@ def run_experiment(
             base_eps=float(config.get("dealias_eps", 0.03)),
             base_eta=float(config.get("stability_eta_deg", 0.4)),
             signed_a=bool(config.get("signed_a", True)),
+            off_component_leak_cap=cast(float | None, config.get("off_component_leak_cap")),
         )
 
 
@@ -1346,6 +1383,12 @@ def main() -> None:
         help="Stability perturbation in degrees",
     )
     parser.add_argument(
+        "--energy-min-abs",
+        type=float,
+        default=None,
+        help="Absolute component-energy gate for Σ̂ target component (optional)",
+    )
+    parser.add_argument(
         "--window-weeks",
         type=int,
         default=None,
@@ -1359,8 +1402,18 @@ def main() -> None:
     )
     parser.add_argument(
         "--signed-a",
-        action="store_true",
+        dest="signed_a_override",
+        action="store_const",
+        const=True,
+        default=None,
         help="Enable signed a-grid search (default true)",
+    )
+    parser.add_argument(
+        "--nonnegative-a",
+        dest="signed_a_override",
+        action="store_const",
+        const=False,
+        help="Restrict a-grid to nonnegative combinations",
     )
     parser.add_argument(
         "--target-component",
@@ -1391,7 +1444,7 @@ def main() -> None:
         sigma_ablation=args.sigma_ablation,
         crisis=args.crisis,
         delta_frac_override=args.delta_frac,
-        signed_a_override=args.signed_a,
+        signed_a_override=args.signed_a_override,
         target_component_override=args.target_component,
         cs_drop_top_frac_override=args.cs_drop_top_frac,
         progress_override=(not args.no_progress),
@@ -1401,6 +1454,7 @@ def main() -> None:
         eta_override=args.eta,
         window_weeks_override=args.window_weeks,
         horizon_weeks_override=args.horizon_weeks,
+        energy_min_abs_override=args.energy_min_abs,
     )
 
 

@@ -7,6 +7,8 @@ import numpy as np
 from fjs.balanced import mean_squares
 from fjs.dealias import _default_design, dealias_search
 from fjs.mp import estimate_Cs_from_MS, mp_edge
+from finance.io import load_returns_csv
+from experiments.equity_panel.run import _balanced_weekly_panel
 
 
 def _make_single_spike_panel(
@@ -45,7 +47,7 @@ def test_single_spike_mu_hat_within_standard_error() -> None:
         y,
         labels,
         target_r=0,
-        a_grid=72,
+        a_grid=60,
         delta=0.3,
         eps=0.03,
         stability_eta_deg=0.4,
@@ -139,3 +141,37 @@ def test_decisions_stable_within_eta_band() -> None:
             m = margin_at(theta0 + off, lam)
             assert m is not None and m >= 0.0
 
+
+def test_wrds_window_yields_detection_with_relaxed_leakage() -> None:
+    returns = load_returns_csv("data/returns_daily.csv")
+    mask = (returns.index >= "2015-01-01") & (returns.index <= "2024-12-31")
+    weekly_df, week_map, replicates, ordered_tickers = _balanced_weekly_panel(
+        returns.loc[mask]
+    )
+    # Use the first 156 balanced weeks to mirror the production rolling window
+    fit = weekly_df.iloc[:156]
+    fit_blocks = [week_map[idx] for idx in fit.index]
+    ordered = sorted(set.intersection(*[set(df.columns) for df in fit_blocks]))
+    fit_blocks = [df.loc[:, ordered].to_numpy(dtype=np.float64) for df in fit_blocks]
+    y_fit_daily = np.vstack(fit_blocks)
+    groups_fit = np.repeat(np.arange(len(fit_blocks)), int(replicates))
+    detections = dealias_search(
+        y_fit_daily,
+        groups_fit,
+        target_r=0,
+        delta=0.0,
+        delta_frac=0.02,
+        eps=0.03,
+        stability_eta_deg=0.4,
+        use_tvector=True,
+        nonnegative_a=False,
+        a_grid=72,
+        cs_drop_top_frac=0.05,
+        scan_basis="sigma",
+        off_component_leak_cap=None,
+    )
+    assert detections, "Expected at least one detection on the WRDS weekly panel."
+    ratios = [
+        float(det.get("off_component_ratio", 0.0)) for det in detections
+    ]
+    assert any(r > 1.0 for r in ratios if np.isfinite(r))

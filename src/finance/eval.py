@@ -9,6 +9,7 @@ import pandas as pd
 from numpy.typing import NDArray
 
 from fjs.balanced import mean_squares
+from fjs.dealias import dealias_covariance
 
 from .ledoit import lw_cov
 
@@ -118,10 +119,15 @@ def oos_variance_forecast(
             sigma = np.asarray(np.cov(x_fit, rowvar=False, ddof=1), dtype=np.float64)
     elif estimator == "dealias":
         sigma_emp = np.cov(x_fit, rowvar=False, ddof=1)
-        clip = float(kwargs.get("clip", 1e-4))
-        eigvals, eigvecs = np.linalg.eigh(sigma_emp)
-        eigvals = np.clip(eigvals, clip, None)
-        sigma = eigvecs @ np.diag(eigvals) @ eigvecs.T
+        detections = kwargs.get("detections")
+        if detections:
+            result = dealias_covariance(sigma_emp, detections)
+            sigma = result.covariance
+        else:
+            clip = float(kwargs.get("clip", 1e-4))
+            eigvals, eigvecs = np.linalg.eigh(sigma_emp)
+            eigvals = np.clip(eigvals, clip, None)
+            sigma = eigvecs @ np.diag(eigvals) @ eigvecs.T
     else:
         raise ValueError(f"Unknown estimator '{estimator}'.")
 

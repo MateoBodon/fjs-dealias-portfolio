@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TypedDict
+from typing import Any, TypedDict
 
 import numpy as np
 from numpy.typing import NDArray
@@ -41,6 +41,7 @@ class Detection(TypedDict):
     # Target component diagnostics
     target_energy: float | None
     target_index: int | None
+    off_component_ratio: float | None
     # Pre-gating diagnostics
     pre_outlier_count: int | None
 
@@ -78,7 +79,7 @@ def _sigma_of_a_from_MS(a: np.ndarray, MS_list: list[np.ndarray]) -> np.ndarray:
 
 def dealias_covariance(
     covariance: NDArray[np.float64],
-    spectrum: NDArray[np.float64],
+    spectrum: NDArray[np.float64] | Sequence[Any],
 ) -> DealiasingResult:
     """
     Remove aliasing artefacts from a sample covariance matrix.
@@ -95,7 +96,79 @@ def dealias_covariance(
     DealiasingResult
         Structured result containing the refined covariance and metadata.
     """
-    raise NotImplementedError("Covariance de-aliasing routine is not implemented yet.")
+    if spectrum is None:
+        raise ValueError("spectrum must be provided for covariance de-aliasing.")
+
+    matrix = np.asarray(covariance, dtype=np.float64)
+    if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
+        raise ValueError("covariance must be a square matrix.")
+    if not np.all(np.isfinite(matrix)):
+        raise ValueError("covariance must contain finite entries.")
+
+    # Symmetrise to guard against minor numerical asymmetry.
+    matrix = 0.5 * (matrix + matrix.T)
+    adjusted = matrix.copy()
+    n = adjusted.shape[0]
+    iterations = 0
+
+    def _apply_update(vec: NDArray[np.float64], target: float) -> None:
+        nonlocal adjusted, iterations
+        vector = np.asarray(vec, dtype=np.float64).reshape(n)
+        norm = np.linalg.norm(vector)
+        if not np.isfinite(norm) or norm <= 0.0:
+            return
+        unit = vector / norm
+        mu_target = float(target)
+        if not np.isfinite(mu_target):
+            return
+        rayleigh = float(unit.T @ adjusted @ unit)
+        adjusted += (mu_target - rayleigh) * np.outer(unit, unit)
+        iterations += 1
+
+    handled = False
+
+    # Case 1: spectrum provided as detection dictionaries (dealias_search output)
+    if isinstance(spectrum, Sequence) and spectrum and not np.isscalar(spectrum):
+        mu_candidates: list[float] = []
+        vec_candidates: list[NDArray[np.float64]] = []
+        for entry in spectrum:
+            if isinstance(entry, dict):
+                mu_val = entry.get("mu_hat")
+                vec_val = entry.get("eigvec")
+                if mu_val is not None and vec_val is not None:
+                    mu_candidates.append(float(mu_val))
+                    vec_candidates.append(np.asarray(vec_val, dtype=np.float64))
+        if mu_candidates and vec_candidates and len(mu_candidates) == len(vec_candidates):
+            for mu_val, vec_val in zip(mu_candidates, vec_candidates):
+                if vec_val.shape[0] != n:
+                    raise ValueError("eigvec dimensions must match covariance.")
+                _apply_update(vec_val, mu_val)
+            handled = True
+
+    if not handled:
+        values = np.asarray(spectrum, dtype=np.float64).reshape(-1)
+        if values.ndim != 1:
+            raise ValueError("spectrum must be one-dimensional when given as array.")
+        if values.size == 0:
+            spectrum_sorted = np.linalg.eigvalsh(adjusted)
+            return DealiasingResult(covariance=adjusted, spectrum=spectrum_sorted, iterations=0)
+
+        eigvals, eigvecs = np.linalg.eigh(adjusted)
+        order = np.argsort(eigvals)[::-1]
+        eigvecs = eigvecs[:, order]
+
+        replacements = min(values.size, eigvecs.shape[1])
+        target_vals = np.sort(values)[::-1]
+        for idx in range(replacements):
+            _apply_update(eigvecs[:, idx], target_vals[idx])
+        handled = True
+
+    final_spectrum = np.linalg.eigvalsh(adjusted)
+    return DealiasingResult(
+        covariance=adjusted,
+        spectrum=final_spectrum,
+        iterations=iterations,
+    )
 
 
 def _validate_inputs(
@@ -192,6 +265,7 @@ def dealias_search(
     delta: float = 0.5,
     delta_frac: float | None = None,
     eps: float = 0.02,
+    energy_min_abs: float | None = None,
     stability_eta_deg: float = 1.0,
     use_tvector: bool = True,
     nonnegative_a: bool = False,
@@ -200,7 +274,7 @@ def dealias_search(
     cs_sensitivity_frac: float | None = None,
     use_design_c_for_C: bool = False,
     scan_basis: str = "ms",
-    off_component_leak_cap: float = 0.5,
+    off_component_leak_cap: float | None = None,
     cs_scale: float | None = None,
 ) -> list[Detection]:
     """
@@ -269,6 +343,8 @@ def dealias_search(
     scan_basis_norm = (scan_basis or "sigma").strip().lower()
     if scan_basis_norm not in {"sigma", "ms"}:
         raise ValueError("scan_basis must be 'sigma' or 'ms'.")
+    # Prepare Σ̂(a)-aware scaling for MP mapping
+    lam_mean = float("nan")
     if scan_basis_norm == "sigma":
         try:
             sigma_total = sigma_components[0] + sigma_components[1]
@@ -338,6 +414,15 @@ def dealias_search(
         cs_vec_high = None
         _edge_margin_low = None  # type: ignore[assignment]
         _edge_margin_high = None  # type: ignore[assignment]
+
+    # Choose C mapping for MP computations
+    if use_design_c_for_C:
+        C_for_mp = c_vec
+    else:
+        if scan_basis_norm == "sigma" and np.isfinite(lam_mean) and lam_mean > 0.0:
+            C_for_mp = np.full_like(c_vec, lam_mean, dtype=np.float64)
+        else:
+            C_for_mp = c_weights
 
     for theta in angles:
         a_vec = np.array([np.cos(theta), np.sin(theta)], dtype=np.float64)
@@ -453,16 +538,19 @@ def dealias_search(
                 for component in sigma_components
             ]
             target_component_val = component_vals[target_r]
-            # Component-energy gating: fixed absolute gate; drop dependency on mu_hat
-            # to avoid over-rejecting real spikes in noisy finite samples
-            if abs(target_component_val) <= eps:
-                continue
-            # Allow modest leakage on off-target components; cap vs max(eps, leak*|target|)
-            energy_cap = max(float(eps), float(off_component_leak_cap) * abs(target_component_val))
-            if any(
-                abs(component_vals[j]) > energy_cap
-                for j in range(len(component_vals))
-                if j != target_r
+            # Component-energy gating: use absolute gate if provided; otherwise no absolute gate
+            if energy_min_abs is not None:
+                if abs(target_component_val) <= float(energy_min_abs):
+                    continue
+            denom = max(abs(target_component_val), 1e-12)
+            worst_off = max(
+                (abs(component_vals[j]) for j in range(len(component_vals)) if j != target_r),
+                default=0.0,
+            )
+            off_component_ratio = float(worst_off / denom) if denom > 0 else float("inf")
+            if (
+                off_component_leak_cap is not None
+                and off_component_ratio > float(off_component_leak_cap)
             ):
                 continue
 
@@ -550,6 +638,9 @@ def dealias_search(
                 sensitivity_high_accept=accept_high,
                 target_energy=float(abs(target_component_val)),
                 target_index=int(target_r),
+                off_component_ratio=(
+                    None if off_component_ratio is None else float(off_component_ratio)
+                ),
                 pre_outlier_count=int(pre_outlier_count_angle),
             )
             detections.append(detection)

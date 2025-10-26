@@ -6,7 +6,7 @@ import json
 import sys
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import matplotlib
 
@@ -44,15 +44,21 @@ from meta.run_meta import write_run_meta
 DEFAULT_CONFIG = {
     "n_assets": 60,
     "n_groups": 60,
-    "replicates": 2,
+    "replicates": 3,
     "noise_variance": 1.0,
-    "signal_to_noise": 0.5,
+    "signal_to_noise": 0.35,
     "spike_strength": 6.0,
     "mc": 200,
     "snr_grid": [4.0, 6.0, 8.0],
     "guardrail_trials": 200,
     "multi_spike_trials": 120,
     "multi_spike_strengths": [7.0, 5.0, 3.5],
+    "delta": 0.05,
+    "delta_frac": 0.02,
+    "eps": 0.03,
+    "stability_eta_deg": 0.4,
+    "a_grid": 120,
+    "scan_basis": "ms",
     "output_dir": "figures/synthetic",
     "progress": True,
 }
@@ -290,7 +296,13 @@ def s3_bias(config: dict[str, Any], rng: np.random.Generator) -> pd.DataFrame:
     snr_grid = config.get("snr_grid", [4.0, 6.0, 8.0])
     mc = int(config["mc"])
     delta = float(config.get("delta", 0.3))
+    delta_frac = cast(float | None, config.get("delta_frac"))
     eps = float(config.get("eps", 0.05))
+    stability = float(config.get("stability_eta_deg", 1.0))
+    a_grid = int(config.get("a_grid", 72))
+    signed_a = bool(config.get("signed_a", True))
+    scan_basis = str(config.get("scan_basis", "ms")).strip().lower()
+    scan_basis = str(config.get("scan_basis", "ms")).strip().lower()
 
     for spike in snr_grid:
         aliased_vals: list[float] = []
@@ -317,9 +329,14 @@ def s3_bias(config: dict[str, Any], rng: np.random.Generator) -> pd.DataFrame:
                 y_mat,
                 groups,
                 target_r=0,
-                a_grid=72,
+                a_grid=a_grid,
                 delta=delta,
+                delta_frac=delta_frac,
                 eps=eps,
+                stability_eta_deg=stability,
+                use_tvector=True,
+                nonnegative_a=not signed_a,
+                scan_basis=scan_basis,
             )
             if detections:
                 detects += 1
@@ -351,8 +368,13 @@ def s4_guardrail_analysis(
     """Compare false-positive rates under default versus lax guardrails."""
     trials = int(config.get("guardrail_trials", 200))
     delta_default = float(config.get("delta", 0.3))
+    delta_frac_default = cast(float | None, config.get("delta_frac"))
     eps_default = float(config.get("eps", 0.05))
     stability_default = float(config.get("stability_eta_deg", 1.0))
+    a_grid = int(config.get("a_grid", 120))
+    signed_a = bool(config.get("signed_a", True))
+    scan_basis = str(config.get("scan_basis", "ms")).strip().lower()
+    scan_basis = str(config.get("scan_basis", "ms")).strip().lower()
 
     default_hits = 0
     lax_hits = 0
@@ -374,20 +396,27 @@ def s4_guardrail_analysis(
             y_mat,
             groups,
             target_r=0,
-            a_grid=72,
+            a_grid=a_grid,
             delta=delta_default,
+            delta_frac=delta_frac_default,
             eps=eps_default,
             stability_eta_deg=stability_default,
+            use_tvector=True,
+            nonnegative_a=not signed_a,
+            scan_basis=scan_basis,
         )
         detections_lax = dealias_search(
             y_mat,
             groups,
             target_r=0,
-            a_grid=72,
+            a_grid=a_grid,
             delta=0.0,
+            delta_frac=None,
             eps=eps_default,
             stability_eta_deg=0.0,
             use_tvector=False,
+            nonnegative_a=not signed_a,
+            scan_basis=scan_basis,
         )
         if detections_default:
             default_hits += 1
@@ -449,8 +478,12 @@ def s5_multi_spike_bias(
     spike_strengths = list(config.get("multi_spike_strengths", [7.0, 5.0, 3.5]))
     trials = int(config.get("multi_spike_trials", 120))
     delta = float(config.get("delta", 0.3))
+    delta_frac = cast(float | None, config.get("delta_frac"))
     eps = float(config.get("eps", 0.05))
     stability = float(config.get("stability_eta_deg", 1.0))
+    a_grid = int(config.get("a_grid", 120))
+    signed_a = bool(config.get("signed_a", True))
+    scan_basis = str(config.get("scan_basis", "ms")).strip().lower()
     k = len(spike_strengths)
 
     # Pairing variants: naive top-k by λ̂ vs alignment-based pairing.
@@ -483,10 +516,14 @@ def s5_multi_spike_bias(
             y_mat,
             groups,
             target_r=0,
-            a_grid=120,
+            a_grid=a_grid,
             delta=delta,
+            delta_frac=delta_frac,
             eps=eps,
             stability_eta_deg=stability,
+            use_tvector=True,
+            nonnegative_a=not signed_a,
+            scan_basis=scan_basis,
         )
         # Top-k aliased eigenvalues
         eigvals, eigvecs = np.linalg.eigh(sigma1)

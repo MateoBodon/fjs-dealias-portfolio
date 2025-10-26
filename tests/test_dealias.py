@@ -50,11 +50,28 @@ def test_dealiasing_result_structure() -> None:
     assert fields is not None
 
 
-def test_dealias_covariance_is_stub() -> None:
-    covariance = np.eye(3)
-    spectrum = np.ones(3)
-    with pytest.raises(NotImplementedError):
-        dealias_covariance(covariance, spectrum)
+def test_dealias_covariance_uses_detection_vectors() -> None:
+    covariance = np.diag([5.0, 2.0, 1.0]).astype(np.float64)
+    detection = {
+        "mu_hat": 3.5,
+        "eigvec": np.array([1.0, 0.0, 0.0], dtype=np.float64),
+    }
+    result = dealias_covariance(covariance, [detection])
+    assert isinstance(result, DealiasingResult)
+    assert result.iterations == 1
+    assert np.isclose(result.covariance[0, 0], 3.5, atol=1e-8)
+    # Remaining diagonal entries remain unchanged
+    assert np.isclose(result.covariance[1, 1], 2.0, atol=1e-8)
+    assert np.isclose(result.covariance[2, 2], 1.0, atol=1e-8)
+
+
+def test_dealias_covariance_accepts_target_spectrum() -> None:
+    covariance = np.diag([1.0, 2.0, 3.0]).astype(np.float64)
+    target = np.array([4.0, 2.0, 1.0], dtype=np.float64)
+    result = dealias_covariance(covariance, target)
+    assert result.iterations == 3
+    eigvals = np.sort(np.linalg.eigvalsh(result.covariance))[::-1]
+    assert np.allclose(eigvals, np.sort(target)[::-1], atol=1e-8)
 
 
 def test_dealias_search_detects_sigma1_spike() -> None:

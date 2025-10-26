@@ -40,6 +40,10 @@ highlighting why both the aliased and de-aliased estimators must target the same
   - Outputs:
     - Wide weekly CSV at `data/prices_weekly_200.csv` (index `week_start`, columns are tickers)
     - Metadata JSON next to the CSV (`.meta.json`) with `balanced_weeks`, `dropped_weeks`, and `p`.
+  - Quick diagnostics on the WRDS daily returns:
+    - `PYTHONPATH=src python scripts/data/summarize_returns.py`
+    - Reports duplicate `(date, ticker)` pairs removed (currently 1,568 across 892,529 raw rows) and the span of the tidy matrix (`2010-01-05` to `2024-12-31`).
+  - The latest balanced panel used in the equity experiment covers 429 five-day weeks with 164 assets (see `experiments/equity_panel/outputs/summary.json`).
 
 ## Testing
 

@@ -80,6 +80,7 @@ def test_permuted_group_labels_yield_no_detections() -> None:
         delta=0.4,
         eps=0.03,
         stability_eta_deg=0.4,
+        off_component_leak_cap=5.0,
     )
     assert not detections
 

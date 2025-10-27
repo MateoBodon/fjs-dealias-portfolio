@@ -49,7 +49,7 @@ Both modes accept `--oneway-a-solver {auto,rootfind,grid}` to control the θ ref
     - Reports duplicate `(date, ticker)` pairs removed (currently 1,568 across 892,529 raw rows) and the span of the tidy matrix (`2010-01-05` to `2024-12-31`).
   - The latest committed full run lives in `experiments/equity_panel/archive/2025-10-27_full/summary.json` (see `tools/list_runs.py` for the authoritative roster). It covers 429 five-day weeks with 164 assets. Fresh runs write to `experiments/equity_panel/outputs/` until you archive them via `experiments/equity_panel/LATEST.md`.
 
-## Current status (June 2025)
+## Current status (October 2025)
 
 | Slice | Detections | Median μ̂ | Median off-ratio | Equal-weight ΔMSE (aliased − de-aliased) |
 | --- | --- | --- | --- | --- |

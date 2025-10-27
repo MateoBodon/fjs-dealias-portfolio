@@ -303,12 +303,14 @@ def dealias_search(
     off_component_leak_cap: float | None = None,
     cs_scale: float | None = None,
     diagnostics: dict[str, int] | None = None,
+    stats: dict[str, Any] | None = None,
 ) -> list[Detection]:
     """
     Perform Algorithm 1 de-aliasing search for one-way balanced designs.
     """
     observations, assignments = _validate_inputs(y, groups)
-    stats = mean_squares(observations, assignments)
+    if stats is None:
+        stats = mean_squares(observations, assignments)
 
     if design is None:
         design_params = _default_design(stats)

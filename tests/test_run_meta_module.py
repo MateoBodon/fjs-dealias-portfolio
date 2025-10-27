@@ -30,6 +30,21 @@ def test_write_run_meta_creates_file_with_expected_fields(tmp_path: Path) -> Non
     pdf_path = out / "figure.pdf"
     pdf_path.write_bytes(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n1 0 obj\n<<>>\nendobj\n")
 
+    manifest = {
+        "asset_count": 12,
+        "weeks": 3,
+        "days_per_week": 5,
+        "dropped_weeks": 0,
+        "imputed_weeks": 0,
+        "partial_week_policy": "drop",
+        "start_week": "2023-01-02",
+        "end_week": "2023-01-30",
+        "data_hash": "hash",
+        "universe_hash": "universe123",
+        "preprocess_flags": {"winsorize": "0.01"},
+    }
+    (out / "panel_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
     cfg = {
         "dealias_delta": 0.2,
         "dealias_delta_frac": 0.05,
@@ -64,4 +79,5 @@ def test_write_run_meta_creates_file_with_expected_fields(tmp_path: Path) -> Non
     assert data["L"] == 2
     assert isinstance(data["figure_sha256"], dict)
     assert "figure.pdf" in data["figure_sha256"]
-
+    assert data["panel_universe_hash"] == "universe123"
+    assert data["panel_preprocess_flags"] == {"winsorize": "0.01"}

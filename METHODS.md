@@ -75,6 +75,7 @@ Code:
 
 - `t_vec(λ, a, C, d, N, c, order, Cs)` in `src/fjs/mp.py`.
 - Algorithm 1 search and guardrails in `src/fjs/dealias.py` (`dealias_search`).
+- The detector persists per-candidate diagnostics (`edge_margin = λ̂ - z₊`, |t| vector, admissible root check with z₀'(m) > 0) for inspection in `rolling_results.csv` and `summary.json`.
 
 ## Noise plug‑ins and trimming
 
@@ -113,4 +114,3 @@ Baselines include aliased (no substitution), Ledoit–Wolf (shrinkage), and SCM 
   - E3: OOS variance MSE across methods.
   - E4: 95% VaR coverage error.
   - E5: ablations over δ_frac/ε/a_grid/η.
-

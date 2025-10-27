@@ -4,11 +4,11 @@ import math
 
 import numpy as np
 
+from data.panels import build_balanced_weekday_panel
 from fjs.balanced import mean_squares
 from fjs.dealias import _default_design, dealias_search
 from fjs.mp import estimate_Cs_from_MS, mp_edge
 from finance.io import load_returns_csv
-from experiments.equity_panel.run import _balanced_weekly_panel
 
 
 def _make_single_spike_panel(
@@ -147,7 +147,7 @@ def test_decisions_stable_within_eta_band() -> None:
 def test_wrds_window_yields_detection_with_relaxed_leakage() -> None:
     returns = load_returns_csv("data/returns_daily.csv")
     mask = (returns.index >= "2015-01-01") & (returns.index <= "2024-12-31")
-    panel = _balanced_weekly_panel(returns.loc[mask])
+    panel = build_balanced_weekday_panel(returns.loc[mask])
     weekly_df = panel.weekly
     week_map = panel.week_map
     replicates = panel.replicates

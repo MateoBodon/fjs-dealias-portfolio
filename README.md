@@ -34,7 +34,7 @@ De-aliasing the spurious spikes that arise when MANOVA spectra are aliased in hi
   - Outputs:
     - Wide weekly CSV at `data/prices_weekly_200.csv` (index `week_start`, columns are tickers)
     - Metadata JSON next to the CSV (`.meta.json`) with `balanced_weeks`, `dropped_weeks`, and `p`.
-  - The equity runner mirrors this metadata: pass `--precompute-panel` to cache the balanced panel and write `<run_dir>/panel_manifest.json` (fields: asset count, weeks, days-per-week, dropped weeks), and choose between `--drop-partial-weeks` (default) or `--impute-partial-weeks` (reindexes Mon–Fri and fills missing days with zero returns) when generating the in-memory Week×Day cube.
+  - The equity runner mirrors this metadata: pass `--precompute-panel` to cache the balanced panel and write `<run_dir>/panel_manifest.json` (fields: asset count, weeks, days-per-week, dropped/imputed weeks, `universe_hash`, and `preprocess_flags`), and choose between `--drop-partial-weeks` (default) or `--impute-partial-weeks` (reindexes Mon–Fri and fills missing days with zero returns) when generating the in-memory Week×Day cube. Add `--cache-dir <path> --resume` to reuse per-window mean-square/eigens caches across reruns.
   - Quick diagnostics on the WRDS daily returns:
     - `PYTHONPATH=src python scripts/data/summarize_returns.py`
     - Reports duplicate `(date, ticker)` pairs removed (currently 1,568 across 892,529 raw rows) and the span of the tidy matrix (`2010-01-05` to `2024-12-31`).
@@ -202,6 +202,7 @@ De-aliasing only substitutes selected spike magnitudes in $\widehat{\Sigma}_1$; 
 - **δ-buffer:** candidate spikes must exceed the Marčenko–Pastur bulk edge plus a safety buffer before they are considered.
 - **Angular stability:** every accepted spike must persist when the search direction $a$ is rotated by ±η degrees.
 - **Cluster merge:** detections with nearby $\hat{\mu}$ values are merged; the most stable representative is kept.
+- **Diagnostics:** per-window artifacts log `edge_margin = λ̂ − z₊`, the absolute t-vector components, and `admissible_root` (true when $z_0'(m)>0$ for the selected branch); `summary.json` and `tools/summarize_run.py` report edge-margin median/IQR alongside top rejection reasons.
 
 ## Recommended defaults and CLI flags
 

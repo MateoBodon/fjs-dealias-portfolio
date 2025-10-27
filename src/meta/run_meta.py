@@ -40,6 +40,10 @@ class RunMeta:
     # Persist the resolved configuration as captured by the pipeline (optional)
     config_snapshot: Mapping[str, Any] | None
 
+    # Panel metadata
+    panel_universe_hash: str | None
+    panel_preprocess_flags: dict[str, str] | None
+
 
 def _git_sha() -> str:
     """Return the short git SHA for the current repository, or 'unknown'."""
@@ -144,6 +148,12 @@ def write_run_meta(
 
     det_total, L_max = _count_detections(out_path / "detection_summary.csv")
     pdf_hashes = _collect_pdf_hashes(out_path)
+    manifest = _load_optional_json(out_path / "panel_manifest.json") or {}
+    preprocess_flags = (
+        {str(k): str(v) for k, v in manifest.get("preprocess_flags", {}).items()}
+        if isinstance(manifest.get("preprocess_flags"), dict)
+        else None
+    )
 
     meta = RunMeta(
         git_sha=_git_sha(),
@@ -160,10 +170,11 @@ def write_run_meta(
         L=int(L_max) if L_max is not None else None,
         figure_sha256=pdf_hashes,
         config_snapshot=dict(config) if config is not None else None,
+        panel_universe_hash=str(manifest.get("universe_hash", "")) or None,
+        panel_preprocess_flags=preprocess_flags,
     )
 
     meta_path = out_path / "run_meta.json"
     with meta_path.open("w", encoding="utf-8") as fh:
         json.dump(asdict(meta), fh, indent=2)
     return meta_path
-

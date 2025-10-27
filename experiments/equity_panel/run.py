@@ -51,6 +51,7 @@ from plotting import (
     e3_plot_var_mse,
     e4_plot_var_coverage,
 )
+from meta.cache import load_window, save_window, window_key
 from meta.run_meta import write_run_meta
 from evaluation import check_dealiased_applied
 from evaluation.evaluate import (
@@ -185,7 +186,7 @@ def _run_param_ablation(
 
     panel_cache_dir = output_dir / "ablation_panel"
     panel_cache_dir.mkdir(parents=True, exist_ok=True)
-    balanced_panel = _balanced_weekly_panel(
+    balanced_panel = _load_or_build_balanced_panel(
         daily_returns,
         days_per_week=5,
         partial_week_policy=partial_week_policy,
@@ -365,20 +366,18 @@ def _run_param_ablation(
 ## Plotters moved to evaluation.evaluate (eval_plot_var_panel, eval_plot_cov_err)
 
 
-def _balanced_weekly_panel(
+def _load_or_build_balanced_panel(
     daily_returns: pd.DataFrame,
     *,
-    days_per_week: int = 5,
-    partial_week_policy: str = "drop",
-    output_dir: Path | None = None,
-    precompute_panel: bool = False,
+    days_per_week: int,
+    partial_week_policy: str,
+    output_dir: Path | None,
+    precompute_panel: bool,
 ) -> BalancedPanel:
-    """Build (or load) a balanced Week×Day panel with optional caching."""
+    """Load a cached balanced panel or build a fresh one from daily returns."""
 
     if partial_week_policy not in {"drop", "impute"}:
-        raise ValueError(
-            "partial_week_policy must be either 'drop' or 'impute'."
-        )
+        raise ValueError("partial_week_policy must be either 'drop' or 'impute'.")
 
     data_hash = hash_daily_returns(daily_returns)
     cache_path: Path | None = None
@@ -390,23 +389,20 @@ def _balanced_weekly_panel(
         manifest_path = output_dir / "panel_manifest.json"
         if cache_path.exists() and manifest_path.exists():
             try:
-                with manifest_path.open("r", encoding="utf-8") as handle:
-                    manifest_payload = json.load(handle)
-                manifest = PanelManifest.from_dict(manifest_payload)
+                manifest_raw = json.loads(manifest_path.read_text(encoding="utf-8"))
+                manifest = PanelManifest.from_dict(manifest_raw)
                 if (
                     manifest.data_hash == data_hash
                     and manifest.partial_week_policy == partial_week_policy
                     and manifest.days_per_week == days_per_week
                 ):
                     cached_panel = load_balanced_panel(cache_path)
-                    cached_manifest = cached_panel.manifest
                     if (
-                        cached_manifest.data_hash == data_hash
-                        and cached_manifest.partial_week_policy == partial_week_policy
+                        cached_panel.manifest.data_hash == manifest.data_hash
                         and cached_panel.replicates == days_per_week
                     ):
-                        # Ensure manifest stays fresh (indentation, counts)
-                        write_panel_manifest(cached_manifest, manifest_path)
+                        # Refresh manifest formatting in case schema evolved.
+                        write_panel_manifest(cached_panel.manifest, manifest_path)
                         return cached_panel
             except Exception:
                 pass
@@ -447,6 +443,8 @@ def _run_single_period(
     target_component: int,
     partial_week_policy: str,
     precompute_panel: bool,
+    cache_dir: Path | None,
+    resume_cache: bool,
     cs_drop_top_frac: float,
     cs_sensitivity_frac: float,
     off_component_leak_cap: float | None,
@@ -470,7 +468,7 @@ def _run_single_period(
             f"No data available within the window {start_ts.date()} to {end_ts.date()}."
         )
 
-    balanced_panel = _balanced_weekly_panel(
+    balanced_panel = _load_or_build_balanced_panel(
         daily_subset,
         days_per_week=5,
         partial_week_policy=partial_week_policy,
@@ -580,6 +578,7 @@ def _run_single_period(
 
     total_windows = weekly_balanced.shape[0] - (window_weeks + horizon_weeks) + 1
     window_iter = rolling_windows(weekly_balanced, window_weeks, horizon_weeks)
+    window_cache_dir = cache_dir / label if cache_dir is not None else None
     if progress and total_windows > 0:
         window_iter = tqdm(
             window_iter,
@@ -618,6 +617,60 @@ def _run_single_period(
         y_hold_daily = np.vstack(hold_blocks)
         groups_fit = np.repeat(np.arange(len(fit_blocks)), replicates)
 
+        cache_key: str | None = None
+        cached_stats: dict[str, Any] | None = None
+        if window_cache_dir is not None:
+            week_list = [ts.strftime("%Y-%m-%d") for ts in fit.index]
+            cache_key = window_key(
+                balanced_panel.manifest,
+                week_list,
+                ordered_tickers,
+                replicates,
+            )
+            if resume_cache:
+                cached_stats = load_window(window_cache_dir, cache_key) or None
+
+        stats_local: dict[str, Any]
+        if cached_stats is not None:
+            try:
+                ms1_local = np.asarray(cached_stats["ms1"], dtype=np.float64)
+                ms2_local = np.asarray(cached_stats["ms2"], dtype=np.float64)
+                sigma1_local = np.asarray(cached_stats["sigma1"], dtype=np.float64)
+                sigma2_local = np.asarray(cached_stats["sigma2"], dtype=np.float64)
+                stats_local = {
+                    "MS1": ms1_local,
+                    "MS2": ms2_local,
+                    "Sigma1_hat": sigma1_local,
+                    "Sigma2_hat": sigma2_local,
+                    "I": int(cached_stats.get("I", len(fit_blocks))),
+                    "J": int(cached_stats.get("J", replicates)),
+                    "n": int(cached_stats.get("n", y_fit_daily.shape[0])),
+                }
+            except Exception:
+                cached_stats = None
+        if cached_stats is None:
+            stats_local = mean_squares(y_fit_daily, groups_fit)
+            ms1_local = stats_local["MS1"].astype(np.float64)
+            ms2_local = stats_local["MS2"].astype(np.float64)
+            sigma1_local = stats_local["Sigma1_hat"].astype(np.float64)
+            sigma2_local = stats_local["Sigma2_hat"].astype(np.float64)
+            if window_cache_dir is not None and cache_key is not None:
+                cache_payload = {
+                    "ms1": ms1_local,
+                    "ms2": ms2_local,
+                    "sigma1": sigma1_local,
+                    "sigma2": sigma2_local,
+                    "I": int(stats_local.get("I", len(fit_blocks))),
+                    "J": int(stats_local.get("J", replicates)),
+                    "n": int(stats_local.get("n", y_fit_daily.shape[0])),
+                }
+                save_window(window_cache_dir, cache_key, cache_payload)
+        else:
+            ms1_local = stats_local["MS1"].astype(np.float64)
+            ms2_local = stats_local["MS2"].astype(np.float64)
+            sigma1_local = stats_local["Sigma1_hat"].astype(np.float64)
+            sigma2_local = stats_local["Sigma2_hat"].astype(np.float64)
+
         off_cap = off_component_leak_cap
         diag_local: dict[str, int] = {}
         detections = dealias_search(
@@ -639,6 +692,7 @@ def _run_single_period(
                 None if off_cap is None else float(off_cap)
             ),
             diagnostics=diag_local,
+            stats=stats_local,
         )
         for key, value in diag_local.items():
             rejection_totals[key] = rejection_totals.get(key, 0) + int(value)
@@ -651,11 +705,6 @@ def _run_single_period(
 
         # Optional per-window diagnostics: MP edge vs top eigenvalue across angles
         try:
-            stats_local = mean_squares(y_fit_daily, groups_fit)
-            ms1_local = stats_local["MS1"].astype(np.float64)
-            ms2_local = stats_local["MS2"].astype(np.float64)
-            sigma1_local = stats_local["Sigma1_hat"].astype(np.float64)
-            sigma2_local = stats_local["Sigma2_hat"].astype(np.float64)
             p_dim = int(ms1_local.shape[0])
             drop_top = min(p_dim - 1, max(1, int(round(p_dim * float(cs_drop_top_frac)))))
             d_vec_local = np.array(
@@ -1330,6 +1379,8 @@ def run_experiment(
     energy_min_abs_override: float | None = None,
     partial_week_policy: str | None = None,
     precompute_panel: bool = False,
+    cache_dir_override: str | None = None,
+    resume_cache: bool = False,
 ) -> None:
     """Execute the rolling equity forecasting experiment."""
 
@@ -1367,6 +1418,13 @@ def run_experiment(
     if panel_policy not in {"drop", "impute"}:
         raise ValueError("partial_week_policy must be 'drop' or 'impute'.")
     config["partial_week_policy"] = panel_policy
+
+    cache_dir_path: Path | None
+    if cache_dir_override is not None:
+        cache_dir_path = Path(cache_dir_override).expanduser()
+        cache_dir_path.mkdir(parents=True, exist_ok=True)
+    else:
+        cache_dir_path = None
     # Values from YAML remain if overrides not provided
     daily_returns = _prepare_data(config)
 
@@ -1433,6 +1491,8 @@ def run_experiment(
             target_component=int(config.get("target_component", 0)),
             partial_week_policy=panel_policy,
             precompute_panel=precompute_panel,
+            cache_dir=cache_dir_path,
+            resume_cache=resume_cache,
             cs_drop_top_frac=float(config.get("cs_drop_top_frac", 0.05)),
             cs_sensitivity_frac=float(config.get("cs_sensitivity_frac", 0.0)),
             off_component_leak_cap=cast(float | None, config.get("off_component_leak_cap")),
@@ -1588,6 +1648,17 @@ def main() -> None:
         action="store_true",
         help="Cache the balanced Week×Day panel and write its manifest for reuse.",
     )
+    parser.add_argument(
+        "--cache-dir",
+        type=str,
+        default=None,
+        help="Directory for per-window cache artifacts (JSON/NPZ).",
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Reuse cached per-window statistics when available.",
+    )
     partial_group = parser.add_mutually_exclusive_group()
     partial_group.add_argument(
         "--drop-partial-weeks",
@@ -1624,6 +1695,8 @@ def main() -> None:
         energy_min_abs_override=args.energy_min_abs,
         partial_week_policy=args.partial_week_policy,
         precompute_panel=args.precompute_panel,
+        cache_dir_override=args.cache_dir,
+        resume_cache=args.resume,
     )
 
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import pickle
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Iterator, Literal, Tuple
 
@@ -26,6 +26,8 @@ class PanelManifest:
     start_week: str
     end_week: str
     data_hash: str
+    universe_hash: str
+    preprocess_flags: dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -38,6 +40,8 @@ class PanelManifest:
             "start_week": self.start_week,
             "end_week": self.end_week,
             "data_hash": self.data_hash,
+            "universe_hash": self.universe_hash,
+            "preprocess_flags": dict(self.preprocess_flags),
         }
 
     @classmethod
@@ -52,6 +56,11 @@ class PanelManifest:
             start_week=str(payload.get("start_week", "")),
             end_week=str(payload.get("end_week", "")),
             data_hash=str(payload.get("data_hash", "")),
+            universe_hash=str(payload.get("universe_hash", "")),
+            preprocess_flags={
+                str(k): str(v)
+                for k, v in (payload.get("preprocess_flags", {}) or {}).items()
+            },
         )
 
 
@@ -182,6 +191,8 @@ def build_balanced_weekday_panel(
     week_map = {
         week_labels[idx]: week_frames[idx].copy() for idx in range(len(week_labels))
     }
+    universe_hash = hashlib.sha256("|".join(ordered_tickers).encode("utf-8")).hexdigest()
+
     manifest = PanelManifest(
         asset_count=len(ordered_tickers),
         weeks=len(week_labels),
@@ -192,6 +203,8 @@ def build_balanced_weekday_panel(
         start_week=str(week_labels[0].date()),
         end_week=str(week_labels[-1].date()),
         data_hash=hash_daily_returns(daily_returns),
+        universe_hash=universe_hash,
+        preprocess_flags={},
     )
     return BalancedPanel(
         weekly=weekly_df,

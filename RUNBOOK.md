@@ -43,3 +43,13 @@
 
 - `python tools/summarize_run.py <run_dir>` prints estimator MSE breakdowns plus DM p-values.
 - `tools/list_runs.py` remains the index of archived runs.
+
+## Clean outputs
+
+- Inspect pending moves: `python tools/clean_outputs.py --dry-run`
+- Delete legacy artifacts once verified: `python tools/clean_outputs.py --purge`
+
+## Build gallery
+
+- Build tables/plots for configured runs: `make gallery`
+- Inspect generated assets: `ls figures/smoke/<run_tag>/{tables,plots}`

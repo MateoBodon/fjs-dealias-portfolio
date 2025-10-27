@@ -1,0 +1,13 @@
+{
+  "label": "sample",
+  "detection_rate": 0.75,
+  "edge_margin_stats": {
+    "count": 6,
+    "median": 0.002,
+    "iqr": 0.001
+  },
+  "rejection_stats": {
+    "other": 10,
+    "edge_buffer": 1
+  }
+}

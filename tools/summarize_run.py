@@ -255,6 +255,24 @@ def summarize_run(output_dir: Path) -> int:
     if run_meta and run_meta.get("figure_sha256"):
         pdfs = run_meta["figure_sha256"]
         print(f"Figures (PDF hashes): {len(pdfs)} files")
+    run_tag = Path(output_dir).name
+    gallery_root = Path("figures")
+    if gallery_root.exists():
+        matches = sorted(gallery_root.glob(f"*/{run_tag}"))
+        if matches:
+            print("Gallery artifacts:")
+            for match in matches:
+                tables_dir = match / "tables"
+                plots_dir = match / "plots"
+                paths = []
+                if tables_dir.exists():
+                    paths.append(str(tables_dir.resolve()))
+                if plots_dir.exists():
+                    paths.append(str(plots_dir.resolve()))
+                if not paths:
+                    paths.append(str(match.resolve()))
+                for pth in paths:
+                    print(f"  - {pth}")
     if issues:
         print("-- Consistency checks --")
         for msg in issues:

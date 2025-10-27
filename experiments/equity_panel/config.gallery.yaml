@@ -1,0 +1,5 @@
+gallery:
+  name: smoke
+runs:
+  - root: experiments/equity_panel/outputs_smoke
+    pattern: "oneway_*"

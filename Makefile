@@ -33,6 +33,12 @@ test-progress:
 	# Verbose output with progress bar (pytest-sugar), parallel if available
 	pytest -v -n auto || pytest -v
 
+.PHONY: gallery report
+gallery:
+	python tools/build_gallery.py --config experiments/equity_panel/config.gallery.yaml
+
+report: gallery
+
 run-synth:
 	python experiments/synthetic_oneway/run.py
 

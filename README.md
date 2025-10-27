@@ -25,6 +25,28 @@ De-aliasing the spurious spikes that arise when MANOVA spectra are aliased in hi
 `make test` remains available to run the full pytest suite; `make fmt` / `make lint` apply formatting and static checks.
 Use `make test-fast` (unit), `make test-integration`, and `make test-slow` to target specific marker groups.
 
+## Gallery & reports
+
+1. Archive legacy smoke artifacts (dry run first):
+   ```bash
+   python tools/clean_outputs.py --dry-run
+   python tools/clean_outputs.py --purge
+   ```
+2. Regenerate the smoke slice and build the gallery:
+   ```bash
+   PYTHONPATH=src OMP_NUM_THREADS=1 python experiments/equity_panel/run.py \
+       --config experiments/equity_panel/config.smoke.yaml \
+       --no-progress --workers $(python -c 'import os;print(os.cpu_count() or 4)') \
+       --assets-top 80 --stride-windows 4 --resume --cache-dir .cache \
+       --precompute-panel --drop-partial-weeks --estimator oas
+   make gallery
+   ```
+3. Inspect the generated tables/plots (and include them in summaries):
+   ```bash
+   python tools/summarize_run.py experiments/equity_panel/outputs_smoke
+   ls figures/smoke/
+   ```
+
 ## Design modes
 
 The de-aliasing runner now supports both the classic balanced one-way MANOVA design and a nested Year⊃Week layout derived from the balanced panel:

@@ -61,6 +61,7 @@ def test_write_run_meta_creates_file_with_expected_fields(tmp_path: Path) -> Non
         a_grid=120,
         signed_a=True,
         sigma2_plugin="Cs_from_MS_drop_top_frac=0.1",
+        code_signature_hash="deadbeef",
     )
     assert meta_path.exists()
     data = json.loads(meta_path.read_text(encoding="utf-8"))
@@ -75,6 +76,7 @@ def test_write_run_meta_creates_file_with_expected_fields(tmp_path: Path) -> Non
     assert data["a_grid"] == 120
     assert data["signed_a"] is True
     assert data["sigma2_plugin"] == "Cs_from_MS_drop_top_frac=0.1"
+    assert data["code_signature"] == "deadbeef"
     assert data["detections_total"] == 3
     assert data["L"] == 2
     assert isinstance(data["figure_sha256"], dict)

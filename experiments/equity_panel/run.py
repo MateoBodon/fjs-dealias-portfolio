@@ -54,7 +54,7 @@ from plotting import (
     e4_plot_var_coverage,
 )
 from meta.cache import load_window, save_window, window_key
-from meta.run_meta import write_run_meta
+from meta.run_meta import code_signature, write_run_meta
 from evaluation import check_dealiased_applied
 from evaluation.evaluate import (
     iqr as eval_iqr,
@@ -95,6 +95,8 @@ DEFAULT_CONFIG = {
     "oneway_a_solver": "auto",
 }
 
+CODE_SIGNATURE = code_signature()
+
 
 @dataclass
 class PreparedWindowStats:
@@ -108,6 +110,7 @@ class PreparedWindowStats:
     design_d: np.ndarray
     design_N: float
     design_order: list[list[int]]
+    nested_replicates: int | None
     cache_payload: dict[str, Any] | None
 
 
@@ -115,14 +118,30 @@ def _load_prepared_from_cache(
     cached_stats: dict[str, Any] | None,
     design_mode: str,
     y_fit_raw: np.ndarray,
+    code_signature_hash: str | None,
+    expected_nested_replicates: int | None,
 ) -> PreparedWindowStats | None:
     if cached_stats is None:
         return None
     try:
         if cached_stats.get("design_mode") != design_mode:
             return None
+        cached_signature = cached_stats.get("code_signature")
+        if code_signature_hash and cached_signature != code_signature_hash:
+            return None
+        if cached_signature and not code_signature_hash:
+            return None
         component_count = int(cached_stats.get("components", 0))
         if component_count <= 0:
+            return None
+        cached_nested = cached_stats.get("nested_replicates")
+        if expected_nested_replicates is not None:
+            if cached_nested is None:
+                return None
+            if int(cached_nested) != int(expected_nested_replicates):
+                return None
+        elif cached_nested not in (None, 0):
+            # Current run expects oneway but cache stored nested stats.
             return None
         valid_indices = np.asarray(cached_stats.get("valid_indices"), dtype=np.intp)
         if valid_indices.ndim != 1 or valid_indices.size == 0:
@@ -176,6 +195,10 @@ def _load_prepared_from_cache(
                 "order": design_order,
             }
 
+        nested_value = (
+            None if cached_nested is None else int(cached_nested)
+        )
+
         return PreparedWindowStats(
             y_fit=y_fit,
             groups=groups,
@@ -187,6 +210,7 @@ def _load_prepared_from_cache(
             design_d=design_d,
             design_N=design_N,
             design_order=design_order,
+            nested_replicates=nested_value,
             cache_payload=None,
         )
     except Exception:
@@ -197,6 +221,7 @@ def _compute_oneway_prepared(
     fit_blocks: list[pd.DataFrame],
     y_fit_raw: np.ndarray,
     replicates: int,
+    code_signature_hash: str | None,
 ) -> PreparedWindowStats:
     group_indices = np.repeat(np.arange(len(fit_blocks)), replicates)
     if group_indices.shape[0] != y_fit_raw.shape[0]:
@@ -241,6 +266,8 @@ def _compute_oneway_prepared(
         "MS2": ms2,
         "Sigma1_hat": sigma1,
         "Sigma2_hat": sigma2,
+        "nested_replicates": None,
+        "code_signature": code_signature_hash,
     }
 
     return PreparedWindowStats(
@@ -254,6 +281,7 @@ def _compute_oneway_prepared(
         design_d=design_d,
         design_N=design_N,
         design_order=design_order,
+        nested_replicates=None,
         cache_payload=cache_payload,
     )
 
@@ -262,6 +290,7 @@ def _compute_nested_prepared(
     fit_blocks: list[pd.DataFrame],
     y_fit_raw: np.ndarray,
     expected_reps: int,
+    code_signature_hash: str | None,
 ) -> PreparedWindowStats | None:
     if expected_reps <= 1:
         raise ValueError("Nested design requires at least two replicates per cell.")
@@ -382,6 +411,8 @@ def _compute_nested_prepared(
         "Sigma1_hat": sigma1,
         "Sigma2_hat": sigma2,
         "Sigma3_hat": sigma3,
+        "nested_replicates": metadata.J,
+        "code_signature": code_signature_hash,
     }
 
     return PreparedWindowStats(
@@ -395,6 +426,7 @@ def _compute_nested_prepared(
         design_d=design_d,
         design_N=design_N,
         design_order=design_order,
+        nested_replicates=metadata.J,
         cache_payload=cache_payload,
     )
 
@@ -408,15 +440,24 @@ def _prepare_window_stats(
     nested_replicates: int | None = None,
 ) -> PreparedWindowStats | None:
     y_fit_raw = np.vstack([block.to_numpy(dtype=np.float64) for block in fit_blocks])
-    prepared_cached = _load_prepared_from_cache(cached_stats, design_mode, y_fit_raw)
+    expected_nested = (
+        int(nested_replicates)
+        if (design_mode == "nested" and nested_replicates is not None)
+        else None
+    )
+    prepared_cached = _load_prepared_from_cache(
+        cached_stats, design_mode, y_fit_raw, CODE_SIGNATURE, expected_nested
+    )
     if prepared_cached is not None:
         return prepared_cached
 
     if design_mode == "nested":
         reps = int(nested_replicates or replicates)
-        return _compute_nested_prepared(fit_blocks, y_fit_raw, reps)
+        return _compute_nested_prepared(fit_blocks, y_fit_raw, reps, CODE_SIGNATURE)
 
-    return _compute_oneway_prepared(fit_blocks, y_fit_raw, replicates)
+    return _compute_oneway_prepared(
+        fit_blocks, y_fit_raw, replicates, CODE_SIGNATURE
+    )
 
 def load_config(path: Path | str) -> dict[str, Any]:
     """Load experiment configuration, falling back to defaults."""
@@ -782,6 +823,7 @@ def _run_single_period(
     design_mode: str,
     nested_replicates: int,
     oneway_a_solver: str,
+    estimator: str,
     progress: bool = True,
     a_grid: int = 120,
     energy_min_abs: float | None = None,
@@ -817,6 +859,7 @@ def _run_single_period(
     solver_mode = oneway_a_solver.lower()
     if solver_mode not in {"auto", "rootfind", "grid"}:
         raise ValueError("oneway_a_solver must be 'auto', 'rootfind', or 'grid'.")
+    estimator_mode = (estimator or "dealias").strip().lower()
     tickers = balanced_panel.ordered_tickers
     dropped_weeks = balanced_panel.dropped_weeks
     total_weeks = int(weekly_balanced.shape[0])
@@ -954,11 +997,18 @@ def _run_single_period(
         cached_stats: dict[str, Any] | None = None
         if window_cache_dir is not None:
             week_list = [ts.strftime("%Y-%m-%d") for ts in fit.index]
+            nested_key = nested_reps_value if design_mode == "nested" else None
             cache_key = window_key(
                 balanced_panel.manifest,
                 week_list,
                 ordered_tickers,
                 replicates,
+                code_signature=CODE_SIGNATURE,
+                design=design_mode,
+                nested_replicates=nested_key,
+                oneway_a_solver=solver_mode,
+                estimator=estimator_mode,
+                preprocess_flags=balanced_panel.manifest.preprocess_flags,
             )
             if resume_cache:
                 cached_stats = load_window(window_cache_dir, cache_key) or None
@@ -1781,6 +1831,8 @@ def run_experiment(
     if solver_value not in {"auto", "rootfind", "grid"}:
         raise ValueError("oneway_a_solver must be 'auto', 'rootfind', or 'grid'.")
     config["oneway_a_solver"] = solver_value
+    estimator_value = str(config.get("estimator", "dealias")).lower()
+    config["estimator"] = estimator_value
 
     cache_dir_path: Path | None
     if cache_dir_override is not None:
@@ -1864,6 +1916,7 @@ def run_experiment(
             design_mode=str(config["design"]),
             nested_replicates=int(config["nested_replicates"]),
             oneway_a_solver=str(config["oneway_a_solver"]),
+            estimator=str(config["estimator"]),
             progress=(True if progress_override is None else bool(progress_override)),
             a_grid=int(config.get("a_grid", 180)),
             energy_min_abs=cast(float | None, config.get("energy_min_abs")),
@@ -1881,6 +1934,7 @@ def run_experiment(
                 sigma2_plugin=(
                     f"Cs_from_MS_drop_top_frac={float(config.get('cs_drop_top_frac', 0.1))}"
                 ),
+                code_signature_hash=CODE_SIGNATURE,
             )
         except Exception:
             # Best effort; do not fail the entire run

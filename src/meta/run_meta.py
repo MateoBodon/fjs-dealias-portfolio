@@ -5,7 +5,7 @@ import json
 import subprocess
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Iterable, Mapping
 
 import pandas as pd
 
@@ -29,6 +29,7 @@ class RunMeta:
     a_grid: int | None
     signed_a: bool | None
     sigma2_plugin: str | None
+    code_signature: str | None
 
     # Outcomes
     detections_total: int
@@ -43,6 +44,59 @@ class RunMeta:
     # Panel metadata
     panel_universe_hash: str | None
     panel_preprocess_flags: dict[str, str] | None
+
+
+_DEFAULT_SIGNATURE_TARGETS = [
+    "src/fjs/dealias.py",
+    "src/fjs/mp.py",
+    "src/data/panels.py",
+    "src/fjs/theta_solver.py",
+    "src/meta/cache.py",
+    "src/evaluation/evaluate.py",
+]
+
+_DEFAULT_SIGNATURE_GLOBS = [
+    "src/fjs/balanced*.py",
+    "src/finance/*.py",
+]
+
+
+def code_signature(targets: Iterable[str | Path] | None = None) -> str:
+    """Compute a SHA-256 signature over core de-aliasing code."""
+
+    root = Path(__file__).resolve().parents[2]
+    paths: list[Path] = []
+    if targets is None:
+        for item in _DEFAULT_SIGNATURE_TARGETS:
+            paths.append(root / item)
+        for pattern in _DEFAULT_SIGNATURE_GLOBS:
+            paths.extend(sorted(root.glob(pattern)))
+    else:
+        for item in targets:
+            path = Path(item)
+            paths.append(path if path.is_absolute() else (root / path))
+
+    seen: set[Path] = set()
+    ordered: list[Path] = []
+    for path in paths:
+        resolved = path.resolve()
+        if resolved in seen:
+            continue
+        if resolved.exists():
+            seen.add(resolved)
+            ordered.append(resolved)
+
+    h = hashlib.sha256()
+    for path in ordered:
+        try:
+            with path.open("rb") as fh:
+                for chunk in iter(lambda: fh.read(8192), b""):
+                    h.update(chunk)
+        except Exception:
+            continue
+    marker = "::".join(str(p) for p in ordered).encode("utf-8")
+    h.update(marker)
+    return h.hexdigest()
 
 
 def _git_sha() -> str:
@@ -110,6 +164,7 @@ def write_run_meta(
     a_grid: int | None = None,
     signed_a: bool | None = None,
     sigma2_plugin: str | None = None,
+    code_signature_hash: str | None = None,
 ) -> Path:
     """Create a run_meta.json artifact in ``output_dir``.
 
@@ -166,6 +221,7 @@ def write_run_meta(
         a_grid=int(a_grid) if a_grid is not None else None,
         signed_a=bool(signed_a) if signed_a is not None else None,
         sigma2_plugin=str(sigma2_plugin) if sigma2_plugin is not None else None,
+        code_signature=str(code_signature_hash) if code_signature_hash else None,
         detections_total=int(det_total),
         L=int(L_max) if L_max is not None else None,
         figure_sha256=pdf_hashes,

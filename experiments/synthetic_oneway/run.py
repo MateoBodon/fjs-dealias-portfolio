@@ -39,7 +39,7 @@ from fjs.dealias import dealias_search
 from pairing import align_spikes
 from fjs.spectra import plot_spike_timeseries
 from plotting import s4_plot_guardrails_from_csv
-from meta.run_meta import write_run_meta
+from meta.run_meta import code_signature, write_run_meta
 
 DEFAULT_CONFIG = {
     "n_assets": 60,
@@ -755,6 +755,7 @@ def run_experiment(
             a_grid=None,
             signed_a=True,
             sigma2_plugin=None,
+            code_signature_hash=code_signature(),
         )
     except Exception:
         pass

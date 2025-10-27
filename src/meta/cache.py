@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 import numpy as np
 
@@ -15,8 +15,20 @@ def window_key(
     week_list: Iterable[str],
     tickers: Iterable[str],
     replicates: int,
+    *,
+    code_signature: str | None = None,
+    design: str | None = None,
+    nested_replicates: int | None = None,
+    oneway_a_solver: str | None = None,
+    estimator: str | None = None,
+    preprocess_flags: Mapping[str, Any] | None = None,
 ) -> str:
     """Stable hash identifying a per-window cache entry."""
+
+    if preprocess_flags is None:
+        preprocess_payload = dict(manifest.preprocess_flags)
+    else:
+        preprocess_payload = {str(k): str(v) for k, v in preprocess_flags.items()}
 
     payload = {
         "data_hash": manifest.data_hash,
@@ -26,7 +38,12 @@ def window_key(
         "weeks": list(week_list),
         "tickers": list(tickers),
         "replicates": int(replicates),
-        "preprocess_flags": dict(manifest.preprocess_flags),
+        "preprocess_flags": dict(sorted(preprocess_payload.items())),
+        "design": design,
+        "nested_replicates": None if nested_replicates is None else int(nested_replicates),
+        "oneway_a_solver": oneway_a_solver,
+        "estimator": estimator,
+        "code_signature": code_signature,
     }
     serialized = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()

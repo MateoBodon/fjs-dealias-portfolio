@@ -6,6 +6,7 @@ import argparse
 import json
 import sys
 from collections import defaultdict
+from dataclasses import dataclass
 from math import comb
 from pathlib import Path
 from typing import Any, cast
@@ -42,6 +43,7 @@ from finance.io import load_prices_csv, to_daily_returns, load_returns_csv
 from finance.portfolios import equal_weight, min_variance_box, minimum_variance
 from finance.returns import balance_weeks
 from fjs.balanced import mean_squares
+from fjs.balanced_nested import mean_squares_nested
 from fjs.dealias import dealias_search
 from fjs.mp import estimate_Cs_from_MS, mp_edge
 from fjs.spectra import plot_spectrum_with_edges, plot_spike_timeseries
@@ -88,8 +90,333 @@ DEFAULT_CONFIG = {
     "off_component_leak_cap": 10.0,
     "energy_min_abs": 1e-6,
     "partial_week_policy": "drop",
+    "design": "oneway",
+    "nested_replicates": 5,
+    "oneway_a_solver": "auto",
 }
 
+
+@dataclass
+class PreparedWindowStats:
+    y_fit: np.ndarray
+    groups: np.ndarray
+    stats: dict[str, Any]
+    ms_list: list[np.ndarray]
+    sigma_list: list[np.ndarray]
+    design_override: dict[str, Any] | None
+    design_c: np.ndarray
+    design_d: np.ndarray
+    design_N: float
+    design_order: list[list[int]]
+    cache_payload: dict[str, Any] | None
+
+
+def _load_prepared_from_cache(
+    cached_stats: dict[str, Any] | None,
+    design_mode: str,
+    y_fit_raw: np.ndarray,
+) -> PreparedWindowStats | None:
+    if cached_stats is None:
+        return None
+    try:
+        if cached_stats.get("design_mode") != design_mode:
+            return None
+        component_count = int(cached_stats.get("components", 0))
+        if component_count <= 0:
+            return None
+        valid_indices = np.asarray(cached_stats.get("valid_indices"), dtype=np.intp)
+        if valid_indices.ndim != 1 or valid_indices.size == 0:
+            return None
+        if valid_indices.max(initial=-1) >= y_fit_raw.shape[0]:
+            return None
+        y_fit = y_fit_raw[valid_indices]
+        groups = np.arange(valid_indices.size, dtype=np.intp)
+
+        stats_local: dict[str, Any] = {}
+        ms_list: list[np.ndarray] = []
+        sigma_list: list[np.ndarray] = []
+        for idx in range(component_count):
+            ms_key = f"MS{idx + 1}"
+            sigma_key = f"Sigma{idx + 1}_hat"
+            if ms_key not in cached_stats or sigma_key not in cached_stats:
+                return None
+            ms_arr = np.asarray(cached_stats[ms_key], dtype=np.float64)
+            sigma_arr = np.asarray(cached_stats[sigma_key], dtype=np.float64)
+            ms_list.append(ms_arr)
+            sigma_list.append(sigma_arr)
+            stats_local[ms_key] = ms_arr
+            stats_local[sigma_key] = sigma_arr
+
+        for key in ("I", "J", "n", "replicates"):
+            if key in cached_stats:
+                stats_local[key] = int(cached_stats[key])
+
+        design_c = np.asarray(cached_stats.get("design_c"), dtype=np.float64)
+        design_d = np.asarray(cached_stats.get("design_d"), dtype=np.float64)
+        design_N = float(cached_stats.get("design_N", 0.0))
+        if design_c.size == 0 and "J" in stats_local:
+            design_c = np.array([float(stats_local["J"]), 1.0], dtype=np.float64)
+        if design_d.size == 0 and "I" in stats_local and "n" in stats_local:
+            design_d = np.array(
+                [float(stats_local["I"] - 1), float(stats_local["n"] - stats_local["I"])],
+                dtype=np.float64,
+            )
+        if design_N <= 0.0 and "J" in stats_local:
+            design_N = float(stats_local["J"])
+        design_order = cached_stats.get("design_order")
+        if not isinstance(design_order, list):
+            design_order = [[idx + 1 for idx in range(component_count)]]
+        design_override = None
+        if design_mode == "nested":
+            design_override = {
+                "c": design_c,
+                "C": np.ones_like(design_c, dtype=np.float64),
+                "d": design_d,
+                "N": design_N,
+                "order": design_order,
+            }
+
+        return PreparedWindowStats(
+            y_fit=y_fit,
+            groups=groups,
+            stats=stats_local,
+            ms_list=ms_list,
+            sigma_list=sigma_list,
+            design_override=design_override,
+            design_c=design_c,
+            design_d=design_d,
+            design_N=design_N,
+            design_order=design_order,
+            cache_payload=None,
+        )
+    except Exception:
+        return None
+
+
+def _compute_oneway_prepared(
+    fit_blocks: list[pd.DataFrame],
+    y_fit_raw: np.ndarray,
+    replicates: int,
+) -> PreparedWindowStats:
+    group_indices = np.repeat(np.arange(len(fit_blocks)), replicates)
+    if group_indices.shape[0] != y_fit_raw.shape[0]:
+        raise ValueError("Unexpected imbalance in one-way design.")
+
+    stats_raw = mean_squares(y_fit_raw, group_indices)
+    ms1 = stats_raw["MS1"].astype(np.float64)
+    ms2 = stats_raw["MS2"].astype(np.float64)
+    sigma1 = stats_raw["Sigma1_hat"].astype(np.float64)
+    sigma2 = stats_raw["Sigma2_hat"].astype(np.float64)
+
+    stats_local = dict(stats_raw)
+    stats_local["MS1"] = ms1
+    stats_local["MS2"] = ms2
+    stats_local["Sigma1_hat"] = sigma1
+    stats_local["Sigma2_hat"] = sigma2
+    stats_local.setdefault("replicates", replicates)
+
+    design_c = np.array([float(stats_local["J"]), 1.0], dtype=np.float64)
+    design_d = np.array(
+        [float(stats_local["I"] - 1), float(stats_local["n"] - stats_local["I"])],
+        dtype=np.float64,
+    )
+    design_N = float(stats_local["J"])
+    design_order = [[1, 2], [2]]
+    valid_indices = np.arange(y_fit_raw.shape[0], dtype=np.intp)
+    groups = np.arange(valid_indices.size, dtype=np.intp)
+
+    cache_payload: dict[str, Any] = {
+        "design_mode": "oneway",
+        "components": 2,
+        "I": int(stats_local["I"]),
+        "J": int(stats_local["J"]),
+        "n": int(stats_local["n"]),
+        "replicates": int(stats_local["J"]),
+        "design_c": design_c,
+        "design_d": design_d,
+        "design_N": design_N,
+        "design_order": design_order,
+        "valid_indices": valid_indices,
+        "MS1": ms1,
+        "MS2": ms2,
+        "Sigma1_hat": sigma1,
+        "Sigma2_hat": sigma2,
+    }
+
+    return PreparedWindowStats(
+        y_fit=y_fit_raw,
+        groups=groups,
+        stats=stats_local,
+        ms_list=[ms1, ms2],
+        sigma_list=[sigma1, sigma2],
+        design_override=None,
+        design_c=design_c,
+        design_d=design_d,
+        design_N=design_N,
+        design_order=design_order,
+        cache_payload=cache_payload,
+    )
+
+
+def _compute_nested_prepared(
+    fit_blocks: list[pd.DataFrame],
+    y_fit_raw: np.ndarray,
+    expected_reps: int,
+) -> PreparedWindowStats | None:
+    if expected_reps <= 1:
+        raise ValueError("Nested design requires at least two replicates per cell.")
+    if not fit_blocks:
+        return None
+
+    date_arrays = [block.index.to_numpy(dtype="datetime64[ns]") for block in fit_blocks]
+    dates_flat = np.concatenate(date_arrays)
+    if dates_flat.size != y_fit_raw.shape[0]:
+        raise ValueError("Mismatch between date index and observation count.")
+    dt_index = pd.DatetimeIndex(dates_flat)
+    iso = dt_index.isocalendar()
+    year_labels = iso["year"].to_numpy()
+    week_labels = iso["week"].to_numpy()
+    idx_array = np.arange(y_fit_raw.shape[0], dtype=np.intp)
+
+    labels_df = pd.DataFrame(
+        {
+            "year": year_labels,
+            "week": week_labels,
+            "idx": idx_array,
+        }
+    )
+    counts = labels_df.groupby(["year", "week"])["idx"].transform("count")
+    labels_df["valid_reps"] = counts == int(expected_reps)
+    labels_valid = labels_df[labels_df["valid_reps"]]
+    if labels_valid.empty:
+        return None
+
+    week_sets_series = (
+        labels_valid.drop_duplicates(subset=["year", "week"])
+        .groupby("year")["week"]
+        .apply(lambda series: set(int(value) for value in series.tolist()))
+    )
+    if week_sets_series.empty:
+        return None
+    common_weeks = set.intersection(*week_sets_series.tolist())
+    if not common_weeks:
+        return None
+
+    labels_common = labels_valid[labels_valid["week"].isin(common_weeks)].copy()
+    if labels_common.empty:
+        return None
+    labels_common.sort_values("idx", inplace=True)
+
+    counts_per_year = labels_common.groupby("year")["week"].nunique()
+    if counts_per_year.empty or counts_per_year.nunique() != 1:
+        return None
+    weeks_per_year = int(counts_per_year.iloc[0])
+    if weeks_per_year < 2:
+        return None
+    if labels_common["year"].nunique() < 2:
+        return None
+
+    indices_final = labels_common["idx"].to_numpy(dtype=np.intp)
+    year_final = labels_common["year"].to_numpy()
+    week_final = labels_common["week"].to_numpy()
+    y_fit = y_fit_raw[indices_final]
+
+    try:
+        (ms1, ms2, ms3), metadata = mean_squares_nested(
+            y_fit,
+            year_final,
+            week_final,
+            int(expected_reps),
+        )
+    except ValueError:
+        return None
+
+    ms1 = ms1.astype(np.float64)
+    ms2 = ms2.astype(np.float64)
+    ms3 = ms3.astype(np.float64)
+    sigma1 = ((ms1 - ms2) / float(metadata.J * metadata.replicates)).astype(np.float64, copy=False)
+    sigma2 = ((ms2 - ms3) / float(metadata.replicates)).astype(np.float64, copy=False)
+    sigma3 = ms3.copy()
+
+    stats_local: dict[str, Any] = {
+        "MS1": ms1,
+        "MS2": ms2,
+        "MS3": ms3,
+        "Sigma1_hat": sigma1,
+        "Sigma2_hat": sigma2,
+        "Sigma3_hat": sigma3,
+        "I": metadata.I,
+        "J": metadata.J,
+        "n": metadata.n,
+        "replicates": metadata.replicates,
+    }
+
+    design_c = metadata.c.astype(np.float64, copy=False)
+    design_d = metadata.d.astype(np.float64, copy=False)
+    design_N = float(metadata.N)
+    design_order = [[1, 2, 3], [2, 3], [3]]
+    design_override = {
+        "c": design_c,
+        "C": np.ones_like(design_c, dtype=np.float64),
+        "d": design_d,
+        "N": design_N,
+        "order": design_order,
+    }
+
+    groups = np.arange(y_fit.shape[0], dtype=np.intp)
+    cache_payload: dict[str, Any] = {
+        "design_mode": "nested",
+        "components": 3,
+        "I": metadata.I,
+        "J": metadata.J,
+        "n": metadata.n,
+        "replicates": metadata.replicates,
+        "design_c": design_c,
+        "design_d": design_d,
+        "design_N": design_N,
+        "design_order": design_order,
+        "valid_indices": indices_final,
+        "MS1": ms1,
+        "MS2": ms2,
+        "MS3": ms3,
+        "Sigma1_hat": sigma1,
+        "Sigma2_hat": sigma2,
+        "Sigma3_hat": sigma3,
+    }
+
+    return PreparedWindowStats(
+        y_fit=y_fit,
+        groups=groups,
+        stats=stats_local,
+        ms_list=[ms1, ms2, ms3],
+        sigma_list=[sigma1, sigma2, sigma3],
+        design_override=design_override,
+        design_c=design_c,
+        design_d=design_d,
+        design_N=design_N,
+        design_order=design_order,
+        cache_payload=cache_payload,
+    )
+
+
+def _prepare_window_stats(
+    design_mode: str,
+    fit_blocks: list[pd.DataFrame],
+    replicates: int,
+    *,
+    cached_stats: dict[str, Any] | None = None,
+    nested_replicates: int | None = None,
+) -> PreparedWindowStats | None:
+    y_fit_raw = np.vstack([block.to_numpy(dtype=np.float64) for block in fit_blocks])
+    prepared_cached = _load_prepared_from_cache(cached_stats, design_mode, y_fit_raw)
+    if prepared_cached is not None:
+        return prepared_cached
+
+    if design_mode == "nested":
+        reps = int(nested_replicates or replicates)
+        return _compute_nested_prepared(fit_blocks, y_fit_raw, reps)
+
+    return _compute_oneway_prepared(fit_blocks, y_fit_raw, replicates)
 
 def load_config(path: Path | str) -> dict[str, Any]:
     """Load experiment configuration, falling back to defaults."""
@@ -178,6 +505,7 @@ def _run_param_ablation(
     signed_a: bool,
     off_component_leak_cap: float | None,
     energy_min_abs: float | None,
+    oneway_a_solver: str,
 ) -> None:
     """Grid sweep over detection parameters; emit CSV and heatmaps (E5).
 
@@ -271,6 +599,7 @@ def _run_param_ablation(
                                 None if off_cap is None else float(off_cap)
                             ),
                             energy_min_abs=energy_min_abs,
+                            oneway_a_solver=oneway_a_solver,
                         )
                         det_count += int(bool(detections))
                         # Equal-weight weights for speed/consistency
@@ -450,6 +779,9 @@ def _run_single_period(
     off_component_leak_cap: float | None,
     sigma_ablation: bool,
     label: str,
+    design_mode: str,
+    nested_replicates: int,
+    oneway_a_solver: str,
     progress: bool = True,
     a_grid: int = 120,
     energy_min_abs: float | None = None,
@@ -478,6 +810,13 @@ def _run_single_period(
     weekly_balanced = balanced_panel.weekly
     week_map = balanced_panel.week_map
     replicates = balanced_panel.replicates
+    design_mode = design_mode.lower()
+    if design_mode not in {"oneway", "nested"}:
+        raise ValueError("design_mode must be either 'oneway' or 'nested'.")
+    nested_reps_value = int(nested_replicates) if nested_replicates > 0 else int(replicates)
+    solver_mode = oneway_a_solver.lower()
+    if solver_mode not in {"auto", "rootfind", "grid"}:
+        raise ValueError("oneway_a_solver must be 'auto', 'rootfind', or 'grid'.")
     tickers = balanced_panel.ordered_tickers
     dropped_weeks = balanced_panel.dropped_weeks
     total_weeks = int(weekly_balanced.shape[0])
@@ -606,16 +945,10 @@ def _run_single_period(
         if not ordered_tickers:
             continue
         # Reindex each weekly frame to the intersection and stack
-        fit_blocks = [
-            df.loc[:, ordered_tickers].to_numpy(dtype=np.float64) for df in fit_blocks_raw
-        ]
-        hold_blocks = [
-            df.loc[:, ordered_tickers].to_numpy(dtype=np.float64) for df in hold_blocks_raw
-        ]
+        fit_blocks = [df.loc[:, ordered_tickers] for df in fit_blocks_raw]
+        hold_blocks = [df.loc[:, ordered_tickers] for df in hold_blocks_raw]
 
-        y_fit_daily = np.vstack(fit_blocks)
-        y_hold_daily = np.vstack(hold_blocks)
-        groups_fit = np.repeat(np.arange(len(fit_blocks)), replicates)
+        y_hold_daily = np.vstack([block.to_numpy(dtype=np.float64) for block in hold_blocks])
 
         cache_key: str | None = None
         cached_stats: dict[str, Any] | None = None
@@ -630,46 +963,33 @@ def _run_single_period(
             if resume_cache:
                 cached_stats = load_window(window_cache_dir, cache_key) or None
 
-        stats_local: dict[str, Any]
-        if cached_stats is not None:
-            try:
-                ms1_local = np.asarray(cached_stats["ms1"], dtype=np.float64)
-                ms2_local = np.asarray(cached_stats["ms2"], dtype=np.float64)
-                sigma1_local = np.asarray(cached_stats["sigma1"], dtype=np.float64)
-                sigma2_local = np.asarray(cached_stats["sigma2"], dtype=np.float64)
-                stats_local = {
-                    "MS1": ms1_local,
-                    "MS2": ms2_local,
-                    "Sigma1_hat": sigma1_local,
-                    "Sigma2_hat": sigma2_local,
-                    "I": int(cached_stats.get("I", len(fit_blocks))),
-                    "J": int(cached_stats.get("J", replicates)),
-                    "n": int(cached_stats.get("n", y_fit_daily.shape[0])),
-                }
-            except Exception:
-                cached_stats = None
-        if cached_stats is None:
-            stats_local = mean_squares(y_fit_daily, groups_fit)
-            ms1_local = stats_local["MS1"].astype(np.float64)
-            ms2_local = stats_local["MS2"].astype(np.float64)
-            sigma1_local = stats_local["Sigma1_hat"].astype(np.float64)
-            sigma2_local = stats_local["Sigma2_hat"].astype(np.float64)
-            if window_cache_dir is not None and cache_key is not None:
-                cache_payload = {
-                    "ms1": ms1_local,
-                    "ms2": ms2_local,
-                    "sigma1": sigma1_local,
-                    "sigma2": sigma2_local,
-                    "I": int(stats_local.get("I", len(fit_blocks))),
-                    "J": int(stats_local.get("J", replicates)),
-                    "n": int(stats_local.get("n", y_fit_daily.shape[0])),
-                }
-                save_window(window_cache_dir, cache_key, cache_payload)
-        else:
-            ms1_local = stats_local["MS1"].astype(np.float64)
-            ms2_local = stats_local["MS2"].astype(np.float64)
-            sigma1_local = stats_local["Sigma1_hat"].astype(np.float64)
-            sigma2_local = stats_local["Sigma2_hat"].astype(np.float64)
+        prepared = _prepare_window_stats(
+            design_mode,
+            fit_blocks,
+            replicates,
+            cached_stats=cached_stats if resume_cache else None,
+            nested_replicates=nested_reps_value,
+        )
+        if prepared is None:
+            continue
+
+        y_fit_daily = prepared.y_fit
+        groups_fit = prepared.groups
+        stats_local = prepared.stats
+        ms_list = prepared.ms_list
+        sigma_list = prepared.sigma_list
+        design_override = prepared.design_override
+        design_c_local = prepared.design_c
+        design_d_local = prepared.design_d
+        design_N_local = prepared.design_N
+        _design_order_local = prepared.design_order
+
+        if (
+            prepared.cache_payload is not None
+            and window_cache_dir is not None
+            and cache_key is not None
+        ):
+            save_window(window_cache_dir, cache_key, prepared.cache_payload)
 
         off_cap = off_component_leak_cap
         diag_local: dict[str, int] = {}
@@ -693,6 +1013,8 @@ def _run_single_period(
             ),
             diagnostics=diag_local,
             stats=stats_local,
+            design=design_override,
+            oneway_a_solver=solver_mode,
         )
         for key, value in diag_local.items():
             rejection_totals[key] = rejection_totals.get(key, 0) + int(value)
@@ -703,28 +1025,34 @@ def _run_single_period(
                 if edge_val is not None and np.isfinite(edge_val):
                     edge_margin_values.append(float(edge_val))
 
-        # Optional per-window diagnostics: MP edge vs top eigenvalue across angles
+        # Optional per-window diagnostics: MP edge vs top eigenvalue across angles (two-component only)
         try:
-            p_dim = int(ms1_local.shape[0])
+            if len(ms_list) != 2 or len(sigma_list) != 2:
+                raise ValueError("Skip diagnostics for designs with more than two components.")
+            p_dim = int(ms_list[0].shape[0])
             drop_top = min(p_dim - 1, max(1, int(round(p_dim * float(cs_drop_top_frac)))))
-            d_vec_local = np.array(
-                [float(stats_local["I"] - 1), float(stats_local["n"] - stats_local["I"])],
-                dtype=np.float64,
+            cs_vec_local = estimate_Cs_from_MS(
+                ms_list,
+                design_d_local.tolist(),
+                design_c_local.tolist(),
+                drop_top=drop_top,
             )
-            c_vec_local = np.array([float(stats_local["J"]), 1.0], dtype=np.float64)
-            cs_vec_local = estimate_Cs_from_MS([ms1_local, ms2_local], d_vec_local.tolist(), c_vec_local.tolist(), drop_top=drop_top)
 
-            # Build C mapping consistent with detector (sigma-basis): use lam_mean scale when available
-            sigma_total = sigma1_local + sigma2_local
+            sigma_total = sigma_list[0] + sigma_list[1]
             try:
                 eigvals_total = np.linalg.eigvalsh(0.5 * (sigma_total + sigma_total.T))
                 lam_mean = float(np.mean(eigvals_total)) if eigvals_total.size else float("nan")
             except Exception:
                 lam_mean = float("nan")
             if np.isfinite(lam_mean) and lam_mean > 0.0:
-                C_diag = np.full_like(c_vec_local, lam_mean, dtype=np.float64)
+                C_diag = np.full_like(design_c_local, lam_mean, dtype=np.float64)
             else:
-                C_diag = np.array([1.0, 1.0], dtype=np.float64)
+                C_diag = np.ones_like(design_c_local, dtype=np.float64)
+
+            ms1_local = ms_list[0]
+            ms2_local = ms_list[1]
+            sigma1_local = sigma_list[0]
+            sigma2_local = sigma_list[1]
 
             angles = np.linspace(0.0, 2.0 * np.pi, num=int(a_grid), endpoint=False, dtype=np.float64)
             rows = []
@@ -734,8 +1062,8 @@ def _run_single_period(
                     z_plus = mp_edge(
                         a_vec.tolist(),
                         C_diag.tolist(),
-                        d_vec_local.tolist(),
-                        float(stats_local["J"]),
+                        design_d_local.tolist(),
+                        design_N_local,
                         Cs=cs_vec_local,
                     )
                 except Exception:
@@ -745,13 +1073,18 @@ def _run_single_period(
                     lam_top = float(np.linalg.eigvalsh(sigma_a)[-1])
                 except Exception:
                     continue
-                thr = z_plus + max(float(delta), (float(delta_frac) * z_plus) if (delta_frac is not None) else 0.0)
-                rows.append({
-                    "theta": float(theta),
-                    "z_plus": float(z_plus),
-                    "lambda_top": lam_top,
-                    "edge_margin": float(lam_top - thr),
-                })
+                threshold = z_plus + max(
+                    float(delta),
+                    (float(delta_frac) * z_plus) if (delta_frac is not None) else 0.0,
+                )
+                rows.append(
+                    {
+                        "theta": float(theta),
+                        "z_plus": float(z_plus),
+                        "lambda_top": lam_top,
+                        "edge_margin": float(lam_top - threshold),
+                    }
+                )
             if rows:
                 diag_path = output_dir / f"edge_diag_window{window_idx:03d}.csv"
                 pd.DataFrame(rows).to_csv(diag_path, index=False)
@@ -805,6 +1138,7 @@ def _run_single_period(
                         "components": [
                             float(val) for val in (det.get("components") or [])
                         ],
+                        "solver_used": det.get("solver_used"),
                     }
                 )
             window_record["detections_detail"] = json.dumps(detail_payload)
@@ -812,9 +1146,14 @@ def _run_single_period(
             top = det_sorted[0]
             window_record["top_lambda_hat"] = float(top["lambda_hat"])
             window_record["top_mu_hat"] = float(top["mu_hat"])
-            window_record["top_a0"] = float(top["a"][0])
-            window_record["top_a1"] = float(top["a"][1])
+            top_a_values = [float(val) for val in top.get("a", [])]
+            window_record["top_a"] = json.dumps(top_a_values)
+            if top_a_values:
+                window_record["top_a0"] = top_a_values[0]
+            if len(top_a_values) > 1:
+                window_record["top_a1"] = top_a_values[1]
             window_record["top_stability_margin"] = float(top["stability_margin"])
+            window_record["top_solver_used"] = top.get("solver_used")
             edge_margin_val = _safe_num(top.get("edge_margin"))
             buffer_margin_val = _safe_num(top.get("buffer_margin"))
             window_record["top_edge_margin"] = (
@@ -1368,6 +1707,9 @@ def run_experiment(
     delta_frac_override: float | None = None,
     signed_a_override: bool | None = None,
     target_component_override: int | None = None,
+    design_override: str | None = None,
+    nested_replicates_override: int | None = None,
+    oneway_a_solver_override: str | None = None,
     cs_drop_top_frac_override: float | None = None,
     progress_override: bool | None = None,
     eps_override: float | None = None,
@@ -1396,6 +1738,12 @@ def run_experiment(
         config["signed_a"] = bool(signed_a_override)
     if target_component_override is not None:
         config["target_component"] = int(target_component_override)
+    if design_override is not None:
+        config["design"] = str(design_override)
+    if nested_replicates_override is not None:
+        config["nested_replicates"] = int(nested_replicates_override)
+    if oneway_a_solver_override is not None:
+        config["oneway_a_solver"] = str(oneway_a_solver_override)
     if cs_drop_top_frac_override is not None:
         config["cs_drop_top_frac"] = float(cs_drop_top_frac_override)
     if eps_override is not None:
@@ -1418,6 +1766,21 @@ def run_experiment(
     if panel_policy not in {"drop", "impute"}:
         raise ValueError("partial_week_policy must be 'drop' or 'impute'.")
     config["partial_week_policy"] = panel_policy
+
+    design_value = str(config.get("design", "oneway")).lower()
+    if design_value not in {"oneway", "nested"}:
+        raise ValueError("design must be either 'oneway' or 'nested'.")
+    config["design"] = design_value
+    nested_reps_cfg = int(config.get("nested_replicates", 5))
+    if nested_reps_cfg <= 0:
+        nested_reps_cfg = 5
+    config["nested_replicates"] = nested_reps_cfg
+    if design_value == "nested" and int(config.get("target_component", 0)) >= 3:
+        config["target_component"] = 0
+    solver_value = str(config.get("oneway_a_solver", "auto")).lower()
+    if solver_value not in {"auto", "rootfind", "grid"}:
+        raise ValueError("oneway_a_solver must be 'auto', 'rootfind', or 'grid'.")
+    config["oneway_a_solver"] = solver_value
 
     cache_dir_path: Path | None
     if cache_dir_override is not None:
@@ -1498,6 +1861,9 @@ def run_experiment(
             off_component_leak_cap=cast(float | None, config.get("off_component_leak_cap")),
             sigma_ablation=bool(run_cfg["sigma_ablation"]),
             label=str(run_cfg["label"]),
+            design_mode=str(config["design"]),
+            nested_replicates=int(config["nested_replicates"]),
+            oneway_a_solver=str(config["oneway_a_solver"]),
             progress=(True if progress_override is None else bool(progress_override)),
             a_grid=int(config.get("a_grid", 180)),
             energy_min_abs=cast(float | None, config.get("energy_min_abs")),
@@ -1525,7 +1891,7 @@ def run_experiment(
         _run_param_ablation(
             daily_returns,
             output_dir,
-             partial_week_policy=panel_policy,
+            partial_week_policy=panel_policy,
             target_component=int(config.get("target_component", 0)),
             base_delta=float(config.get("dealias_delta", 0.0)),
             base_delta_frac=cast(float | None, config.get("dealias_delta_frac")),
@@ -1534,6 +1900,7 @@ def run_experiment(
             signed_a=bool(config.get("signed_a", True)),
             off_component_leak_cap=cast(float | None, config.get("off_component_leak_cap")),
             energy_min_abs=cast(float | None, config.get("energy_min_abs")),
+            oneway_a_solver=str(config["oneway_a_solver"]),
         )
 
 
@@ -1546,6 +1913,26 @@ def main() -> None:
         type=str,
         default=None,
         help="Path to experiment configuration YAML file.",
+    )
+    parser.add_argument(
+        "--design",
+        type=str,
+        choices=["oneway", "nested"],
+        default=None,
+        help="Balanced design structure (default: oneway).",
+    )
+    parser.add_argument(
+        "--nested-replicates",
+        type=int,
+        default=None,
+        help="Replicates per (year, week) cell for nested design (default 5).",
+    )
+    parser.add_argument(
+        "--oneway-a-solver",
+        type=str,
+        choices=["auto", "rootfind", "grid"],
+        default=None,
+        help="Refinement mode for one-way a-grid search (default auto).",
     )
     parser.add_argument(
         "--sigma-ablation",
@@ -1684,6 +2071,9 @@ def main() -> None:
         delta_frac_override=args.delta_frac,
         signed_a_override=args.signed_a_override,
         target_component_override=args.target_component,
+        design_override=args.design,
+        nested_replicates_override=args.nested_replicates,
+        oneway_a_solver_override=args.oneway_a_solver,
         cs_drop_top_frac_override=args.cs_drop_top_frac,
         progress_override=(not args.no_progress),
         eps_override=args.eps,
@@ -1697,7 +2087,7 @@ def main() -> None:
         precompute_panel=args.precompute_panel,
         cache_dir_override=args.cache_dir,
         resume_cache=args.resume,
-    )
+) 
 
 
 if __name__ == "__main__":

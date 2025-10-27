@@ -24,6 +24,15 @@ De-aliasing the spurious spikes that arise when MANOVA spectra are aliased in hi
 
 `make test` remains available to run the full pytest suite; `make fmt` / `make lint` apply formatting and static checks.
 
+## Design modes
+
+The de-aliasing runner now supports both the classic balanced one-way MANOVA design and a nested Year⊃Week layout derived from the balanced panel:
+
+- `oneway` (default): the historical workflow with two strata (`Σ̂₁`, `Σ̂₂`).
+- `nested`: balances daily replicates within each (iso-)week per calendar year and estimates three strata (`between-year`, `week-within-year`, residual). Use the new configs `experiments/equity_panel/config.nested.smoke.yaml` or `config.nested.crisis.2020.yaml`, or pass `--design nested --nested-replicates 5` on the command line.
+
+Both modes accept `--oneway-a-solver {auto,rootfind,grid}` to control the θ refinement strategy (see `METHODS.md` for details). `auto` tries the closed-form root finder first and falls back to the coarse grid when no bracket or stable root is available; the detection JSON now records the solver used for each accepted spike (`solver_used`).
+
 ## Weekly Dataset Builder
 
 - Build a balanced weekly p≈200 equity dataset (Mon–Fri, fixed universe) from daily adjusted prices:

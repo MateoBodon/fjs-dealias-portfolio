@@ -45,6 +45,30 @@ Therefore the weekly risk of the aggregate return satisfies
 \]
 and both the aliased and de-aliased estimators must target the same \(\widehat{\Sigma}_1,\widehat{\Sigma}_2\) components before and after spike substitution.
 
+## Balanced nested Year⊃Week design
+
+The nested configuration introduces a hierarchical factor: calendar years contain iso-weeks, which in turn contain balanced daily replicates. After dropping imperfect (year, week) cells and intersecting weeks across retained years, the observation cube is indexed as
+
+- `i = 1,…,I` (years),
+- `j = 1,…,J` (weeks per retained year),
+- `r = 1,…,R` (daily replicates inside each week).
+
+With random effects \(\mu_i \sim (0,\Sigma_1)\), \(\nu_{ij} \sim (0,\Sigma_2)\), and \(\varepsilon_{ijr} \sim (0,\Sigma_3)\) mutually independent, the balanced mean squares implemented in `src/fjs/balanced_nested.py` are
+\[
+\begin{aligned}
+\widehat{\text{MS}}_1 &= \frac{R J}{I-1} \sum_{i=1}^I (\bar{Y}_{i..} - \bar{Y}_{...})(\bar{Y}_{i..} - \bar{Y}_{...})^\top,\\
+\widehat{\text{MS}}_2 &= \frac{R}{I(J-1)} \sum_{i=1}^I \sum_{j=1}^J (\bar{Y}_{ij.} - \bar{Y}_{i..})(\bar{Y}_{ij.} - \bar{Y}_{i..})^\top,\\
+\widehat{\text{MS}}_3 &= \frac{1}{IJ(R-1)} \sum_{i,j,r} (Y_{ijr} - \bar{Y}_{ij.})(Y_{ijr} - \bar{Y}_{ij.})^\top.
+\end{aligned}
+\]
+The component estimators generalize to
+\[
+\widehat{\Sigma}_3 = \widehat{\text{MS}}_3,\qquad
+\widehat{\Sigma}_2 = \frac{\widehat{\text{MS}}_2 - \widehat{\text{MS}}_3}{R},\qquad
+\widehat{\Sigma}_1 = \frac{\widehat{\text{MS}}_1 - \widehat{\text{MS}}_2}{R J}.
+\]
+The detector consumes the accompanying metadata (`d = [I-1, I(J-1), IJ(R-1)]`, `c = [JR, R, 1]`, `N = R`, order sets `[[1,2,3],[2,3],[3]]`) so the Marchenko–Pastur mapping can switch between one-way and nested regimes without modifying the core MP routines.
+
 ## Marchenko–Pastur surrogate z(m) and bulk edge
 
 For balanced designs, the surrogate transform z(m) admits a closed form depending on design weights a, c, degrees d, the sample size proxy N, and trace‑based plug‑ins C_s (denoted Cs in code). We implement:
@@ -76,6 +100,10 @@ Code:
 - `t_vec(λ, a, C, d, N, c, order, Cs)` in `src/fjs/mp.py`.
 - Algorithm 1 search and guardrails in `src/fjs/dealias.py` (`dealias_search`).
 - The detector persists per-candidate diagnostics (`edge_margin = λ̂ - z₊`, |t| vector, admissible root check with z₀'(m) > 0) for inspection in `rolling_results.csv` and `summary.json`.
+
+### θ root finding for k = 2
+
+For the one-way design (`k=2`) we optionally refine the coarse angular grid by solving `t₂(λ̂, θ) = 0`, i.e. forcing the off-component of the aggregated t vector to vanish. The helper `solve_theta_for_t2_zero` (`src/fjs/theta_solver.py`) scans a coarse grid for a sign change, applies a Brent-style bisection, and rechecks the guardrails at `θ±δ` before accepting the root. The CLI flag `--oneway-a-solver {auto,rootfind,grid}` controls this behaviour: `auto` tries the root finder and falls back to the grid when no stable bracket exists, `rootfind` insists on a root (falling back to grid when necessary), and `grid` preserves the legacy search. Each accepted detection now reports the solver used in the JSON diagnostics.
 
 ## Noise plug‑ins and trimming
 

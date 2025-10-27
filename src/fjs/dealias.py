@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+import math
 from typing import Any, TypedDict
 
 import numpy as np
@@ -9,6 +10,7 @@ from numpy.typing import NDArray
 
 from fjs.balanced import mean_squares
 from fjs.mp import admissible_m_from_lambda, estimate_Cs_from_MS, mp_edge, t_vec
+from fjs.theta_solver import ThetaSolverParams, solve_theta_for_t2_zero
 
 
 class DesignParams(TypedDict):
@@ -30,6 +32,7 @@ class Detection(TypedDict):
     buffer_margin: float | None
     t_values: list[float] | None
     admissible_root: bool | None
+    solver_used: str | None
     # Optional diagnostics
     z_plus: float | None
     threshold_main: float | None
@@ -79,6 +82,109 @@ def _compute_admissible_root(
         return True
     except Exception:
         return False
+
+
+def _orthonormal_tangent_basis(a_vec: np.ndarray) -> list[np.ndarray]:
+    """Return an orthonormal basis for the tangent space at ``a_vec`` on the sphere."""
+    dim = int(a_vec.shape[0])
+    if dim < 2:
+        return []
+    basis: list[np.ndarray] = []
+    identity = np.eye(dim, dtype=np.float64)
+    for e_vec in identity:
+        candidate = e_vec - np.dot(e_vec, a_vec) * a_vec
+        if np.linalg.norm(candidate) <= 1e-12:
+            continue
+        for existing in basis:
+            candidate -= np.dot(candidate, existing) * existing
+        norm = np.linalg.norm(candidate)
+        if norm > 1e-12:
+            basis.append(candidate / norm)
+        if len(basis) >= dim - 1:
+            break
+    if not basis:
+        fallback = np.zeros(dim, dtype=np.float64)
+        fallback[0] = 1.0
+        candidate = fallback - np.dot(fallback, a_vec) * a_vec
+        norm = np.linalg.norm(candidate)
+        if norm > 1e-12:
+            basis.append(candidate / norm)
+    return basis
+
+
+def _rotate_on_sphere(
+    base: np.ndarray,
+    tangent: np.ndarray,
+    angle: float,
+) -> np.ndarray:
+    rotated = np.cos(angle) * base + np.sin(angle) * tangent
+    norm = np.linalg.norm(rotated)
+    if norm <= 0.0:
+        raise ValueError("Rotation yielded a zero vector.")
+    return rotated / norm
+
+
+def _generate_unit_vectors(
+    component_count: int,
+    a_grid: int,
+    *,
+    nonnegative: bool,
+) -> list[np.ndarray]:
+    if component_count < 2:
+        raise ValueError("At least two components are required for scanning.")
+    vectors: list[np.ndarray] = []
+    seen: set[tuple[float, ...]] = set()
+
+    def _record(vec: np.ndarray) -> None:
+        if nonnegative and np.any(vec < -1e-8):
+            return
+        key = tuple(np.round(vec, decimals=12))
+        if key in seen:
+            return
+        seen.add(key)
+        vectors.append(vec)
+
+    if component_count == 2:
+        angles = np.linspace(0.0, 2.0 * np.pi, num=a_grid, endpoint=False, dtype=np.float64)
+        for angle in angles:
+            vec = np.array([np.cos(angle), np.sin(angle)], dtype=np.float64)
+            _record(vec)
+        return vectors
+
+    if component_count == 3:
+        num_phi = max(3, int(np.sqrt(max(a_grid, 1))))
+        num_theta = max(6, int(np.ceil(max(a_grid, 1) / num_phi)))
+        theta_vals = np.linspace(0.0, 2.0 * np.pi, num=num_theta, endpoint=False, dtype=np.float64)
+        phi_vals = np.linspace(0.0, np.pi, num=num_phi, endpoint=False, dtype=np.float64)
+        for phi in phi_vals:
+            sin_phi = np.sin(phi)
+            cos_phi = np.cos(phi)
+            if sin_phi < 1e-8:
+                continue
+            for theta in theta_vals:
+                vec = np.array(
+                    [np.cos(theta) * sin_phi, np.sin(theta) * sin_phi, cos_phi],
+                    dtype=np.float64,
+                )
+                _record(vec / np.linalg.norm(vec))
+        _record(np.array([0.0, 0.0, 1.0], dtype=np.float64))
+        _record(np.array([0.0, 0.0, -1.0], dtype=np.float64))
+        return vectors
+
+    raise NotImplementedError("Scanning beyond three components is not implemented.")
+
+
+# Helper for k=2 solver bookkeeping
+def _normalise_angle(theta: float) -> float:
+    tau = 2.0 * math.pi
+    return float((theta % tau + tau) % tau)
+
+
+_ANGLE_TOL = 1e-6
+
+
+def _angle_key(theta: float) -> float:
+    return round(_normalise_angle(theta), 12)
 
 
 # fmt: off
@@ -300,6 +406,7 @@ def dealias_search(
     cs_sensitivity_frac: float | None = None,
     use_design_c_for_C: bool = False,
     scan_basis: str = "ms",
+    oneway_a_solver: str = "auto",
     off_component_leak_cap: float | None = None,
     cs_scale: float | None = None,
     diagnostics: dict[str, int] | None = None,
@@ -310,10 +417,14 @@ def dealias_search(
     """
     observations, assignments = _validate_inputs(y, groups)
     if stats is None:
-        stats = mean_squares(observations, assignments)
+        stats_dict: dict[str, Any] = mean_squares(observations, assignments)
+    elif isinstance(stats, dict):
+        stats_dict = dict(stats)
+    else:
+        raise TypeError("stats must be a mapping when provided explicitly.")
 
     if design is None:
-        design_params = _default_design(stats)
+        design_params = _default_design(stats_dict)
     else:
         required_keys = {"c", "C", "d", "N", "order"}
         missing = required_keys - set(design)
@@ -327,12 +438,21 @@ def dealias_search(
             order=list(design["order"]),
         )
 
-    ms1_scaled = stats["MS1"].astype(np.float64)
-    ms2_scaled = stats["MS2"].astype(np.float64)
-    sigma_components = [
-        stats["Sigma1_hat"].astype(np.float64),
-        stats["Sigma2_hat"].astype(np.float64),
-    ]
+    ms_list: list[np.ndarray] = []
+    sigma_components: list[np.ndarray] = []
+    idx = 1
+    while True:
+        ms_key = f"MS{idx}"
+        sigma_key = f"Sigma{idx}_hat"
+        if ms_key in stats_dict and sigma_key in stats_dict:
+            ms_list.append(np.asarray(stats_dict[ms_key], dtype=np.float64))
+            sigma_components.append(np.asarray(stats_dict[sigma_key], dtype=np.float64))
+            idx += 1
+            continue
+        break
+
+    if len(ms_list) != len(sigma_components) or not ms_list:
+        raise ValueError("stats must provide matched mean squares and sigma components.")
     # Design parameters:
     # - c_vec holds the design coefficients (e.g., [J, 1] in one-way)
     # - design_params["C"] defaults to ones and is not used for MP mapping
@@ -342,6 +462,14 @@ def dealias_search(
     d_vec = np.asarray(design_params["d"], dtype=np.float64)
     n_total = float(design_params["N"])
     component_count = len(sigma_components)
+
+    if c_vec.shape[0] != component_count:
+        raise ValueError("Design parameters must align with sigma components.")
+
+    solver_mode = (oneway_a_solver or "grid").strip().lower()
+    if solver_mode not in {"auto", "rootfind", "grid"}:
+        raise ValueError("oneway_a_solver must be 'auto', 'rootfind', or 'grid'.")
+    use_theta_solver = component_count == 2 and solver_mode in {"auto", "rootfind"}
 
     if not (0 <= target_r < component_count):
         raise ValueError("target_r must reference a valid component index.")
@@ -356,14 +484,14 @@ def dealias_search(
     if Cs is None:
         # Determine trimming via fraction when provided; else fall back to heuristic
         if cs_drop_top_frac is not None:
-            p_dim = int(ms1_scaled.shape[0])
+            p_dim = int(ms_list[0].shape[0])
             fraction = float(cs_drop_top_frac)
             drop_top = min(p_dim - 1, max(1, int(round(p_dim * fraction))))
         else:
-            drop_top = min(5, max(1, ms1_scaled.shape[0] // 20))
+            drop_top = min(5, max(1, ms_list[0].shape[0] // 20))
         cs_vec = np.asarray(
             estimate_Cs_from_MS(
-                [ms1_scaled, ms2_scaled],
+                ms_list,
                 d_vec.tolist(),
                 c_vec.tolist(),
                 drop_top=drop_top,
@@ -383,8 +511,9 @@ def dealias_search(
     lam_mean = float("nan")
     if scan_basis_norm == "sigma":
         try:
-            sigma_total = sigma_components[0] + sigma_components[1]
-            # Use average eigenvalue as the characteristic scale
+            sigma_total = np.zeros_like(sigma_components[0], dtype=np.float64)
+            for component in sigma_components:
+                sigma_total = sigma_total + component
             eigvals_total = np.linalg.eigvalsh(0.5 * (sigma_total + sigma_total.T))
             lam_mean = float(np.mean(eigvals_total)) if eigvals_total.size else float(np.nan)
         except Exception:
@@ -400,7 +529,16 @@ def dealias_search(
             alpha = 1.0
         cs_vec = (alpha * cs_vec).astype(np.float64, copy=False)
 
-    angles = np.linspace(0.0, 2.0 * np.pi, num=a_grid, endpoint=False, dtype=np.float64)
+    candidate_vectors = _generate_unit_vectors(
+        len(c_vec),
+        int(a_grid),
+        nonnegative=nonnegative_a,
+    )
+    angle_source: dict[float, str] = {}
+    if use_theta_solver:
+        for vec in candidate_vectors:
+            theta_key = _angle_key(float(math.atan2(vec[1], vec[0])))
+            angle_source.setdefault(theta_key, "grid")
     eta_rad = np.deg2rad(stability_eta_deg)
     detections: list[Detection] = []
 
@@ -412,13 +550,12 @@ def dealias_search(
     C_for_mp = c_vec if use_design_c_for_C else c_weights
 
     def _edge_margin_for(Cs_local: np.ndarray):
-        def margin(angle: float, lam_val: float) -> float | None:
-            a_vec = np.array([np.cos(angle), np.sin(angle)], dtype=np.float64)
-            if nonnegative_a and np.any(a_vec < -1e-8):
+        def margin(a_vec_local: np.ndarray, lam_val: float) -> float | None:
+            if nonnegative_a and np.any(a_vec_local < -1e-8):
                 return float("inf")
             try:
                 z_plus_local = mp_edge(
-                    a_vec.tolist(),
+                    a_vec_local.tolist(),
                     # Use chosen mapping for MP edge
                     C_for_mp.tolist(),
                     d_vec.tolist(),
@@ -460,10 +597,16 @@ def dealias_search(
         else:
             C_for_mp = c_weights
 
-    for theta in angles:
-        a_vec = np.array([np.cos(theta), np.sin(theta)], dtype=np.float64)
+    for a_vec in candidate_vectors:
         if nonnegative_a and np.any(a_vec < -1e-8):
             continue
+        theta_current = None
+        theta_key = None
+        solver_tag = "grid"
+        if use_theta_solver:
+            theta_current = float(math.atan2(a_vec[1], a_vec[0]))
+            theta_key = _angle_key(theta_current)
+            solver_tag = angle_source.get(theta_key, "grid")
         try:
             z_plus = mp_edge(
                 a_vec.tolist(),
@@ -477,9 +620,11 @@ def dealias_search(
 
         # Evaluate scanning matrix per chosen basis
         if scan_basis_norm == "sigma":
-            sigma_a = float(a_vec[0]) * sigma_components[0] + float(a_vec[1]) * sigma_components[1]
+            sigma_a = np.zeros_like(sigma_components[0], dtype=np.float64)
+            for weight, sigma_component in zip(a_vec, sigma_components):
+                sigma_a = sigma_a + float(weight) * sigma_component
         else:
-            sigma_a = _sigma_of_a_from_MS(a_vec, [ms1_scaled, ms2_scaled])
+            sigma_a = _sigma_of_a_from_MS(a_vec, ms_list)
         try:
             eigvals, eigvecs = np.linalg.eigh(sigma_a)
         except np.linalg.LinAlgError:
@@ -526,7 +671,7 @@ def dealias_search(
             threshold_high = None
 
         # Pre-gating count of outliers for this angle
-        pre_outlier_count_angle = int(np.count_nonzero(eigvals >= threshold_main))
+        pre_outlier_count_vec = int(np.count_nonzero(eigvals >= threshold_main))
 
         for idx, lam_val in enumerate(eigvals):
             if lam_val < threshold_main:
@@ -610,11 +755,25 @@ def dealias_search(
                 _diag_inc("off_component_ratio")
                 continue
 
-            margin_plus = _edge_margin(theta + eta_rad, lam_val)
+            basis_dirs = _orthonormal_tangent_basis(a_vec)
+            if basis_dirs:
+                tangent_dir = basis_dirs[0]
+                try:
+                    a_plus = _rotate_on_sphere(a_vec, tangent_dir, eta_rad)
+                    a_minus = _rotate_on_sphere(a_vec, -tangent_dir, eta_rad)
+                except ValueError:
+                    _diag_inc("stability_fail")
+                    continue
+                margin_plus = _edge_margin(a_plus, lam_val)
+                margin_minus = _edge_margin(a_minus, lam_val)
+            else:
+                a_plus = a_vec
+                a_minus = a_vec
+                margin_plus = margin_main
+                margin_minus = margin_main
             if margin_plus is None or margin_plus < 0.0:
                 _diag_inc("stability_fail")
                 continue
-            margin_minus = _edge_margin(theta - eta_rad, lam_val)
             if margin_minus is None or margin_minus < 0.0:
                 _diag_inc("stability_fail")
                 continue
@@ -631,8 +790,8 @@ def dealias_search(
                     if (isinstance(threshold_low, float) and np.isfinite(threshold_low))
                     else float("nan")
                 )
-                mp_plus_low = _edge_margin_low(theta + eta_rad, lam_val)
-                mp_minus_low = _edge_margin_low(theta - eta_rad, lam_val)
+                mp_plus_low = _edge_margin_low(a_plus, lam_val)
+                mp_minus_low = _edge_margin_low(a_minus, lam_val)
                 if (
                     np.isfinite(mp_main_low)
                     and mp_plus_low is not None
@@ -655,8 +814,8 @@ def dealias_search(
                     if (isinstance(threshold_high, float) and np.isfinite(threshold_high))
                     else float("nan")
                 )
-                mp_plus_high = _edge_margin_high(theta + eta_rad, lam_val)
-                mp_minus_high = _edge_margin_high(theta - eta_rad, lam_val)
+                mp_plus_high = _edge_margin_high(a_plus, lam_val)
+                mp_minus_high = _edge_margin_high(a_minus, lam_val)
                 if (
                     np.isfinite(mp_main_high)
                     and mp_plus_high is not None
@@ -697,7 +856,7 @@ def dealias_search(
                 target_energy=float(target_component_val),
                 target_index=int(target_r),
                 off_component_ratio=float(off_component_ratio),
-                pre_outlier_count=int(pre_outlier_count_angle),
+                pre_outlier_count=int(pre_outlier_count_vec),
                 edge_margin=edge_margin_raw,
                 buffer_margin=float(margin_main),
                 t_values=(None if t_vals is None else np.abs(t_vals).astype(float).tolist()),
@@ -710,7 +869,45 @@ def dealias_search(
                     cs_vec,
                 ),
             )
+            detection["solver_used"] = solver_tag
             detections.append(detection)
+
+            if (
+                use_theta_solver
+                and solver_tag == "grid"
+                and theta_current is not None
+                and theta_key is not None
+            ):
+                solver_params = ThetaSolverParams(
+                    C=C_for_mp.copy(),
+                    d=d_vec.copy(),
+                    N=float(n_total),
+                    c=c_vec.copy(),
+                    order=[list(item) for item in design_params["order"]],
+                    Cs=None if cs_vec is None else cs_vec.copy(),
+                    eps=float(eps),
+                    delta=float(eta_rad if eta_rad > 0.0 else 1e-3),
+                    grid_size=max(72, int(a_grid)),
+                    tol=1e-8,
+                    max_iter=60,
+                )
+                theta_solution = solve_theta_for_t2_zero(float(lam_val), solver_params)
+                if theta_solution is not None:
+                    theta_norm = _angle_key(theta_solution)
+                    duplicate = any(
+                        abs(theta_norm - existing) <= _ANGLE_TOL
+                        for existing in angle_source.keys()
+                    )
+                    if not duplicate:
+                        angle_source[theta_norm] = "rootfind"
+                        candidate_vectors.append(
+                            np.array(
+                                [math.cos(theta_norm), math.sin(theta_norm)],
+                                dtype=np.float64,
+                            )
+                        )
+                elif solver_mode == "rootfind":
+                    angle_source[theta_key] = "grid"
 
     merged = _merge_detections(detections)
     return merged

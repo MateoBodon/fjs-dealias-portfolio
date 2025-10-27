@@ -40,7 +40,7 @@ from finance.eval import (
 )
 from finance.io import load_prices_csv, to_daily_returns, load_returns_csv
 from finance.portfolios import equal_weight, min_variance_box, minimum_variance
-from finance.returns import balance_weeks, weekly_panel
+from finance.returns import balance_weeks
 from fjs.balanced import mean_squares
 from fjs.dealias import dealias_search
 from fjs.mp import estimate_Cs_from_MS, mp_edge
@@ -60,6 +60,15 @@ from evaluation.evaluate import (
     plot_coverage_error as eval_plot_cov_err,
     build_metrics_summary as eval_build_metrics_summary,
 )
+from data.panels import (
+    BalancedPanel,
+    PanelManifest,
+    build_balanced_weekday_panel,
+    hash_daily_returns,
+    load_balanced_panel,
+    save_balanced_panel,
+    write_manifest as write_panel_manifest,
+)
 
 DEFAULT_CONFIG = {
     "data_path": "data/returns_daily.csv",
@@ -77,6 +86,7 @@ DEFAULT_CONFIG = {
     "dealias_eps": 0.03,
     "off_component_leak_cap": 10.0,
     "energy_min_abs": 1e-6,
+    "partial_week_policy": "drop",
 }
 
 
@@ -158,6 +168,7 @@ def _run_param_ablation(
     daily_returns: pd.DataFrame,
     output_dir: Path,
     *,
+    partial_week_policy: str,
     target_component: int,
     base_delta: float,
     base_delta_frac: float | None,
@@ -172,7 +183,18 @@ def _run_param_ablation(
     This routine uses a shorter rolling setup for speed and reproducibility.
     """
 
-    weekly_balanced, week_map, replicates, _ = _balanced_weekly_panel(daily_returns)
+    panel_cache_dir = output_dir / "ablation_panel"
+    panel_cache_dir.mkdir(parents=True, exist_ok=True)
+    balanced_panel = _balanced_weekly_panel(
+        daily_returns,
+        days_per_week=5,
+        partial_week_policy=partial_week_policy,
+        output_dir=panel_cache_dir,
+        precompute_panel=False,
+    )
+    weekly_balanced = balanced_panel.weekly
+    week_map = balanced_panel.week_map
+    replicates = balanced_panel.replicates
     # Use a compact rolling scheme for ablations
     # Choose a compact rolling setup that guarantees at least one window when possible
     total_weeks = int(weekly_balanced.shape[0])
@@ -346,66 +368,67 @@ def _run_param_ablation(
 def _balanced_weekly_panel(
     daily_returns: pd.DataFrame,
     *,
-    replicates: int = 5,
-) -> tuple[pd.DataFrame, dict[pd.Timestamp, pd.DataFrame], int, list[str]]:
-    """Build a balanced weekly panel.
+    days_per_week: int = 5,
+    partial_week_policy: str = "drop",
+    output_dir: Path | None = None,
+    precompute_panel: bool = False,
+) -> BalancedPanel:
+    """Build (or load) a balanced Week×Day panel with optional caching."""
 
-    Returns a weekly aggregate DataFrame using a global ticker intersection for
-    plotting, and a week→DataFrame map of balanced daily blocks with native
-    per-week tickers to enable per-window intersections downstream.
-    """
+    if partial_week_policy not in {"drop", "impute"}:
+        raise ValueError(
+            "partial_week_policy must be either 'drop' or 'impute'."
+        )
 
-    if daily_returns.index.inferred_type != "datetime64":
-        raise ValueError("daily_returns must use a DatetimeIndex.")
+    data_hash = hash_daily_returns(daily_returns)
+    cache_path: Path | None = None
+    manifest_path: Path | None = None
 
-    panel = daily_returns.sort_index()
-    grouped = panel.groupby(panel.index.to_period("W-MON"))
+    if output_dir is not None:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        cache_path = output_dir / "panel_balanced.pkl"
+        manifest_path = output_dir / "panel_manifest.json"
+        if cache_path.exists() and manifest_path.exists():
+            try:
+                with manifest_path.open("r", encoding="utf-8") as handle:
+                    manifest_payload = json.load(handle)
+                manifest = PanelManifest.from_dict(manifest_payload)
+                if (
+                    manifest.data_hash == data_hash
+                    and manifest.partial_week_policy == partial_week_policy
+                    and manifest.days_per_week == days_per_week
+                ):
+                    cached_panel = load_balanced_panel(cache_path)
+                    cached_manifest = cached_panel.manifest
+                    if (
+                        cached_manifest.data_hash == data_hash
+                        and cached_manifest.partial_week_policy == partial_week_policy
+                        and cached_panel.replicates == days_per_week
+                    ):
+                        # Ensure manifest stays fresh (indentation, counts)
+                        write_panel_manifest(cached_manifest, manifest_path)
+                        return cached_panel
+            except Exception:
+                pass
 
-    week_frames: list[pd.DataFrame] = []
-    week_labels: list[pd.Timestamp] = []
-
-    for period, frame in grouped:
-        # Drop columns that are entirely NaN this week; keep all day rows
-        cleaned = frame.dropna(axis=1, how="all").sort_index()
-        if cleaned.shape[0] < replicates:
-            continue
-        # Take first `replicates` business days; then keep only tickers fully observed within the week
-        trimmed = cleaned.iloc[:replicates]
-        cols_complete = trimmed.columns[~trimmed.isna().any(axis=0)]
-        if len(cols_complete) == 0:
-            continue
-        trimmed = trimmed.loc[:, cols_complete]
-        week_frames.append(trimmed)
-        week_labels.append(period.start_time)
-
-    if not week_frames:
-        raise ValueError("No balanced weeks available for evaluation.")
-
-    # Global intersection for rectangular weekly aggregates (E1 plots)
-    common_tickers = set(week_frames[0].columns)
-    for frame in week_frames[1:]:
-        common_tickers &= set(frame.columns)
-    if not common_tickers:
-        raise ValueError("No common tickers across balanced weeks.")
-    ordered_tickers = sorted(common_tickers)
-
-    replicate_count = int(week_frames[0].shape[0])
-    if any(frame.shape[0] != replicate_count for frame in week_frames):
-        raise ValueError("Replicate count varies across balanced weeks.")
-
-    weekly_arrays = [
-        frame.loc[:, ordered_tickers].to_numpy(dtype=np.float64)
-        for frame in week_frames
-    ]
-    weekly_data = np.stack([arr.sum(axis=0) for arr in weekly_arrays], axis=0)
-    weekly_df = pd.DataFrame(
-        weekly_data,
-        index=pd.Index(week_labels, name="week_start"),
-        columns=ordered_tickers,
+    balanced = build_balanced_weekday_panel(
+        daily_returns,
+        days_per_week=days_per_week,
+        partial_week_policy=partial_week_policy,  # type: ignore[arg-type]
     )
-    # Map each week to its native balanced daily frame (no global intersection)
-    week_map = {week_labels[idx]: week_frames[idx].copy() for idx in range(len(week_labels))}
-    return weekly_df, week_map, replicate_count, ordered_tickers
+
+    if manifest_path is not None:
+        try:
+            write_panel_manifest(balanced.manifest, manifest_path)
+        except Exception:
+            pass
+    if precompute_panel and cache_path is not None:
+        try:
+            save_balanced_panel(balanced, cache_path)
+        except Exception:
+            pass
+
+    return balanced
 
 
 def _run_single_period(
@@ -422,6 +445,8 @@ def _run_single_period(
     stability_eta: float,
     signed_a: bool,
     target_component: int,
+    partial_week_policy: str,
+    precompute_panel: bool,
     cs_drop_top_frac: float,
     cs_sensitivity_frac: float,
     off_component_leak_cap: float | None,
@@ -445,10 +470,18 @@ def _run_single_period(
             f"No data available within the window {start_ts.date()} to {end_ts.date()}."
         )
 
-    _, dropped_weeks = weekly_panel(daily_subset, start_ts, end_ts)
-    weekly_balanced, week_map, replicates, tickers = _balanced_weekly_panel(
-        daily_subset
+    balanced_panel = _balanced_weekly_panel(
+        daily_subset,
+        days_per_week=5,
+        partial_week_policy=partial_week_policy,
+        output_dir=output_dir,
+        precompute_panel=precompute_panel,
     )
+    weekly_balanced = balanced_panel.weekly
+    week_map = balanced_panel.week_map
+    replicates = balanced_panel.replicates
+    tickers = balanced_panel.ordered_tickers
+    dropped_weeks = balanced_panel.dropped_weeks
     total_weeks = int(weekly_balanced.shape[0])
     if total_weeks < window_weeks + horizon_weeks:
         # Auto-shrink to a minimal viable rolling scheme when possible
@@ -1036,6 +1069,8 @@ def _run_single_period(
         "end_date": str(end_ts.date()),
         "balanced_weeks": int(weekly_balanced.shape[0]),
         "dropped_weeks": int(dropped_weeks),
+        "imputed_weeks": int(balanced_panel.imputed_weeks),
+        "partial_week_policy": partial_week_policy,
         "window_weeks": int(window_weeks),
         "horizon_weeks": int(horizon_weeks),
         "rolling_windows_evaluated": len(records),
@@ -1205,6 +1240,8 @@ def run_experiment(
     window_weeks_override: int | None = None,
     horizon_weeks_override: int | None = None,
     energy_min_abs_override: float | None = None,
+    partial_week_policy: str | None = None,
+    precompute_panel: bool = False,
 ) -> None:
     """Execute the rolling equity forecasting experiment."""
 
@@ -1234,6 +1271,14 @@ def run_experiment(
         config["horizon_weeks"] = int(horizon_weeks_override)
     if energy_min_abs_override is not None:
         config["energy_min_abs"] = float(energy_min_abs_override)
+    panel_policy = str(
+        partial_week_policy
+        if partial_week_policy is not None
+        else config.get("partial_week_policy", "drop")
+    )
+    if panel_policy not in {"drop", "impute"}:
+        raise ValueError("partial_week_policy must be 'drop' or 'impute'.")
+    config["partial_week_policy"] = panel_policy
     # Values from YAML remain if overrides not provided
     daily_returns = _prepare_data(config)
 
@@ -1298,6 +1343,8 @@ def run_experiment(
             stability_eta=float(config.get("stability_eta_deg", 1.0)),
             signed_a=bool(config.get("signed_a", True)),
             target_component=int(config.get("target_component", 0)),
+            partial_week_policy=panel_policy,
+            precompute_panel=precompute_panel,
             cs_drop_top_frac=float(config.get("cs_drop_top_frac", 0.05)),
             cs_sensitivity_frac=float(config.get("cs_sensitivity_frac", 0.0)),
             off_component_leak_cap=cast(float | None, config.get("off_component_leak_cap")),
@@ -1330,6 +1377,7 @@ def run_experiment(
         _run_param_ablation(
             daily_returns,
             output_dir,
+             partial_week_policy=panel_policy,
             target_component=int(config.get("target_component", 0)),
             base_delta=float(config.get("dealias_delta", 0.0)),
             base_delta_frac=cast(float | None, config.get("dealias_delta_frac")),
@@ -1447,6 +1495,27 @@ def main() -> None:
         action="store_true",
         help="Run parameter ablations and emit E5 outputs",
     )
+    parser.add_argument(
+        "--precompute-panel",
+        action="store_true",
+        help="Cache the balanced Week×Day panel and write its manifest for reuse.",
+    )
+    partial_group = parser.add_mutually_exclusive_group()
+    partial_group.add_argument(
+        "--drop-partial-weeks",
+        dest="partial_week_policy",
+        action="store_const",
+        const="drop",
+        default=None,
+        help="Drop weeks with fewer than the required business days (default).",
+    )
+    partial_group.add_argument(
+        "--impute-partial-weeks",
+        dest="partial_week_policy",
+        action="store_const",
+        const="impute",
+        help="Impute missing business days within a week before balancing.",
+    )
     args = parser.parse_args()
 
     run_experiment(
@@ -1465,6 +1534,8 @@ def main() -> None:
         window_weeks_override=args.window_weeks,
         horizon_weeks_override=args.horizon_weeks,
         energy_min_abs_override=args.energy_min_abs,
+        partial_week_policy=args.partial_week_policy,
+        precompute_panel=args.precompute_panel,
     )
 
 

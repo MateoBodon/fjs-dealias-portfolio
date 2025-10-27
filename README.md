@@ -1,12 +1,6 @@
 # fjs-dealias-portfolio
 
-De-aliasing the spurious spikes that arise when MANOVA spectra are aliased in high-dimensional regimes yields materially better out-of-sample covariance and risk forecasts than Ledoit–Wolf shrinkage, enabling more reliable portfolio design under market noise. In a balanced one-way design with $J$ daily replicates per week, the weekly risk of a portfolio with weights $w$ decomposes into
-
-$$
-\mathbb{V}\!\left[\sum_{j=1}^J w^\top r_j\right] = J^2 w^\top \widehat{\Sigma}_1 w + J\, w^\top \widehat{\Sigma}_2 w,
-$$
-
-highlighting why both the aliased and de-aliased estimators must target the same $\widehat{\Sigma}_1, \widehat{\Sigma}_2$ components even when we correct the spike magnitudes.
+De-aliasing the spurious spikes that arise when MANOVA spectra are aliased in high-dimensional regimes yields materially better out-of-sample covariance and risk forecasts than Ledoit–Wolf shrinkage, enabling more reliable portfolio design under market noise. We target the balanced weekly covariance components shared by the aliased estimator and the FJS de-aliased adjustments; see `METHODS.md` (§Balanced one-way MANOVA and weekly risk) for the derivation with design weights c1=J, c2=1 and the independence assumptions on the daily replicates. Ledoit–Wolf operates on the same balanced weekly panel, so every method forecasts the identical weekly risk before and after spike substitution.
 
 ## Quickstart
 
@@ -40,6 +34,7 @@ highlighting why both the aliased and de-aliased estimators must target the same
   - Outputs:
     - Wide weekly CSV at `data/prices_weekly_200.csv` (index `week_start`, columns are tickers)
     - Metadata JSON next to the CSV (`.meta.json`) with `balanced_weeks`, `dropped_weeks`, and `p`.
+  - The equity runner mirrors this metadata: pass `--precompute-panel` to cache the balanced panel and write `<run_dir>/panel_manifest.json` (fields: asset count, weeks, days-per-week, dropped weeks), and choose between `--drop-partial-weeks` (default) or `--impute-partial-weeks` (reindexes Mon–Fri and fills missing days with zero returns) when generating the in-memory Week×Day cube.
   - Quick diagnostics on the WRDS daily returns:
     - `PYTHONPATH=src python scripts/data/summarize_returns.py`
     - Reports duplicate `(date, ticker)` pairs removed (currently 1,568 across 892,529 raw rows) and the span of the tidy matrix (`2010-01-05` to `2024-12-31`).
@@ -211,7 +206,7 @@ De-aliasing only substitutes selected spike magnitudes in $\widehat{\Sigma}_1$; 
 ## Recommended defaults and CLI flags
 
 - Recommended equity defaults (smoke): `dealias_delta=0.0`, `dealias_delta_frac=0.02`, `dealias_eps=0.03`, `stability_eta_deg=0.4`, `cs_drop_top_frac=0.05`, `signed_a=true`, `off_component_leak_cap=10.0`, `energy_min_abs=1e-6`, `a_grid=144`.
-- Equity CLI flags: `--delta-frac`, `--eps`, `--a-grid`, `--eta`, `--sigma-ablation`, `--ablations`, `--crisis`, `--no-progress`.
+- Equity CLI flags: `--delta-frac`, `--eps`, `--a-grid`, `--eta`, `--sigma-ablation`, `--ablations`, `--crisis`, `--no-progress`, `--precompute-panel`, `--drop-partial-weeks`, `--impute-partial-weeks`.
 
 See `METHODS.md` for a compact technical summary of Algorithm 1, acceptance criteria, and the weekly aggregation identity.
 
@@ -253,4 +248,4 @@ Alongside Aliased/De-aliased, we compare Ledoit–Wolf and (when applicable) sam
 
 ## Citation
 
-Fan, J., Johnstone, I. M., & Sun, Q. (2018). Eigenvalue shrinkage estimation of large covariance matrices. *Journal of the Royal Statistical Society: Series B (Statistical Methodology)*.
+Fan, J., Johnstone, I. M., & Sun, Q. (2018). Eigenvalue shrinkage estimation of large covariance matrices. *Journal of the Royal Statistical Society: Series B (Statistical Methodology)*, 80(4), 671–701. doi:10.1111/rssb.12263. The balanced MANOVA design weights (c1=J, c2=1) and the weekly risk identity referenced in this repository are summarized in `METHODS.md`.

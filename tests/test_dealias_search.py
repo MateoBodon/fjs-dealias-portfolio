@@ -147,9 +147,10 @@ def test_decisions_stable_within_eta_band() -> None:
 def test_wrds_window_yields_detection_with_relaxed_leakage() -> None:
     returns = load_returns_csv("data/returns_daily.csv")
     mask = (returns.index >= "2015-01-01") & (returns.index <= "2024-12-31")
-    weekly_df, week_map, replicates, ordered_tickers = _balanced_weekly_panel(
-        returns.loc[mask]
-    )
+    panel = _balanced_weekly_panel(returns.loc[mask])
+    weekly_df = panel.weekly
+    week_map = panel.week_map
+    replicates = panel.replicates
     # Use the first 156 balanced weeks to mirror the production rolling window
     fit = weekly_df.iloc[:156]
     fit_blocks = [week_map[idx] for idx in fit.index]

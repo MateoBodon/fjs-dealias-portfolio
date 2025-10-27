@@ -5,6 +5,8 @@ from typing import cast
 import numpy as np
 import pandas as pd
 
+from data.panels import build_balanced_weekday_panel
+
 
 def compute_log_returns(prices: pd.DataFrame) -> pd.DataFrame:
     """Compute log returns for a wide price DataFrame.
@@ -78,65 +80,21 @@ def weekly_panel(
 def balance_weeks(
     panel: pd.DataFrame,
 ) -> tuple[np.ndarray, np.ndarray, pd.DatetimeIndex]:
-    """Create a balanced week/day design from daily returns.
+    """Create a balanced week/day design from daily returns."""
 
-    Parameters
-    ----------
-    panel
-        DataFrame of log returns indexed by date with tickers as columns.
-
-    Returns
-    -------
-    tuple of (numpy.ndarray, numpy.ndarray, pandas.DatetimeIndex)
-        Balanced observation matrix shaped ``(5 * W, P)``, group labels per
-        row, and the corresponding week start dates.
-    """
-
-    if panel.index.inferred_type != "datetime64":
-        raise ValueError("panel must use a DatetimeIndex.")
-
-    panel = panel.sort_index()
-    panel_index = cast(pd.DatetimeIndex, panel.index)
-    week_periods = panel_index.to_period("W-MON")
-    grouped = panel.groupby(week_periods)
-
-    frames: list[pd.DataFrame] = []
-    week_labels: list[pd.Timestamp] = []
-
-    for period, frame in grouped:
-        frame = frame.dropna(axis=1, how="all")
-        frame = frame.dropna(axis=0, how="any")
-        if frame.shape[0] < 5:
-            continue
-        frame = frame.sort_index().iloc[:5]
-        frames.append(frame)
-        week_labels.append(period.start_time)
-
-    if not frames:
-        raise ValueError("No balanced weeks available in the panel.")
-
-    common_tickers = set(frames[0].columns)
-    for frame in frames[1:]:
-        common_tickers &= set(frame.columns)
-
-    if not common_tickers:
-        raise ValueError("No common tickers across balanced weeks.")
-
-    ordered_tickers = sorted(common_tickers)
-    balanced_rows: list[np.ndarray] = []
+    balanced = build_balanced_weekday_panel(panel, partial_week_policy="drop")
+    ordered = balanced.ordered_tickers
+    replicates = balanced.replicates
+    balanced_blocks: list[np.ndarray] = []
     groups: list[int] = []
 
-    for idx, frame in enumerate(frames):
-        trimmed = frame.loc[:, ordered_tickers]
-        if trimmed.isna().any().any():
-            continue
-        balanced_rows.append(trimmed.to_numpy(dtype=np.float64))
-        groups.extend([idx] * trimmed.shape[0])
+    for idx, week_start in enumerate(balanced.weekly.index):
+        frame = balanced.week_map[week_start].loc[:, ordered]
+        block = frame.to_numpy(dtype=np.float64)
+        balanced_blocks.append(block)
+        groups.extend([idx] * replicates)
 
-    if not balanced_rows:
-        raise ValueError("Balanced data empty after ticker intersection.")
-
-    y_matrix = np.vstack(balanced_rows)
+    y_matrix = np.vstack(balanced_blocks)
     groups_array = np.asarray(groups, dtype=np.intp)
-    week_index = pd.DatetimeIndex(week_labels[: len(np.unique(groups_array))])
+    week_index = cast(pd.DatetimeIndex, balanced.weekly.index.rename(None))
     return y_matrix, groups_array, week_index

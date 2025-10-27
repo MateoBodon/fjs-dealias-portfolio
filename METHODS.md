@@ -4,22 +4,46 @@ This document summarizes the core methodology implemented in this repository and
 
 ## Balanced one-way MANOVA and weekly risk
 
-We consider a balanced one-way design with I groups (weeks) and J replicates per group (trading days). For an observation matrix Y ∈ R^{n×p} with n = I·J, the balanced MANOVA mean-squares are computed as
+We work with the balanced one-way MANOVA design used in FJS (2018) with
 
-- MS₁ (between-group): based on group means ȳ_i and the overall mean ȳ,
-- MS₂ (within-group): based on residuals y_{ij} − ȳ_i.
+- I groups indexed by week,
+- J replicates per group indexed by business day,
+- observation matrix \(Y \in \mathbb{R}^{(I\cdot J)\times p}\) ordered by week/day.
 
-In code (`src/fjs/balanced.py`):
+The random-effects decomposition assumes
+\[
+r_{ij} = \mu_i + \varepsilon_{ij},\qquad
+\mathbb{E}[\mu_i] = \mathbf{0},\quad \mathbb{E}[\varepsilon_{ij}] = \mathbf{0},
+\]
+with independent \(\mu_i\) across weeks, independent \(\varepsilon_{ij}\) across days, and \(\operatorname{Cov}(\mu_i) = \Sigma_1,\ \operatorname{Cov}(\varepsilon_{ij}) = \Sigma_2\). Replicates are conditionally independent given the week effect, so cross-covariances vanish when \(j \ne j'\).
 
-- `MS1`, `MS2`, and the component estimates
-  - Σ̂₂ = MS₂
-  - Σ̂₁ = (MS₁ − MS₂) / J
+Balanced MANOVA yields the mean squares (code: `src/fjs/balanced.py`) and component estimators
+\[
+\widehat{\Sigma}_2 = \widehat{\text{MS}}_2,\qquad
+\widehat{\Sigma}_1 = \frac{\widehat{\text{MS}}_1 - \widehat{\text{MS}}_2}{J},
+\]
+corresponding to the design weights \(c_1 = J\) and \(c_2 = 1\).
 
-Weekly risk for summed daily returns (same portfolio weights w) is
-
-  Var(∑_{j=1}^J wᵀ r_j) = J²·wᵀ Σ̂₁ w + J·wᵀ Σ̂₂ w.
-
-The de‑aliasing procedure only updates selected spike magnitudes in Σ̂₁; Σ̂₂ and the weekly aggregation remain unchanged.
+Define the weekly aggregate for portfolio weights \(w\) as
+\[
+R_i = \sum_{j=1}^J r_{ij},\qquad v_i = w^\top R_i.
+\]
+Using the assumptions above,
+\[
+\begin{aligned}
+\operatorname{Cov}(R_i)
+&= \sum_{j=1}^J \sum_{j'=1}^J \operatorname{Cov}(r_{ij}, r_{ij'}) \\
+&= \sum_{j=1}^J \operatorname{Cov}(r_{ij}, r_{ij}) + \sum_{j\ne j'} \operatorname{Cov}(r_{ij}, r_{ij'}) \\
+&= J\,\Sigma_2 + J(J-1)\,\Sigma_1 + J\,\Sigma_1 \\
+&= J^2 \Sigma_1 + J \Sigma_2.
+\end{aligned}
+\]
+Therefore the weekly risk of the aggregate return satisfies
+\[
+\operatorname{Var}(v_i) = \operatorname{Var}\!\left[\sum_{j=1}^J w^\top r_{ij}\right]
+= J^2 w^\top \widehat{\Sigma}_1 w + J\, w^\top \widehat{\Sigma}_2 w,
+\]
+and both the aliased and de-aliased estimators must target the same \(\widehat{\Sigma}_1,\widehat{\Sigma}_2\) components before and after spike substitution.
 
 ## Marchenko–Pastur surrogate z(m) and bulk edge
 
@@ -89,5 +113,4 @@ Baselines include aliased (no substitution), Ledoit–Wolf (shrinkage), and SCM 
   - E3: OOS variance MSE across methods.
   - E4: 95% VaR coverage error.
   - E5: ablations over δ_frac/ε/a_grid/η.
-
 

@@ -1,0 +1,11 @@
+gallery:
+  name: rc
+runs:
+  - root: experiments/equity_panel/outputs_smoke
+    pattern: "oneway_J*_est-*"
+  - root: experiments/equity_panel/outputs_smoke
+    pattern: "nested_J*_est-*"
+  - root: experiments/equity_panel/outputs_crisis_2020
+    pattern: "*"
+  - root: experiments/equity_panel/outputs_crisis_2022
+    pattern: "*"

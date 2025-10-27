@@ -6,7 +6,7 @@ from typing import Sequence
 import numpy as np
 import pandas as pd
 
-__all__ = ["table_estimators", "table_rejections", "table_ablation"]
+__all__ = ["table_estimators_panel", "table_rejections", "table_ablation"]
 
 DEFAULT_FIG_ROOT = Path("figures")
 EW_LABEL = "Equal Weight"
@@ -45,8 +45,8 @@ def _write_markdown(df: pd.DataFrame, path: Path) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def table_estimators(df: pd.DataFrame, *, root: Path = DEFAULT_FIG_ROOT) -> tuple[Path, Path, Path]:
-    """Create estimator comparison tables and return paths to CSV, Markdown, and LaTeX outputs."""
+def table_estimators_panel(df: pd.DataFrame, *, root: Path = DEFAULT_FIG_ROOT) -> tuple[Path, Path, Path]:
+    """Create estimator panel comparison tables and return paths to CSV, Markdown, and LaTeX outputs."""
 
     if df.empty:
         raise ValueError("Estimator DataFrame is empty.")
@@ -55,15 +55,20 @@ def table_estimators(df: pd.DataFrame, *, root: Path = DEFAULT_FIG_ROOT) -> tupl
     output_dir = root / run_tag / "tables"
     _ensure_dir(output_dir)
 
+    crisis_label = df["crisis_label"].dropna().iloc[0] if "crisis_label" in df and not df["crisis_label"].dropna().empty else ""
+
     rows = []
     for estimator, group in df.groupby("estimator"):
-        detection_rate = group["detection_rate"].dropna().iloc[0] if not group["detection_rate"].dropna().empty else np.nan
+        detection_rate = (
+            float(group["detection_rate"].dropna().iloc[0])
+            if not group["detection_rate"].dropna().empty
+            else np.nan
+        )
 
         def _strategy_value(label: str, column: str) -> float:
             selection = group[group["strategy"] == label][column]
             if not selection.empty:
                 return float(selection.iloc[0])
-            # attempt prefix match for Min-Variance variants
             selection = group[group["strategy"].str.startswith(label, na=False)][column]
             return float(selection.iloc[0]) if not selection.empty else np.nan
 
@@ -85,6 +90,7 @@ def table_estimators(df: pd.DataFrame, *, root: Path = DEFAULT_FIG_ROOT) -> tupl
                 "dm_p_ew": dm_ew,
                 "dm_p_mv": dm_mv,
                 "n_windows": n_windows if not np.isnan(n_windows) else n_windows_mv,
+                "crisis_label": crisis_label,
             }
         )
 
@@ -111,7 +117,12 @@ def table_rejections(df: pd.DataFrame, *, root: Path = DEFAULT_FIG_ROOT) -> tupl
     output_dir = root / run_tag / "tables"
     _ensure_dir(output_dir)
 
+    reasons = ["other", "edge_buffer", "off_component_ratio", "stability_fail", "energy_floor", "neg_mu"]
     pivot = df.pivot_table(index="run", columns="rejection_reason", values="count", fill_value=0).reset_index()
+    for reason in reasons:
+        if reason not in pivot.columns:
+            pivot[reason] = 0
+    pivot = pivot[[col for col in ["run", *reasons] if col in pivot.columns]]
     csv_path = output_dir / "rejections.csv"
     md_path = output_dir / "rejections.md"
     tex_path = output_dir / "rejections.tex"

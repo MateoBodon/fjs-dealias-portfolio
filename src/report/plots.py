@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 __all__ = [
-    "plot_dm_pvals",
+    "plot_dm_bars",
     "plot_edge_margin_hist",
     "plot_detection_rate",
     "plot_ablation_heatmap",
@@ -29,7 +29,7 @@ def _ensure_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
 
-def plot_dm_pvals(df: pd.DataFrame, *, root: Path = DEFAULT_FIG_ROOT) -> Path:
+def plot_dm_bars(df: pd.DataFrame, *, root: Path = DEFAULT_FIG_ROOT) -> Path:
     if df.empty:
         raise ValueError("DM p-value DataFrame is empty.")
 

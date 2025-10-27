@@ -21,10 +21,10 @@ from report.gather import collect_estimator_panel, find_runs, load_run
 from report.plots import (
     plot_ablation_heatmap,
     plot_detection_rate,
-    plot_dm_pvals,
+    plot_dm_bars,
     plot_edge_margin_hist,
 )
-from report.tables import table_ablation, table_estimators, table_rejections
+from report.tables import table_ablation, table_estimators_panel, table_rejections
 
 
 def _load_config(path: Path) -> dict:
@@ -46,7 +46,11 @@ def _discover_run_paths(entries: Iterable[dict]) -> list[Path]:
         if not root:
             continue
         pattern = entry.get("pattern")
-        root_paths = find_runs(root, pattern=pattern)
+        try:
+            root_paths = find_runs(root, pattern=pattern)
+        except FileNotFoundError:
+            print(f"[build_gallery] Skipping missing root '{root}'", file=sys.stderr)
+            continue
         run_paths.extend(root_paths)
     # Deduplicate while preserving order
     seen: set[Path] = set()
@@ -59,12 +63,16 @@ def _discover_run_paths(entries: Iterable[dict]) -> list[Path]:
 
 
 def _gather_rejections(summary_df: pd.DataFrame, run_tag: str) -> pd.DataFrame:
+    reasons = ["other", "edge_buffer", "off_component_ratio", "stability_fail", "energy_floor", "neg_mu"]
     records = []
-    for column in summary_df.columns:
-        if column.startswith("rejection_stats."):
-            reason = column.split(".", 1)[1]
-            value = summary_df[column].iloc[0]
-            records.append({"run": run_tag, "rejection_reason": reason, "count": float(value)})
+    for reason in reasons:
+        column = f"rejection_stats.{reason}"
+        value = (
+            float(summary_df[column].iloc[0])
+            if not summary_df.empty and column in summary_df
+            else 0.0
+        )
+        records.append({"run": run_tag, "rejection_reason": reason, "count": value})
     return pd.DataFrame.from_records(records)
 
 
@@ -121,7 +129,7 @@ def build_gallery(config_path: Path) -> Path:
         ablation_df = _load_ablation(run_path)
         edge_df = _edge_dataframe(frames["rolling"], run_tag)
 
-        estimators_paths = table_estimators(panel_df, root=gallery_root)
+        estimators_paths = table_estimators_panel(panel_df, root=gallery_root)
         summary_index[run_tag].append(str(estimators_paths[0]))
 
         if not rejection_df.empty:
@@ -133,7 +141,7 @@ def build_gallery(config_path: Path) -> Path:
             summary_index[run_tag].append(str(abl_paths[0]))
 
         plot_paths = [
-            plot_dm_pvals(panel_df, root=gallery_root),
+            plot_dm_bars(panel_df, root=gallery_root),
             plot_detection_rate(panel_df, root=gallery_root),
         ]
         summary_index[run_tag].extend(str(path) for path in plot_paths)

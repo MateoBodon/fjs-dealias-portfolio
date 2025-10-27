@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -36,20 +38,37 @@ def _fmt_float(x: float | None) -> str:
 
 
 def summarize_run(output_dir: Path) -> int:
-    if not (output_dir / "run_meta.json").exists():
-        candidates = [
-            path
-            for path in sorted(output_dir.iterdir())
-            if path.is_dir() and (path / "run_meta.json").exists()
-        ]
-        if len(candidates) == 1:
-            output_dir = candidates[0]
-        elif len(candidates) > 1:
+    tag_pattern = re.compile(r"^[^/]+_J\d+_solver-[^/]+_est-[^/]+_prep-[^/]+$")
+
+    if output_dir.is_dir() and not tag_pattern.match(output_dir.name):
+        tagged = sorted(
+            [
+                child
+                for child in output_dir.iterdir()
+                if child.is_dir() and tag_pattern.match(child.name)
+            ],
+            key=lambda p: p.name,
+        )
+        if tagged:
             print(
-                f"Found multiple run directories under {output_dir}.\n"
-                "Select one explicitly when summarizing."
+                f"[summarize_run] Preferring tagged run '{tagged[0].name}' over legacy outputs in {output_dir}",
+                file=sys.stderr,
             )
-            return 1
+            output_dir = tagged[0]
+        elif not (output_dir / "run_meta.json").exists():
+            candidates = [
+                path
+                for path in sorted(output_dir.iterdir())
+                if path.is_dir() and (path / "run_meta.json").exists()
+            ]
+            if len(candidates) == 1:
+                output_dir = candidates[0]
+            elif len(candidates) > 1:
+                print(
+                    f"Found multiple run directories under {output_dir}.\n"
+                    "Select one explicitly when summarizing."
+                )
+                return 1
 
     run_meta = _read_json(output_dir / "run_meta.json") or {}
     summary = _read_json(output_dir / "summary.json") or {}

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Iterable, Sequence
 
@@ -64,9 +65,18 @@ def find_runs(root: Path | str, pattern: str | None = None) -> list[Path]:
     else:
         candidates = [p for p in root_path.iterdir() if p.is_dir()]
 
-    tagged = [p for p in candidates if TAGGED_PATTERN.match(p.name)]
-    selected = tagged if tagged else candidates
-    return sorted(set(p.resolve() for p in selected))
+    tagged = sorted({p.resolve() for p in candidates if TAGGED_PATTERN.match(p.name)}, key=lambda p: p.name)
+    legacy = sorted({p.resolve() for p in candidates if not TAGGED_PATTERN.match(p.name)}, key=lambda p: p.name)
+
+    if tagged:
+        if legacy:
+            print(
+                f"[gather] Skipping {len(legacy)} legacy run(s) under {root_path}",
+                file=sys.stderr,
+            )
+        return tagged
+
+    return legacy
 
 
 def _extract_detection(summary_df: pd.DataFrame) -> float:
@@ -139,7 +149,7 @@ def collect_estimator_panel(run_paths: Sequence[Path | str]) -> pd.DataFrame:
                 record = {
                     "run": run.name,
                     "run_path": str(run),
-                    "label": row.get("label", ""),
+                    "crisis_label": row.get("label", ""),
                     "strategy": strategy,
                     "estimator": estimator,
                     "mean_mse": mean_mse,

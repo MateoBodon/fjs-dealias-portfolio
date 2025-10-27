@@ -9,7 +9,7 @@ from report.gather import collect_estimator_panel
 from report.plots import (
     plot_ablation_heatmap,
     plot_detection_rate,
-    plot_dm_pvals,
+    plot_dm_bars,
     plot_edge_margin_hist,
 )
 
@@ -20,7 +20,7 @@ pytestmark = pytest.mark.unit
 
 def test_plot_dm_and_detection(tmp_path: Path) -> None:
     panel = collect_estimator_panel([FIXTURE_RUN])
-    dm_path = plot_dm_pvals(panel, root=tmp_path)
+    dm_path = plot_dm_bars(panel, root=tmp_path)
     detect_path = plot_detection_rate(panel, root=tmp_path)
     assert dm_path.exists()
     assert detect_path.exists()

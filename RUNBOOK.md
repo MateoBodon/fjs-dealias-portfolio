@@ -53,3 +53,9 @@
 
 - Build tables/plots for configured runs: `make gallery`
 - Inspect generated assets: `ls figures/smoke/<run_tag>/{tables,plots}`
+
+## Release Candidate
+
+- Generate RC runs, gallery, and memo: `make rc`
+- Review outputs: `ls figures/rc/<run_tag>` and `less reports/memo.md`
+- Extend coverage by editing `experiments/equity_panel/config.rc.yaml` (add estimators or crisis configs) before rerunning `make rc`.

@@ -50,6 +50,9 @@ jobs:
       - name: Build gallery
         run: python tools/build_gallery.py --config experiments/equity_panel/config.gallery.yaml
 
+      - name: Build memo
+        run: python tools/build_memo.py --config experiments/equity_panel/config.gallery.yaml
+
       - name: Summarize
         run: python tools/summarize_run.py experiments/equity_panel/outputs_smoke
 
@@ -57,4 +60,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: smoke-gallery
-          path: figures
+          path: |
+            figures
+            reports/memo.md

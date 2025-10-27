@@ -40,6 +40,7 @@ def test_collect_estimator_panel() -> None:
     assert pytest.approx(lw_eq["delta_mse_vs_de"], rel=1e-6) == 0.1
     assert pytest.approx(lw_eq["detection_rate"], rel=1e-6) == 0.75
     assert pytest.approx(lw_eq["edge_margin_median"], rel=1e-6) == 0.002
+    assert lw_eq["crisis_label"] == "sample"
 
     oas_eq = df[(df["estimator"] == "OAS") & (df["strategy"] == "Equal Weight")].iloc[0]
     assert pytest.approx(oas_eq["dm_p"], rel=1e-6) == 0.32

@@ -47,6 +47,19 @@ Use `make test-fast` (unit), `make test-integration`, and `make test-slow` to ta
    ls figures/smoke/
    ```
 
+## Release Candidate (RC)
+
+1. Regenerate the smoke, nested, and crisis slices plus all estimators:
+   ```bash
+   make rc
+   ```
+2. Browse the aggregated gallery and memo outputs:
+   ```bash
+   ls figures/rc/
+   less reports/memo.md
+   ```
+3. Add new estimators or crises by updating `experiments/equity_panel/config.rc.yaml`; rerun `make rc` to refresh tables, plots, and the memo.
+
 ## Design modes
 
 The de-aliasing runner now supports both the classic balanced one-way MANOVA design and a nested Year⊃Week layout derived from the balanced panel:

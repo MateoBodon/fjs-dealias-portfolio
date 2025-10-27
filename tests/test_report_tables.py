@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 from report.gather import collect_estimator_panel
-from report.tables import table_ablation, table_estimators, table_rejections
+from report.tables import table_ablation, table_estimators_panel, table_rejections
 
 FIXTURE_RUN = Path(__file__).parent / "report_fixtures" / "sample_run"
 
@@ -15,10 +15,11 @@ pytestmark = pytest.mark.unit
 
 def test_table_estimators(tmp_path: Path) -> None:
     panel = collect_estimator_panel([FIXTURE_RUN])
-    csv_path, md_path, tex_path = table_estimators(panel, root=tmp_path)
+    csv_path, md_path, tex_path = table_estimators_panel(panel, root=tmp_path)
     assert csv_path.exists() and md_path.exists() and tex_path.exists()
     csv_df = pd.read_csv(csv_path)
     assert "delta_mse_ew" in csv_df.columns
+    assert "crisis_label" in csv_df.columns
     assert "Ledoit-Wolf" in csv_df["estimator"].values
 
 
@@ -33,7 +34,8 @@ def test_table_rejections(tmp_path: Path) -> None:
     csv_path, md_path, tex_path = table_rejections(rejection_df, root=tmp_path)
     assert csv_path.exists() and md_path.exists() and tex_path.exists()
     pivot = pd.read_csv(csv_path)
-    assert "other" in pivot.columns
+    for col in ["other", "edge_buffer", "off_component_ratio", "stability_fail", "energy_floor", "neg_mu"]:
+        assert col in pivot.columns
 
 
 def test_table_ablation(tmp_path: Path) -> None:

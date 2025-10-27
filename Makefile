@@ -33,11 +33,27 @@ test-progress:
 	# Verbose output with progress bar (pytest-sugar), parallel if available
 	pytest -v -n auto || pytest -v
 
-.PHONY: gallery report
+.PHONY: gallery report rc
 gallery:
 	python tools/build_gallery.py --config experiments/equity_panel/config.gallery.yaml
 
 report: gallery
+
+RC_PY := PYTHONPATH=src OMP_NUM_THREADS=1 python
+RC_FLAGS := --no-progress --workers $(shell python -c 'import os;print(os.cpu_count() or 4)') --assets-top 80 --stride-windows 4 --resume --cache-dir .cache --precompute-panel --drop-partial-weeks --oneway-a-solver auto
+
+rc:
+	$(RC_PY) experiments/equity_panel/run.py --config experiments/equity_panel/config.smoke.yaml $(RC_FLAGS) --estimator dealias
+	$(RC_PY) experiments/equity_panel/run.py --config experiments/equity_panel/config.smoke.yaml $(RC_FLAGS) --estimator lw
+	$(RC_PY) experiments/equity_panel/run.py --config experiments/equity_panel/config.smoke.yaml $(RC_FLAGS) --estimator oas
+	$(RC_PY) experiments/equity_panel/run.py --config experiments/equity_panel/config.smoke.yaml $(RC_FLAGS) --estimator cc
+	$(RC_PY) experiments/equity_panel/run.py --config experiments/equity_panel/config.smoke.yaml $(RC_FLAGS) --estimator factor
+	$(RC_PY) experiments/equity_panel/run.py --config experiments/equity_panel/config.smoke.yaml $(RC_FLAGS) --estimator tyler_shrink
+	$(RC_PY) experiments/equity_panel/run.py --config experiments/equity_panel/config.smoke.yaml $(RC_FLAGS) --design nested --nested-replicates 5 --estimator dealias
+	$(RC_PY) experiments/equity_panel/run.py --config experiments/equity_panel/config.crisis.2020.yaml $(RC_FLAGS)
+	$(RC_PY) experiments/equity_panel/run.py --config experiments/equity_panel/config.crisis.2022.yaml $(RC_FLAGS)
+	python tools/build_gallery.py --config experiments/equity_panel/config.rc.yaml
+	python tools/build_memo.py --config experiments/equity_panel/config.rc.yaml
 
 run-synth:
 	python experiments/synthetic_oneway/run.py

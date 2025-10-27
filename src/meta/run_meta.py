@@ -31,6 +31,11 @@ class RunMeta:
     sigma2_plugin: str | None
     code_signature: str | None
     estimator: str | None
+    design: str | None
+    nested_replicates: int | None
+    solver_used: list[str] | None
+    label: str | None
+    preprocess_flags: dict[str, str] | None
 
     # Outcomes
     detections_total: int
@@ -168,6 +173,11 @@ def write_run_meta(
     sigma2_plugin: str | None = None,
     code_signature_hash: str | None = None,
     estimator: str | None = None,
+    design: str | None = None,
+    nested_replicates: int | None = None,
+    preprocess_flags: Mapping[str, Any] | None = None,
+    label: str | None = None,
+    solver_used: Iterable[str] | None = None,
 ) -> Path:
     """Create a run_meta.json artifact in ``output_dir``.
 
@@ -180,6 +190,14 @@ def write_run_meta(
         Optional resolved configuration mapping captured by the pipeline.
     delta, delta_frac, a_grid, signed_a, sigma2_plugin
         De-aliasing controls to record for reproducibility.
+    design, nested_replicates
+        Balanced design metadata (oneway/nested) and replicates count.
+    preprocess_flags
+        Optional preprocessing flags applied before balancing.
+    label
+        Descriptive label for the run (e.g., "full_oneway_...").
+    solver_used
+        Optional iterable of solver identifiers observed during the run.
     estimator
         Covariance estimator name applied during evaluation, if any.
 
@@ -209,11 +227,46 @@ def write_run_meta(
     det_total, L_max = _count_detections(out_path / "detection_summary.csv")
     pdf_hashes = _collect_pdf_hashes(out_path)
     manifest = _load_optional_json(out_path / "panel_manifest.json") or {}
-    preprocess_flags = (
+    manifest_preprocess = (
         {str(k): str(v) for k, v in manifest.get("preprocess_flags", {}).items()}
         if isinstance(manifest.get("preprocess_flags"), dict)
         else None
     )
+
+    summary_design = str(summary.get("design")) if summary.get("design") else None
+    if summary_design is None and design is not None:
+        summary_design = str(design)
+
+    summary_nested = summary.get("nested_replicates")
+    if summary_nested is None and nested_replicates is not None:
+        summary_nested = int(nested_replicates)
+    elif summary_nested is not None:
+        summary_nested = int(summary_nested)
+
+    summary_label = summary.get("label") if summary.get("label") else label
+
+    summary_preprocess = summary.get("preprocess_flags")
+    if isinstance(summary_preprocess, dict):
+        run_preprocess_flags = {
+            str(k): str(v) for k, v in summary_preprocess.items()
+        }
+    elif preprocess_flags is not None:
+        run_preprocess_flags = {str(k): str(v) for k, v in preprocess_flags.items()}
+    else:
+        run_preprocess_flags = manifest_preprocess
+
+    solver_candidates: list[str] | None
+    if isinstance(summary.get("solver_used"), list):
+        solver_candidates = [str(item) for item in summary["solver_used"] if item]
+    elif solver_used is not None:
+        solver_candidates = sorted({str(item) for item in solver_used if item})
+    else:
+        solver_candidates = None
+    if solver_candidates is not None and not solver_candidates:
+        solver_candidates = None
+
+    if run_preprocess_flags is not None and not run_preprocess_flags:
+        run_preprocess_flags = None
 
     meta = RunMeta(
         git_sha=_git_sha(),
@@ -228,12 +281,17 @@ def write_run_meta(
         sigma2_plugin=str(sigma2_plugin) if sigma2_plugin is not None else None,
         code_signature=str(code_signature_hash) if code_signature_hash else None,
         estimator=str(estimator) if estimator is not None else None,
+        design=summary_design,
+        nested_replicates=int(summary_nested) if summary_nested is not None else None,
+        solver_used=solver_candidates,
+        label=str(summary_label) if summary_label is not None else None,
+        preprocess_flags=run_preprocess_flags,
         detections_total=int(det_total),
         L=int(L_max) if L_max is not None else None,
         figure_sha256=pdf_hashes,
         config_snapshot=dict(config) if config is not None else None,
         panel_universe_hash=str(manifest.get("universe_hash", "")) or None,
-        panel_preprocess_flags=preprocess_flags,
+        panel_preprocess_flags=manifest_preprocess,
     )
 
     meta_path = out_path / "run_meta.json"

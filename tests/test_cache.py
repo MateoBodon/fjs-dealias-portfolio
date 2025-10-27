@@ -4,10 +4,13 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 import yaml
 
 import meta.cache as meta_cache
 from experiments.equity_panel import run as equity_run
+
+pytestmark = pytest.mark.integration
 
 
 def _write_returns_csv(path: Path, *, seed: int = 1) -> Path:

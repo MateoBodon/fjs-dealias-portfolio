@@ -4,7 +4,10 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 from experiments.synthetic_oneway import run as synth_run
+
+pytestmark = pytest.mark.slow
 
 
 def test_pairing_alignment_improves_median_bias(tmp_path: Path) -> None:
@@ -36,4 +39,3 @@ def test_pairing_alignment_improves_median_bias(tmp_path: Path) -> None:
     aligned_abs = df["dealiased_bias_aligned"].astype(float).abs()
     # Alignment should be no worse, and typically better, in median across spikes
     assert aligned_abs.median() <= naive_abs.median() + 1e-6
-

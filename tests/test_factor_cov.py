@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from finance.factors import factor_covariance
+
+pytestmark = pytest.mark.unit
 
 
 def test_factor_covariance_matches_theoretical_when_noise_zero() -> None:

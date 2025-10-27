@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 from numpy.testing import assert_allclose
 
 from fjs.mp import (
@@ -11,6 +12,8 @@ from fjs.mp import (
     z0_double_prime,
     z0_prime,
 )
+
+pytestmark = pytest.mark.unit
 
 
 def _balanced_params() -> tuple[np.ndarray, np.ndarray, np.ndarray, float]:

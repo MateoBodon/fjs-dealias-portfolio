@@ -11,6 +11,7 @@ from fjs.balanced import (
     mean_squares,
 )
 
+pytestmark = pytest.mark.unit
 
 def _balanced_panel() -> tuple[np.ndarray, np.ndarray, int, int, int]:
     rng = np.random.default_rng(42)

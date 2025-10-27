@@ -13,6 +13,7 @@ from fjs.dealias import dealias_covariance
 
 from .factors import factor_covariance
 from .ledoit import lw_cov
+from .robust import tyler_shrink_covariance
 from .shrinkage import cc_covariance, oas_covariance
 
 
@@ -83,7 +84,7 @@ def oos_variance_forecast(
     y_fit: NDArray[np.float64],
     y_hold: NDArray[np.float64],
     w: NDArray[np.float64],
-    estimator: Literal["dealias", "lw", "scm"],
+    estimator: Literal["dealias", "lw", "scm", "oas", "cc", "factor", "tyler_shrink"],
     **kwargs: Any,
 ) -> tuple[float, float]:
     """Compute out-of-sample variance forecasts and realised variance.
@@ -97,7 +98,7 @@ def oos_variance_forecast(
     w
         Portfolio weight vector of length ``p``.
     estimator
-        Covariance estimator to use (``"dealias"`` or ``"lw"``).
+        Covariance estimator to use.
     **kwargs
         Optional estimator-specific parameters.
 
@@ -143,6 +144,9 @@ def oos_variance_forecast(
             add_intercept=kwargs.get("add_intercept", True),
             industry_df=industry_df,
         )
+    elif estimator == "tyler_shrink":
+        ridge = float(kwargs.get("ridge", 1e-3))
+        sigma = tyler_shrink_covariance(x_fit, ridge=ridge)
     elif estimator == "dealias":
         sigma_emp = np.cov(x_fit, rowvar=False, ddof=1)
         detections = kwargs.get("detections")

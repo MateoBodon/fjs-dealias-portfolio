@@ -5,7 +5,7 @@ import json
 import pickle
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Iterator, Literal, Tuple
+from typing import Dict, Iterator, Literal, Tuple, Mapping
 
 import numpy as np
 import pandas as pd
@@ -108,6 +108,7 @@ def build_balanced_weekday_panel(
     days_per_week: int = 5,
     partial_week_policy: PartialWeekPolicy = "drop",
     impute_fill_value: float = 0.0,
+    preprocess_flags: Mapping[str, str] | None = None,
 ) -> BalancedPanel:
     """Construct a balanced Week×Day panel from daily returns."""
 
@@ -204,7 +205,9 @@ def build_balanced_weekday_panel(
         end_week=str(week_labels[-1].date()),
         data_hash=hash_daily_returns(daily_returns),
         universe_hash=universe_hash,
-        preprocess_flags={},
+        preprocess_flags={
+            str(k): str(v) for k, v in (preprocess_flags or {}).items()
+        },
     )
     return BalancedPanel(
         weekly=weekly_df,

@@ -14,6 +14,8 @@ from plotting import (
     e4_plot_var_coverage,
     s4_plot_guardrails_from_csv,
 )
+pytestmark = pytest.mark.integration
+
 try:  # optional nicety: show quick progress in tests
     from tqdm import tqdm  # type: ignore
 except Exception:  # pragma: no cover

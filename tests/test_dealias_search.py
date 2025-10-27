@@ -3,12 +3,15 @@ from __future__ import annotations
 import math
 
 import numpy as np
+import pytest
 
 from data.panels import build_balanced_weekday_panel
 from fjs.balanced import mean_squares
 from fjs.dealias import _default_design, dealias_search
 from fjs.mp import estimate_Cs_from_MS, mp_edge
 from finance.io import load_returns_csv
+
+pytestmark = pytest.mark.heavy
 
 
 def _make_single_spike_panel(

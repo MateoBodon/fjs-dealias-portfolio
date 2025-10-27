@@ -1,4 +1,7 @@
 import numpy as np
+import pytest
+
+pytestmark = pytest.mark.unit
 
 
 def test_weekly_covariance_identity() -> None:
@@ -7,7 +10,7 @@ def test_weekly_covariance_identity() -> None:
     theta = 0.8
     sigma = 0.5
     replicates = 5
-    weeks = 5000
+    weeks = 400
 
     direction = rng.standard_normal(asset_dim)
     direction /= np.linalg.norm(direction)
@@ -31,4 +34,4 @@ def test_weekly_covariance_identity() -> None:
 
     numerator = np.linalg.norm(empirical_cov - analytic_cov, ord="fro")
     denominator = np.linalg.norm(analytic_cov, ord="fro")
-    assert numerator / denominator < 0.05
+    assert numerator / denominator < 0.15

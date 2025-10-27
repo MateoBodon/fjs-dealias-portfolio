@@ -3,10 +3,13 @@ from __future__ import annotations
 import math
 
 import numpy as np
+import pytest
 
 from fjs.balanced import mean_squares
 from fjs.dealias import _default_design, _sigma_of_a_from_MS, dealias_search
 from fjs.mp import estimate_Cs_from_MS, mp_edge
+
+pytestmark = pytest.mark.slow
 
 
 def _simulate_balanced_panel(

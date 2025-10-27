@@ -17,12 +17,13 @@ De-aliasing the spurious spikes that arise when MANOVA spectra are aliased in hi
    ```bash
    make run-synth
    ```
-4. Reproduce the rolling equity experiment (2015–2024). This takes roughly 90 minutes on a laptop and rewrites `experiments/equity_panel/outputs/` (use `python tools/list_runs.py` afterwards to identify the run you just generated):
+4. Reproduce the rolling equity experiment (2015–2024). This takes roughly 90 minutes on a laptop and writes to `experiments/equity_panel/outputs/<design>_J*_solver-*_est-*_prep-*/` (use `python tools/list_runs.py` afterwards to identify the run you just generated):
    ```bash
    make run-equity
    ```
 
 `make test` remains available to run the full pytest suite; `make fmt` / `make lint` apply formatting and static checks.
+Use `make test-fast` (unit), `make test-integration`, and `make test-slow` to target specific marker groups.
 
 ## Design modes
 
@@ -35,11 +36,12 @@ Both modes accept `--oneway-a-solver {auto,rootfind,grid}` to control the θ ref
 
 ## Estimators & regularisation
 
-- Covariance estimators can be selected on the CLI or in `config.yaml` via `--estimator {aliased,dealias,lw,oas,cc,factor}`. The run metadata now records the choice so repeated runs stay comparable.
+- Covariance estimators can be selected on the CLI or in `config.yaml` via `--estimator {aliased,dealias,lw,oas,cc,factor,tyler_shrink}`. The run metadata now records the choice so repeated runs stay comparable.
 - `--factor-csv path/to/factors.csv` enables the observed-factor covariance (OLS fit with intercept, optional industry returns). Provide a wide CSV keyed by the weekly date; missing dates are automatically dropped when aligning with the fit window.
 - `--minvar-ridge λ²` adds ridge stabilisation to the box-constrained minimum-variance weights; update the feasible interval with `--minvar-box lo,hi` (defaults `0,0.05`). Both settings flow through to every rolling window and are captured in the cache key.
 - Turnover is tracked per strategy (`*_turnover`, `*_turnover_cost` columns in `rolling_results.csv`). Set `--turnover-cost bps` to deduct one-way transaction costs (basis points) from the realised variance series before computing MSE.
-- We benchmark de-aliased covariance against Ledoit–Wolf, OAS, constant-correlation shrinkage, and the observed-factor model. The metrics summary includes Diebold–Mariano statistics (`dm_stat_*`, `dm_p_*`) for de-aliased vs. each baseline on both equal-weight and min-var views; the summariser prints the p-values alongside the classic sign test.
+- We benchmark de-aliased covariance against Ledoit–Wolf, OAS, constant-correlation shrinkage, Tyler-shrink, and the observed-factor model. The metrics summary includes Diebold–Mariano statistics (`dm_stat_*`, `dm_p_*`) for de-aliased vs. each baseline on both equal-weight and min-var views; the summariser prints the p-values alongside the classic sign test.
+- `--winsorize q` or `--huber c` apply robust clipping to the daily returns before balancing (quantile and Huber MAD, respectively). These flags propagate into cache keys, manifests, artifact directories, and `run_meta.preprocess_flags`. Use `--estimator tyler_shrink` alongside to run a Tyler M-estimator baseline.
 
 ## Weekly Dataset Builder
 

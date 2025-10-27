@@ -35,6 +35,7 @@ dev = [
     "pytest-cov",
     "pytest-xdist",
     "pytest-sugar",
+    "pytest-timeout",
 ]
 
 [tool.setuptools]

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from finance.portfolio import apply_turnover_cost, minvar_ridge_box, turnover
+
+pytestmark = pytest.mark.unit
 
 
 def test_minvar_ridge_box_respects_box_and_sum_constraints() -> None:

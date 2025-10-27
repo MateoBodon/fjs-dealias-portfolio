@@ -9,7 +9,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from math import comb
 from pathlib import Path
-from typing import Any, Iterable, cast
+from typing import Any, Iterable, Mapping, cast
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -42,6 +42,7 @@ from finance.eval import (
 from finance.io import load_prices_csv, to_daily_returns, load_returns_csv
 from finance.portfolio import apply_turnover_cost, minvar_ridge_box, turnover
 from finance.portfolios import equal_weight, minimum_variance
+from finance.robust import huberize, winsorize
 from finance.returns import balance_weeks
 from fjs.balanced import mean_squares
 from fjs.balanced_nested import mean_squares_nested
@@ -558,6 +559,25 @@ def _prepare_data(config: dict[str, Any]) -> pd.DataFrame:
     return to_daily_returns(prices)
 
 
+def _apply_preprocessing(
+    daily_returns: pd.DataFrame,
+    *,
+    winsorize_q: float | None,
+    huber_c: float | None,
+) -> tuple[pd.DataFrame, dict[str, str]]:
+    """Apply optional robustness preprocessing to daily returns."""
+
+    flags: dict[str, str] = {}
+    processed = daily_returns.copy()
+    if winsorize_q is not None:
+        processed = winsorize(processed, winsorize_q)
+        flags["winsorize"] = f"{winsorize_q:.4g}"
+    if huber_c is not None:
+        processed = huberize(processed, huber_c)
+        flags["huber"] = f"{huber_c:.4g}"
+    return processed, flags
+
+
 def _run_param_ablation(
     daily_returns: pd.DataFrame,
     output_dir: Path,
@@ -572,12 +592,14 @@ def _run_param_ablation(
     off_component_leak_cap: float | None,
     energy_min_abs: float | None,
     oneway_a_solver: str,
+    preprocess_flags: Mapping[str, str] | None = None,
 ) -> None:
     """Grid sweep over detection parameters; emit CSV and heatmaps (E5).
 
     This routine uses a shorter rolling setup for speed and reproducibility.
     """
 
+    output_dir.mkdir(parents=True, exist_ok=True)
     panel_cache_dir = output_dir / "ablation_panel"
     panel_cache_dir.mkdir(parents=True, exist_ok=True)
     balanced_panel = _load_or_build_balanced_panel(
@@ -586,6 +608,7 @@ def _run_param_ablation(
         partial_week_policy=partial_week_policy,
         output_dir=panel_cache_dir,
         precompute_panel=False,
+        preprocess_flags=preprocess_flags,
     )
     weekly_balanced = balanced_panel.weekly
     week_map = balanced_panel.week_map
@@ -768,6 +791,7 @@ def _load_or_build_balanced_panel(
     partial_week_policy: str,
     output_dir: Path | None,
     precompute_panel: bool,
+    preprocess_flags: Mapping[str, str] | None = None,
 ) -> BalancedPanel:
     """Load a cached balanced panel or build a fresh one from daily returns."""
 
@@ -775,6 +799,7 @@ def _load_or_build_balanced_panel(
         raise ValueError("partial_week_policy must be either 'drop' or 'impute'.")
 
     data_hash = hash_daily_returns(daily_returns)
+    expected_flags = {str(k): str(v) for k, v in (preprocess_flags or {}).items()}
     cache_path: Path | None = None
     manifest_path: Path | None = None
 
@@ -790,11 +815,13 @@ def _load_or_build_balanced_panel(
                     manifest.data_hash == data_hash
                     and manifest.partial_week_policy == partial_week_policy
                     and manifest.days_per_week == days_per_week
+                    and manifest.preprocess_flags == expected_flags
                 ):
                     cached_panel = load_balanced_panel(cache_path)
                     if (
                         cached_panel.manifest.data_hash == manifest.data_hash
                         and cached_panel.replicates == days_per_week
+                        and cached_panel.manifest.preprocess_flags == expected_flags
                     ):
                         # Refresh manifest formatting in case schema evolved.
                         write_panel_manifest(cached_panel.manifest, manifest_path)
@@ -806,6 +833,7 @@ def _load_or_build_balanced_panel(
         daily_returns,
         days_per_week=days_per_week,
         partial_week_policy=partial_week_policy,  # type: ignore[arg-type]
+        preprocess_flags=expected_flags,
     )
 
     if manifest_path is not None:
@@ -856,6 +884,7 @@ def _run_single_period(
     minvar_ridge: float = 1e-3,
     minvar_box: tuple[float, float] = (0.0, 0.05),
     turnover_cost_bps: float = 0.0,
+    preprocess_flags: Mapping[str, str] | None = None,
 ) -> None:
     """Execute the rolling evaluation for a single date range."""
 
@@ -877,6 +906,7 @@ def _run_single_period(
         partial_week_policy=partial_week_policy,
         output_dir=output_dir,
         precompute_panel=precompute_panel,
+        preprocess_flags=preprocess_flags,
     )
     weekly_balanced = balanced_panel.weekly
     week_map = balanced_panel.week_map
@@ -889,6 +919,7 @@ def _run_single_period(
     if solver_mode not in {"auto", "rootfind", "grid"}:
         raise ValueError("oneway_a_solver must be 'auto', 'rootfind', or 'grid'.")
     estimator_mode = (estimator or "dealias").strip().lower()
+    solver_usage: set[str] = set()
     tickers = balanced_panel.ordered_tickers
     dropped_weeks = balanced_panel.dropped_weeks
     total_weeks = int(weekly_balanced.shape[0])
@@ -1213,6 +1244,9 @@ def _run_single_period(
             for det in det_sorted:
                 if not isinstance(det, dict):
                     continue
+                solver = det.get("solver_used")
+                if solver:
+                    solver_usage.add(str(solver))
                 t_vals = det.get("t_values") or []
                 detail_payload.append(
                     {
@@ -1433,6 +1467,24 @@ def _run_single_period(
                         "Constant-Correlation",
                         float(forecast_cc),
                         float(realised_cc_raw),
+                        float(realised_alias_raw),
+                    )
+                )
+            except Exception:
+                pass
+
+            try:
+                forecast_tyler, realised_tyler_raw = oos_variance_forecast(
+                    fit_matrix,
+                    hold_matrix,
+                    weights,
+                    estimator="tyler_shrink",
+                )
+                estimator_outputs.append(
+                    (
+                        "Tyler-Shrink",
+                        float(forecast_tyler),
+                        float(realised_tyler_raw),
                         float(realised_alias_raw),
                     )
                 )
@@ -1720,6 +1772,11 @@ def _run_single_period(
             "median": edge_median,
             "iqr": edge_iqr,
         },
+        "design": design_mode,
+        "nested_replicates": int(nested_reps_value),
+        "estimator": estimator_mode,
+        "preprocess_flags": dict(preprocess_flags or {}),
+        "solver_used": sorted(solver_usage),
     }
     summary_payload["rejection_stats"] = rejection_totals
     with (output_dir / "summary.json").open("w", encoding="utf-8") as handle:
@@ -1891,6 +1948,8 @@ def run_experiment(
     cache_dir_override: str | None = None,
     resume_cache: bool = False,
     estimator_override: str | None = None,
+    winsorize_q_override: float | None = None,
+    huber_c_override: float | None = None,
     factor_csv_override: str | None = None,
     minvar_ridge_override: float | None = None,
     minvar_box_override: str | None = None,
@@ -1932,6 +1991,10 @@ def run_experiment(
         config["energy_min_abs"] = float(energy_min_abs_override)
     if estimator_override is not None:
         config["estimator"] = str(estimator_override)
+    if winsorize_q_override is not None:
+        config["winsorize_q"] = float(winsorize_q_override)
+    if huber_c_override is not None:
+        config["huber_c"] = float(huber_c_override)
     if factor_csv_override is not None:
         config["factor_csv"] = factor_csv_override
     if minvar_ridge_override is not None:
@@ -1973,8 +2036,32 @@ def run_experiment(
     if turnover_cost_bps < 0.0:
         raise ValueError("turnover_cost_bps must be non-negative.")
     config["turnover_cost_bps"] = turnover_cost_bps
+    winsorize_q_cfg = config.get("winsorize_q")
+    huber_c_cfg = config.get("huber_c")
+    if winsorize_q_cfg is not None and huber_c_cfg is not None:
+        raise ValueError("winsorize_q and huber_c preprocessing are mutually exclusive.")
+    winsorize_q_val = None
+    if winsorize_q_cfg is not None:
+        winsorize_q_val = float(winsorize_q_cfg)
+        if not 0.0 < winsorize_q_val < 0.5:
+            raise ValueError("winsorize_q must be between 0 and 0.5.")
+        config["winsorize_q"] = winsorize_q_val
+    huber_c_val = None
+    if huber_c_cfg is not None:
+        huber_c_val = float(huber_c_cfg)
+        if huber_c_val <= 0.0:
+            raise ValueError("huber_c must be positive.")
+        config["huber_c"] = huber_c_val
     estimator_value = str(config.get("estimator", "dealias")).lower()
-    allowed_estimators = {"aliased", "dealias", "lw", "oas", "cc", "factor"}
+    allowed_estimators = {
+        "aliased",
+        "dealias",
+        "lw",
+        "oas",
+        "cc",
+        "factor",
+        "tyler_shrink",
+    }
     if estimator_value not in allowed_estimators:
         raise ValueError(
             f"Unsupported estimator '{estimator_value}'. "
@@ -2015,7 +2102,13 @@ def run_experiment(
     else:
         cache_dir_path = None
     # Values from YAML remain if overrides not provided
-    daily_returns = _prepare_data(config)
+    raw_daily_returns = _prepare_data(config)
+    daily_returns, preprocess_flags = _apply_preprocessing(
+        raw_daily_returns,
+        winsorize_q=winsorize_q_val,
+        huber_c=huber_c_val,
+    )
+    config["preprocess_flags"] = dict(preprocess_flags)
 
     output_dir = Path(config["output_dir"])
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -2035,6 +2128,16 @@ def run_experiment(
             "sigma_ablation": sigma_ablation,
         }
     ]
+
+    estimator_value = str(config.get("estimator", "dealias")).strip().lower()
+    preprocess_tag = (
+        "none"
+        if not preprocess_flags
+        else "-".join(f"{k}{preprocess_flags[k]}" for k in sorted(preprocess_flags))
+    )
+    run_suffix = (
+        f"{design_value}_J{nested_reps_cfg}_solver-{solver_value}_est-{estimator_value}_prep-{preprocess_tag}"
+    ).replace(" ", "-")
 
     if crisis:
         try:
@@ -2063,8 +2166,10 @@ def run_experiment(
         )
 
     for run_cfg in runs:
-        run_output_dir = Path(run_cfg["output_dir"])
+        base_dir = Path(run_cfg["output_dir"])
+        run_output_dir = base_dir / run_suffix if run_suffix else base_dir
         run_output_dir.mkdir(parents=True, exist_ok=True)
+        label_with_suffix = f"{run_cfg['label']}_{run_suffix}"
         _run_single_period(
             daily_returns,
             start=run_cfg["start"],
@@ -2086,7 +2191,7 @@ def run_experiment(
             cs_sensitivity_frac=float(config.get("cs_sensitivity_frac", 0.0)),
             off_component_leak_cap=cast(float | None, config.get("off_component_leak_cap")),
             sigma_ablation=bool(run_cfg["sigma_ablation"]),
-            label=str(run_cfg["label"]),
+            label=str(label_with_suffix),
             design_mode=str(config["design"]),
             nested_replicates=int(config["nested_replicates"]),
             oneway_a_solver=str(config["oneway_a_solver"]),
@@ -2098,6 +2203,7 @@ def run_experiment(
             minvar_ridge=minvar_ridge_val,
             minvar_box=(float(minvar_lo), float(minvar_hi)),
             turnover_cost_bps=turnover_cost_bps,
+            preprocess_flags=preprocess_flags,
         )
 
         # Persist meta information for this run
@@ -2114,6 +2220,10 @@ def run_experiment(
                 ),
                 code_signature_hash=CODE_SIGNATURE,
                 estimator=str(config.get("estimator", "dealias")),
+                design=design_value,
+                nested_replicates=nested_reps_cfg,
+                preprocess_flags=preprocess_flags,
+                label=label_with_suffix,
             )
         except Exception:
             # Best effort; do not fail the entire run
@@ -2123,7 +2233,7 @@ def run_experiment(
     if bool(ablations):
         _run_param_ablation(
             daily_returns,
-            output_dir,
+            output_dir / run_suffix,
             partial_week_policy=panel_policy,
             target_component=int(config.get("target_component", 0)),
             base_delta=float(config.get("dealias_delta", 0.0)),
@@ -2134,6 +2244,7 @@ def run_experiment(
             off_component_leak_cap=cast(float | None, config.get("off_component_leak_cap")),
             energy_min_abs=cast(float | None, config.get("energy_min_abs")),
             oneway_a_solver=str(config["oneway_a_solver"]),
+            preprocess_flags=preprocess_flags,
         )
 
 
@@ -2170,7 +2281,7 @@ def main() -> None:
     parser.add_argument(
         "--estimator",
         type=str,
-        choices=["aliased", "dealias", "lw", "oas", "cc", "factor"],
+        choices=["aliased", "dealias", "lw", "oas", "cc", "factor", "tyler_shrink"],
         default=None,
         help="Primary covariance estimator to emphasise (default dealias).",
     )
@@ -2328,6 +2439,19 @@ def main() -> None:
         action="store_true",
         help="Reuse cached per-window statistics when available.",
     )
+    preprocess_group = parser.add_mutually_exclusive_group()
+    preprocess_group.add_argument(
+        "--winsorize",
+        type=float,
+        default=None,
+        help="Clip returns to [q, 1-q] quantiles column-wise before balancing.",
+    )
+    preprocess_group.add_argument(
+        "--huber",
+        type=float,
+        default=None,
+        help="Huber clip returns at median ± c·MAD column-wise before balancing.",
+    )
     partial_group = parser.add_mutually_exclusive_group()
     partial_group.add_argument(
         "--drop-partial-weeks",
@@ -2370,6 +2494,8 @@ def main() -> None:
         cache_dir_override=args.cache_dir,
         resume_cache=args.resume,
         estimator_override=args.estimator,
+        winsorize_q_override=args.winsorize,
+        huber_c_override=args.huber,
         factor_csv_override=args.factor_csv,
         minvar_ridge_override=args.minvar_ridge,
         minvar_box_override=args.minvar_box,

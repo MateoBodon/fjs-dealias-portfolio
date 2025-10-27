@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from data.panels import PanelManifest
 from meta.cache import load_window, save_window, window_key
 
 
+@pytest.mark.unit
 def test_window_cache_key_changes_with_estimator(tmp_path) -> None:
     manifest = PanelManifest(
         asset_count=10,

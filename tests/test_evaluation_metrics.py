@@ -4,6 +4,7 @@ import math
 from typing import Dict
 
 import numpy as np
+import pytest
 
 from evaluation.evaluate import (
     iqr,
@@ -11,6 +12,8 @@ from evaluation.evaluate import (
     block_bootstrap_ci_median,
     build_metrics_summary,
 )
+
+pytestmark = pytest.mark.unit
 
 
 def test_sign_test_pvalue_strong_asymmetry() -> None:

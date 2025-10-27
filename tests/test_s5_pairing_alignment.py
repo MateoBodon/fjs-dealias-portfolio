@@ -4,7 +4,10 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 from experiments.synthetic_oneway import run as synth_run
+
+pytestmark = pytest.mark.slow
 
 
 def test_s5_alignment_pairing_comparison(tmp_path: Path) -> None:

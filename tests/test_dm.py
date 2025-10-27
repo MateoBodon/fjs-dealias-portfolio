@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from evaluation.dm import dm_test
+
+pytestmark = pytest.mark.unit
 
 
 def test_dm_test_detects_mean_difference() -> None:

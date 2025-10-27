@@ -1,8 +1,10 @@
 import numpy as np
+import pytest
 
 from fjs.dealias import _sigma_of_a_from_MS
 
 
+@pytest.mark.unit
 def test_sigma_of_a_balanced_design_identity() -> None:
     group_count = 3
     replicate_count = 2

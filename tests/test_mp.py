@@ -14,6 +14,8 @@ from fjs.mp import (
     z_of_m,
 )
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture
 def micro_mp_params() -> dict[str, object]:

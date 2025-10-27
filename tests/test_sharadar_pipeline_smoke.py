@@ -14,6 +14,7 @@ import pytest
     not os.getenv("NASDAQ_DATA_LINK_API_KEY"),
     reason="NASDAQ_DATA_LINK_API_KEY not set; skipping Sharadar smoke.",
 )
+@pytest.mark.slow
 def test_sharadar_fetch_and_balance_smoke(tmp_path: Path) -> None:
     prices_csv = tmp_path / "prices.csv"
     returns_csv = tmp_path / "returns.csv"
@@ -79,4 +80,3 @@ def test_sharadar_fetch_and_balance_smoke(tmp_path: Path) -> None:
     sub2 = sub[sub["ticker"].isin(list(universe))]
     counts = sub2.groupby(["week_start", "ticker"]).size()
     assert int(counts.min()) == 5
-

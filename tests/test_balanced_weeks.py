@@ -1,10 +1,12 @@
 import numpy as np
 import pandas as pd
+import pytest
 
 from finance.io import to_daily_returns
 from finance.returns import balance_weeks
 
 
+@pytest.mark.unit
 def test_balance_weeks_drops_partial_periods() -> None:
     tickers = ["AAA", "BBB"]
     seed_prices = {"AAA": 100.0, "BBB": 55.0}

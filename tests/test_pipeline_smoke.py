@@ -41,6 +41,7 @@ from fjs import (
 from fjs.dealias import dealias_search
 
 
+@pytest.mark.unit
 def test_core_types_are_accessible() -> None:
     assert isclass(BalancedConfig)
     assert isclass(DealiasingResult)
@@ -48,6 +49,7 @@ def test_core_types_are_accessible() -> None:
     assert isclass(OptimizationResult)
 
 
+@pytest.mark.unit
 def test_core_functions_are_callable() -> None:
     for candidate in [
         compute_balanced_weights,
@@ -70,11 +72,13 @@ def test_core_functions_are_callable() -> None:
         assert isfunction(candidate)
 
 
+@pytest.mark.unit
 def test_experiment_entry_points_are_callable() -> None:
     assert isfunction(synthetic_run.run_experiment)
     assert isfunction(equity_run.run_experiment)
 
 
+@pytest.mark.integration
 def test_experiment_configs_load() -> None:
     synth_config = synthetic_run.load_config(
         Path("experiments/synthetic_oneway/config.yaml")
@@ -84,6 +88,7 @@ def test_experiment_configs_load() -> None:
     assert isinstance(equity_config, dict)
 
 
+@pytest.mark.integration
 def test_single_equity_window_smoke(tmp_path: Path) -> None:
     rng = np.random.default_rng(42)
     dates = pd.date_range("2020-01-06", periods=15, freq="B")
@@ -141,6 +146,7 @@ def test_single_equity_window_smoke(tmp_path: Path) -> None:
     assert np.isfinite(forecast_scm)
 
 
+@pytest.mark.integration
 def test_weekly_components_identity_and_detection_gain() -> None:
     rng = np.random.default_rng(7)
     p = 3

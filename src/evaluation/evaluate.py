@@ -338,6 +338,7 @@ def build_metrics_summary(
                 "OAS": "oas",
                 "Constant-Correlation": "cc",
                 "Factor": "factor",
+                "Tyler-Shrink": "tyler",
             }
             lw_map = errors_by_combo.get(base_lw_key, {})
             al_map = errors_by_combo.get(base_al_key, {})

@@ -4,7 +4,10 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 from experiments.equity_panel import run as equity_run
+
+pytestmark = pytest.mark.integration
 
 
 def _make_prices_csv(tmp_path: Path, weeks: int = 10, assets: int = 5) -> Path:
@@ -56,7 +59,10 @@ a_grid: 90
     )
 
     out_dir = tmp_path / "e2"
-    assert (out_dir / "rolling_results.csv").exists()
+    run_dirs = [path for path in out_dir.iterdir() if path.is_dir()]
+    assert run_dirs, "No run directory produced"
+    run_dir = run_dirs[0]
+    assert (run_dir / "rolling_results.csv").exists()
     # Presence of timeseries is best-effort; check file exists when detections present
     # Not asserting on contents to avoid flakiness
     # Either spike_timeseries.png exists or not; test remains permissive

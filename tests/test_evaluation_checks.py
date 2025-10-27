@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import pandas as pd
+import pytest
 
 from evaluation import check_dealiased_applied
+
+pytestmark = pytest.mark.unit
 
 
 def test_check_dealiased_applied_raises_on_identical_forecasts() -> None:

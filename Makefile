@@ -15,12 +15,18 @@ lint:
 test:
 	pytest -q
 
-.PHONY: test-fast test-all
+.PHONY: test-fast test-integration test-slow test-all
 test-fast:
-	pytest -q -m "not slow" -n auto --maxfail=1 || pytest -q -m "not slow" --maxfail=1
+	pytest -m "unit"
+
+test-integration:
+	pytest -m "integration"
+
+test-slow:
+	pytest -m "slow"
 
 test-all:
-	pytest -q -n auto || pytest -q
+	pytest -m "unit or integration"
 
 .PHONY: test-progress
 test-progress:

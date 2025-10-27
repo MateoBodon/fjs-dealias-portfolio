@@ -32,6 +32,7 @@ def _synthetic_oneway_dataset(
     return np.asarray(observations, dtype=np.float64), np.asarray(labels, dtype=np.int64)
 
 
+@pytest.mark.unit
 def test_theta_solver_brackets_root(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_t_vec(
         lambda_hat: float,
@@ -80,6 +81,7 @@ def test_theta_solver_brackets_root(monkeypatch: pytest.MonkeyPatch) -> None:
     assert diff <= 1e-3
 
 
+@pytest.mark.integration
 def test_theta_solver_fallback_to_grid(monkeypatch: pytest.MonkeyPatch) -> None:
     y, groups = _synthetic_oneway_dataset(seed=7)
     stats = mean_squares(y, groups)
@@ -111,6 +113,7 @@ def test_theta_solver_fallback_to_grid(monkeypatch: pytest.MonkeyPatch) -> None:
     assert all(det.get("solver_used") == "grid" for det in detections)
 
 
+@pytest.mark.integration
 def test_theta_solver_logs_solver_flag() -> None:
     y, groups = _synthetic_oneway_dataset(seed=13)
     stats = mean_squares(y, groups)

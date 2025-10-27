@@ -5,8 +5,11 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from meta.run_meta import write_run_meta
+
+pytestmark = pytest.mark.unit
 
 
 def test_write_run_meta_creates_file_with_expected_fields(tmp_path: Path) -> None:

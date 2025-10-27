@@ -45,11 +45,13 @@ def _simulate_one_way(
     return data, group_labels
 
 
+@pytest.mark.unit
 def test_dealiasing_result_structure() -> None:
     fields = getattr(DealiasingResult, "__dataclass_fields__", None)
     assert fields is not None
 
 
+@pytest.mark.unit
 def test_dealias_covariance_uses_detection_vectors() -> None:
     covariance = np.diag([5.0, 2.0, 1.0]).astype(np.float64)
     detection = {
@@ -65,6 +67,7 @@ def test_dealias_covariance_uses_detection_vectors() -> None:
     assert np.isclose(result.covariance[2, 2], 1.0, atol=1e-8)
 
 
+@pytest.mark.unit
 def test_dealias_covariance_accepts_target_spectrum() -> None:
     covariance = np.diag([1.0, 2.0, 3.0]).astype(np.float64)
     target = np.array([4.0, 2.0, 1.0], dtype=np.float64)
@@ -74,6 +77,7 @@ def test_dealias_covariance_accepts_target_spectrum() -> None:
     assert np.allclose(eigvals, np.sort(target)[::-1], atol=1e-8)
 
 
+@pytest.mark.integration
 def test_dealias_search_detects_sigma1_spike() -> None:
     rng = np.random.default_rng(0)
     p, n_groups, replicates = 60, 60, 2
@@ -150,6 +154,7 @@ def test_t_vector_acceptance_consistency_toy_spike() -> None:
         assert abs(ratio - t_target) < 3.0
 
 
+@pytest.mark.integration
 def test_relative_delta_enables_detection_when_absolute_blocks() -> None:
     rng = np.random.default_rng(2025)
     p, n_groups, replicates = 24, 36, 3
@@ -175,6 +180,7 @@ def test_relative_delta_enables_detection_when_absolute_blocks() -> None:
     assert allowed
 
 
+@pytest.mark.integration
 def test_equity_toy_detection_with_delta_frac() -> None:
     rng = np.random.default_rng(123)
     p, n_groups, replicates = 24, 36, 3

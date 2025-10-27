@@ -36,6 +36,21 @@ def _fmt_float(x: float | None) -> str:
 
 
 def summarize_run(output_dir: Path) -> int:
+    if not (output_dir / "run_meta.json").exists():
+        candidates = [
+            path
+            for path in sorted(output_dir.iterdir())
+            if path.is_dir() and (path / "run_meta.json").exists()
+        ]
+        if len(candidates) == 1:
+            output_dir = candidates[0]
+        elif len(candidates) > 1:
+            print(
+                f"Found multiple run directories under {output_dir}.\n"
+                "Select one explicitly when summarizing."
+            )
+            return 1
+
     run_meta = _read_json(output_dir / "run_meta.json") or {}
     summary = _read_json(output_dir / "summary.json") or {}
     det_df = _safe_read_csv(output_dir / "detection_summary.csv")
@@ -127,6 +142,7 @@ def summarize_run(output_dir: Path) -> int:
             "oas": "OAS",
             "cc": "Const-Corr",
             "factor": "Factor",
+            "tyler": "Tyler-Shrink",
         }
         for _, row in de_rows.iterrows():
             comps: list[str] = []
@@ -150,6 +166,27 @@ def summarize_run(output_dir: Path) -> int:
         print(
             f"Git SHA: {run_meta.get('git_sha', 'unknown')}  |  a-grid: {run_meta.get('a_grid', 'n/a')}  "
             f"|  signed_a: {run_meta.get('signed_a', 'n/a')}"
+        )
+        design = run_meta.get("design", "n/a")
+        nested = run_meta.get("nested_replicates", "n/a")
+        estimator = run_meta.get("estimator", "n/a")
+        preprocess = run_meta.get("preprocess_flags") or run_meta.get(
+            "panel_preprocess_flags", {}
+        )
+        preprocess_str = (
+            ", ".join(f"{k}={v}" for k, v in sorted(preprocess.items()))
+            if isinstance(preprocess, dict) and preprocess
+            else "none"
+        )
+        solver_list = run_meta.get("solver_used")
+        solver_str = (
+            ", ".join(str(s) for s in solver_list)
+            if isinstance(solver_list, list) and solver_list
+            else "n/a"
+        )
+        print(
+            f"Design: {design}  |  nested J: {nested}  |  estimator: {estimator}  "
+            f"|  preprocess: {preprocess_str}  |  solver_used: {solver_str}"
         )
         print(
             f"delta: {_fmt_float(run_meta.get('delta'))}  |  delta_frac: {_fmt_float(run_meta.get('delta_frac'))}  "

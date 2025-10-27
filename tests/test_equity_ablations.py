@@ -4,7 +4,10 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 from experiments.equity_panel import run as equity_run
+
+pytestmark = pytest.mark.integration
 
 
 def _make_prices_csv(tmp_path: Path, weeks: int = 12, assets: int = 6) -> Path:
@@ -63,4 +66,7 @@ a_grid: 90
     )
 
     out_dir = tmp_path / "outputs"
-    assert (out_dir / "ablation_summary.csv").exists()
+    run_dirs = [path for path in out_dir.iterdir() if path.is_dir()]
+    assert run_dirs, "No run directory produced"
+    run_dir = run_dirs[0]
+    assert (run_dir / "ablation_summary.csv").exists()

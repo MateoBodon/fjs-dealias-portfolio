@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 import numpy.testing as npt
+import pytest
 
 from fjs.balanced_nested import mean_squares_nested
 from fjs.dealias import dealias_search
@@ -42,6 +43,7 @@ def _generate_nested_sample(
     )
 
 
+@pytest.mark.unit
 def test_mean_squares_nested_balanced() -> None:
     I, J, R, p = 3, 4, 5, 3
     y, years, weeks = _generate_nested_sample(
@@ -80,6 +82,7 @@ def test_mean_squares_nested_balanced() -> None:
     npt.assert_allclose(ss1 + ss2 + ss3, ss_total, rtol=1e-10, atol=1e-10)
 
 
+@pytest.mark.integration
 def test_nested_dealias_smoke_run() -> None:
     I, J, R, p = 2, 3, 4, 3
     base_vectors = np.array(

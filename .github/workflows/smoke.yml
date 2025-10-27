@@ -1,0 +1,51 @@
+name: smoke
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: pip install -e '.[dev]'
+
+      - name: Unit tests
+        run: make test-fast
+
+      - name: Smoke runner
+        run: |
+          PYTHONPATH=src python experiments/equity_panel/run.py \
+            --config experiments/equity_panel/config.smoke.yaml \
+            --no-progress \
+            --workers 2 \
+            --assets-top 80 \
+            --stride-windows 4 \
+            --resume \
+            --cache-dir .cache \
+            --precompute-panel \
+            --drop-partial-weeks \
+            --estimator oas
+
+      - name: Summarize
+        run: python tools/summarize_run.py experiments/equity_panel/outputs_smoke

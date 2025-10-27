@@ -7,10 +7,13 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 import yaml
 
 from experiments.equity_panel import run as equity_run
 from tools.summarize_run import summarize_run
+
+pytestmark = pytest.mark.integration
 
 
 def _write_returns_csv(path: Path, *, seed: int = 0) -> Path:
@@ -65,7 +68,10 @@ def test_window_artifacts_expose_edge_margin_and_admissible_root(tmp_path: Path)
         resume_cache=False,
     )
 
-    results_path = output_dir / "rolling_results.csv"
+    run_dirs = [path for path in output_dir.iterdir() if path.is_dir()]
+    assert run_dirs, "No run directory produced"
+    run_dir = run_dirs[0]
+    results_path = run_dir / "rolling_results.csv"
     assert results_path.exists(), "rolling_results.csv not produced"
     results = pd.read_csv(results_path)
     assert "top_edge_margin" in results.columns

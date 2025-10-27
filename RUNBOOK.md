@@ -2,20 +2,36 @@
 
 ## Smoke vs. full equity runs
 
-- Smoke run (≈5 min, 6+1 weeks, 120 assets):
+- Smoke run (≈5 min, 6+1 weeks, 80 assets):
   ```bash
   PYTHONPATH=src OMP_NUM_THREADS=1 python experiments/equity_panel/run.py \
       --config experiments/equity_panel/config.smoke.yaml \
-      --no-progress --workers 4 --assets-top 120 --stride-windows 3 \
-      --resume --cache-dir .cache --precompute-panel --drop-partial-weeks
+      --no-progress --workers $(python -c 'import os;print(os.cpu_count() or 4)') \
+      --assets-top 80 --stride-windows 4 --resume --cache-dir .cache \
+      --precompute-panel --drop-partial-weeks --estimator oas
   ```
-- Full run (≈90 min, 156+4 weeks): remove the stride/top overrides.
+  Artifacts land in `experiments/equity_panel/outputs_smoke/<design>_J*_solver-*_est-*_prep-*/`.
+- Full run (≈90 min, 156+4 weeks): drop the stride/top overrides and let `--estimator dealias`.
+
+## Test suites
+
+- `make test-fast` → `pytest -m unit` (deterministic micro-tests; keep data to ≤12 assets, ≤6 weeks).
+- `make test-integration` → `pytest -m integration` (smoke-sized multi-module flows).
+- `make test-slow` → `pytest -m slow` (long synthetic studies, optional locally).
+- `make test-all` → union of unit + integration (default CI footprint). Mark multi-minute jobs as `heavy`.
 
 ## New estimator switches
 
-- `--estimator {aliased,dealias,lw,oas,cc,factor}` tags the run and cache entries.
+- `--estimator {aliased,dealias,lw,oas,cc,factor,tyler_shrink}` tags the run, cache entries, and `run_meta`.
 - `--factor-csv tests/data/factors_tiny.csv` enables the observed-factor covariance; the CSV must be wide, date-indexed.
-- Shrinkage benchmarks (LW, OAS, constant-correlation) and the factor estimator all appear in `metrics_summary.csv`; Diebold–Mariano columns (`dm_stat_*`, `dm_p_*`) compare them to the de-aliased baseline.
+- Shrinkage benchmarks (LW, OAS, constant-correlation, Tyler) and the factor estimator all appear in `metrics_summary.csv`; Diebold–Mariano columns (`dm_stat_*`, `dm_p_*`) compare them to the de-aliased baseline.
+
+## Robust preprocessing toggles
+
+- `--winsorize q` applies column-wise clipping to the empirical `[q, 1-q]` quantiles (mutually exclusive with Huber).
+- `--huber c` clips at `median ± c·MAD` per column; use when thin tails help guard ablations.
+- Preprocess selections become part of cache keys, panel manifests, artifact directories, and `run_meta.preprocess_flags`.
+- Pair with `--estimator tyler_shrink` to use the Tyler–ridge covariance in evaluation and DM tables.
 
 ## Min-variance regularisation and turnover
 

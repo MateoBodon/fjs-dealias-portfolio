@@ -12,6 +12,7 @@ from .evaluate import (
     plot_coverage_error,
     build_metrics_summary,
 )
+from .dm import dm_test
 
 
 def check_dealiased_applied(estimates: pd.DataFrame | Iterable[dict]) -> None:
@@ -95,4 +96,5 @@ __all__ = [
     "plot_variance_error_panel",
     "plot_coverage_error",
     "build_metrics_summary",
+    "dm_test",
 ]

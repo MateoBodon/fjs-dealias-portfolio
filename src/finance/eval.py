@@ -11,7 +11,9 @@ from numpy.typing import NDArray
 from fjs.balanced import mean_squares
 from fjs.dealias import dealias_covariance
 
+from .factors import factor_covariance
 from .ledoit import lw_cov
+from .shrinkage import cc_covariance, oas_covariance
 
 
 def rolling_windows(
@@ -117,6 +119,30 @@ def oos_variance_forecast(
             sigma = np.asarray(np.cov(x_fit, rowvar=False), dtype=np.float64)
         else:
             sigma = np.asarray(np.cov(x_fit, rowvar=False, ddof=1), dtype=np.float64)
+    elif estimator == "oas":
+        sigma = oas_covariance(x_fit)
+    elif estimator == "cc":
+        sigma = cc_covariance(x_fit)
+    elif estimator == "factor":
+        factor_df = kwargs.get("factor_returns")
+        asset_names = kwargs.get("asset_names")
+        fit_index = kwargs.get("fit_index")
+        if factor_df is None or asset_names is None or fit_index is None:
+            raise ValueError(
+                "factor estimator requires 'factor_returns', 'asset_names', and 'fit_index'."
+            )
+        returns_df = pd.DataFrame(
+            x_fit,
+            index=pd.Index(fit_index),
+            columns=list(asset_names),
+        )
+        industry_df = kwargs.get("industry_returns")
+        sigma = factor_covariance(
+            returns_df,
+            factor_df,
+            add_intercept=kwargs.get("add_intercept", True),
+            industry_df=industry_df,
+        )
     elif estimator == "dealias":
         sigma_emp = np.cov(x_fit, rowvar=False, ddof=1)
         detections = kwargs.get("detections")

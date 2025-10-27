@@ -33,6 +33,14 @@ The de-aliasing runner now supports both the classic balanced one-way MANOVA des
 
 Both modes accept `--oneway-a-solver {auto,rootfind,grid}` to control the θ refinement strategy (see `METHODS.md` for details). `auto` tries the closed-form root finder first and falls back to the coarse grid when no bracket or stable root is available; the detection JSON now records the solver used for each accepted spike (`solver_used`).
 
+## Estimators & regularisation
+
+- Covariance estimators can be selected on the CLI or in `config.yaml` via `--estimator {aliased,dealias,lw,oas,cc,factor}`. The run metadata now records the choice so repeated runs stay comparable.
+- `--factor-csv path/to/factors.csv` enables the observed-factor covariance (OLS fit with intercept, optional industry returns). Provide a wide CSV keyed by the weekly date; missing dates are automatically dropped when aligning with the fit window.
+- `--minvar-ridge λ²` adds ridge stabilisation to the box-constrained minimum-variance weights; update the feasible interval with `--minvar-box lo,hi` (defaults `0,0.05`). Both settings flow through to every rolling window and are captured in the cache key.
+- Turnover is tracked per strategy (`*_turnover`, `*_turnover_cost` columns in `rolling_results.csv`). Set `--turnover-cost bps` to deduct one-way transaction costs (basis points) from the realised variance series before computing MSE.
+- We benchmark de-aliased covariance against Ledoit–Wolf, OAS, constant-correlation shrinkage, and the observed-factor model. The metrics summary includes Diebold–Mariano statistics (`dm_stat_*`, `dm_p_*`) for de-aliased vs. each baseline on both equal-weight and min-var views; the summariser prints the p-values alongside the classic sign test.
+
 ## Weekly Dataset Builder
 
 - Build a balanced weekly p≈200 equity dataset (Mon–Fri, fixed universe) from daily adjusted prices:

@@ -93,6 +93,8 @@ def summarize_run(output_dir: Path) -> int:
 
     # Summarise metrics
     metrics_line = ""
+    estimator_lines: list[str] = []
+    dm_lines: list[str] = []
     if not metrics_df.empty:
         # Prefer Equal Weight Aliased vs De-aliased if available
         mask_alias = (
@@ -109,6 +111,37 @@ def summarize_run(output_dir: Path) -> int:
             metrics_line = f"MSE(eq): aliased={_fmt_float(mse_alias)}, de={_fmt_float(mse_de)}"
         else:
             metrics_line = "Metrics summary available (see CSV)."
+
+        for strategy in sorted(metrics_df["strategy"].unique()):
+            subset = metrics_df[metrics_df["strategy"] == strategy]
+            pieces = [
+                f"{row['estimator']}={_fmt_float(row.get('mean_mse'))}"
+                for _, row in subset.sort_values("mean_mse").iterrows()
+            ]
+            if pieces:
+                estimator_lines.append(f"  {strategy}: " + "; ".join(pieces))
+
+        de_rows = metrics_df[metrics_df["estimator"] == "De-aliased"]
+        comparator_labels = {
+            "lw": "Ledoit-Wolf",
+            "oas": "OAS",
+            "cc": "Const-Corr",
+            "factor": "Factor",
+        }
+        for _, row in de_rows.iterrows():
+            comps: list[str] = []
+            for suffix, label in comparator_labels.items():
+                p_col = f"dm_p_de_vs_{suffix}"
+                stat_col = f"dm_stat_de_vs_{suffix}"
+                if p_col in row and stat_col in row:
+                    p_val = row[p_col]
+                    stat_val = row[stat_col]
+                    if np.isfinite(p_val) and np.isfinite(stat_val):
+                        comps.append(
+                            f"{label}: p={_fmt_float(p_val)}, stat={_fmt_float(stat_val)}"
+                        )
+            if comps:
+                dm_lines.append(f"  {row['strategy']}: " + "; ".join(comps))
 
     # Print one-page textual summary
     print("== Run Summary ==")
@@ -174,6 +207,14 @@ def summarize_run(output_dir: Path) -> int:
             print("Rejection reasons: none recorded")
     if metrics_line:
         print(metrics_line)
+    if estimator_lines:
+        print("Estimator MSE breakdown:")
+        for line in estimator_lines:
+            print(line)
+    if dm_lines:
+        print("DM comparison (De-aliased vs baselines):")
+        for line in dm_lines:
+            print(line)
     if run_meta and run_meta.get("figure_sha256"):
         pdfs = run_meta["figure_sha256"]
         print(f"Figures (PDF hashes): {len(pdfs)} files")

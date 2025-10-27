@@ -23,6 +23,7 @@ from typing import Any, Dict, Iterable, Mapping
 import numpy as np
 import pandas as pd
 
+from .dm import dm_test
 
 # --- Basic statistics -------------------------------------------------------
 
@@ -318,12 +319,26 @@ def build_metrics_summary(
             "ci_hi_de_minus_lw": float("nan"),
             "ci_lo_de_minus_alias": float("nan"),
             "ci_hi_de_minus_alias": float("nan"),
+            "dm_stat_de_vs_lw": float("nan"),
+            "dm_p_de_vs_lw": float("nan"),
+            "dm_stat_de_vs_oas": float("nan"),
+            "dm_p_de_vs_oas": float("nan"),
+            "dm_stat_de_vs_cc": float("nan"),
+            "dm_p_de_vs_cc": float("nan"),
+            "dm_stat_de_vs_factor": float("nan"),
+            "dm_p_de_vs_factor": float("nan"),
         }
 
         # Only compute Δ summaries for De-aliased rows where both comparators are present
         if est == EST_DE:
             base_lw_key = f"{strat}::{EST_LW}"
             base_al_key = f"{strat}::{EST_AL}"
+            dm_comparators = {
+                EST_LW: "lw",
+                "OAS": "oas",
+                "Constant-Correlation": "cc",
+                "Factor": "factor",
+            }
             lw_map = errors_by_combo.get(base_lw_key, {})
             al_map = errors_by_combo.get(base_al_key, {})
             # Common windows
@@ -348,7 +363,20 @@ def build_metrics_summary(
                 entry["ci_lo_de_minus_alias"] = ds.ci_lo
                 entry["ci_hi_de_minus_alias"] = ds.ci_hi
 
+            for est_name, suffix in dm_comparators.items():
+                comp_key = f"{strat}::{est_name}"
+                comp_map = errors_by_combo.get(comp_key, {})
+                if not comp_map:
+                    continue
+                common = sorted(set(error_map.keys()) & set(comp_map.keys()))
+                if not common:
+                    continue
+                de_vals = np.array([error_map[i] for i in common], dtype=np.float64)
+                comp_vals = np.array([comp_map[i] for i in common], dtype=np.float64)
+                dm_stat, dm_p = dm_test(de_vals, comp_vals)
+                entry[f"dm_stat_de_vs_{suffix}"] = dm_stat
+                entry[f"dm_p_de_vs_{suffix}"] = dm_p
+
         rows.append(entry)
 
     return pd.DataFrame(rows)
-

@@ -42,9 +42,9 @@ def test_iqr_matches_percentile_difference() -> None:
 def test_build_metrics_summary_dealiased_vs_baselines() -> None:
     # Create a small consistent window-level error map
     windows = list(range(20))
-    err_de = {i: 1.0 + 0.01 * i for i in windows}
-    err_lw = {i: 1.1 + 0.01 * i for i in windows}
-    err_al = {i: 1.2 + 0.01 * i for i in windows}
+    err_de = {i: 1.0 + 0.01 * i + 0.02 * np.sin(i / 3.0) for i in windows}
+    err_lw = {i: err_de[i] + 0.02 + 0.005 * np.cos(i) for i in windows}
+    err_al = {i: err_de[i] + 0.05 + 0.01 * np.sin(i / 5.0) for i in windows}
     errors_by_combo: Dict[str, Dict[int, float]] = {
         "Equal Weight::De-aliased": err_de,
         "Equal Weight::Ledoit-Wolf": err_lw,
@@ -71,4 +71,7 @@ def test_build_metrics_summary_dealiased_vs_baselines() -> None:
     assert med_delta_al < 0.0
     assert p_lw < 0.05
     assert p_al < 0.05
-
+    dm_p_lw = float(row["dm_p_de_vs_lw"].iloc[0])
+    dm_stat_lw = float(row["dm_stat_de_vs_lw"].iloc[0])
+    assert dm_stat_lw < 0.0
+    assert dm_p_lw < 0.05

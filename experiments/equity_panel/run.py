@@ -9,7 +9,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from math import comb
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Iterable, cast
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -40,7 +40,8 @@ from finance.eval import (
     variance_forecast_from_components,
 )
 from finance.io import load_prices_csv, to_daily_returns, load_returns_csv
-from finance.portfolios import equal_weight, min_variance_box, minimum_variance
+from finance.portfolio import apply_turnover_cost, minvar_ridge_box, turnover
+from finance.portfolios import equal_weight, minimum_variance
 from finance.returns import balance_weeks
 from fjs.balanced import mean_squares
 from fjs.balanced_nested import mean_squares_nested
@@ -93,7 +94,31 @@ DEFAULT_CONFIG = {
     "design": "oneway",
     "nested_replicates": 5,
     "oneway_a_solver": "auto",
+    "estimator": "dealias",
+    "factor_csv": None,
+    "minvar_ridge": 1e-3,
+    "minvar_box": [0.0, 0.05],
+    "turnover_cost_bps": 0.0,
 }
+
+def _parse_box_bounds(bounds: Any) -> tuple[float, float]:
+    """Normalise min-variance box bounds into a (lo, hi) tuple."""
+
+    if bounds is None:
+        return (0.0, 0.05)
+    if isinstance(bounds, str):
+        parts = [item.strip() for item in bounds.split(",") if item.strip()]
+    elif isinstance(bounds, Iterable):
+        parts = [str(item).strip() for item in bounds]
+    else:
+        raise ValueError("minvar_box must be provided as 'lo,hi' or a sequence.")
+    if len(parts) != 2:
+        raise ValueError("minvar_box requires exactly two values (lo, hi).")
+    lo, hi = float(parts[0]), float(parts[1])
+    if lo > hi:
+        raise ValueError("minvar_box lower bound must not exceed the upper bound.")
+    return lo, hi
+
 
 CODE_SIGNATURE = code_signature()
 
@@ -827,6 +852,10 @@ def _run_single_period(
     progress: bool = True,
     a_grid: int = 120,
     energy_min_abs: float | None = None,
+    factor_returns: pd.DataFrame | None = None,
+    minvar_ridge: float = 1e-3,
+    minvar_box: tuple[float, float] = (0.0, 0.05),
+    turnover_cost_bps: float = 0.0,
 ) -> None:
     """Execute the rolling evaluation for a single date range."""
 
@@ -946,7 +975,13 @@ def _run_single_period(
     errors_by_combo: dict[str, dict[int, float]] = defaultdict(dict)
     var95_by_combo: dict[str, list[float]] = defaultdict(list)
     realised_returns_by_combo: dict[str, list[float]] = defaultdict(list)
+    realized_by_combo_raw: dict[str, dict[int, float]] = defaultdict(dict)
     strategy_success: dict[str, bool] = {name: False for name in strategies}
+    strategy_estimators: dict[str, set[str]] = defaultdict(set)
+    weights_history: dict[str, list[np.ndarray]] = {name: [] for name in strategies}
+    strategy_windows: dict[str, list[int]] = {name: [] for name in strategies}
+    turnover_cost_history: dict[str, list[float]] = {name: [] for name in strategies}
+    prev_weights: dict[str, np.ndarray | None] = {name: None for name in strategies}
     records: list[dict[str, Any]] = []
     rejection_totals: dict[str, int] = {}
     edge_margin_values: list[float] = []
@@ -1157,6 +1192,10 @@ def _run_single_period(
             "hold_end": hold.index[-1],
             "n_detections": len(detections),
         }
+        for strategy_meta in strategies.values():
+            prefix = strategy_meta["prefix"]
+            window_record[f"{prefix}_turnover"] = float("nan")
+            window_record[f"{prefix}_turnover_cost"] = float("nan")
 
         # Log top detection (by lambda_hat) for diagnostics/time series
         if detections:
@@ -1278,13 +1317,13 @@ def _run_single_period(
         except Exception:
             window_record["top_sigma1_eigval"] = float("nan")
 
+        window_record["window_index"] = int(window_idx)
+
         for strategy_label, cfg in strategies.items():
             if not cfg.get("available", True):
                 continue
             try:
-                weights = np.asarray(
-                    cfg["get_weights"](cov_fit), dtype=np.float64
-                ).reshape(-1)
+                weights = np.asarray(cfg["get_weights"](cov_fit), dtype=np.float64).reshape(-1)
             except ImportError:
                 cfg["available"] = False
                 continue
@@ -1302,103 +1341,150 @@ def _run_single_period(
 
             strategy_success[strategy_label] = True
             prefix = cfg["prefix"]
+            strategy_windows[strategy_label].append(window_idx)
+            weights_history[strategy_label].append(weights.copy())
 
-            forecast_alias, realised_var_alias = variance_forecast_from_components(
+            prev = prev_weights[strategy_label]
+            if prev is not None and prev.shape == weights.shape:
+                turnover_value = turnover(prev, weights)
+            else:
+                turnover_value = 0.0
+            prev_weights[strategy_label] = weights.copy()
+            turnover_cost = turnover_value * float(turnover_cost_bps) / 10000.0
+            turnover_cost_history[strategy_label].append(turnover_cost)
+            window_record[f"{prefix}_turnover"] = float(turnover_value)
+            window_record[f"{prefix}_turnover_cost"] = float(turnover_cost)
+
+            forecast_alias, realised_alias_raw = variance_forecast_from_components(
                 y_fit_daily,
                 y_hold_daily,
                 replicates,
                 weights,
             )
-            forecast_dealias, realised_var_de = variance_forecast_from_components(
+            forecast_dealias, realised_de_raw = variance_forecast_from_components(
                 y_fit_daily,
                 y_hold_daily,
                 replicates,
                 weights,
                 detections=detections,
             )
-            realised_var = (
-                realised_var_de if np.isfinite(realised_var_de) else realised_var_alias
-            )
-            forecast_lw, realised_var_lw = oos_variance_forecast(
+            forecast_lw, realised_lw_raw = oos_variance_forecast(
                 fit_matrix,
                 hold_matrix,
                 weights,
                 estimator="lw",
             )
+            forecast_scm, realised_scm_raw = oos_variance_forecast(
+                fit_matrix,
+                hold_matrix,
+                weights,
+                estimator="scm",
+            )
 
-            hold_returns = hold_matrix @ weights
-
-            alias_error = float((forecast_alias - realised_var) ** 2)
-            dealias_error = float((forecast_dealias - realised_var) ** 2)
-            lw_error = float((forecast_lw - realised_var_lw) ** 2)
-
-            combos = [
-                ("Aliased", forecast_alias, realised_var, alias_error),
-                ("De-aliased", forecast_dealias, realised_var, dealias_error),
-                ("Ledoit-Wolf", forecast_lw, realised_var_lw, lw_error),
+            estimator_outputs: list[tuple[str, float, float, float | None]] = [
+                ("Aliased", float(forecast_alias), float(realised_alias_raw), None),
+                (
+                    "De-aliased",
+                    float(forecast_dealias),
+                    float(realised_de_raw),
+                    float(realised_alias_raw),
+                ),
+                (
+                    "Ledoit-Wolf",
+                    float(forecast_lw),
+                    float(realised_lw_raw),
+                    float(realised_alias_raw),
+                ),
                 (
                     "SCM",
-                    oos_variance_forecast(
-                        fit_matrix,
-                        hold_matrix,
-                        weights,
-                        estimator="scm",
-                    )[0],
-                    oos_variance_forecast(
-                        fit_matrix,
-                        hold_matrix,
-                        weights,
-                        estimator="scm",
-                    )[1],
-                    float(
-                        (
-                            oos_variance_forecast(
-                                fit_matrix,
-                                hold_matrix,
-                                weights,
-                                estimator="scm",
-                            )[0]
-                            - oos_variance_forecast(
-                                fit_matrix,
-                                hold_matrix,
-                                weights,
-                                estimator="scm",
-                            )[1]
-                        )
-                        ** 2
-                    ),
+                    float(forecast_scm),
+                    float(realised_scm_raw),
+                    float(realised_alias_raw),
                 ),
             ]
 
-            var95_values = {
-                "Aliased": -1.65 * np.sqrt(max(forecast_alias, 0.0)),
-                "De-aliased": -1.65 * np.sqrt(max(forecast_dealias, 0.0)),
-                "Ledoit-Wolf": -1.65 * np.sqrt(max(forecast_lw, 0.0)),
-                "SCM": -1.65
-                * np.sqrt(
-                    max(
-                        oos_variance_forecast(
-                            fit_matrix,
-                            hold_matrix,
-                            weights,
-                            estimator="scm",
-                        )[0],
-                        0.0,
-                    )
-                ),
-            }
-
-            for estimator_name, forecast_value, realised_value, error_value in combos:
-                combo_key = f"{strategy_label}::{estimator_name}"
-                errors_by_combo[combo_key][window_idx] = error_value
-                var95_by_combo[combo_key].extend(
-                    [var95_values[estimator_name]] * hold_returns.size
+            try:
+                forecast_oas, realised_oas_raw = oos_variance_forecast(
+                    fit_matrix,
+                    hold_matrix,
+                    weights,
+                    estimator="oas",
                 )
+                estimator_outputs.append(
+                    (
+                        "OAS",
+                        float(forecast_oas),
+                        float(realised_oas_raw),
+                        float(realised_alias_raw),
+                    )
+                )
+            except Exception:
+                pass
+
+            try:
+                forecast_cc, realised_cc_raw = oos_variance_forecast(
+                    fit_matrix,
+                    hold_matrix,
+                    weights,
+                    estimator="cc",
+                )
+                estimator_outputs.append(
+                    (
+                        "Constant-Correlation",
+                        float(forecast_cc),
+                        float(realised_cc_raw),
+                        float(realised_alias_raw),
+                    )
+                )
+            except Exception:
+                pass
+
+            if factor_returns is not None:
+                try:
+                    forecast_factor, realised_factor_raw = oos_variance_forecast(
+                        fit_matrix,
+                        hold_matrix,
+                        weights,
+                        estimator="factor",
+                        factor_returns=factor_returns,
+                        asset_names=ordered_tickers,
+                        fit_index=fit.index,
+                    )
+                    estimator_outputs.append(
+                        (
+                            "Factor",
+                            float(forecast_factor),
+                            float(realised_factor_raw),
+                            float(realised_alias_raw),
+                        )
+                    )
+                except Exception:
+                    pass
+
+            hold_returns = hold_matrix @ weights
+            for estimator_name, forecast_value, realised_raw, fallback_raw in estimator_outputs:
+                base_value = float(realised_raw)
+                if not np.isfinite(base_value) and fallback_raw is not None:
+                    base_value = float(fallback_raw)
+                combo_key = f"{strategy_label}::{estimator_name}"
+                strategy_estimators[strategy_label].add(estimator_name)
+                realized_by_combo_raw[combo_key][window_idx] = base_value
+                if np.isfinite(base_value):
+                    realised_adjusted = max(base_value - turnover_cost, 0.0)
+                else:
+                    realised_adjusted = base_value
+                if np.isfinite(forecast_value) and np.isfinite(realised_adjusted):
+                    error_value = float((forecast_value - realised_adjusted) ** 2)
+                else:
+                    error_value = float("nan")
+                errors_by_combo[combo_key][window_idx] = error_value
+                var95 = -1.65 * np.sqrt(max(forecast_value, 0.0))
+                var95_by_combo[combo_key].extend([var95] * hold_returns.size)
                 realised_returns_by_combo[combo_key].extend(hold_returns.tolist())
 
                 suffix = estimator_name.lower().replace("-", "").replace(" ", "_")
                 window_record[f"{prefix}_{suffix}_forecast"] = float(forecast_value)
-                window_record[f"{prefix}_{suffix}_realized"] = float(realised_value)
+                window_record[f"{prefix}_{suffix}_realized"] = float(realised_adjusted)
 
             if strategy_label == baseline_name:
                 var_forecasts_alias_baseline.append(float(forecast_alias))
@@ -1410,6 +1496,21 @@ def _run_single_period(
 
     if not records:
         raise ValueError("No rolling windows were evaluated after balancing.")
+
+    for strategy_label in strategies:
+        weight_seq = weights_history.get(strategy_label, [])
+        if not weight_seq:
+            continue
+        alias_key = f"{strategy_label}::Aliased"
+        raw_map = realized_by_combo_raw.get(alias_key, {})
+        if not raw_map:
+            continue
+        indices = strategy_windows.get(strategy_label, [])
+        if not indices:
+            continue
+        var_array = np.array([raw_map.get(idx, 0.0) for idx in indices], dtype=np.float64)
+        _, cost_series = apply_turnover_cost(var_array, weight_seq, turnover_cost_bps)
+        turnover_cost_history[strategy_label] = list(cost_series)
 
     coverage_errors: dict[str, float] = {}
     for combo_key, forecasts in var95_by_combo.items():
@@ -1438,7 +1539,15 @@ def _run_single_period(
         try:
             baseline_name = "Equal Weight"
             baseline_map: dict[str, np.ndarray] = {}
-            for est in ("Aliased", "De-aliased", "Ledoit-Wolf", "DA+LW"):
+            for est in (
+                "Aliased",
+                "De-aliased",
+                "Ledoit-Wolf",
+                "OAS",
+                "Constant-Correlation",
+                "Factor",
+                "SCM",
+            ):
                 key = f"{baseline_name}::{est}"
                 if key in errors_for_plot:
                     baseline_map[est] = errors_for_plot[key]
@@ -1453,7 +1562,15 @@ def _run_single_period(
         try:
             baseline_name = "Equal Weight"
             cov_baseline: dict[str, float] = {}
-            for est in ("Aliased", "De-aliased", "Ledoit-Wolf", "DA+LW"):
+            for est in (
+                "Aliased",
+                "De-aliased",
+                "Ledoit-Wolf",
+                "OAS",
+                "Constant-Correlation",
+                "Factor",
+                "SCM",
+            ):
                 key = f"{baseline_name}::{est}"
                 if key in coverage_errors:
                     cov_baseline[est] = float(coverage_errors[key])
@@ -1773,6 +1890,11 @@ def run_experiment(
     precompute_panel: bool = False,
     cache_dir_override: str | None = None,
     resume_cache: bool = False,
+    estimator_override: str | None = None,
+    factor_csv_override: str | None = None,
+    minvar_ridge_override: float | None = None,
+    minvar_box_override: str | None = None,
+    turnover_cost_override: float | None = None,
 ) -> None:
     """Execute the rolling equity forecasting experiment."""
 
@@ -1808,6 +1930,16 @@ def run_experiment(
         config["horizon_weeks"] = int(horizon_weeks_override)
     if energy_min_abs_override is not None:
         config["energy_min_abs"] = float(energy_min_abs_override)
+    if estimator_override is not None:
+        config["estimator"] = str(estimator_override)
+    if factor_csv_override is not None:
+        config["factor_csv"] = factor_csv_override
+    if minvar_ridge_override is not None:
+        config["minvar_ridge"] = float(minvar_ridge_override)
+    if minvar_box_override is not None:
+        config["minvar_box"] = minvar_box_override
+    if turnover_cost_override is not None:
+        config["turnover_cost_bps"] = float(turnover_cost_override)
     panel_policy = str(
         partial_week_policy
         if partial_week_policy is not None
@@ -1831,8 +1963,50 @@ def run_experiment(
     if solver_value not in {"auto", "rootfind", "grid"}:
         raise ValueError("oneway_a_solver must be 'auto', 'rootfind', or 'grid'.")
     config["oneway_a_solver"] = solver_value
+    minvar_lo, minvar_hi = _parse_box_bounds(config.get("minvar_box"))
+    config["minvar_box"] = [float(minvar_lo), float(minvar_hi)]
+    minvar_ridge_val = float(config.get("minvar_ridge", 1e-3))
+    if minvar_ridge_val < 0.0:
+        raise ValueError("minvar_ridge must be non-negative.")
+    config["minvar_ridge"] = minvar_ridge_val
+    turnover_cost_bps = float(config.get("turnover_cost_bps", 0.0))
+    if turnover_cost_bps < 0.0:
+        raise ValueError("turnover_cost_bps must be non-negative.")
+    config["turnover_cost_bps"] = turnover_cost_bps
     estimator_value = str(config.get("estimator", "dealias")).lower()
+    allowed_estimators = {"aliased", "dealias", "lw", "oas", "cc", "factor"}
+    if estimator_value not in allowed_estimators:
+        raise ValueError(
+            f"Unsupported estimator '{estimator_value}'. "
+            f"Valid options: {', '.join(sorted(allowed_estimators))}."
+        )
     config["estimator"] = estimator_value
+
+    factor_returns: pd.DataFrame | None = None
+    factor_csv_cfg = config.get("factor_csv")
+    if factor_csv_cfg:
+        factor_path = Path(str(factor_csv_cfg)).expanduser()
+        if not factor_path.exists():
+            raise FileNotFoundError(
+                f"Factor CSV not found at '{factor_path}'."
+            )
+        factor_df = pd.read_csv(factor_path)
+        if factor_df.empty or factor_df.shape[1] < 2:
+            raise ValueError("Factor CSV must contain a date column and at least one factor column.")
+        date_col_candidates = [
+            col
+            for col in factor_df.columns
+            if str(col).lower() in {"date", "timestamp", "time", "week", "period"}
+        ]
+        date_col = date_col_candidates[0] if date_col_candidates else factor_df.columns[0]
+        factor_df[date_col] = pd.to_datetime(factor_df[date_col])
+        factor_df = factor_df.set_index(date_col).sort_index()
+        factor_df = factor_df.apply(pd.to_numeric, errors="coerce")
+        factor_df = factor_df.dropna(how="all")
+        factor_df = factor_df.loc[~factor_df.index.duplicated(keep="last")]
+        if factor_df.empty:
+            raise ValueError("Factor CSV contains no usable numeric data after cleaning.")
+        factor_returns = factor_df
 
     cache_dir_path: Path | None
     if cache_dir_override is not None:
@@ -1920,6 +2094,10 @@ def run_experiment(
             progress=(True if progress_override is None else bool(progress_override)),
             a_grid=int(config.get("a_grid", 180)),
             energy_min_abs=cast(float | None, config.get("energy_min_abs")),
+            factor_returns=factor_returns,
+            minvar_ridge=minvar_ridge_val,
+            minvar_box=(float(minvar_lo), float(minvar_hi)),
+            turnover_cost_bps=turnover_cost_bps,
         )
 
         # Persist meta information for this run
@@ -1935,6 +2113,7 @@ def run_experiment(
                     f"Cs_from_MS_drop_top_frac={float(config.get('cs_drop_top_frac', 0.1))}"
                 ),
                 code_signature_hash=CODE_SIGNATURE,
+                estimator=str(config.get("estimator", "dealias")),
             )
         except Exception:
             # Best effort; do not fail the entire run
@@ -1989,9 +2168,58 @@ def main() -> None:
         help="Refinement mode for one-way a-grid search (default auto).",
     )
     parser.add_argument(
+        "--estimator",
+        type=str,
+        choices=["aliased", "dealias", "lw", "oas", "cc", "factor"],
+        default=None,
+        help="Primary covariance estimator to emphasise (default dealias).",
+    )
+    parser.add_argument(
+        "--factor-csv",
+        type=str,
+        default=None,
+        help="Optional CSV of factor returns (date-indexed) for observed-factor covariance.",
+    )
+    parser.add_argument(
+        "--minvar-ridge",
+        type=float,
+        default=None,
+        help="Ridge parameter for box-constrained min-variance weights (lambda^2).",
+    )
+    parser.add_argument(
+        "--minvar-box",
+        type=str,
+        default=None,
+        help="Per-asset weight bounds for min-var as 'lo,hi' (default 0,0.05).",
+    )
+    parser.add_argument(
+        "--turnover-cost",
+        type=float,
+        default=None,
+        help="One-way turnover cost in basis points applied per rebalance.",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=None,
+        help="Placeholder for backward compatibility; ignored.",
+    )
+    parser.add_argument(
+        "--assets-top",
+        type=int,
+        default=None,
+        help="Placeholder for backward compatibility; ignored.",
+    )
+    parser.add_argument(
+        "--stride-windows",
+        type=int,
+        default=None,
+        help="Placeholder for backward compatibility; ignored.",
+    )
+    parser.add_argument(
         "--sigma-ablation",
         action="store_true",
-        help="Run ±10% Cs perturbation ablation and persist diagnostics.",
+        help="Run ±10%% Cs perturbation ablation and persist diagnostics.",
     )
     parser.add_argument(
         "--crisis",
@@ -2141,7 +2369,12 @@ def main() -> None:
         precompute_panel=args.precompute_panel,
         cache_dir_override=args.cache_dir,
         resume_cache=args.resume,
-) 
+        estimator_override=args.estimator,
+        factor_csv_override=args.factor_csv,
+        minvar_ridge_override=args.minvar_ridge,
+        minvar_box_override=args.minvar_box,
+        turnover_cost_override=args.turnover_cost,
+)
 
 
 if __name__ == "__main__":

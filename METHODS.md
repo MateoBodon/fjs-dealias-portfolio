@@ -119,7 +119,11 @@ Given Σ̂₁, Σ̂₂ and accepted spikes { (μ̂_ℓ, v̂_ℓ) }, we form
 2) Weekly covariance Σ̂_weekly = J²·Σ̂₁(adj) + J·Σ̂₂.
 3) Forecast portfolio variance wᵀ Σ̂_weekly w and compare to realized weekly sums on the holdout.
 
-Baselines include aliased (no substitution), Ledoit–Wolf (shrinkage), and SCM (unbiased sample covariance when applicable).
+Baselines now include aliased (no substitution), Ledoit–Wolf, OAS shrinkage-to-identity, constant-correlation shrinkage, a simple SCM fallback, and the observed-factor covariance that regresses asset returns on provided factor portfolios (optionally with industry returns). All baselines operate on the identical weekly panel so risk forecasts remain comparable across methods.
+
+The minimum-variance portfolio uses a projected-gradient solver with ridge regularisation (`minvar_ridge_box`) and configurable box bounds (`--minvar-box`). Turnover is tracked window by window; when `--turnover-cost` is supplied the realised variance is debited by the one-way transaction cost before computing squared errors. Both the ridge and the turnover adjustments are reflected in `rolling_results.csv` and the per-window cache signature.
+
+Diebold–Mariano statistics complement the paired sign test: for each strategy we test de-aliased squared errors against each baseline (Ledoit–Wolf, OAS, constant-correlation, factor) using a Newey–West long-run variance estimate. The metrics summary (`metrics_summary.csv`) exposes the t-statistic and p-value columns (`dm_stat_*`, `dm_p_*`) so runs can be compared at a glance.
 
 ## Defaults and recommended knobs (equity)
 

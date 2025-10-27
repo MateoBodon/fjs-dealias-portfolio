@@ -30,6 +30,7 @@ class RunMeta:
     signed_a: bool | None
     sigma2_plugin: str | None
     code_signature: str | None
+    estimator: str | None
 
     # Outcomes
     detections_total: int
@@ -49,6 +50,7 @@ class RunMeta:
 _DEFAULT_SIGNATURE_TARGETS = [
     "src/fjs/dealias.py",
     "src/fjs/mp.py",
+    "src/fjs/balanced.py",
     "src/data/panels.py",
     "src/fjs/theta_solver.py",
     "src/meta/cache.py",
@@ -56,7 +58,7 @@ _DEFAULT_SIGNATURE_TARGETS = [
 ]
 
 _DEFAULT_SIGNATURE_GLOBS = [
-    "src/fjs/balanced*.py",
+    "src/fjs/balanced_*.py",
     "src/finance/*.py",
 ]
 
@@ -165,6 +167,7 @@ def write_run_meta(
     signed_a: bool | None = None,
     sigma2_plugin: str | None = None,
     code_signature_hash: str | None = None,
+    estimator: str | None = None,
 ) -> Path:
     """Create a run_meta.json artifact in ``output_dir``.
 
@@ -177,6 +180,8 @@ def write_run_meta(
         Optional resolved configuration mapping captured by the pipeline.
     delta, delta_frac, a_grid, signed_a, sigma2_plugin
         De-aliasing controls to record for reproducibility.
+    estimator
+        Covariance estimator name applied during evaluation, if any.
 
     Returns
     -------
@@ -222,6 +227,7 @@ def write_run_meta(
         signed_a=bool(signed_a) if signed_a is not None else None,
         sigma2_plugin=str(sigma2_plugin) if sigma2_plugin is not None else None,
         code_signature=str(code_signature_hash) if code_signature_hash else None,
+        estimator=str(estimator) if estimator is not None else None,
         detections_total=int(det_total),
         L=int(L_max) if L_max is not None else None,
         figure_sha256=pdf_hashes,

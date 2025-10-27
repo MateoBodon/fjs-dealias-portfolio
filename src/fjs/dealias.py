@@ -8,7 +8,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from fjs.balanced import mean_squares
-from fjs.mp import estimate_Cs_from_MS, mp_edge, t_vec
+from fjs.mp import admissible_m_from_lambda, estimate_Cs_from_MS, mp_edge, t_vec
 
 
 class DesignParams(TypedDict):
@@ -26,6 +26,10 @@ class Detection(TypedDict):
     components: list[float]
     eigvec: NDArray[np.float64]
     stability_margin: float
+    edge_margin: float | None
+    buffer_margin: float | None
+    t_values: list[float] | None
+    admissible_root: bool | None
     # Optional diagnostics
     z_plus: float | None
     threshold_main: float | None
@@ -53,6 +57,28 @@ class DealiasingResult:
     covariance: NDArray[np.float64]
     spectrum: NDArray[np.float64]
     iterations: int
+
+
+def _compute_admissible_root(
+    lam_val: float,
+    a_vec: np.ndarray,
+    C_for_mp: np.ndarray,
+    d_vec: np.ndarray,
+    n_total: float,
+    cs_vec: np.ndarray,
+) -> bool:
+    try:
+        admissible_m_from_lambda(
+            float(lam_val),
+            a_vec.tolist(),
+            C_for_mp.tolist(),
+            d_vec.tolist(),
+            n_total,
+            Cs=cs_vec,
+        )
+        return True
+    except Exception:
+        return False
 
 
 # fmt: off
@@ -505,7 +531,9 @@ def dealias_search(
                 break
             margin_main = lam_val - threshold_main
             if margin_main < 0.0:
+                _diag_inc("edge_buffer")
                 continue
+            edge_margin_raw = float(lam_val - z_plus)
             t_vals: np.ndarray | None
             t_target: float | None
             try:
@@ -525,16 +553,19 @@ def dealias_search(
                     t_target = float(t_vals[target_r])
             except (RuntimeError, ValueError):
                 if use_tvector:
+                    _diag_inc("other")
                     continue
                 t_vals = None
                 t_target = None
 
             if use_tvector:
                 if t_vals is None or t_target is None or abs(t_target) <= eps:
+                    _diag_inc("other")
                     continue
                 t_off = np.delete(t_vals, target_r)
                 # Stricter absolute off-component cap to match guardrail tests
                 if t_off.size and float(np.max(np.abs(t_off))) > float(eps):
+                    _diag_inc("other")
                     continue
 
             if t_target is None or abs(t_target) < 1e-12:
@@ -542,16 +573,13 @@ def dealias_search(
             else:
                 mu_hat = float(lam_val / t_target)
             if not np.isfinite(mu_hat):
-                _diag_inc("reject_nonfinite_mu")
+                _diag_inc("other")
                 continue
             if mu_hat <= 0.0:
-                _diag_inc("rectified_negative_mu")
                 mu_hat = abs(mu_hat)
                 if mu_hat <= 0.0:
+                    _diag_inc("neg_mu")
                     continue
-            if mu_hat <= 0.0:
-                _diag_inc("reject_negative_mu")
-                continue
 
             component_vals = [
                 float(eigvecs[:, idx].T @ component @ eigvecs[:, idx])
@@ -559,13 +587,13 @@ def dealias_search(
             ]
             target_component_val = component_vals[target_r]
             if target_component_val < 0.0:
-                _diag_inc("rectified_negative_energy")
+                target_component_val = abs(target_component_val)
             energy_magnitude = abs(target_component_val)
             if (
                 energy_min_abs is not None
                 and energy_magnitude <= float(energy_min_abs)
             ):
-                _diag_inc("reject_low_energy")
+                _diag_inc("energy_floor")
                 continue
             denom = max(energy_magnitude, 1e-12)
             worst_off = max(
@@ -577,14 +605,16 @@ def dealias_search(
                 off_component_leak_cap is not None
                 and off_component_ratio > float(off_component_leak_cap)
             ):
-                _diag_inc("reject_off_component_ratio")
+                _diag_inc("off_component_ratio")
                 continue
 
             margin_plus = _edge_margin(theta + eta_rad, lam_val)
             if margin_plus is None or margin_plus < 0.0:
+                _diag_inc("stability_fail")
                 continue
             margin_minus = _edge_margin(theta - eta_rad, lam_val)
             if margin_minus is None or margin_minus < 0.0:
+                _diag_inc("stability_fail")
                 continue
             stability_margin = float(min(margin_main, margin_plus, margin_minus))
 
@@ -666,6 +696,17 @@ def dealias_search(
                 target_index=int(target_r),
                 off_component_ratio=float(off_component_ratio),
                 pre_outlier_count=int(pre_outlier_count_angle),
+                edge_margin=edge_margin_raw,
+                buffer_margin=float(margin_main),
+                t_values=(None if t_vals is None else np.abs(t_vals).astype(float).tolist()),
+                admissible_root=_compute_admissible_root(
+                    lam_val,
+                    a_vec,
+                    C_for_mp,
+                    d_vec,
+                    n_total,
+                    cs_vec,
+                ),
             )
             detections.append(detection)
 

@@ -128,8 +128,50 @@ def summarize_run(output_dir: Path) -> int:
             f"|  n_assets: {n_assets if n_assets is not None else 'n/a'}  "
             f"|  windows: {n_windows}"
         )
+    detection_windows = int(summary.get("detection_windows", 0))
+    detection_rate = summary.get("detection_rate")
     if detections_total or L_max:
         print(f"Detections: total={detections_total}  |  L(max)={L_max}")
+    if n_windows:
+        frac = (
+            float(detection_windows) / float(n_windows)
+            if detection_rate is None or not np.isfinite(detection_rate)
+            else float(detection_rate)
+        )
+        pct = 100.0 * frac
+        print(
+            f"Detection rate: {detection_windows}/{n_windows} windows ({pct:.1f}%)"
+        )
+    edge_stats = summary.get("edge_margin_stats", {})
+    if isinstance(edge_stats, dict) and edge_stats.get("count"):
+        median = edge_stats.get("median")
+        iqr = edge_stats.get("iqr")
+        print(
+            "Edge margin (lambda_hat - z_plus): "
+            f"count={edge_stats.get('count')}  |  median={_fmt_float(median)}  |  IQR={_fmt_float(iqr)}"
+        )
+    reject_stats = summary.get("rejection_stats", {})
+    if isinstance(reject_stats, dict) and reject_stats:
+        total_reject = int(sum(int(v) for v in reject_stats.values()))
+        if total_reject > 0:
+            top_items = [
+                item
+                for item in sorted(
+                    ((str(k), int(v)) for k, v in reject_stats.items()),
+                    key=lambda pair: pair[1],
+                    reverse=True,
+                )
+                if item[1] > 0
+            ][:5]
+            if top_items:
+                print("Rejection reasons:")
+                for reason, count in top_items:
+                    pct = 100.0 * count / float(total_reject)
+                    print(f"  - {reason}: {count} ({pct:.1f}%)")
+            else:
+                print("Rejection reasons: none recorded")
+        else:
+            print("Rejection reasons: none recorded")
     if metrics_line:
         print(metrics_line)
     if run_meta and run_meta.get("figure_sha256"):
@@ -154,4 +196,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

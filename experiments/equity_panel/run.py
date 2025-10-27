@@ -569,6 +569,8 @@ def _run_single_period(
     strategy_success: dict[str, bool] = {name: False for name in strategies}
     records: list[dict[str, Any]] = []
     rejection_totals: dict[str, int] = {}
+    edge_margin_values: list[float] = []
+    detection_windows = 0
 
     baseline_name = "Equal Weight"
     baseline_alias_key = f"{baseline_name}::Aliased"
@@ -640,6 +642,12 @@ def _run_single_period(
         )
         for key, value in diag_local.items():
             rejection_totals[key] = rejection_totals.get(key, 0) + int(value)
+        if detections:
+            detection_windows += 1
+            for det in detections:
+                edge_val = det.get("edge_margin") if isinstance(det, dict) else None
+                if edge_val is not None and np.isfinite(edge_val):
+                    edge_margin_values.append(float(edge_val))
 
         # Optional per-window diagnostics: MP edge vs top eigenvalue across angles
         try:
@@ -723,12 +731,60 @@ def _run_single_period(
             det_sorted = sorted(
                 detections, key=lambda d: float(d["lambda_hat"]), reverse=True
             )
+            def _safe_num(value: Any) -> float | None:
+                try:
+                    val = float(value)
+                except (TypeError, ValueError):
+                    return None
+                return val if np.isfinite(val) else None
+
+            detail_payload: list[dict[str, Any]] = []
+            for det in det_sorted:
+                if not isinstance(det, dict):
+                    continue
+                t_vals = det.get("t_values") or []
+                detail_payload.append(
+                    {
+                        "lambda_hat": _safe_num(det.get("lambda_hat")),
+                        "mu_hat": _safe_num(det.get("mu_hat")),
+                        "z_plus": _safe_num(det.get("z_plus")),
+                        "edge_margin": _safe_num(det.get("edge_margin")),
+                        "buffer_margin": _safe_num(det.get("buffer_margin")),
+                        "t_values": [float(val) for val in t_vals],
+                        "admissible_root": bool(det.get("admissible_root", False)),
+                        "a": [float(val) for val in det.get("a", [])],
+                        "components": [
+                            float(val) for val in (det.get("components") or [])
+                        ],
+                    }
+                )
+            window_record["detections_detail"] = json.dumps(detail_payload)
+
             top = det_sorted[0]
             window_record["top_lambda_hat"] = float(top["lambda_hat"])
             window_record["top_mu_hat"] = float(top["mu_hat"])
             window_record["top_a0"] = float(top["a"][0])
             window_record["top_a1"] = float(top["a"][1])
             window_record["top_stability_margin"] = float(top["stability_margin"])
+            edge_margin_val = _safe_num(top.get("edge_margin"))
+            buffer_margin_val = _safe_num(top.get("buffer_margin"))
+            window_record["top_edge_margin"] = (
+                float(edge_margin_val)
+                if edge_margin_val is not None
+                else float("nan")
+            )
+            window_record["top_buffer_margin"] = (
+                float(buffer_margin_val)
+                if buffer_margin_val is not None
+                else float("nan")
+            )
+            top_t_vals = top.get("t_values") if isinstance(top, dict) else None
+            window_record["top_t_vector_abs"] = json.dumps(
+                [float(val) for val in (top_t_vals or [])]
+            )
+            window_record["top_admissible_root"] = bool(
+                top.get("admissible_root", False)
+            )
             # Optional diagnostics populated by dealias_search
             window_record["top_z_plus"] = (
                 float(top.get("z_plus", np.nan))
@@ -763,6 +819,11 @@ def _run_single_period(
             window_record["top_a0"] = float("nan")
             window_record["top_a1"] = float("nan")
             window_record["top_stability_margin"] = float("nan")
+            window_record["top_edge_margin"] = float("nan")
+            window_record["top_buffer_margin"] = float("nan")
+            window_record["top_t_vector_abs"] = json.dumps([])
+            window_record["top_admissible_root"] = False
+            window_record["detections_detail"] = "[]"
             window_record["top_z_plus"] = float("nan")
             window_record["top_threshold_main"] = float("nan")
             window_record["top_off_component_ratio"] = float("nan")
@@ -998,12 +1059,17 @@ def _run_single_period(
                 "top_a0",
                 "top_a1",
                 "top_stability_margin",
+                "top_edge_margin",
+                "top_buffer_margin",
+                "top_t_vector_abs",
+                "top_admissible_root",
                 "top_sigma1_eigval",
                 "top_z_plus",
                 "top_threshold_main",
                 "top_off_component_ratio",
                 "top_component_sigma1",
                 "top_component_sigma2",
+                "detections_detail",
             ]
         ].copy()
         det_summary.to_csv(output_dir / "detection_summary.csv", index=False)
@@ -1063,6 +1129,21 @@ def _run_single_period(
                     except Exception:
                         pass
 
+    for key in ("edge_buffer", "off_component_ratio", "stability_fail", "energy_floor", "neg_mu", "other"):
+        rejection_totals.setdefault(key, 0)
+
+    total_records = len(records)
+    detection_count = int(detection_windows)
+    detection_rate = float(detection_count / total_records) if total_records else 0.0
+    if edge_margin_values:
+        edge_array = np.asarray(edge_margin_values, dtype=np.float64)
+        edge_median = float(np.median(edge_array))
+        q1, q3 = np.percentile(edge_array, [25.0, 75.0])
+        edge_iqr = float(q3 - q1)
+    else:
+        edge_median = None
+        edge_iqr = None
+
     summary_payload: dict[str, Any] = {
         "label": label,
         "start_date": str(start_ts.date()),
@@ -1074,9 +1155,16 @@ def _run_single_period(
         "window_weeks": int(window_weeks),
         "horizon_weeks": int(horizon_weeks),
         "rolling_windows_evaluated": len(records),
+        "detection_windows": detection_count,
+        "detection_rate": detection_rate,
         "replicates_per_week": int(replicates),
         "n_assets": int(weekly_balanced.shape[1]),
         "strategies": {name: bool(strategy_success[name]) for name in strategies},
+        "edge_margin_stats": {
+            "count": len(edge_margin_values),
+            "median": edge_median,
+            "iqr": edge_iqr,
+        },
     }
     summary_payload["rejection_stats"] = rejection_totals
     with (output_dir / "summary.json").open("w", encoding="utf-8") as handle:

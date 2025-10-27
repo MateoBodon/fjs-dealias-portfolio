@@ -1,0 +1,40 @@
+{
+  "git_sha": "8523476c1d870cbb38c0ab43257b3a18a7707015",
+  "n_assets": 212,
+  "window_weeks": 12,
+  "horizon_weeks": 1,
+  "replicates_per_week": 5,
+  "delta": 0.0,
+  "delta_frac": 0.02,
+  "a_grid": 180,
+  "signed_a": true,
+  "sigma2_plugin": "Cs_from_MS_drop_top_frac=0.05",
+  "detections_total": 0,
+  "L": 0,
+  "figure_sha256": {
+    "E4_var95_coverage_error.pdf": "43457d78bd9c2f31c13693ff48be0968f87df0d64b8f70d0ed763bafded83b87",
+    "spectrum.pdf": "a42327c75b4c56346ab39ae39c45d05e11bcd081515ada271bf4adff551aa531",
+    "E3_variance_mse.pdf": "2b780d19293cd70a0ecfbce2837019cc7bcd15c7fc690cb2defd1c2fbdaf0269"
+  },
+  "config_snapshot": {
+    "data_path": "data/returns_daily.csv",
+    "start_date": "2015-01-01",
+    "end_date": "2024-12-31",
+    "window_weeks": 156,
+    "horizon_weeks": 4,
+    "output_dir": "experiments/equity_panel/outputs",
+    "dealias_delta_frac": 0.02,
+    "signed_a": true,
+    "cs_drop_top_frac": 0.05,
+    "cs_sensitivity_frac": 0.0,
+    "target_component": 0,
+    "a_grid": 180,
+    "dealias_eps": 0.03,
+    "off_component_leak_cap": 0.7,
+    "frequency": "daily",
+    "risk_free_rate": 0.02,
+    "dealias_delta": 0.0,
+    "stability_eta_deg": 0.4,
+    "energy_min_abs": 0.0
+  }
+}

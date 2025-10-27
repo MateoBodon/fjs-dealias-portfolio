@@ -1,0 +1,17 @@
+{
+  "label": "crisis_run",
+  "start_date": "2020-02-01",
+  "end_date": "2020-05-31",
+  "balanced_weeks": 13,
+  "dropped_weeks": 0,
+  "window_weeks": 12,
+  "horizon_weeks": 1,
+  "rolling_windows_evaluated": 1,
+  "replicates_per_week": 5,
+  "n_assets": 212,
+  "strategies": {
+    "Equal Weight": true,
+    "Min-Variance (box)": true,
+    "Min-Variance (long-only)": true
+  }
+}

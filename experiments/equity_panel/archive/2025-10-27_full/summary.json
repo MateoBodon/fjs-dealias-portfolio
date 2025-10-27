@@ -1,0 +1,22 @@
+{
+  "label": "full",
+  "start_date": "2015-01-01",
+  "end_date": "2024-12-31",
+  "balanced_weeks": 429,
+  "dropped_weeks": 0,
+  "window_weeks": 156,
+  "horizon_weeks": 4,
+  "rolling_windows_evaluated": 270,
+  "replicates_per_week": 5,
+  "n_assets": 164,
+  "strategies": {
+    "Equal Weight": true,
+    "Min-Variance (box)": false,
+    "Min-Variance (long-only)": false
+  },
+  "rejection_stats": {
+    "rectified_negative_mu": 270,
+    "rectified_negative_energy": 270,
+    "reject_off_component_ratio": 273
+  }
+}

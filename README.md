@@ -23,7 +23,7 @@ highlighting why both the aliased and de-aliased estimators must target the same
    ```bash
    make run-synth
    ```
-4. Reproduce the rolling equity experiment (2015–2024). This takes roughly 90 minutes on a laptop and rewrites `experiments/equity_panel/outputs/`:
+4. Reproduce the rolling equity experiment (2015–2024). This takes roughly 90 minutes on a laptop and rewrites `experiments/equity_panel/outputs/` (use `python tools/list_runs.py` afterwards to identify the run you just generated):
    ```bash
    make run-equity
    ```
@@ -43,7 +43,7 @@ highlighting why both the aliased and de-aliased estimators must target the same
   - Quick diagnostics on the WRDS daily returns:
     - `PYTHONPATH=src python scripts/data/summarize_returns.py`
     - Reports duplicate `(date, ticker)` pairs removed (currently 1,568 across 892,529 raw rows) and the span of the tidy matrix (`2010-01-05` to `2024-12-31`).
-  - The latest balanced panel used in the equity experiment covers 429 five-day weeks with 164 assets (see `experiments/equity_panel/outputs/summary.json`).
+  - The latest committed full run lives in `experiments/equity_panel/archive/2025-10-27_full/summary.json` (see `tools/list_runs.py` for the authoritative roster). It covers 429 five-day weeks with 164 assets. Fresh runs write to `experiments/equity_panel/outputs/` until you archive them via `experiments/equity_panel/LATEST.md`.
 
 ## Current status (June 2025)
 
@@ -53,7 +53,7 @@ highlighting why both the aliased and de-aliased estimators must target the same
 | 2015–2024 full (156+4 weeks) | 9 / 270 windows | 2.1×10⁻⁴ | 9.8 | −6.0×10⁻¹⁰ |
 
 - The detector now rectifies negative spikes before substitution and logs how many candidates fail each guardrail (`summary.json → rejection_stats`). In the full run we rectified every spike but only nine cleared the strict energy/leak criteria; the smoke slice demonstrates the intended high-coverage behaviour.
-- Equal-weight MSE still improves on the full run (≈6×10⁻¹⁰) and substantially on the smoke slice (≈1.45×10⁻⁷). Portfolio metrics update automatically when you refresh `experiments/equity_panel/outputs/`.
+- Equal-weight MSE still improves on the full run (≈6×10⁻¹⁰) and substantially on the smoke slice (≈1.45×10⁻⁷). Portfolio metrics update automatically when you refresh the active run directory (default `experiments/equity_panel/outputs/`).
 - Relaxing the guardrails (`off_component_leak_cap`, `energy_min_abs`) is the next lever to expand coverage while preserving sign safety. The rejection counters make it easy to quantify the effect of any change.
 
 ## Testing
@@ -122,11 +122,12 @@ The equity configuration file (`experiments/equity_panel/config.yaml`) mirrors t
   `figures/synthetic/bias_table.csv`, `figures/synthetic/summary.json` – tabulated S1–S5 metrics.
 
 - **Equity panel:**  
-  `experiments/equity_panel/outputs/spectrum.(png|pdf)` – weekly covariance spectrum.  
-  `experiments/equity_panel/outputs/E3_variance_mse.(png|pdf)` – variance forecast MSE comparison.  
-  `experiments/equity_panel/outputs/E4_var95_coverage_error.(png|pdf)` – VaR coverage error bars.  
-  `experiments/equity_panel/outputs/variance_forecasts.png`, `var95_forecasts.png` – forecast time‑series overlays (baseline vs de‑aliased).  
-  `experiments/equity_panel/outputs/rolling_results.csv`, `metrics_summary.csv`, `summary.json` – per‑window diagnostics (detections, forecasts, realised risk).
+-  `$RUN_DIR/spectrum.(png|pdf)` – weekly covariance spectrum.  
+-  `$RUN_DIR/E3_variance_mse.(png|pdf)` – variance forecast MSE comparison.  
+-  `$RUN_DIR/E4_var95_coverage_error.(png|pdf)` – VaR coverage error bars.  
+-  `$RUN_DIR/variance_forecasts.png`, `$RUN_DIR/var95_forecasts.png` – forecast time‑series overlays (baseline vs de‑aliased).  
+-  `$RUN_DIR/rolling_results.csv`, `$RUN_DIR/metrics_summary.csv`, `$RUN_DIR/summary.json` – per‑window diagnostics (detections, forecasts, realised risk).  
+  (In this repo `$RUN_DIR=experiments/equity_panel/archive/2025-10-27_full`.)
   A smoke-run variant (2015–2016) is produced locally when you switch the window to 52 weeks; it provides high-coverage diagnostics before launching the full 270-window run.
 
 Running `make run-synth` and `make run-equity` is sufficient to refresh the full gallery.
@@ -165,30 +166,31 @@ S5 — Multi-spike bias (aliased vs. de-aliased)
 
 - Each experiment writes a compact `run_meta.json` next to outputs with the git SHA, key de-aliasing controls (δ, δ_frac, a-grid, signed_a), and hashes of figure PDFs.
 - Use the summarizer to verify consistency and outcomes at a glance:
-  - `python3 tools/summarize_run.py experiments/equity_panel/outputs`
+  - `python3 tools/summarize_run.py experiments/equity_panel/archive/2025-10-27_full`
   - Prints period, n_assets, windows, detection totals, quick MSE comparison, and PDF hash counts.
+- To see every archived slice and its guardrails in one table, run `python tools/list_runs.py`. The script scans `experiments/equity_panel/outputs` and the `archive/` subdirectory so the latest artefacts stay easy to spot.
 
 #### Equity panel
 
 E1 — Weekly covariance spectrum (fit window)
 
-![Equity spectrum](experiments/equity_panel/outputs/spectrum.png)
+![Equity spectrum](experiments/equity_panel/archive/2025-10-27_full/spectrum.png)
 
 E3 — Variance forecast MSE
 
-![E3 variance MSE](experiments/equity_panel/outputs/E3_variance_mse.png)
+![E3 variance MSE](experiments/equity_panel/archive/2025-10-27_full/E3_variance_mse.png)
 
 E4 — 95% VaR coverage error
 
-![E4 VaR coverage error](experiments/equity_panel/outputs/E4_var95_coverage_error.png)
+![E4 VaR coverage error](experiments/equity_panel/archive/2025-10-27_full/E4_var95_coverage_error.png)
 
 <!-- E5 ablation visuals are not generated in this repo version; omitted from preview. -->
 
 Rolling overlays — variance and VaR forecasts (baseline vs. de-aliased)
 
-![Variance forecasts](experiments/equity_panel/outputs/variance_forecasts.png)
+![Variance forecasts](experiments/equity_panel/archive/2025-10-27_full/variance_forecasts.png)
 
-![VaR95 forecasts](experiments/equity_panel/outputs/var95_forecasts.png)
+![VaR95 forecasts](experiments/equity_panel/archive/2025-10-27_full/var95_forecasts.png)
 
 ## Matching targets across estimators
 
@@ -213,16 +215,31 @@ De-aliasing only substitutes selected spike magnitudes in $\widehat{\Sigma}_1$; 
 
 See `METHODS.md` for a compact technical summary of Algorithm 1, acceptance criteria, and the weekly aggregation identity.
 
-## Sharadar Data Path
+## WRDS / CRSP Data Path
 
-- Create `.env` from the template and set your key (do not commit secrets):
-  - `cp .env.example .env` then edit to set `NASDAQ_DATA_LINK_API_KEY=...`
-- Fetch daily adjusted prices (top‑p liquid universe by ADV on a pre‑period):
-  - `python scripts/data/fetch_sharadar.py --start 2010-01-01 --end 2025-06-30 --pre-start 2014-01-01 --pre-end 2018-12-31 --p 300 --min-price 5 --out data/prices_daily.csv`
-- Build daily returns and a balanced Week×Day panel (Mon–Fri, fixed universe):
-  - `python scripts/data/make_balanced_weekly.py --prices data/prices_daily.csv --returns-out data/returns_daily.csv --balanced-out data/returns_balanced_weekly.parquet --winsor 0.01`
-- Crisis run with detection‑friendly defaults:
-  - `make run-equity-crisis`
+- Install the WRDS client (`pip install wrds`) and provide credentials via environment variables or `~/.pgpass`. The scripts never read secrets from `.env`.
+- Pull daily CRSP prices and build a balanced Week×Day panel:
+  ```bash
+  python scripts/data/fetch_wrds_crsp.py \
+      --start 2010-01-01 --end 2025-06-30 \
+      --pre-start 2014-01-01 --pre-end 2018-12-31 \
+      --p 300 --min-price 5 \
+      --out data/prices_daily.csv
+
+  python scripts/data/make_balanced_weekly.py \
+      --prices data/prices_daily.csv \
+      --returns-out data/returns_daily.csv \
+      --balanced-out data/returns_balanced_weekly.parquet \
+      --winsor 0.01
+
+  PYTHONPATH=src python scripts/data/summarize_returns.py
+  ```
+  The summarizer reports duplicate removals, coverage dates, and the balanced-week counts used in `experiments/equity_panel`.
+- Crisis-only reruns use the same dataset; launch with detection-friendly defaults:
+  ```bash
+  make run-equity-crisis
+  ```
+- (Optional) The older Sharadar helper remains available (`scripts/data/fetch_sharadar.py`) if you prefer public Quandl data, but WRDS/CRSP is the calibrated path for the figures in this repo.
 
 ## Recommended equity knobs
 

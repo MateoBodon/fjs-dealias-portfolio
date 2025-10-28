@@ -3,7 +3,7 @@ gallery:
 runs:
   - root: experiments/equity_panel/outputs_smoke
     pattern: "oneway_J*_est-*"
-  - root: experiments/equity_panel/outputs_smoke
+  - root: experiments/equity_panel/outputs_nested_smoke
     pattern: "nested_J*_est-*"
   - root: experiments/equity_panel/outputs_crisis_2020
     pattern: "*"

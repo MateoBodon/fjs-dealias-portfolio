@@ -101,6 +101,23 @@ Kick off a crisis run with the same CLI switches shown for the smoke slice, but 
 
 All runs respect the smoke-sized window (`6+1` weeks) and the caching flags defined by the run policy.
 
+**Latest RC snapshot (28 Oct 2025)**
+
+| Regime | Detection rate | ΔMSE (EW) vs LW | ΔMSE (EW) vs OAS | DM highlights | Commentary |
+| --- | --- | --- | --- | --- | --- |
+| Smoke (oneway) | 4/4 windows (100%) | −3.6×10⁻⁷ | −3.7×10⁻⁷ | De vs Tyler: p=0.074 (non-sig) | De-aliased beats Aliased/SCM but shrinkage (LW/OAS) still halves MSE; Tyler M-estimator is unstable (ΔMSE≈+0.26). |
+| Nested (Year⊃Week) | 0/24 windows (0%) | n/a | n/a | n/a | Guardrails reject all candidates; consider relaxing `dealias_delta_frac` or lengthening the window if nested signal is needed. |
+| Crisis 2020 (Feb–May) | 5/5 windows (100%) | −2.0×10⁻⁵ | −2.1×10⁻⁵ | DM p≈6×10⁻⁵ (stat≈17) vs LW | De-aliased forecasts are materially worse than LW/OAS during the COVID drawdown; shrinkage dominates. |
+| Crisis 2022 (Sep–Nov) | 3/3 windows (100%) | −1.0×10⁻⁶ | −1.1×10⁻⁶ | De vs Tyler: p=0.014 (Tyler degraded) | Shrinkage again outperforms; de-aliased lifts variance modestly. |
+
+Artifacts:
+
+- RC tables/plots: `figures/rc/<run_tag>/{tables,plots}/` (e.g. `figures/rc/oneway_J5_solver-auto_est-oas_prep-none/plots/dm_pvals.png`).
+- Crisis tables mirror the tagged directories under `experiments/equity_panel/outputs_crisis_{2020,2022}/`.
+- Memo digest: `reports/memo.md` (updated by `make rc` and in CI artifacts).
+
+**Action items:** benchmark adjustments (winsorize/huber, alternative guardrails) are needed before relying on de-aliased forecasts in crisis regimes; shrinkage remains the safest baseline on the current smoke slice.
+
 ---
 
 ## 5. Smoke hygiene & summarisation

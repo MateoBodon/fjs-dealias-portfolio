@@ -95,7 +95,8 @@ def _extract_edge_stats(summary_df: pd.DataFrame) -> dict[str, float]:
         ("edge_margin_iqr", "edge_margin_stats.iqr"),
     ]:
         if column in summary_df:
-            stats[key] = float(summary_df[column].iloc[0])
+            value = summary_df[column].iloc[0]
+            stats[key] = float(value) if pd.notna(value) else float("nan")
     return stats
 
 

@@ -47,6 +47,7 @@ from finance.returns import balance_weeks
 from fjs.balanced import mean_squares
 from fjs.balanced_nested import mean_squares_nested
 from fjs.dealias import dealias_search
+from fjs.gating import count_isolated_outliers, select_top_k
 from fjs.mp import estimate_Cs_from_MS, mp_edge
 from fjs.spectra import plot_spectrum_with_edges, plot_spike_timeseries
 from plotting import (
@@ -64,6 +65,8 @@ from evaluation.evaluate import (
     plot_variance_error_panel as eval_plot_var_panel,
     plot_coverage_error as eval_plot_cov_err,
     build_metrics_summary as eval_build_metrics_summary,
+    qlike as eval_qlike,
+    alignment_diagnostics as eval_alignment_diag,
 )
 from data.panels import (
     BalancedPanel,
@@ -100,6 +103,12 @@ DEFAULT_CONFIG = {
     "minvar_ridge": 1e-3,
     "minvar_box": [0.0, 0.05],
     "turnover_cost_bps": 0.0,
+    "gating": {
+        "enable": True,
+        "q_max": 2,
+        "require_isolated": True,
+    },
+    "alignment_top_p": 3,
 }
 
 def _parse_box_bounds(bounds: Any) -> tuple[float, float]:
@@ -317,13 +326,18 @@ def _compute_nested_prepared(
     y_fit_raw: np.ndarray,
     expected_reps: int,
     code_signature_hash: str | None,
-) -> tuple[PreparedWindowStats | None, str | None]:
+) -> tuple[PreparedWindowStats | None, dict[str, Any] | None]:
     if expected_reps <= 1:
         raise ValueError("Nested design requires at least two replicates per cell.")
     if not fit_blocks:
         return (
             None,
-            "No weekly blocks available for nested preparation.",
+            {
+                "exit_reason": "No weekly blocks available for nested preparation.",
+                "years_kept": 0,
+                "weeks_common": 0,
+                "replicates": int(expected_reps),
+            },
         )
 
     date_arrays = [block.index.to_numpy(dtype="datetime64[ns]") for block in fit_blocks]
@@ -343,6 +357,8 @@ def _compute_nested_prepared(
             "idx": idx_array,
         }
     )
+    total_years = int(pd.unique(year_labels).size)
+    total_weeks = int(pd.unique(week_labels).size)
     counts = labels_df.groupby(["year", "week"])["idx"].transform("count")
     labels_df["valid_reps"] = counts == int(expected_reps)
     labels_valid = labels_df[labels_df["valid_reps"]]
@@ -350,8 +366,16 @@ def _compute_nested_prepared(
         max_count = int(counts.max()) if counts.size else 0
         return (
             None,
-            f"No (year, week) cells matched expected replicates={expected_reps} "
-            f"(observed max {max_count}).",
+            {
+                "exit_reason": (
+                    f"No (year, week) cells matched expected replicates={expected_reps} "
+                    f"(observed max {max_count})."
+                ),
+                "years_kept": total_years,
+                "weeks_common": 0,
+                "replicates": int(expected_reps),
+                "replicates_observed": max_count,
+            },
         )
 
     week_sets_series = (
@@ -362,20 +386,35 @@ def _compute_nested_prepared(
     if week_sets_series.empty:
         return (
             None,
-            "No ISO weeks remain after filtering to complete replicate cells.",
+            {
+                "exit_reason": "No ISO weeks remain after filtering to complete replicate cells.",
+                "years_kept": int(total_years),
+                "weeks_common": 0,
+                "replicates": int(expected_reps),
+            },
         )
     common_weeks = set.intersection(*week_sets_series.tolist())
     if not common_weeks:
         return (
             None,
-            "Years share no common ISO weeks after replicate filtering.",
+            {
+                "exit_reason": "Years share no common ISO weeks after replicate filtering.",
+                "years_kept": int(len(week_sets_series)),
+                "weeks_common": 0,
+                "replicates": int(expected_reps),
+            },
         )
 
     labels_common = labels_valid[labels_valid["week"].isin(common_weeks)].copy()
     if labels_common.empty:
         return (
             None,
-            "Nested labels empty after intersecting common ISO weeks.",
+            {
+                "exit_reason": "Nested labels empty after intersecting common ISO weeks.",
+                "years_kept": int(len(week_sets_series)),
+                "weeks_common": int(len(common_weeks)),
+                "replicates": int(expected_reps),
+            },
         )
     labels_common.sort_values("idx", inplace=True)
 
@@ -386,8 +425,14 @@ def _compute_nested_prepared(
         observed = sorted({int(val) for val in counts_cells.tolist()})
         return (
             None,
-            "Replicate mismatch after filtering "
-            f"(expected {expected_reps}, observed {observed}).",
+            {
+                "exit_reason": "Replicate mismatch after filtering "
+                f"(expected {expected_reps}, observed {observed}).",
+                "years_kept": int(labels_common["year"].nunique()),
+                "weeks_common": int(len(common_weeks)),
+                "replicates": int(expected_reps),
+                "replicates_observed": int(max(observed)) if observed else 0,
+            },
         )
 
     counts_per_year = labels_common.groupby("year")["week"].nunique()
@@ -396,20 +441,35 @@ def _compute_nested_prepared(
         max_weeks = int(counts_per_year.max()) if not counts_per_year.empty else 0
         return (
             None,
-            "Common ISO week count differs by year "
-            f"(min {min_weeks}, max {max_weeks}).",
+            {
+                "exit_reason": "Common ISO week count differs by year "
+                f"(min {min_weeks}, max {max_weeks}).",
+                "years_kept": int(counts_per_year.index.size),
+                "weeks_common": int(max_weeks),
+                "replicates": int(expected_reps),
+            },
         )
     weeks_per_year = int(counts_per_year.iloc[0])
     if weeks_per_year < 2:
         return (
             None,
-            f"Require at least 2 common ISO weeks per year; found {weeks_per_year}.",
+            {
+                "exit_reason": f"Require at least 2 common ISO weeks per year; found {weeks_per_year}.",
+                "years_kept": int(counts_per_year.index.size),
+                "weeks_common": int(weeks_per_year),
+                "replicates": int(expected_reps),
+            },
         )
     unique_years_common = labels_common["year"].nunique()
     if unique_years_common < 2:
         return (
             None,
-            f"Nested detection requires at least 2 years; found {unique_years_common}.",
+            {
+                "exit_reason": f"Nested detection requires at least 2 years; found {unique_years_common}.",
+                "years_kept": int(unique_years_common),
+                "weeks_common": int(weeks_per_year),
+                "replicates": int(expected_reps),
+            },
         )
 
     indices_final = labels_common["idx"].to_numpy(dtype=np.intp)
@@ -427,7 +487,12 @@ def _compute_nested_prepared(
     except ValueError as exc:
         return (
             None,
-            f"mean_squares_nested failure: {exc}",
+            {
+                "exit_reason": f"mean_squares_nested failure: {exc}",
+                "years_kept": int(unique_years_common),
+                "weeks_common": int(weeks_per_year),
+                "replicates": int(expected_reps),
+            },
         )
 
     ms1 = ms1.astype(np.float64)
@@ -511,7 +576,7 @@ def _prepare_window_stats(
     *,
     cached_stats: dict[str, Any] | None = None,
     nested_replicates: int | None = None,
-) -> tuple[PreparedWindowStats | None, str | None]:
+) -> tuple[PreparedWindowStats | None, dict[str, Any] | None]:
     y_fit_raw = np.vstack([block.to_numpy(dtype=np.float64) for block in fit_blocks])
     expected_nested = (
         int(nested_replicates)
@@ -542,6 +607,12 @@ def load_config(path: Path | str) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError("Configuration file must contain a mapping.")
     merged = DEFAULT_CONFIG | data
+    default_gating = DEFAULT_CONFIG.get("gating", {}) or {}
+    user_gating = data.get("gating") or {}
+    if not isinstance(user_gating, dict):
+        raise ValueError("gating configuration must be a mapping when provided.")
+    # Ensure a copy so per-run mutation doesn't affect defaults
+    merged["gating"] = {**default_gating, **user_gating}
     return merged
 
 
@@ -966,6 +1037,7 @@ def _run_single_period(
     minvar_box: tuple[float, float] = (0.0, 0.05),
     turnover_cost_bps: float = 0.0,
     preprocess_flags: Mapping[str, str] | None = None,
+    gating: Mapping[str, Any] | None = None,
 ) -> None:
     """Execute the rolling evaluation for a single date range."""
 
@@ -1085,6 +1157,7 @@ def _run_single_period(
     }
 
     errors_by_combo: dict[str, dict[int, float]] = defaultdict(dict)
+    qlike_by_combo: dict[str, dict[int, float]] = defaultdict(dict)
     var95_by_combo: dict[str, list[float]] = defaultdict(list)
     realised_returns_by_combo: dict[str, list[float]] = defaultdict(list)
     realized_by_combo_raw: dict[str, dict[int, float]] = defaultdict(dict)
@@ -1098,7 +1171,26 @@ def _run_single_period(
     rejection_totals: dict[str, int] = {}
     edge_margin_values: list[float] = []
     detection_windows = 0
+    substituted_windows = 0
+    gating_cfg = dict(gating or {})
+    gating_enabled = bool(gating_cfg.get("enable", True))
+    try:
+        gating_q_max = int(gating_cfg.get("q_max", 0) or 0)
+    except (TypeError, ValueError):
+        gating_q_max = 0
+    if gating_q_max < 0:
+        gating_q_max = 0
+    gating_require_isolated = bool(gating_cfg.get("require_isolated", True))
+    gating_skip_reasons: dict[str, int] = {}
+    gating_discard_log: list[dict[str, Any]] = []
+    try:
+        alignment_top_p = int(config.get("alignment_top_p", 3))
+    except (TypeError, ValueError):
+        alignment_top_p = 3
+    if alignment_top_p <= 0:
+        alignment_top_p = 3
     nested_skip_reasons: dict[str, int] = {}
+    nested_skip_detail_map: dict[str, dict[str, Any]] = {}
 
     baseline_name = "Equal Weight"
     baseline_alias_key = f"{baseline_name}::Aliased"
@@ -1161,7 +1253,7 @@ def _run_single_period(
             if resume_cache:
                 cached_stats = load_window(window_cache_dir, cache_key) or None
 
-        prepared, prep_reason = _prepare_window_stats(
+        prepared, prep_info = _prepare_window_stats(
             design_mode,
             fit_blocks,
             replicates,
@@ -1169,10 +1261,31 @@ def _run_single_period(
             nested_replicates=nested_reps_value,
         )
         if prepared is None:
-            if design_mode == "nested" and prep_reason:
-                nested_skip_reasons[prep_reason] = (
-                    nested_skip_reasons.get(prep_reason, 0) + 1
+            if design_mode == "nested" and prep_info:
+                reason_value = str(prep_info.get("exit_reason", "unknown"))
+                nested_skip_reasons[reason_value] = (
+                    nested_skip_reasons.get(reason_value, 0) + 1
                 )
+                detail = nested_skip_detail_map.setdefault(
+                    reason_value,
+                    {
+                        "exit_reason": reason_value,
+                        "windows": 0,
+                        "years_kept": 0,
+                        "weeks_common": 0,
+                        "replicates": int(prep_info.get("replicates", nested_reps_value)),
+                    },
+                )
+                detail["windows"] = int(detail.get("windows", 0)) + 1
+                years_val = int(prep_info.get("years_kept", 0))
+                weeks_val = int(prep_info.get("weeks_common", 0))
+                detail["years_kept"] = max(int(detail.get("years_kept", 0)), years_val)
+                detail["weeks_common"] = max(int(detail.get("weeks_common", 0)), weeks_val)
+                if "replicates_observed" in prep_info:
+                    detail["replicates_observed"] = max(
+                        int(prep_info.get("replicates_observed", 0)),
+                        int(detail.get("replicates_observed", 0)),
+                    )
             continue
 
         y_fit_daily = prepared.y_fit
@@ -1220,8 +1333,87 @@ def _run_single_period(
         )
         for key, value in diag_local.items():
             rejection_totals[key] = rejection_totals.get(key, 0) + int(value)
+        detections = list(detections or [])
+        window_skip_reason: str | None = None
+        gate_discard_detail: list[dict[str, float]] = []
+        isolated_count_raw = count_isolated_outliers(detections, None, None)
+
+        if gating_enabled and detections:
+            candidate_pool: list[dict[str, Any]] = [
+                det for det in detections if isinstance(det, dict)
+            ]
+            if gating_require_isolated:
+                if isolated_count_raw == 0:
+                    window_skip_reason = "no_isolated_spike"
+                    gating_skip_reasons[window_skip_reason] = (
+                        gating_skip_reasons.get(window_skip_reason, 0) + 1
+                    )
+                    candidate_pool = []
+                else:
+                    filtered_pool: list[dict[str, Any]] = []
+                    for det in candidate_pool:
+                        try:
+                            pre_val = int(det.get("pre_outlier_count", 0))
+                        except (TypeError, ValueError):
+                            pre_val = 0
+                        if pre_val == 1:
+                            filtered_pool.append(det)
+                    if filtered_pool:
+                        candidate_pool = filtered_pool
+            if candidate_pool and gating_q_max > 0 and len(candidate_pool) > gating_q_max:
+                selected, discarded = select_top_k(candidate_pool, gating_q_max)
+                candidate_pool = list(selected)
+                if discarded:
+                    gate_discard_detail = []
+                    for det in discarded:
+                        if not isinstance(det, dict):
+                            continue
+                        lambda_val = det.get("lambda_hat")
+                        score_val = det.get("target_energy", 0.0)
+                        try:
+                            energy_val = float(det.get("target_energy", 0.0))
+                        except (TypeError, ValueError):
+                            energy_val = 0.0
+                        try:
+                            stability_val = float(det.get("stability_margin", 0.0))
+                        except (TypeError, ValueError):
+                            stability_val = 0.0
+                        if not np.isfinite(energy_val):
+                            energy_val = 0.0
+                        if not np.isfinite(stability_val):
+                            stability_val = 0.0
+                        score_val = max(energy_val, 0.0) * max(stability_val, 0.0)
+                        gate_discard_detail.append(
+                            {
+                                "lambda_hat": (
+                                    float(lambda_val)
+                                    if isinstance(lambda_val, (float, int, np.floating, np.integer))
+                                    else float("nan")
+                                ),
+                                "score": float(score_val),
+                            }
+                        )
+                    gating_discard_log.append(
+                        {"window": int(window_idx), "discarded": gate_discard_detail}
+                    )
+                    lambda_str = ", ".join(
+                        f"{item['lambda_hat']:.4f}"
+                        for item in gate_discard_detail
+                        if np.isfinite(item.get("lambda_hat", float("nan")))
+                    )
+                    print(
+                        f"[gate] Window {window_idx}: discarded {len(gate_discard_detail)} detection(s) "
+                        f"(lambda={lambda_str or 'n/a'})",
+                        file=sys.stderr,
+                    )
+            if window_skip_reason:
+                detections = []
+            else:
+                detections = candidate_pool
+
         if detections:
             detection_windows += 1
+            substituted_windows += 1
             for det in detections:
                 edge_val = det.get("edge_margin") if isinstance(det, dict) else None
                 if edge_val is not None and np.isfinite(edge_val):
@@ -1308,7 +1500,12 @@ def _run_single_period(
             "hold_start": hold.index[0],
             "hold_end": hold.index[-1],
             "n_detections": len(detections),
+            "skip_reason": window_skip_reason or "",
+            "isolated_spikes": int(isolated_count_raw),
+            "gate_discarded_count": len(gate_discard_detail),
         }
+        if gate_discard_detail:
+            window_record["gate_discarded"] = json.dumps(gate_discard_detail)
         for strategy_meta in strategies.values():
             prefix = strategy_meta["prefix"]
             window_record[f"{prefix}_turnover"] = float("nan")
@@ -1382,6 +1579,22 @@ def _run_single_period(
             window_record["top_admissible_root"] = bool(
                 top.get("admissible_root", False)
             )
+            alignment_angle = float("nan")
+            energy_mu = float("nan")
+            eigvec_val = top.get("eigvec")
+            if isinstance(eigvec_val, np.ndarray):
+                try:
+                    angle_deg, energy_val = eval_alignment_diag(
+                        cov_fit,
+                        np.asarray(eigvec_val, dtype=np.float64),
+                        top_p=alignment_top_p,
+                    )
+                    alignment_angle = float(angle_deg)
+                    energy_mu = float(energy_val)
+                except Exception:
+                    pass
+            window_record["angle_min_deg"] = alignment_angle
+            window_record["energy_mu"] = energy_mu
             # Optional diagnostics populated by dealias_search
             window_record["top_z_plus"] = (
                 float(top.get("z_plus", np.nan))
@@ -1426,6 +1639,8 @@ def _run_single_period(
             window_record["top_off_component_ratio"] = float("nan")
             window_record["top_component_sigma1"] = float("nan")
             window_record["top_component_sigma2"] = float("nan")
+            window_record["angle_min_deg"] = float("nan")
+            window_record["energy_mu"] = float("nan")
 
         # Always record the top aliased Σ1 eigenvalue (for E2-alt)
         try:
@@ -1613,9 +1828,17 @@ def _run_single_period(
                     realised_adjusted = base_value
                 if np.isfinite(forecast_value) and np.isfinite(realised_adjusted):
                     error_value = float((forecast_value - realised_adjusted) ** 2)
+                    qlike_val = float(
+                        eval_qlike(
+                            [float(forecast_value)],
+                            [float(realised_adjusted)],
+                        )[0]
+                    )
                 else:
                     error_value = float("nan")
+                    qlike_val = float("nan")
                 errors_by_combo[combo_key][window_idx] = error_value
+                qlike_by_combo[combo_key][window_idx] = qlike_val
                 var95 = -1.65 * np.sqrt(max(forecast_value, 0.0))
                 var95_by_combo[combo_key].extend([var95] * hold_returns.size)
                 realised_returns_by_combo[combo_key].extend(hold_returns.tolist())
@@ -1728,6 +1951,7 @@ def _run_single_period(
     metrics_summary = eval_build_metrics_summary(
         errors_by_combo=errors_by_combo,
         coverage_errors=coverage_errors,
+        qlike_by_combo=qlike_by_combo,
         label=label,
         block_len=12,
         n_boot=n_boot,
@@ -1863,6 +2087,7 @@ def _run_single_period(
         "estimator": estimator_mode,
         "preprocess_flags": dict(preprocess_flags or {}),
         "solver_used": sorted(solver_usage),
+        "alignment_top_p": int(alignment_top_p),
     }
     if crisis_label is not None:
         summary_payload["crisis_label"] = str(crisis_label)
@@ -1876,7 +2101,44 @@ def _run_single_period(
                     nested_skip_reasons.items(), key=lambda item: (-item[1], item[0])
                 )
             ]
+        if nested_skip_detail_map:
+            summary_payload["nested_skip_details"] = [
+                {
+                    "exit_reason": detail.get("exit_reason", reason_key),
+                    "windows": int(detail.get("windows", 0)),
+                    "years_kept": int(detail.get("years_kept", 0)),
+                    "weeks_common": int(detail.get("weeks_common", 0)),
+                    "replicates": int(detail.get("replicates", nested_reps_value)),
+                    **(
+                        {"replicates_observed": int(detail.get("replicates_observed", 0))}
+                        if "replicates_observed" in detail
+                        else {}
+                    ),
+                }
+                for reason_key, detail in sorted(
+                    nested_skip_detail_map.items(),
+                    key=lambda item: (-int(item[1].get("windows", 0)), item[0]),
+                )
+            ]
     summary_payload["rejection_stats"] = rejection_totals
+    gating_summary: dict[str, Any] = {
+        "enabled": bool(gating_enabled),
+        "q_max": int(gating_q_max),
+        "require_isolated": bool(gating_require_isolated),
+        "windows_substituted": int(substituted_windows),
+    }
+    if gating_skip_reasons:
+        gating_summary["skip_reasons"] = [
+            {"reason": reason, "count": int(count)}
+            for reason, count in sorted(
+                gating_skip_reasons.items(), key=lambda item: (-item[1], item[0])
+            )
+        ]
+        gating_summary["skip_windows"] = int(sum(gating_skip_reasons.values()))
+    if gating_discard_log:
+        total_discarded = sum(len(entry.get("discarded", [])) for entry in gating_discard_log)
+        gating_summary["discarded_total"] = int(total_discarded)
+    summary_payload["gating"] = gating_summary
     with (output_dir / "summary.json").open("w", encoding="utf-8") as handle:
         json.dump(summary_payload, handle, indent=2)
 
@@ -2315,6 +2577,7 @@ def run_experiment(
                 minvar_box=(float(minvar_lo), float(minvar_hi)),
                 turnover_cost_bps=turnover_cost_bps,
                 preprocess_flags=preprocess_flags,
+                gating=cast(Mapping[str, Any] | None, config.get("gating")),
             )
 
             try:

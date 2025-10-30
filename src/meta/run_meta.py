@@ -33,6 +33,7 @@ class RunMeta:
     estimator: str | None
     design: str | None
     nested_replicates: int | None
+    edge_mode: str | None
     solver_used: list[str] | None
     label: str | None
     crisis_label: str | None
@@ -180,6 +181,7 @@ def write_run_meta(
     label: str | None = None,
     crisis_label: str | None = None,
     solver_used: Iterable[str] | None = None,
+    edge_mode: str | None = None,
 ) -> Path:
     """Create a run_meta.json artifact in ``output_dir``.
 
@@ -275,6 +277,13 @@ def write_run_meta(
     if run_preprocess_flags is not None and not run_preprocess_flags:
         run_preprocess_flags = None
 
+    summary_edge_mode = summary.get("edge_mode")
+    edge_mode_value: str | None = None
+    if isinstance(summary_edge_mode, str) and summary_edge_mode:
+        edge_mode_value = summary_edge_mode
+    if edge_mode is not None:
+        edge_mode_value = str(edge_mode)
+
     meta = RunMeta(
         git_sha=_git_sha(),
         n_assets=n_assets,
@@ -290,6 +299,7 @@ def write_run_meta(
         estimator=str(estimator) if estimator is not None else None,
         design=summary_design,
         nested_replicates=int(summary_nested) if summary_nested is not None else None,
+        edge_mode=edge_mode_value,
         solver_used=solver_candidates,
         label=str(summary_label) if summary_label is not None else None,
         crisis_label=str(summary_crisis) if summary_crisis is not None else None,

@@ -465,8 +465,16 @@ def build_memo(config_path: Path) -> Path:
             if not pd.isna(no_iso_share) and no_iso_share >= 0.2
             else ""
         )
+        nested_scope_payload = summary_json.get("nested_scope") if isinstance(summary_json, dict) else {}
+        nested_scope_fragment = ""
+        if isinstance(nested_scope_payload, dict) and nested_scope_payload.get("de_scoped_equity"):
+            nested_scope_fragment = " — nested scope de-scoped (no isolated spikes)"
+        edge_mode_value = ""
+        if isinstance(summary_json, dict) and summary_json.get("edge_mode"):
+            edge_mode_value = str(summary_json.get("edge_mode"))
+        edge_mode_fragment = f" [edge={edge_mode_value}]" if edge_mode_value else ""
         run_lines.append(
-            f"- **{run_label}** (design={design}, J={nested}, period={start_date} → {end_date}{alignment_fragment}{no_iso_fragment}) — estimators: {', '.join(estimators) if estimators else 'n/a'}"
+            f"- **{run_label}** (design={design}, J={nested}, period={start_date} → {end_date}{alignment_fragment}{no_iso_fragment}){nested_scope_fragment}{edge_mode_fragment} — estimators: {', '.join(estimators) if estimators else 'n/a'}"
         )
 
         rejection_records.extend(_collect_rejection_records(summary_df, run_path.name))

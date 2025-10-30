@@ -82,6 +82,8 @@ def table_estimators_panel(df: pd.DataFrame, *, root: Path = DEFAULT_FIG_ROOT) -
 
         edge_med = group["edge_margin_median"].dropna() if "edge_margin_median" in group else pd.Series(dtype=float)
         edge_iqr = group["edge_margin_iqr"].dropna() if "edge_margin_iqr" in group else pd.Series(dtype=float)
+        edge_mode_series = group["edge_mode"].dropna() if "edge_mode" in group else pd.Series(dtype=object)
+        edge_mode_value = str(edge_mode_series.iloc[0]) if not edge_mode_series.empty else ""
 
         substitution_series = (
             group["substitution_fraction"].dropna()
@@ -98,6 +100,10 @@ def table_estimators_panel(df: pd.DataFrame, *, root: Path = DEFAULT_FIG_ROOT) -
             "dm_p_mv_qlike": np.nan,
             "mean_qlike": np.nan,
             "substitution_fraction": float(substitution_series.iloc[0]) if not substitution_series.empty else np.nan,
+            "edge_mode": edge_mode_value,
+            "var_kupiec_p": np.nan,
+            "var_independence_p": np.nan,
+            "es_shortfall_p": np.nan,
         }
 
         if ew_row is not None:
@@ -110,6 +116,9 @@ def table_estimators_panel(df: pd.DataFrame, *, root: Path = DEFAULT_FIG_ROOT) -
                     "n_windows": int(ew_row.get("n_windows", 0)),
                     "dm_p_ew_qlike": float(ew_row.get("dm_p_qlike", np.nan)),
                     "mean_qlike": float(ew_row.get("mean_qlike", np.nan)),
+                    "var_kupiec_p": float(ew_row.get("var_kupiec_p", np.nan)),
+                    "var_independence_p": float(ew_row.get("var_independence_p", np.nan)),
+                    "es_shortfall_p": float(ew_row.get("es_shortfall_p", np.nan)),
                 }
             )
         if mv_row is not None:

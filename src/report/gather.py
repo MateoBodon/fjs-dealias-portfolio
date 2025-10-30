@@ -17,6 +17,8 @@ DM_SUFFIXES = {
     "OAS": "oas",
     "Constant-Correlation": "cc",
     "Factor": "factor",
+    "Factor-Observed": "factor_obs",
+    "POET-lite": "poet",
     "Tyler-Shrink": "tyler",
     "Aliased": "alias",
     "SCM": "scm",
@@ -169,6 +171,11 @@ def collect_estimator_panel(run_paths: Sequence[Path | str]) -> pd.DataFrame:
             design_series = summary["design"].dropna()
             if not design_series.empty:
                 design_value = str(design_series.iloc[0])
+        edge_mode_value = ""
+        if not summary.empty and "edge_mode" in summary:
+            edge_series = summary["edge_mode"].dropna()
+            if not edge_series.empty:
+                edge_mode_value = str(edge_series.iloc[0])
         windows_evaluated = float("nan")
         if not summary.empty and "rolling_windows_evaluated" in summary:
             window_series = summary["rolling_windows_evaluated"].dropna()
@@ -255,12 +262,16 @@ def collect_estimator_panel(run_paths: Sequence[Path | str]) -> pd.DataFrame:
                     "dm_stat": dm_stat,
                     "dm_p_qlike": dm_p_qlike,
                     "dm_stat_qlike": dm_stat_qlike,
+                    "var_kupiec_p": float(row.get("var_kupiec_p", float("nan"))),
+                    "var_independence_p": float(row.get("var_independence_p", float("nan"))),
+                    "es_shortfall_p": float(row.get("es_shortfall_p", float("nan"))),
                     "n_windows": int(row.get("n_windows", 0)),
                     "detection_rate": detection_rate,
                     **edge_stats,
                     "ci_lo": ci_lo,
                     "ci_hi": ci_hi,
                     "design": design_value,
+                    "edge_mode": edge_mode_value,
                     "rolling_windows_evaluated": windows_evaluated,
                     "substitution_fraction": substitution_fraction,
                     "skip_no_isolated_share": skip_no_iso_share,
@@ -282,11 +293,15 @@ def collect_estimator_panel(run_paths: Sequence[Path | str]) -> pd.DataFrame:
                 "dm_stat",
                 "dm_p_qlike",
                 "dm_stat_qlike",
+                "var_kupiec_p",
+                "var_independence_p",
+                "es_shortfall_p",
                 "n_windows",
                 "detection_rate",
                 "edge_margin_count",
                 "edge_margin_median",
                 "edge_margin_iqr",
+                "edge_mode",
                 "substitution_fraction",
                 "skip_no_isolated_share",
             ]

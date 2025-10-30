@@ -11,6 +11,7 @@ This memo synthesizes smoke and crisis release-candidate runs, highlighting esti
 - **full_oneway_J5_solver-auto_est-tyler_shrink_prep-none** (design=oneway, J=5, period=2023-01-01 → 2023-03-31) — estimators: Aliased, Constant-Correlation, Ledoit-Wolf, OAS, SCM, Tyler-Shrink
 - **full_nested_J5_solver-auto_est-dealias_prep-none** (design=nested, J=5, period=2022-01-01 → 2023-12-31) — estimators: Aliased, Constant-Correlation, Ledoit-Wolf, OAS, SCM, Tyler-Shrink
 - **full_oneway_J5_solver-auto_est-dealias_prep-none** (design=oneway, J=5, period=2020-02-01 → 2020-05-31) — estimators: Aliased, Constant-Correlation, Ledoit-Wolf, OAS, SCM, Tyler-Shrink
+- **crisis_20200215_20200531** (design=oneway, J=5, period=2020-02-15 → 2020-05-31) — estimators: Aliased, Constant-Correlation, Ledoit-Wolf, OAS, SCM, Tyler-Shrink
 - **full_oneway_J5_solver-auto_est-dealias_prep-none** (design=oneway, J=5, period=2022-09-01 → 2022-11-30) — estimators: Aliased, Constant-Correlation, Ledoit-Wolf, OAS, SCM, Tyler-Shrink
 
 ## Key Results
@@ -18,12 +19,12 @@ Values are measured versus the de-aliased baseline; negative Delta MSE indicates
 
 | run | crisis_label | estimator | detection_rate | delta_mse_ew | CI_EW | DM_p_EW | delta_mse_mv | CI_MV | DM_p_MV | edge_margin_median | edge_margin_IQR | n_windows |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| nested_J5_solver-auto_est-dealias_prep-none | full_nested_J5_solver-auto_est-dealias_prep-none | Aliased | 0.0% | 0.00e+00 | [-0.00e+00, -0.00e+00] | n/a | 0.00e+00 | [-0.00e+00, -0.00e+00] | n/a | n/a | n/a | 24 |
-| nested_J5_solver-auto_est-dealias_prep-none | full_nested_J5_solver-auto_est-dealias_prep-none | Constant-Correlation | 0.0% | 1.85e-07 | n/a | n/a | 4.03e-12 | n/a | n/a | n/a | n/a | 24 |
-| nested_J5_solver-auto_est-dealias_prep-none | full_nested_J5_solver-auto_est-dealias_prep-none | Ledoit-Wolf | 0.0% | 3.67e-09 | [-7.40e-08, 1.57e-07] | n/a | 5.57e-08 | [5.17e-08, 5.96e-08] | n/a | n/a | n/a | 24 |
-| nested_J5_solver-auto_est-dealias_prep-none | full_nested_J5_solver-auto_est-dealias_prep-none | OAS | 0.0% | 2.07e-08 | n/a | n/a | 4.13e-08 | n/a | n/a | n/a | n/a | 24 |
-| nested_J5_solver-auto_est-dealias_prep-none | full_nested_J5_solver-auto_est-dealias_prep-none | SCM | 0.0% | 1.53e-07 | n/a | n/a | -4.28e-13 | n/a | n/a | n/a | n/a | 24 |
-| nested_J5_solver-auto_est-dealias_prep-none | full_nested_J5_solver-auto_est-dealias_prep-none | Tyler-Shrink | 0.0% | 0.129 | n/a | 0.0e+00 | 2.59e-06 | n/a | n/a | n/a | n/a | 24 |
+| nested_J5_solver-auto_est-dealias_prep-none | full_nested_J5_solver-auto_est-dealias_prep-none | Aliased | 0.0% (no accepted detections; check guardrails) | 0.00e+00 | [-0.00e+00, -0.00e+00] | n/a | 0.00e+00 | [-0.00e+00, -0.00e+00] | n/a | n/a | n/a | 24 |
+| nested_J5_solver-auto_est-dealias_prep-none | full_nested_J5_solver-auto_est-dealias_prep-none | Constant-Correlation | 0.0% (no accepted detections; check guardrails) | 1.85e-07 | n/a | n/a | 4.03e-12 | n/a | n/a | n/a | n/a | 24 |
+| nested_J5_solver-auto_est-dealias_prep-none | full_nested_J5_solver-auto_est-dealias_prep-none | Ledoit-Wolf | 0.0% (no accepted detections; check guardrails) | 3.67e-09 | [-6.15e-08, 1.57e-07] | n/a | 5.57e-08 | [5.17e-08, 5.96e-08] | n/a | n/a | n/a | 24 |
+| nested_J5_solver-auto_est-dealias_prep-none | full_nested_J5_solver-auto_est-dealias_prep-none | OAS | 0.0% (no accepted detections; check guardrails) | 2.07e-08 | n/a | n/a | 4.13e-08 | n/a | n/a | n/a | n/a | 24 |
+| nested_J5_solver-auto_est-dealias_prep-none | full_nested_J5_solver-auto_est-dealias_prep-none | SCM | 0.0% (no accepted detections; check guardrails) | 1.53e-07 | n/a | n/a | -4.28e-13 | n/a | n/a | n/a | n/a | 24 |
+| nested_J5_solver-auto_est-dealias_prep-none | full_nested_J5_solver-auto_est-dealias_prep-none | Tyler-Shrink | 0.0% (no accepted detections; check guardrails) | 0.129 | n/a | 0.0e+00 | 2.59e-06 | n/a | n/a | n/a | n/a | 24 |
 | oneway_J5_solver-auto_est-cc_prep-none | full_oneway_J5_solver-auto_est-cc_prep-none | Aliased | 100.0% | 1.79e-08 | [-1.12e-08, -1.12e-08] | n/a | -1.72e-07 | [-1.71e-07, -1.71e-07] | n/a | 7.93e-04 | 1.46e-03 | 4 |
 | oneway_J5_solver-auto_est-cc_prep-none | full_oneway_J5_solver-auto_est-cc_prep-none | Constant-Correlation | 100.0% | -7.51e-08 | n/a | n/a | -8.08e-08 | n/a | n/a | 7.93e-04 | 1.46e-03 | 4 |
 | oneway_J5_solver-auto_est-cc_prep-none | full_oneway_J5_solver-auto_est-cc_prep-none | Ledoit-Wolf | 100.0% | -3.58e-07 | [-3.69e-07, -3.69e-07] | n/a | -1.71e-07 | [-1.71e-07, -1.71e-07] | n/a | 7.93e-04 | 1.46e-03 | 4 |
@@ -36,6 +37,12 @@ Values are measured versus the de-aliased baseline; negative Delta MSE indicates
 | oneway_J5_solver-auto_est-dealias_prep-none | full_oneway_J5_solver-auto_est-dealias_prep-none | OAS | 100.0% | -3.70e-07 | n/a | n/a | -1.71e-07 | n/a | n/a | 7.93e-04 | 1.46e-03 | 4 |
 | oneway_J5_solver-auto_est-dealias_prep-none | full_oneway_J5_solver-auto_est-dealias_prep-none | SCM | 100.0% | 1.79e-08 | n/a | n/a | -1.72e-07 | n/a | n/a | 7.93e-04 | 1.46e-03 | 4 |
 | oneway_J5_solver-auto_est-dealias_prep-none | full_oneway_J5_solver-auto_est-dealias_prep-none | Tyler-Shrink | 100.0% | 0.086 | n/a | 0.074 | -1.71e-07 | n/a | n/a | 7.93e-04 | 1.46e-03 | 4 |
+| oneway_J5_solver-auto_est-dealias_prep-none__crisis_20200215_20200531 | crisis_20200215_20200531 | Aliased | 100.0% | -1.51e-05 | [-1.49e-05, -1.49e-05] | n/a | -5.83e-07 | [-1.29e-07, -1.29e-07] | n/a | 1.88e-03 | 0.017 | 4 |
+| oneway_J5_solver-auto_est-dealias_prep-none__crisis_20200215_20200531 | crisis_20200215_20200531 | Constant-Correlation | 100.0% | -1.44e-05 | n/a | 0.004 | 1.46e-06 | n/a | 0.385 | 1.88e-03 | 0.017 | 4 |
+| oneway_J5_solver-auto_est-dealias_prep-none__crisis_20200215_20200531 | crisis_20200215_20200531 | Ledoit-Wolf | 100.0% | -2.13e-05 | [-2.18e-05, -2.18e-05] | 1.1e-04 | 5.97e-07 | [7.55e-07, 7.55e-07] | 0.537 | 1.88e-03 | 0.017 | 4 |
+| oneway_J5_solver-auto_est-dealias_prep-none__crisis_20200215_20200531 | crisis_20200215_20200531 | OAS | 100.0% | -2.17e-05 | n/a | 9.3e-05 | 1.00e-06 | n/a | 0.414 | 1.88e-03 | 0.017 | 4 |
+| oneway_J5_solver-auto_est-dealias_prep-none__crisis_20200215_20200531 | crisis_20200215_20200531 | SCM | 100.0% | -1.51e-05 | n/a | n/a | -5.83e-07 | n/a | n/a | 1.88e-03 | 0.017 | 4 |
+| oneway_J5_solver-auto_est-dealias_prep-none__crisis_20200215_20200531 | crisis_20200215_20200531 | Tyler-Shrink | 100.0% | 0.218 | n/a | 9.5e-04 | 4.22e-06 | n/a | 0.221 | 1.88e-03 | 0.017 | 4 |
 | oneway_J5_solver-auto_est-factor_prep-none | full_oneway_J5_solver-auto_est-factor_prep-none | Aliased | 100.0% | 1.79e-08 | [-1.12e-08, -1.12e-08] | n/a | -1.72e-07 | [-1.71e-07, -1.71e-07] | n/a | 7.93e-04 | 1.46e-03 | 4 |
 | oneway_J5_solver-auto_est-factor_prep-none | full_oneway_J5_solver-auto_est-factor_prep-none | Constant-Correlation | 100.0% | -7.51e-08 | n/a | n/a | -8.08e-08 | n/a | n/a | 7.93e-04 | 1.46e-03 | 4 |
 | oneway_J5_solver-auto_est-factor_prep-none | full_oneway_J5_solver-auto_est-factor_prep-none | Ledoit-Wolf | 100.0% | -3.58e-07 | [-3.69e-07, -3.69e-07] | n/a | -1.71e-07 | [-1.71e-07, -1.71e-07] | n/a | 7.93e-04 | 1.46e-03 | 4 |
@@ -69,15 +76,16 @@ What limits coverage: no dominant rejection signals.
 | nested_J5_solver-auto_est-dealias_prep-none | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% |
 | oneway_J5_solver-auto_est-cc_prep-none | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% |
 | oneway_J5_solver-auto_est-dealias_prep-none | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% |
+| oneway_J5_solver-auto_est-dealias_prep-none__crisis_20200215_20200531 | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% |
 | oneway_J5_solver-auto_est-factor_prep-none | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% |
 | oneway_J5_solver-auto_est-lw_prep-none | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% |
 | oneway_J5_solver-auto_est-oas_prep-none | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% |
 | oneway_J5_solver-auto_est-tyler_shrink_prep-none | 0.0% | 0.0% | 0.0% | 0.0% | 0.0% |
 
 ## Highlights
-- Average detection coverage across RC runs: 85.7%.
-- Delta MSE (EW) < 0 in 42.9% of comparisons (median Delta MSE (EW) = 1.79e-08).
-- 1 of 7 Diebold–Mariano tests show p < 0.05.
+- Average detection coverage across RC runs: 87.5%.
+- Delta MSE (EW) < 0 in 47.9% of comparisons (median Delta MSE (EW) = 1.836e-09).
+- 5 of 15 Diebold–Mariano tests show p < 0.05.
 
 ## Ablation Snapshot
 No ablation sweep artifacts were detected for this gallery.
@@ -94,3 +102,4 @@ No ablation sweep artifacts were detected for this gallery.
 - oneway_J5_solver-auto_est-oas_prep-none: tables: figures/rc/oneway_J5_solver-auto_est-oas_prep-none/tables; plots: figures/rc/oneway_J5_solver-auto_est-oas_prep-none/plots; run_meta: /Users/mateobodon/Documents/Programming/Projects/fjs-dealias-portfolio/experiments/equity_panel/outputs_smoke/oneway_J5_solver-auto_est-oas_prep-none/run_meta.json
 - oneway_J5_solver-auto_est-tyler_shrink_prep-none: tables: figures/rc/oneway_J5_solver-auto_est-tyler_shrink_prep-none/tables; plots: figures/rc/oneway_J5_solver-auto_est-tyler_shrink_prep-none/plots; run_meta: /Users/mateobodon/Documents/Programming/Projects/fjs-dealias-portfolio/experiments/equity_panel/outputs_smoke/oneway_J5_solver-auto_est-tyler_shrink_prep-none/run_meta.json
 - nested_J5_solver-auto_est-dealias_prep-none: tables: figures/rc/nested_J5_solver-auto_est-dealias_prep-none/tables; plots: figures/rc/nested_J5_solver-auto_est-dealias_prep-none/plots; run_meta: /Users/mateobodon/Documents/Programming/Projects/fjs-dealias-portfolio/experiments/equity_panel/outputs_nested_smoke/nested_J5_solver-auto_est-dealias_prep-none/run_meta.json
+- oneway_J5_solver-auto_est-dealias_prep-none__crisis_20200215_20200531: tables: figures/rc/oneway_J5_solver-auto_est-dealias_prep-none__crisis_20200215_20200531/tables; plots: figures/rc/oneway_J5_solver-auto_est-dealias_prep-none__crisis_20200215_20200531/plots; run_meta: /Users/mateobodon/Documents/Programming/Projects/fjs-dealias-portfolio/experiments/equity_panel/outputs_crisis_2020/oneway_J5_solver-auto_est-dealias_prep-none__crisis_20200215_20200531/run_meta.json

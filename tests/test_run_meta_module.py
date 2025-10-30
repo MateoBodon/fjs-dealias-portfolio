@@ -81,6 +81,7 @@ def test_write_run_meta_creates_file_with_expected_fields(tmp_path: Path) -> Non
     assert data["sigma2_plugin"] == "Cs_from_MS_drop_top_frac=0.1"
     assert data["code_signature"] == "deadbeef"
     assert data["estimator"] is None
+    assert data["crisis_label"] is None
     assert data["detections_total"] == 3
     assert data["L"] == 2
     assert isinstance(data["figure_sha256"], dict)

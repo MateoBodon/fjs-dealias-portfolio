@@ -35,6 +35,7 @@ class RunMeta:
     nested_replicates: int | None
     solver_used: list[str] | None
     label: str | None
+    crisis_label: str | None
     preprocess_flags: dict[str, str] | None
 
     # Outcomes
@@ -177,6 +178,7 @@ def write_run_meta(
     nested_replicates: int | None = None,
     preprocess_flags: Mapping[str, Any] | None = None,
     label: str | None = None,
+    crisis_label: str | None = None,
     solver_used: Iterable[str] | None = None,
 ) -> Path:
     """Create a run_meta.json artifact in ``output_dir``.
@@ -196,6 +198,8 @@ def write_run_meta(
         Optional preprocessing flags applied before balancing.
     label
         Descriptive label for the run (e.g., "full_oneway_...").
+    crisis_label
+        Optional short tag when the run corresponds to a crisis slice.
     solver_used
         Optional iterable of solver identifiers observed during the run.
     estimator
@@ -244,6 +248,9 @@ def write_run_meta(
         summary_nested = int(summary_nested)
 
     summary_label = summary.get("label") if summary.get("label") else label
+    summary_crisis = summary.get("crisis_label") if summary.get("crisis_label") else None
+    if summary_crisis is None and crisis_label is not None:
+        summary_crisis = crisis_label
 
     summary_preprocess = summary.get("preprocess_flags")
     if isinstance(summary_preprocess, dict):
@@ -285,6 +292,7 @@ def write_run_meta(
         nested_replicates=int(summary_nested) if summary_nested is not None else None,
         solver_used=solver_candidates,
         label=str(summary_label) if summary_label is not None else None,
+        crisis_label=str(summary_crisis) if summary_crisis is not None else None,
         preprocess_flags=run_preprocess_flags,
         detections_total=int(det_total),
         L=int(L_max) if L_max is not None else None,

@@ -147,6 +147,25 @@ def collect_estimator_panel(run_paths: Sequence[Path | str]) -> pd.DataFrame:
         metrics = data["metrics"].copy()
         summary = data["summary"].copy()
 
+        design_value = ""
+        if not summary.empty and "design" in summary:
+            design_series = summary["design"].dropna()
+            if not design_series.empty:
+                design_value = str(design_series.iloc[0])
+        windows_evaluated = float("nan")
+        if not summary.empty and "rolling_windows_evaluated" in summary:
+            window_series = summary["rolling_windows_evaluated"].dropna()
+            if not window_series.empty:
+                try:
+                    windows_evaluated = float(window_series.iloc[0])
+                except (TypeError, ValueError):
+                    windows_evaluated = float("nan")
+        summary_crisis = ""
+        if not summary.empty and "crisis_label" in summary:
+            crisis_series = summary["crisis_label"].dropna()
+            if not crisis_series.empty:
+                summary_crisis = str(crisis_series.iloc[0])
+
         detection_rate = _extract_detection(summary)
         edge_stats = _extract_edge_stats(summary)
 
@@ -173,10 +192,12 @@ def collect_estimator_panel(run_paths: Sequence[Path | str]) -> pd.DataFrame:
                 dm_p, dm_stat = _dm_values(de_row, estimator)
                 ci_lo, ci_hi = _ci_bounds(de_row, estimator)
 
+                crisis_value = summary_crisis or str(row.get("label", ""))
+
                 record = {
                     "run": run.name,
                     "run_path": str(run),
-                    "crisis_label": row.get("label", ""),
+                    "crisis_label": crisis_value,
                     "strategy": strategy,
                     "estimator": estimator,
                     "mean_mse": mean_mse,
@@ -188,6 +209,8 @@ def collect_estimator_panel(run_paths: Sequence[Path | str]) -> pd.DataFrame:
                     **edge_stats,
                     "ci_lo": ci_lo,
                     "ci_hi": ci_hi,
+                    "design": design_value,
+                    "rolling_windows_evaluated": windows_evaluated,
                 }
                 records.append(record)
 

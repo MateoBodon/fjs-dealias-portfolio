@@ -317,11 +317,14 @@ def _compute_nested_prepared(
     y_fit_raw: np.ndarray,
     expected_reps: int,
     code_signature_hash: str | None,
-) -> PreparedWindowStats | None:
+) -> tuple[PreparedWindowStats | None, str | None]:
     if expected_reps <= 1:
         raise ValueError("Nested design requires at least two replicates per cell.")
     if not fit_blocks:
-        return None
+        return (
+            None,
+            "No weekly blocks available for nested preparation.",
+        )
 
     date_arrays = [block.index.to_numpy(dtype="datetime64[ns]") for block in fit_blocks]
     dates_flat = np.concatenate(date_arrays)
@@ -344,7 +347,12 @@ def _compute_nested_prepared(
     labels_df["valid_reps"] = counts == int(expected_reps)
     labels_valid = labels_df[labels_df["valid_reps"]]
     if labels_valid.empty:
-        return None
+        max_count = int(counts.max()) if counts.size else 0
+        return (
+            None,
+            f"No (year, week) cells matched expected replicates={expected_reps} "
+            f"(observed max {max_count}).",
+        )
 
     week_sets_series = (
         labels_valid.drop_duplicates(subset=["year", "week"])
@@ -352,24 +360,57 @@ def _compute_nested_prepared(
         .apply(lambda series: set(int(value) for value in series.tolist()))
     )
     if week_sets_series.empty:
-        return None
+        return (
+            None,
+            "No ISO weeks remain after filtering to complete replicate cells.",
+        )
     common_weeks = set.intersection(*week_sets_series.tolist())
     if not common_weeks:
-        return None
+        return (
+            None,
+            "Years share no common ISO weeks after replicate filtering.",
+        )
 
     labels_common = labels_valid[labels_valid["week"].isin(common_weeks)].copy()
     if labels_common.empty:
-        return None
+        return (
+            None,
+            "Nested labels empty after intersecting common ISO weeks.",
+        )
     labels_common.sort_values("idx", inplace=True)
+
+    counts_cells = (
+        labels_common.groupby(["year", "week"])["idx"].size().to_numpy(dtype=np.intp)
+    )
+    if counts_cells.size and np.any(counts_cells != int(expected_reps)):
+        observed = sorted({int(val) for val in counts_cells.tolist()})
+        return (
+            None,
+            "Replicate mismatch after filtering "
+            f"(expected {expected_reps}, observed {observed}).",
+        )
 
     counts_per_year = labels_common.groupby("year")["week"].nunique()
     if counts_per_year.empty or counts_per_year.nunique() != 1:
-        return None
+        min_weeks = int(counts_per_year.min()) if not counts_per_year.empty else 0
+        max_weeks = int(counts_per_year.max()) if not counts_per_year.empty else 0
+        return (
+            None,
+            "Common ISO week count differs by year "
+            f"(min {min_weeks}, max {max_weeks}).",
+        )
     weeks_per_year = int(counts_per_year.iloc[0])
     if weeks_per_year < 2:
-        return None
-    if labels_common["year"].nunique() < 2:
-        return None
+        return (
+            None,
+            f"Require at least 2 common ISO weeks per year; found {weeks_per_year}.",
+        )
+    unique_years_common = labels_common["year"].nunique()
+    if unique_years_common < 2:
+        return (
+            None,
+            f"Nested detection requires at least 2 years; found {unique_years_common}.",
+        )
 
     indices_final = labels_common["idx"].to_numpy(dtype=np.intp)
     year_final = labels_common["year"].to_numpy()
@@ -383,8 +424,11 @@ def _compute_nested_prepared(
             week_final,
             int(expected_reps),
         )
-    except ValueError:
-        return None
+    except ValueError as exc:
+        return (
+            None,
+            f"mean_squares_nested failure: {exc}",
+        )
 
     ms1 = ms1.astype(np.float64)
     ms2 = ms2.astype(np.float64)
@@ -441,19 +485,22 @@ def _compute_nested_prepared(
         "code_signature": code_signature_hash,
     }
 
-    return PreparedWindowStats(
-        y_fit=y_fit,
-        groups=groups,
-        stats=stats_local,
-        ms_list=[ms1, ms2, ms3],
-        sigma_list=[sigma1, sigma2, sigma3],
-        design_override=design_override,
-        design_c=design_c,
-        design_d=design_d,
-        design_N=design_N,
-        design_order=design_order,
-        nested_replicates=metadata.J,
-        cache_payload=cache_payload,
+    return (
+        PreparedWindowStats(
+            y_fit=y_fit,
+            groups=groups,
+            stats=stats_local,
+            ms_list=[ms1, ms2, ms3],
+            sigma_list=[sigma1, sigma2, sigma3],
+            design_override=design_override,
+            design_c=design_c,
+            design_d=design_d,
+            design_N=design_N,
+            design_order=design_order,
+            nested_replicates=metadata.J,
+            cache_payload=cache_payload,
+        ),
+        None,
     )
 
 
@@ -464,7 +511,7 @@ def _prepare_window_stats(
     *,
     cached_stats: dict[str, Any] | None = None,
     nested_replicates: int | None = None,
-) -> PreparedWindowStats | None:
+) -> tuple[PreparedWindowStats | None, str | None]:
     y_fit_raw = np.vstack([block.to_numpy(dtype=np.float64) for block in fit_blocks])
     expected_nested = (
         int(nested_replicates)
@@ -475,14 +522,15 @@ def _prepare_window_stats(
         cached_stats, design_mode, y_fit_raw, CODE_SIGNATURE, expected_nested
     )
     if prepared_cached is not None:
-        return prepared_cached
+        return prepared_cached, None
 
     if design_mode == "nested":
         reps = int(nested_replicates or replicates)
         return _compute_nested_prepared(fit_blocks, y_fit_raw, reps, CODE_SIGNATURE)
 
-    return _compute_oneway_prepared(
-        fit_blocks, y_fit_raw, replicates, CODE_SIGNATURE
+    return (
+        _compute_oneway_prepared(fit_blocks, y_fit_raw, replicates, CODE_SIGNATURE),
+        None,
     )
 
 def load_config(path: Path | str) -> dict[str, Any]:
@@ -905,6 +953,7 @@ def _run_single_period(
     off_component_leak_cap: float | None,
     sigma_ablation: bool,
     label: str,
+    crisis_label: str | None = None,
     design_mode: str,
     nested_replicates: int,
     oneway_a_solver: str,
@@ -1049,6 +1098,7 @@ def _run_single_period(
     rejection_totals: dict[str, int] = {}
     edge_margin_values: list[float] = []
     detection_windows = 0
+    nested_skip_reasons: dict[str, int] = {}
 
     baseline_name = "Equal Weight"
     baseline_alias_key = f"{baseline_name}::Aliased"
@@ -1111,7 +1161,7 @@ def _run_single_period(
             if resume_cache:
                 cached_stats = load_window(window_cache_dir, cache_key) or None
 
-        prepared = _prepare_window_stats(
+        prepared, prep_reason = _prepare_window_stats(
             design_mode,
             fit_blocks,
             replicates,
@@ -1119,6 +1169,10 @@ def _run_single_period(
             nested_replicates=nested_reps_value,
         )
         if prepared is None:
+            if design_mode == "nested" and prep_reason:
+                nested_skip_reasons[prep_reason] = (
+                    nested_skip_reasons.get(prep_reason, 0) + 1
+                )
             continue
 
         y_fit_daily = prepared.y_fit
@@ -1810,6 +1864,18 @@ def _run_single_period(
         "preprocess_flags": dict(preprocess_flags or {}),
         "solver_used": sorted(solver_usage),
     }
+    if crisis_label is not None:
+        summary_payload["crisis_label"] = str(crisis_label)
+    if design_mode == "nested":
+        skipped_total = int(sum(nested_skip_reasons.values()))
+        summary_payload["nested_windows_skipped"] = skipped_total
+        if nested_skip_reasons:
+            summary_payload["nested_skip_reasons"] = [
+                {"reason": reason, "count": int(count)}
+                for reason, count in sorted(
+                    nested_skip_reasons.items(), key=lambda item: (-item[1], item[0])
+                )
+            ]
     summary_payload["rejection_stats"] = rejection_totals
     with (output_dir / "summary.json").open("w", encoding="utf-8") as handle:
         json.dump(summary_payload, handle, indent=2)
@@ -2156,8 +2222,8 @@ def run_experiment(
             "label": "full",
             "start": config["start_date"],
             "end": config["end_date"],
-            "output_dir": output_dir,
             "sigma_ablation": sigma_ablation,
+            "crisis_label": None,
         }
     ]
 
@@ -2193,8 +2259,8 @@ def run_experiment(
                 "label": crisis_label,
                 "start": crisis_start,
                 "end": crisis_end,
-                "output_dir": output_dir / crisis_label,
                 "sigma_ablation": False,
+                "crisis_label": crisis_label,
             }
         )
 
@@ -2203,10 +2269,17 @@ def run_experiment(
         primary_dir.mkdir(parents=True, exist_ok=True)
     else:
         for run_cfg in runs:
-            base_dir = Path(run_cfg["output_dir"])
-            run_output_dir = base_dir / run_suffix if run_suffix else base_dir
+            crisis_tag = run_cfg.get("crisis_label")
+            if run_suffix:
+                dir_suffix = run_suffix if not crisis_tag else f"{run_suffix}__{crisis_tag}"
+                run_output_dir = output_dir / dir_suffix
+            else:
+                dir_suffix = crisis_tag or ""
+                run_output_dir = output_dir / dir_suffix if dir_suffix else output_dir
             run_output_dir.mkdir(parents=True, exist_ok=True)
-            label_with_suffix = f"{run_cfg['label']}_{run_suffix}"
+            label_with_suffix = (
+                f"{run_cfg['label']}_{run_suffix}" if run_suffix else str(run_cfg["label"])
+            )
             _run_single_period(
                 daily_returns,
                 start=run_cfg["start"],
@@ -2229,6 +2302,7 @@ def run_experiment(
                 off_component_leak_cap=cast(float | None, config.get("off_component_leak_cap")),
                 sigma_ablation=bool(run_cfg["sigma_ablation"]),
                 label=str(label_with_suffix),
+                crisis_label=str(crisis_tag) if crisis_tag else None,
                 design_mode=str(config["design"]),
                 nested_replicates=int(config["nested_replicates"]),
                 oneway_a_solver=str(config["oneway_a_solver"]),
@@ -2260,6 +2334,7 @@ def run_experiment(
                     nested_replicates=nested_reps_cfg,
                     preprocess_flags=preprocess_flags,
                     label=label_with_suffix,
+                    crisis_label=str(crisis_tag) if crisis_tag else None,
                 )
             except Exception:
                 # Best effort; do not fail the entire run

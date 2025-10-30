@@ -172,12 +172,19 @@ def _build_key_tables(panel_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFram
         crisis_series = group["crisis_label"].dropna() if "crisis_label" in group else pd.Series(dtype=object)
         edge_med_series = group["edge_margin_median"].dropna() if "edge_margin_median" in group else pd.Series(dtype=float)
         edge_iqr_series = group["edge_margin_iqr"].dropna() if "edge_margin_iqr" in group else pd.Series(dtype=float)
+        design_series = group["design"].dropna() if "design" in group else pd.Series(dtype=object)
+        windows_series = (
+            group["rolling_windows_evaluated"].dropna()
+            if "rolling_windows_evaluated" in group
+            else pd.Series(dtype=float)
+        )
 
         record: dict[str, float | str] = {
             "run": run_tag,
             "estimator": estimator,
             "crisis_label": str(crisis_series.iloc[0]) if not crisis_series.empty else "",
             "detection_rate": float(detection_series.iloc[0]) if not detection_series.empty else float("nan"),
+            "design": str(design_series.iloc[0]) if not design_series.empty else "",
             "delta_mse_ew": float("nan"),
             "ci_lo_ew": float("nan"),
             "ci_hi_ew": float("nan"),
@@ -189,6 +196,7 @@ def _build_key_tables(panel_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFram
             "edge_margin_median": float(edge_med_series.iloc[0]) if not edge_med_series.empty else float("nan"),
             "edge_margin_iqr": float(edge_iqr_series.iloc[0]) if not edge_iqr_series.empty else float("nan"),
             "n_windows": float("nan"),
+            "rolling_windows_evaluated": float(windows_series.iloc[0]) if not windows_series.empty else float("nan"),
         }
 
         if ew_row is not None:
@@ -214,12 +222,24 @@ def _build_key_tables(panel_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFram
 
     display_rows: list[dict[str, str]] = []
     for _, row in numeric_df.iterrows():
+        detection_display = _format_detection(row["detection_rate"])
+        design_value = str(row.get("design", "")).lower()
+        windows_val = row.get("rolling_windows_evaluated", float("nan"))
+        if (
+            design_value == "nested"
+            and not pd.isna(row.get("detection_rate"))
+            and float(row.get("detection_rate", 0.0)) == 0.0
+            and not pd.isna(windows_val)
+            and float(windows_val) > 0.0
+            and detection_display != "n/a"
+        ):
+            detection_display += " (no accepted detections; check guardrails)"
         display_rows.append(
             {
                 "run": row["run"],
                 "crisis_label": row["crisis_label"] or "n/a",
                 "estimator": row["estimator"],
-                "detection_rate": _format_detection(row["detection_rate"]),
+                "detection_rate": detection_display,
                 "delta_mse_ew": _format_delta(row["delta_mse_ew"]),
                 "CI_EW": _format_ci(row["ci_lo_ew"], row["ci_hi_ew"]),
                 "DM_p_EW": _format_pvalue(row["dm_p_ew"]),

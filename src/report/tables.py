@@ -10,7 +10,10 @@ __all__ = ["table_estimators_panel", "table_rejections", "table_ablation"]
 
 DEFAULT_FIG_ROOT = Path("figures")
 EW_LABEL = "Equal Weight"
+EW_STRATEGIES: Sequence[str] = ("Equal Weight",)
 MV_LABEL_PREFIX = "Min-Variance"
+MV_STRATEGIES: Sequence[str] = ("Min-Variance (box)", "Min-Variance (long-only)", "Min-Variance")
+CI_COLUMNS = ("ci_lo_ew", "ci_hi_ew", "ci_lo_mv", "ci_hi_mv")
 
 
 def _single_run_tag(df: pd.DataFrame) -> str:
@@ -45,6 +48,17 @@ def _write_markdown(df: pd.DataFrame, path: Path) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def _find_strategy_row(group: pd.DataFrame, candidates: Sequence[str]) -> pd.Series | None:
+    for name in candidates:
+        exact = group[group["strategy"] == name]
+        if not exact.empty:
+            return exact.iloc[0]
+        prefix = group[group["strategy"].str.startswith(name, na=False)]
+        if not prefix.empty:
+            return prefix.iloc[0]
+    return None
+
+
 def table_estimators_panel(df: pd.DataFrame, *, root: Path = DEFAULT_FIG_ROOT) -> tuple[Path, Path, Path]:
     """Create estimator panel comparison tables and return paths to CSV, Markdown, and LaTeX outputs."""
 
@@ -55,44 +69,50 @@ def table_estimators_panel(df: pd.DataFrame, *, root: Path = DEFAULT_FIG_ROOT) -
     output_dir = root / run_tag / "tables"
     _ensure_dir(output_dir)
 
-    crisis_label = df["crisis_label"].dropna().iloc[0] if "crisis_label" in df and not df["crisis_label"].dropna().empty else ""
-
-    rows = []
+    rows: list[dict[str, object]] = []
     for estimator, group in df.groupby("estimator"):
-        detection_rate = (
-            float(group["detection_rate"].dropna().iloc[0])
-            if not group["detection_rate"].dropna().empty
-            else np.nan
-        )
+        ew_row = _find_strategy_row(group, EW_STRATEGIES)
+        mv_row = _find_strategy_row(group, MV_STRATEGIES)
 
-        def _strategy_value(label: str, column: str) -> float:
-            selection = group[group["strategy"] == label][column]
-            if not selection.empty:
-                return float(selection.iloc[0])
-            selection = group[group["strategy"].str.startswith(label, na=False)][column]
-            return float(selection.iloc[0]) if not selection.empty else np.nan
+        detection_series = group["detection_rate"].dropna() if "detection_rate" in group else pd.Series(dtype=float)
+        detection_rate = float(detection_series.iloc[0]) if not detection_series.empty else np.nan
 
-        delta_ew = _strategy_value(EW_LABEL, "delta_mse_vs_de")
-        dm_ew = _strategy_value(EW_LABEL, "dm_p")
-        n_windows = _strategy_value(EW_LABEL, "n_windows")
+        crisis_series = group["crisis_label"].dropna() if "crisis_label" in group else pd.Series(dtype=object)
+        crisis_label = str(crisis_series.iloc[0]) if not crisis_series.empty else ""
 
-        mv_values = group[group["strategy"].str.startswith(MV_LABEL_PREFIX, na=False)]
-        delta_mv = float(mv_values["delta_mse_vs_de"].iloc[0]) if not mv_values.empty else np.nan
-        dm_mv = float(mv_values["dm_p"].iloc[0]) if not mv_values.empty else np.nan
-        n_windows_mv = float(mv_values["n_windows"].iloc[0]) if not mv_values.empty else np.nan
+        edge_med = group["edge_margin_median"].dropna() if "edge_margin_median" in group else pd.Series(dtype=float)
+        edge_iqr = group["edge_margin_iqr"].dropna() if "edge_margin_iqr" in group else pd.Series(dtype=float)
 
-        rows.append(
-            {
-                "estimator": estimator,
-                "detection_rate": detection_rate,
-                "delta_mse_ew": delta_ew,
-                "delta_mse_mv": delta_mv,
-                "dm_p_ew": dm_ew,
-                "dm_p_mv": dm_mv,
-                "n_windows": n_windows if not np.isnan(n_windows) else n_windows_mv,
-                "crisis_label": crisis_label,
-            }
-        )
+        record: dict[str, object] = {
+            "estimator": estimator,
+            "detection_rate": detection_rate,
+            "crisis_label": crisis_label,
+            "edge_margin_median": float(edge_med.iloc[0]) if not edge_med.empty else np.nan,
+            "edge_margin_iqr": float(edge_iqr.iloc[0]) if not edge_iqr.empty else np.nan,
+        }
+
+        if ew_row is not None:
+            record.update(
+                {
+                    "delta_mse_ew": float(ew_row.get("delta_mse_vs_de", np.nan)),
+                    "ci_lo_ew": float(ew_row.get("ci_lo", np.nan)),
+                    "ci_hi_ew": float(ew_row.get("ci_hi", np.nan)),
+                    "dm_p_ew": float(ew_row.get("dm_p", np.nan)),
+                    "n_windows": int(ew_row.get("n_windows", 0)),
+                }
+            )
+        if mv_row is not None:
+            record.update(
+                {
+                    "delta_mse_mv": float(mv_row.get("delta_mse_vs_de", np.nan)),
+                    "ci_lo_mv": float(mv_row.get("ci_lo", np.nan)),
+                    "ci_hi_mv": float(mv_row.get("ci_hi", np.nan)),
+                    "dm_p_mv": float(mv_row.get("dm_p", np.nan)),
+                    "n_windows": int(mv_row.get("n_windows", record.get("n_windows", 0))),
+                }
+            )
+
+        rows.append(record)
 
     table_df = pd.DataFrame(rows).sort_values("estimator").reset_index(drop=True)
 
@@ -101,7 +121,22 @@ def table_estimators_panel(df: pd.DataFrame, *, root: Path = DEFAULT_FIG_ROOT) -
     tex_path = output_dir / "estimators.tex"
 
     table_df.to_csv(csv_path, index=False)
-    _write_markdown(table_df, md_path)
+
+    md_df = table_df.copy()
+    for lo_col, hi_col in (("ci_lo_ew", "ci_hi_ew"), ("ci_lo_mv", "ci_hi_mv")):
+        if lo_col in md_df.columns and hi_col in md_df.columns:
+            suffix = lo_col.rsplit("_", 1)[-1].upper()
+            display_col = f"CI_{suffix}"
+            ci_values = []
+            for lo, hi in zip(md_df[lo_col], md_df[hi_col]):
+                if pd.isna(lo) or pd.isna(hi):
+                    ci_values.append("n/a")
+                else:
+                    ci_values.append(f"[{_format_float(float(lo))}, {_format_float(float(hi))}]")
+            md_df[display_col] = ci_values
+    md_df = md_df.drop(columns=[col for col in CI_COLUMNS if col in md_df.columns], errors="ignore")
+    _write_markdown(md_df, md_path)
+
     table_df.to_latex(tex_path, index=False, float_format=lambda x: _format_float(float(x)))
 
     return csv_path, md_path, tex_path
@@ -118,18 +153,36 @@ def table_rejections(df: pd.DataFrame, *, root: Path = DEFAULT_FIG_ROOT) -> tupl
     _ensure_dir(output_dir)
 
     reasons = ["other", "edge_buffer", "off_component_ratio", "stability_fail", "energy_floor", "neg_mu"]
-    pivot = df.pivot_table(index="run", columns="rejection_reason", values="count", fill_value=0).reset_index()
+    pivot = (
+        df.pivot_table(index="run", columns="rejection_reason", values="count", aggfunc="sum", fill_value=0)
+        .reset_index()
+    )
     for reason in reasons:
         if reason not in pivot.columns:
-            pivot[reason] = 0
-    pivot = pivot[[col for col in ["run", *reasons] if col in pivot.columns]]
+            pivot[reason] = 0.0
+    pivot = pivot[["run", *reasons]]
+
+    totals = pivot[reasons].sum(axis=1)
+    percent_df = pivot.copy()
+    for reason in reasons:
+        percent_df[reason] = np.where(
+            totals > 0,
+            (pivot[reason] / totals) * 100.0,
+            0.0,
+        )
+
     csv_path = output_dir / "rejections.csv"
     md_path = output_dir / "rejections.md"
     tex_path = output_dir / "rejections.tex"
 
-    pivot.to_csv(csv_path, index=False)
-    _write_markdown(pivot, md_path)
-    pivot.to_latex(tex_path, index=False)
+    percent_df.to_csv(csv_path, index=False)
+
+    md_df = percent_df.copy()
+    for reason in reasons:
+        md_df[reason] = md_df[reason].apply(lambda value: f"{value:.1f}%")
+    _write_markdown(md_df, md_path)
+
+    percent_df.to_latex(tex_path, index=False, float_format=lambda x: _format_float(float(x)))
 
     return csv_path, md_path, tex_path
 

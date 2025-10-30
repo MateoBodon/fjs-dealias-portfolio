@@ -131,25 +131,69 @@ def plot_ablation_heatmap(df: pd.DataFrame, *, root: Path = DEFAULT_FIG_ROOT) ->
     output_dir = root / run_tag / "plots"
     _ensure_dir(output_dir)
 
+    df = df.copy()
     if "mse_gain" not in df.columns and {"mse_alias", "mse_de"}.issubset(df.columns):
-        df = df.copy()
         df["mse_gain"] = df["mse_alias"] - df["mse_de"]
+    if "delta_mse_mv" not in df.columns and {"mse_mv", "mse_de"}.issubset(df.columns):
+        df["delta_mse_mv"] = df["mse_mv"] - df["mse_de"]
 
-    if not {"delta_frac", "eps", "mse_gain"}.issubset(df.columns):
+    required = {"delta_frac", "eps", "mse_gain"}
+    if not required.issubset(df.columns):
         raise ValueError("Ablation DataFrame must include 'delta_frac', 'eps', and 'mse_gain' columns.")
 
-    pivot = df.pivot_table(index="delta_frac", columns="eps", values="mse_gain")
+    agg_kwargs = {"aggfunc": lambda series: float(np.nanmean(series)) if len(series) else float("nan")}
+    pivot_gain = df.pivot_table(index="delta_frac", columns="eps", values="mse_gain", **agg_kwargs)
+    pivot_cov = (
+        df.pivot_table(index="delta_frac", columns="eps", values="detection_rate", **agg_kwargs)
+        if "detection_rate" in df.columns
+        else None
+    )
+    pivot_mv = (
+        df.pivot_table(index="delta_frac", columns="eps", values="delta_mse_mv", **agg_kwargs)
+        if "delta_mse_mv" in df.columns
+        else None
+    )
 
-    fig, ax = plt.subplots(figsize=(6, 4.5))
-    im = ax.imshow(pivot.values, cmap="RdBu_r", aspect="auto")
-    ax.set_xticks(range(len(pivot.columns)))
-    ax.set_xticklabels(pivot.columns)
-    ax.set_yticks(range(len(pivot.index)))
-    ax.set_yticklabels(pivot.index)
+    fig, ax = plt.subplots(figsize=(6.5, 5))
+    im = ax.imshow(pivot_gain.values, cmap="RdBu_r", aspect="auto")
+    ax.set_xticks(range(len(pivot_gain.columns)))
+    ax.set_xticklabels(pivot_gain.columns)
+    ax.set_yticks(range(len(pivot_gain.index)))
+    ax.set_yticklabels(pivot_gain.index)
     ax.set_xlabel("eps")
     ax.set_ylabel("delta_frac")
-    ax.set_title("Ablation MSE gain (alias - de)")
-    fig.colorbar(im, ax=ax, shrink=0.8)
+    ax.set_title("Ablation ΔMSE (alias - de) with coverage")
+
+    for i, delta_val in enumerate(pivot_gain.index):
+        for j, eps_val in enumerate(pivot_gain.columns):
+            gain = pivot_gain.iloc[i, j]
+            mv_val = pivot_mv.iloc[i, j] if pivot_mv is not None and (delta_val in pivot_mv.index and eps_val in pivot_mv.columns) else float("nan")
+            cov_val = pivot_cov.iloc[i, j] if pivot_cov is not None and (delta_val in pivot_cov.index and eps_val in pivot_cov.columns) else float("nan")
+            parts: list[str] = []
+            if not np.isnan(gain):
+                parts.append(f"ΔEW {gain:.2e}")
+            else:
+                parts.append("ΔEW n/a")
+            if not np.isnan(mv_val):
+                parts.append(f"ΔMV {mv_val:.2e}")
+            else:
+                parts.append("ΔMV n/a")
+            if not np.isnan(cov_val):
+                parts.append(f"Cov {cov_val * 100:4.0f}%")
+            else:
+                parts.append("Cov n/a")
+            ax.text(
+                j,
+                i,
+                "\n".join(parts),
+                ha="center",
+                va="center",
+                fontsize=8,
+                color="black",
+            )
+
+    cbar = fig.colorbar(im, ax=ax, shrink=0.8)
+    cbar.set_label("ΔMSE alias - de")
     fig.tight_layout()
 
     path = output_dir / "ablation_heatmap.png"

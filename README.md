@@ -94,29 +94,43 @@ Kick off a crisis run with the same CLI switches shown for the smoke slice, but 
 
 `make rc` orchestrates:
 
-1. Smoke runs for estimators `{dealias,lw,oas,cc,factor,tyler_shrink}`.
-2. Nested smoke (`design=nested`).
-3. Crisis windows (`config.crisis.2020.yaml`, `config.crisis.2022.yaml`) if the outputs directory exists.
+1. Smoke runs for estimators `{dealias,lw,oas,cc,factor,tyler_shrink}` across the oneway design.
+2. Nested smoke (`design=nested`) for a longer 2022 slice.
+3. (If present) tagged crisis directories under `experiments/equity_panel/outputs_crisis_*`.
 4. Gallery + memo generation (see sections 5 & 6).
 
-All runs respect the smoke-sized window (`6+1` weeks) and the caching flags defined by the run policy.
+`make rc-lite` is a spot-check pass that only runs `{dealias,lw,oas}` on the smoke and 2020 crisis configs before rebuilding the gallery and memo.
 
-**Latest RC snapshot (28 Oct 2025)**
+All RC targets respect the run policy flags (`--workers`, `--resume`, `--cache-dir .cache`, `--drop-partial-weeks`, etc.).
 
-| Regime | Detection rate | ΔMSE (EW) vs LW | ΔMSE (EW) vs OAS | DM highlights | Commentary |
-| --- | --- | --- | --- | --- | --- |
-| Smoke (oneway) | 4/4 windows (100%) | −3.6×10⁻⁷ | −3.7×10⁻⁷ | De vs Tyler: p=0.074 (non-sig) | De-aliased beats Aliased/SCM but shrinkage (LW/OAS) still halves MSE; Tyler M-estimator is unstable (ΔMSE≈+0.26). |
-| Nested (Year⊃Week) | 0/24 windows (0%) | n/a | n/a | n/a | Guardrails reject all candidates; consider relaxing `dealias_delta_frac` or lengthening the window if nested signal is needed. |
-| Crisis 2020 (Feb–May) | 5/5 windows (100%) | −2.0×10⁻⁵ | −2.1×10⁻⁵ | DM p≈6×10⁻⁵ (stat≈17) vs LW | De-aliased forecasts are materially worse than LW/OAS during the COVID drawdown; shrinkage dominates. |
-| Crisis 2022 (Sep–Nov) | 3/3 windows (100%) | −1.0×10⁻⁶ | −1.1×10⁻⁶ | De vs Tyler: p=0.014 (Tyler degraded) | Shrinkage again outperforms; de-aliased lifts variance modestly. |
+**Latest RC snapshot (30 Oct 2025)**
 
-Artifacts:
+The gallery for this drop lives under `figures/rc/`, and the memo digest is in `reports/memo.md` (rendered via the new key-results panel, rejection summary, and ablation placeholder). Highlights:
 
-- RC tables/plots: `figures/rc/<run_tag>/{tables,plots}/` (e.g. `figures/rc/oneway_J5_solver-auto_est-oas_prep-none/plots/dm_pvals.png`).
-- Crisis tables mirror the tagged directories under `experiments/equity_panel/outputs_crisis_{2020,2022}/`.
-- Memo digest: `reports/memo.md` (updated by `make rc` and in CI artifacts).
+| Regime | Detection rate | ΔMSE (EW) vs De-aliased | DM highlights | Commentary & figures |
+| --- | --- | --- | --- | --- |
+| Smoke (oneway, 2023-01→03) | 4/4 windows (100%) | LW: −1.05×10⁻⁶, OAS: −1.11×10⁻⁶, CC: −7.5×10⁻⁸, Tyler: +2.57×10⁻¹ | Tyler vs De: p≈0.0137 (significant); every other DM test ≥0.074 | Shrinkage baselines dominate the aliased/de-aliased pair; see `figures/rc/oneway_J5_solver-auto_est-lw_prep-none/plots/dm_pvals.png` and `.../edge_margin_hist.png`. |
+| Nested smoke (2022-01→2023-12) | 0/24 windows (0%) | All ΔMSE values collapse to ~0 because detections never pass guardrails | DM stats effectively degenerate | Detection reporting is broken for the nested design—`summary.json` shows `detection_rate: 0`. Revisit guardrails or panel policy before shipping nested RC metrics. |
+| Crisis runs | (not in gallery) | — | — | Crisis outputs still land under `experiments/equity_panel/outputs_crisis_{2020,2022}/`; the shared run tag currently prevents them from appearing beside the smoke runs. Update the tagging scheme (e.g. include the crisis label in the run suffix) before the next RC. |
 
-**Action items:** benchmark adjustments (winsorize/huber, alternative guardrails) are needed before relying on de-aliased forecasts in crisis regimes; shrinkage remains the safest baseline on the current smoke slice.
+Memo extras:
+
+- **Key Results panel:** compact estimator-by-run table with detection, ΔMSE, CIs, DM p-values, edge margins, and window counts.
+- **Rejection summary:** percentages for `{edge_buffer,off_component_ratio,stability_fail,energy_floor,neg_mu}` (currently all zero because upstream metrics are zeroed).
+- **Ablation snapshot:** automatically embeds when `ablation_summary.csv` exists; the present drop shows a placeholder because the new smoke ablation grid timed out before completing.
+
+Artifacts of interest:
+
+- Tables/plots per run: `figures/rc/<run_tag>/tables/*.csv|md|tex`, `figures/rc/<run_tag>/plots/*.png`.
+- Memo Markdown: `reports/memo.md` and timestamped copies under `reports/`.
+- Crisis CSVs/plots: still available under `experiments/equity_panel/outputs_crisis_*/*`; add unique tags so they rejoin the gallery.
+
+**Action items before the next RC**
+
+- Fix nested detection (0 % coverage) so the memo stops reporting empty ΔMSE/CI fields.
+- Feed real rejection counts into `rejection_stats.*`; the memo table already surfaces them once populated.
+- Either relax runtime limits or shrink the grid further so `experiments/equity_panel/config.ablation.smoke.yaml` emits `ablation_summary.csv` and the gallery plots `ablation_heatmap.png`.
+- Update gallery tagging for crisis runs to avoid overwriting smoke artifacts.
 
 ---
 

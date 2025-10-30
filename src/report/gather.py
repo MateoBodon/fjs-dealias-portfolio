@@ -18,6 +18,8 @@ DM_SUFFIXES = {
     "Constant-Correlation": "cc",
     "Factor": "factor",
     "Tyler-Shrink": "tyler",
+    "Aliased": "alias",
+    "SCM": "scm",
 }
 
 
@@ -111,6 +113,29 @@ def _dm_values(de_row: pd.Series, estimator: str) -> tuple[float, float]:
     return dm_p, dm_stat
 
 
+def _ci_bounds(de_row: pd.Series, estimator: str) -> tuple[float, float]:
+    suffix = DM_SUFFIXES.get(estimator)
+    if not suffix:
+        return float("nan"), float("nan")
+    lo_key = f"ci_lo_de_minus_{suffix}"
+    hi_key = f"ci_hi_de_minus_{suffix}"
+    ci_lo = de_row.get(lo_key, float("nan"))
+    ci_hi = de_row.get(hi_key, float("nan"))
+    if pd.isna(ci_lo) or pd.isna(ci_hi):
+        return float("nan"), float("nan")
+    # Stored bounds are (De - estimator); convert to (estimator - De)
+    try:
+        lo_val = float(ci_lo)
+        hi_val = float(ci_hi)
+    except (TypeError, ValueError):
+        return float("nan"), float("nan")
+    est_lo = -hi_val
+    est_hi = -lo_val
+    if est_lo > est_hi:
+        est_lo, est_hi = est_hi, est_lo
+    return est_lo, est_hi
+
+
 def collect_estimator_panel(run_paths: Sequence[Path | str]) -> pd.DataFrame:
     """Combine estimator diagnostics across runs into a single table."""
 
@@ -146,6 +171,7 @@ def collect_estimator_panel(run_paths: Sequence[Path | str]) -> pd.DataFrame:
                 mean_mse = float(row.get("mean_mse", float("nan")))
                 delta_mse = mean_mse - de_mean if pd.notna(mean_mse) and pd.notna(de_mean) else float("nan")
                 dm_p, dm_stat = _dm_values(de_row, estimator)
+                ci_lo, ci_hi = _ci_bounds(de_row, estimator)
 
                 record = {
                     "run": run.name,
@@ -160,6 +186,8 @@ def collect_estimator_panel(run_paths: Sequence[Path | str]) -> pd.DataFrame:
                     "n_windows": int(row.get("n_windows", 0)),
                     "detection_rate": detection_rate,
                     **edge_stats,
+                    "ci_lo": ci_lo,
+                    "ci_hi": ci_hi,
                 }
                 records.append(record)
 

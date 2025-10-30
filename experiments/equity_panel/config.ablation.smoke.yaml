@@ -1,0 +1,25 @@
+data_path: "data/returns_daily.csv"
+start_date: "2022-01-03"
+end_date: "2022-02-18"
+window_weeks: 6
+horizon_weeks: 1
+output_dir: "experiments/equity_panel/outputs_ablation_smoke"
+dealias_delta: 0.0
+dealias_delta_frac: 0.02
+dealias_eps: 0.03
+stability_eta_deg: 0.4
+signed_a: true
+cs_drop_top_frac: 0.05
+cs_sensitivity_frac: 0.0
+off_component_leak_cap: 10.0
+energy_min_abs: 0.000001
+partial_week_policy: "drop"
+a_grid: 144
+gallery:
+  name: rc
+ablation_grid:
+  delta_frac: [0.015, 0.02]
+  eps: [0.02]
+  eta: [0.3]
+  a_grid: [144]
+ablation_only: true

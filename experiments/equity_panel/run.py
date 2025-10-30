@@ -593,6 +593,7 @@ def _run_param_ablation(
     energy_min_abs: float | None,
     oneway_a_solver: str,
     preprocess_flags: Mapping[str, str] | None = None,
+    grid_overrides: Mapping[str, Iterable[Any]] | None = None,
 ) -> None:
     """Grid sweep over detection parameters; emit CSV and heatmaps (E5).
 
@@ -639,10 +640,41 @@ def _run_param_ablation(
         empty.to_csv(output_dir / "ablation_summary.csv", index=False)
         return
 
+    def _normalise(values: Iterable[Any] | None, *, to_int: bool = False) -> list[float] | list[int]:
+        if values is None:
+            return []
+        cleaned: list[float] = []
+        for value in values:
+            try:
+                cleaned.append(float(value))
+            except (TypeError, ValueError):
+                continue
+        if not cleaned:
+            return []
+        unique = list(dict.fromkeys(cleaned))
+        unique.sort()
+        if to_int:
+            return [int(round(item)) for item in unique]
+        return unique
+
     delta_fracs = [0.02, 0.03, 0.05]
     eps_vals = [0.02, 0.03, 0.05]
     a_grids = [72, 120, 144]
     etas = [0.4, 1.0]
+
+    if grid_overrides:
+        delta_override = _normalise(grid_overrides.get("delta_frac"))
+        if delta_override:
+            delta_fracs = [float(val) for val in cast(Iterable[float], delta_override)]
+        eps_override = _normalise(grid_overrides.get("eps"))
+        if eps_override:
+            eps_vals = [float(val) for val in cast(Iterable[float], eps_override)]
+        eta_override = _normalise(grid_overrides.get("eta"))
+        if eta_override:
+            etas = [float(val) for val in cast(Iterable[float], eta_override)]
+        a_override = _normalise(grid_overrides.get("a_grid"), to_int=True)
+        if a_override:
+            a_grids = [int(val) for val in cast(Iterable[int], a_override)]
 
     records: list[dict[str, Any]] = []
     for df in delta_fracs:
@@ -2138,6 +2170,7 @@ def run_experiment(
     run_suffix = (
         f"{design_value}_J{nested_reps_cfg}_solver-{solver_value}_est-{estimator_value}_prep-{preprocess_tag}"
     ).replace(" ", "-")
+    ablation_only = bool(config.get("ablation_only", False))
 
     if crisis:
         try:
@@ -2165,69 +2198,72 @@ def run_experiment(
             }
         )
 
-    for run_cfg in runs:
-        base_dir = Path(run_cfg["output_dir"])
-        run_output_dir = base_dir / run_suffix if run_suffix else base_dir
-        run_output_dir.mkdir(parents=True, exist_ok=True)
-        label_with_suffix = f"{run_cfg['label']}_{run_suffix}"
-        _run_single_period(
-            daily_returns,
-            start=run_cfg["start"],
-            end=run_cfg["end"],
-            output_dir=run_output_dir,
-            window_weeks=int(config["window_weeks"]),
-            horizon_weeks=int(config["horizon_weeks"]),
-            delta=float(config.get("dealias_delta", 0.0)),
-            delta_frac=cast(float | None, config.get("dealias_delta_frac")),
-            eps=float(config.get("dealias_eps", 0.03)),
-            stability_eta=float(config.get("stability_eta_deg", 1.0)),
-            signed_a=bool(config.get("signed_a", True)),
-            target_component=int(config.get("target_component", 0)),
-            partial_week_policy=panel_policy,
-            precompute_panel=precompute_panel,
-            cache_dir=cache_dir_path,
-            resume_cache=resume_cache,
-            cs_drop_top_frac=float(config.get("cs_drop_top_frac", 0.05)),
-            cs_sensitivity_frac=float(config.get("cs_sensitivity_frac", 0.0)),
-            off_component_leak_cap=cast(float | None, config.get("off_component_leak_cap")),
-            sigma_ablation=bool(run_cfg["sigma_ablation"]),
-            label=str(label_with_suffix),
-            design_mode=str(config["design"]),
-            nested_replicates=int(config["nested_replicates"]),
-            oneway_a_solver=str(config["oneway_a_solver"]),
-            estimator=str(config["estimator"]),
-            progress=(True if progress_override is None else bool(progress_override)),
-            a_grid=int(config.get("a_grid", 180)),
-            energy_min_abs=cast(float | None, config.get("energy_min_abs")),
-            factor_returns=factor_returns,
-            minvar_ridge=minvar_ridge_val,
-            minvar_box=(float(minvar_lo), float(minvar_hi)),
-            turnover_cost_bps=turnover_cost_bps,
-            preprocess_flags=preprocess_flags,
-        )
-
-        # Persist meta information for this run
-        try:
-            write_run_meta(
-                run_output_dir,
-                config=config,
-                delta=float(config.get("dealias_delta", 0.3)),
+    if ablation_only and bool(ablations):
+        primary_dir = output_dir / run_suffix if run_suffix else output_dir
+        primary_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        for run_cfg in runs:
+            base_dir = Path(run_cfg["output_dir"])
+            run_output_dir = base_dir / run_suffix if run_suffix else base_dir
+            run_output_dir.mkdir(parents=True, exist_ok=True)
+            label_with_suffix = f"{run_cfg['label']}_{run_suffix}"
+            _run_single_period(
+                daily_returns,
+                start=run_cfg["start"],
+                end=run_cfg["end"],
+                output_dir=run_output_dir,
+                window_weeks=int(config["window_weeks"]),
+                horizon_weeks=int(config["horizon_weeks"]),
+                delta=float(config.get("dealias_delta", 0.0)),
                 delta_frac=cast(float | None, config.get("dealias_delta_frac")),
-                a_grid=int(config.get("a_grid", 120)),
+                eps=float(config.get("dealias_eps", 0.03)),
+                stability_eta=float(config.get("stability_eta_deg", 1.0)),
                 signed_a=bool(config.get("signed_a", True)),
-                sigma2_plugin=(
-                    f"Cs_from_MS_drop_top_frac={float(config.get('cs_drop_top_frac', 0.1))}"
-                ),
-                code_signature_hash=CODE_SIGNATURE,
-                estimator=str(config.get("estimator", "dealias")),
-                design=design_value,
-                nested_replicates=nested_reps_cfg,
+                target_component=int(config.get("target_component", 0)),
+                partial_week_policy=panel_policy,
+                precompute_panel=precompute_panel,
+                cache_dir=cache_dir_path,
+                resume_cache=resume_cache,
+                cs_drop_top_frac=float(config.get("cs_drop_top_frac", 0.05)),
+                cs_sensitivity_frac=float(config.get("cs_sensitivity_frac", 0.0)),
+                off_component_leak_cap=cast(float | None, config.get("off_component_leak_cap")),
+                sigma_ablation=bool(run_cfg["sigma_ablation"]),
+                label=str(label_with_suffix),
+                design_mode=str(config["design"]),
+                nested_replicates=int(config["nested_replicates"]),
+                oneway_a_solver=str(config["oneway_a_solver"]),
+                estimator=str(config["estimator"]),
+                progress=(True if progress_override is None else bool(progress_override)),
+                a_grid=int(config.get("a_grid", 180)),
+                energy_min_abs=cast(float | None, config.get("energy_min_abs")),
+                factor_returns=factor_returns,
+                minvar_ridge=minvar_ridge_val,
+                minvar_box=(float(minvar_lo), float(minvar_hi)),
+                turnover_cost_bps=turnover_cost_bps,
                 preprocess_flags=preprocess_flags,
-                label=label_with_suffix,
             )
-        except Exception:
-            # Best effort; do not fail the entire run
-            pass
+
+            try:
+                write_run_meta(
+                    run_output_dir,
+                    config=config,
+                    delta=float(config.get("dealias_delta", 0.3)),
+                    delta_frac=cast(float | None, config.get("dealias_delta_frac")),
+                    a_grid=int(config.get("a_grid", 120)),
+                    signed_a=bool(config.get("signed_a", True)),
+                    sigma2_plugin=(
+                        f"Cs_from_MS_drop_top_frac={float(config.get('cs_drop_top_frac', 0.1))}"
+                    ),
+                    code_signature_hash=CODE_SIGNATURE,
+                    estimator=str(config.get("estimator", "dealias")),
+                    design=design_value,
+                    nested_replicates=nested_reps_cfg,
+                    preprocess_flags=preprocess_flags,
+                    label=label_with_suffix,
+                )
+            except Exception:
+                # Best effort; do not fail the entire run
+                pass
 
     # Parameter ablations (E5)
     if bool(ablations):
@@ -2245,6 +2281,7 @@ def run_experiment(
             energy_min_abs=cast(float | None, config.get("energy_min_abs")),
             oneway_a_solver=str(config["oneway_a_solver"]),
             preprocess_flags=preprocess_flags,
+            grid_overrides=cast(Mapping[str, Iterable[Any]] | None, config.get("ablation_grid")),
         )
 
 

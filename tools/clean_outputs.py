@@ -46,6 +46,15 @@ def clean_outputs(root: Path, *, purge: bool, dry_run: bool) -> None:
         print(f"No legacy outputs found in {root}.")
         return
 
+    tagged_items = [
+        child
+        for child in root.iterdir()
+        if child.name != "archived" and is_tagged_directory(child)
+    ]
+    if tagged_items:
+        ignored_list = ", ".join(sorted(item.name for item in legacy_items))
+        print(f"Ignoring legacy outputs while tagged runs present: {ignored_list}")
+
     archived_dir = root / "archived"
     for item in legacy_items:
         if purge:

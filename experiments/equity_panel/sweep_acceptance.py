@@ -9,6 +9,7 @@ from itertools import product
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
+import numpy as np
 import pandas as pd
 import yaml
 
@@ -154,6 +155,18 @@ def _extract_metrics(
     if baseline.empty:
         return record
     de_row = baseline.iloc[0]
+    aliased_row = metrics_df[
+        (metrics_df["strategy"] == "Equal Weight") & (metrics_df["estimator"].str.lower() == "aliased")
+    ]
+    if not aliased_row.empty:
+        mean_mse_alias = float(aliased_row.iloc[0].get("mean_mse", float("nan")))
+        mean_mse_de = float(de_row.get("mean_mse", float("nan")))
+        if pd.notna(mean_mse_alias) and pd.notna(mean_mse_de):
+            record["mse_gain_alias_minus_de"] = float(mean_mse_alias - mean_mse_de)
+        else:
+            record["mse_gain_alias_minus_de"] = float("nan")
+    else:
+        record["mse_gain_alias_minus_de"] = float("nan")
 
     def _copy_dm(prefix: str, suffix: str) -> None:
         stat_col = f"{prefix}_{suffix}"
@@ -310,6 +323,36 @@ def run_sweep(args: argparse.Namespace) -> Path:
     summary_df = pd.DataFrame.from_records(records)
     summary_path = output_root / "sweep_summary.csv"
     summary_df.to_csv(summary_path, index=False)
+
+    def _plot_heatmap(pivot: pd.DataFrame, title: str, out_path: Path, cmap: str) -> None:
+        if pivot.empty:
+            return
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(figsize=(6, 4.5))
+        im = ax.imshow(pivot.values, cmap=cmap, aspect="auto", origin="upper")
+        ax.set_xticks(range(len(pivot.columns)))
+        ax.set_xticklabels([f"{col:.3f}" for col in pivot.columns])
+        ax.set_yticks(range(len(pivot.index)))
+        ax.set_yticklabels([f"{idx:.3f}" for idx in pivot.index])
+        ax.set_xlabel("eps")
+        ax.set_ylabel("delta_frac")
+        ax.set_title(title)
+        fig.colorbar(im, ax=ax, shrink=0.8)
+        fig.tight_layout()
+        fig.savefig(out_path, dpi=200)
+        plt.close(fig)
+
+    pivot_kwargs = {"aggfunc": lambda s: float(np.nanmean(s)) if len(s) else float("nan")}
+    det_pivot = summary_df.pivot_table(index="delta_frac", columns="eps", values="detection_rate", **pivot_kwargs)
+    gain_pivot = summary_df.pivot_table(
+        index="delta_frac",
+        columns="eps",
+        values="mse_gain_alias_minus_de",
+        **pivot_kwargs,
+    )
+    _plot_heatmap(det_pivot, "Detection rate", output_root / "E5_detection_rate.png", cmap="viridis")
+    _plot_heatmap(gain_pivot, "Alias - De ΔMSE", output_root / "E5_mse_gain.png", cmap="RdBu_r")
+
     return summary_path
 
 

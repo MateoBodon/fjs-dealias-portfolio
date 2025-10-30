@@ -1038,6 +1038,7 @@ def _run_single_period(
     turnover_cost_bps: float = 0.0,
     preprocess_flags: Mapping[str, str] | None = None,
     gating: Mapping[str, Any] | None = None,
+    alignment_top_p: int = 3,
 ) -> None:
     """Execute the rolling evaluation for a single date range."""
 
@@ -1184,7 +1185,7 @@ def _run_single_period(
     gating_skip_reasons: dict[str, int] = {}
     gating_discard_log: list[dict[str, Any]] = []
     try:
-        alignment_top_p = int(config.get("alignment_top_p", 3))
+        alignment_top_p = int(alignment_top_p)
     except (TypeError, ValueError):
         alignment_top_p = 3
     if alignment_top_p <= 0:
@@ -1641,6 +1642,8 @@ def _run_single_period(
             window_record["top_component_sigma2"] = float("nan")
             window_record["angle_min_deg"] = float("nan")
             window_record["energy_mu"] = float("nan")
+            window_record["angle_min_deg"] = float("nan")
+            window_record["energy_mu"] = float("nan")
 
         # Always record the top aliased Σ1 eigenvalue (for E2-alt)
         try:
@@ -1964,6 +1967,16 @@ def _run_single_period(
 
     # Persist detection summary and spike timeseries (E2)
     if not results_df.empty and "top_lambda_hat" in results_df.columns:
+        for col, default in {
+            "skip_reason": "",
+            "isolated_spikes": 0,
+            "gate_discarded_count": 0,
+            "gate_discarded": "[]",
+            "angle_min_deg": float("nan"),
+            "energy_mu": float("nan"),
+        }.items():
+            if col not in results_df.columns:
+                results_df[col] = default
         det_summary = results_df[
             [
                 "fit_start",
@@ -1971,6 +1984,10 @@ def _run_single_period(
                 "hold_start",
                 "hold_end",
                 "n_detections",
+                "skip_reason",
+                "isolated_spikes",
+                "gate_discarded_count",
+                "gate_discarded",
                 "top_lambda_hat",
                 "top_mu_hat",
                 "top_a0",
@@ -1986,6 +2003,8 @@ def _run_single_period(
                 "top_off_component_ratio",
                 "top_component_sigma1",
                 "top_component_sigma2",
+                "angle_min_deg",
+                "energy_mu",
                 "detections_detail",
             ]
         ].copy()
@@ -2455,6 +2474,13 @@ def run_experiment(
             raise ValueError("Factor CSV contains no usable numeric data after cleaning.")
         factor_returns = factor_df
 
+    try:
+        alignment_top_p_cfg = int(config.get("alignment_top_p", 3))
+    except (TypeError, ValueError):
+        alignment_top_p_cfg = 3
+    if alignment_top_p_cfg <= 0:
+        alignment_top_p_cfg = 3
+
     cache_dir_path: Path | None
     if cache_dir_override is not None:
         cache_dir_path = Path(cache_dir_override).expanduser()
@@ -2578,6 +2604,7 @@ def run_experiment(
                 turnover_cost_bps=turnover_cost_bps,
                 preprocess_flags=preprocess_flags,
                 gating=cast(Mapping[str, Any] | None, config.get("gating")),
+                alignment_top_p=alignment_top_p_cfg,
             )
 
             try:

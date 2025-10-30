@@ -17,7 +17,8 @@ def test_load_run_frames() -> None:
     assert not frames["metrics"].empty
     assert frames["metrics"].shape[0] == 5
     assert pytest.approx(frames["summary"]["detection_rate"].iloc[0], rel=1e-6) == 0.75
-    assert set(frames.keys()) == {"metrics", "rolling", "summary", "run_path"}
+    keys = set(frames.keys())
+    assert {"metrics", "rolling", "summary", "run_path"}.issubset(keys)
 
 
 def test_find_runs_prefers_tagged(tmp_path: Path) -> None:

@@ -59,3 +59,11 @@
 - Generate RC runs, gallery, and memo: `make rc`
 - Review outputs: `ls figures/rc/<run_tag>` and `less reports/memo.md`
 - Extend coverage by editing `experiments/equity_panel/config.rc.yaml` (add estimators or crisis configs) before rerunning `make rc`.
+
+## Calibration (Oct 2025)
+
+- **Smoke + crisis reruns.** `PYTHONPATH=src python3 experiments/equity_panel/run.py --config experiments/equity_panel/config.smoke.yaml --no-progress --precompute-panel --drop-partial-weeks --estimator dealias` and the matching `--crisis 20200215:20200531` rerun now write gating telemetry (`windows_substituted`, `skip_reasons`) plus alignment angles in `detection_summary.csv`. With the current defaults the smoke slice substituted 3/4 windows (one `no_isolated_spike` skip, median alignment ≈17°) and the 2020 crisis slice substituted all six windows (median alignment ≈31°).
+- **Gallery + memo regeneration.** `python3 tools/build_gallery.py --config experiments/equity_panel/config.gallery.yaml` and `python3 tools/build_memo.py --config experiments/equity_panel/config.gallery.yaml` refresh the plots/tables; look for the new `alignment_angles.png` plot per run and the memo’s QLIKE/alignment panel.
+- **Acceptance sweep.** `PYTHONPATH=src python3 experiments/equity_panel/sweep_acceptance.py --design oneway --estimators dealias lw oas cc tyler --grid default` populates `experiments/equity_panel/sweeps/` with tagged run directories, `sweep_summary.csv`, and the overview heatmaps `E5_detection_rate.png` / `E5_mse_gain.png`. The grid `{δ_frac, ε} = {0.01,0.02} × {0.02,0.03}` with `η ∈ {0.4,0.6}` and `a_grid ∈ {90,120}` produced indistinguishable detection and ΔMSE profiles, so we retained the guardrail values (δ_frac = 0.02, ε = 0.03, η = 0.4) and standardised on `a_grid = 120`.
+- **Run aggregation.** `python3 tools/aggregate_runs.py --inputs "experiments/equity_panel/outputs*" --out reports/aggregate_summary.csv --tex-out reports/aggregate_summary.tex` concatenates the latest slices; the table includes both MSE and QLIKE columns for quick comparisons.
+- **Defaults snapshot.** `experiments/equity_panel/config.yaml` and `config.smoke.yaml` now carry `gating` defaults (`enable: true`, `q_max: 2`, `require_isolated: true`) alongside `alignment_top_p: 3`.

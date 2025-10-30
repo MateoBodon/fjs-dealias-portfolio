@@ -244,6 +244,7 @@ Preprocess selections propagate into the cache key, panel manifest, artifact dir
   ```
 
 - **Per-window diagnostics.** `detection_summary.csv` now records `skip_reason`, `isolated_spikes`, `gate_discarded_count`, a JSON payload of discarded detections, and the alignment statistics `angle_min_deg` / `energy_mu` (principal angle and quadratic form against Σ̂).
+- **Observed coverage (Oct 2025 calibration).** With the defaults below, the smoke slice substitutes 3/4 windows (one skip tagged `no_isolated_spike`, median alignment ≈17°) and the 2020 crisis slice substitutes all 6 windows (median alignment ≈31°). No detections were clipped by the top‑K gate, so `gate_discarded` stayed empty.
 
 - **Summary telemetry.** `summary.json` includes a `gating` section with substitution counts and skip reasons, plus `nested_skip_details` (years kept, common ISO weeks, replicates, exit reason) whenever nested prep fails to assemble a valid balanced block.
 
@@ -258,19 +259,23 @@ Preprocess selections propagate into the cache key, panel manifest, artifact dir
   ```
 
   The script spins up tagged sub-runs and emits `sweep_summary.csv` with detection rate, median edge margin, substitution share, and DM(MSE/QLIKE) deltas versus LW/OAS.
+  Two overview heatmaps—`E5_detection_rate.png` and `E5_mse_gain.png`—summarise the detection density and the (Aliased − De-aliased) ΔMSE surface.
 
 - **Alignment plots.** `tools/build_gallery.py` adds `alignment_angles.png` when detections contain alignment diagnostics, complementing the existing DM/detection/edge plots.
 
-| Key | Default | Meaning |
+| Key | RC default | Meaning |
 | --- | --- | --- |
 | `dealias_delta_frac` | `0.02` | Relative MP edge buffer (dominant guardrail). |
 | `dealias_eps` | `0.03` | Minimum t-vector mass on the target component. |
-| `stability_eta_deg` | `0.4` | Angular jitter for stability verification. |
+| `stability_eta_deg` | `0.4` | Angular jitter for stability verification (kept to preserve the historical guardrail). |
+| `a_grid` | `120` | Angular resolution for the t-vector search; balances runtime vs. alignment smoothness. |
+| `gating.q_max` | `2` | Maximum detections substituted per window (top‑K selection score = energy × stability). |
+| `alignment_top_p` | `3` | PCA dimensionality used in the alignment diagnostic. |
 | `off_component_leak_cap` | `10.0` | Reject when Σ₂ leakage exceeds the cap relative to Σ₁. |
 | `energy_min_abs` | `1e-6` | Drop spikes with insufficient Σ₁ energy. |
 | `sigma_ablation` | `False` | Toggle ±10% Cs perturbations for sensitivity checks. |
 
-The detection summary and memo bullets explicitly badge runs where `no_isolated_spike` skips dominate; leverage the sweep tool above to retune acceptance thresholds when that happens.
+The detection summary and memo bullets explicitly badge runs where `no_isolated_spike` skips dominate; leverage the sweep tool above to retune acceptance thresholds when that happens. The October 2025 sweep over `(δ_frac, ε, η, a_grid) ∈ {0.01,0.02} × {0.02,0.03} × {0.4,0.6} × {90,120}` produced numerically identical detection and ΔMSE profiles across the grid, so the RC defaults above retain the long-standing guardrail (δ_frac = 0.02, ε = 0.03, η = 0.4) while standardising on `a_grid = 120` to keep the alignment diagnostic smooth without materially increasing runtime.
 
 ---
 

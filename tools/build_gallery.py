@@ -20,6 +20,7 @@ if str(SRC_ROOT) not in sys.path:
 from report.gather import collect_estimator_panel, find_runs, load_run
 from report.plots import (
     plot_ablation_heatmap,
+    plot_alignment_angles,
     plot_detection_rate,
     plot_dm_bars,
     plot_edge_margin_hist,
@@ -125,6 +126,7 @@ def build_gallery(config_path: Path) -> Path:
 
         run_tag = run_path.name
         summary_df = frames["summary"]
+        detection_df = frames.get("detections", pd.DataFrame())
         rejection_df = _gather_rejections(summary_df, run_tag) if not summary_df.empty else pd.DataFrame()
         ablation_df = _load_ablation(run_path)
         edge_df = _edge_dataframe(frames["rolling"], run_tag)
@@ -145,6 +147,15 @@ def build_gallery(config_path: Path) -> Path:
             plot_detection_rate(panel_df, root=gallery_root),
         ]
         summary_index[run_tag].extend(str(path) for path in plot_paths)
+
+        if not detection_df.empty and "angle_min_deg" in detection_df:
+            alignment_df = detection_df[["angle_min_deg"]].copy()
+            alignment_df.insert(0, "run", run_tag)
+            try:
+                angle_path = plot_alignment_angles(alignment_df, root=gallery_root)
+                summary_index[run_tag].append(str(angle_path))
+            except ValueError:
+                pass
 
         if not edge_df.empty:
             edge_path = plot_edge_margin_hist(edge_df, root=gallery_root)

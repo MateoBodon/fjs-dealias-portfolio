@@ -232,7 +232,34 @@ Preprocess selections propagate into the cache key, panel manifest, artifact dir
 
 ---
 
-## 9. Detection guardrails (key config entries)
+## 9. Calibration & gating
+
+- **q-discipline gate.** All equity configs inherit a `gating` block (defaults below). Set `enable: false` to revert to legacy behaviour, tune `q_max` to cap accepted detections per window, and keep `require_isolated: true` to avoid substituting when no MP-isolated spike exists.
+
+  ```yaml
+  gating:
+    enable: true
+    q_max: 2
+    require_isolated: true
+  ```
+
+- **Per-window diagnostics.** `detection_summary.csv` now records `skip_reason`, `isolated_spikes`, `gate_discarded_count`, a JSON payload of discarded detections, and the alignment statistics `angle_min_deg` / `energy_mu` (principal angle and quadratic form against Σ̂).
+
+- **Summary telemetry.** `summary.json` includes a `gating` section with substitution counts and skip reasons, plus `nested_skip_details` (years kept, common ISO weeks, replicates, exit reason) whenever nested prep fails to assemble a valid balanced block.
+
+- **Acceptance sweep.** `experiments/equity_panel/sweep_acceptance.py` reuses the runner plumbing to scan acceptance parameters. For example:
+
+  ```bash
+  PYTHONPATH=src python experiments/equity_panel/sweep_acceptance.py \
+    --config experiments/equity_panel/config.smoke.yaml \
+    --design oneway \
+    --grid default \
+    --estimators dealias lw oas cc tyler
+  ```
+
+  The script spins up tagged sub-runs and emits `sweep_summary.csv` with detection rate, median edge margin, substitution share, and DM(MSE/QLIKE) deltas versus LW/OAS.
+
+- **Alignment plots.** `tools/build_gallery.py` adds `alignment_angles.png` when detections contain alignment diagnostics, complementing the existing DM/detection/edge plots.
 
 | Key | Default | Meaning |
 | --- | --- | --- |
@@ -243,11 +270,26 @@ Preprocess selections propagate into the cache key, panel manifest, artifact dir
 | `energy_min_abs` | `1e-6` | Drop spikes with insufficient Σ₁ energy. |
 | `sigma_ablation` | `False` | Toggle ±10% Cs perturbations for sensitivity checks. |
 
-Detection summaries (`detection_summary.csv`) and aggregated `summary.json` provide per-window and overall guardrail diagnostics (edge margins, rejection counts, leak ratios).
+The detection summary and memo bullets explicitly badge runs where `no_isolated_spike` skips dominate; leverage the sweep tool above to retune acceptance thresholds when that happens.
 
 ---
 
-## 10. CI overview
+## 10. Aggregating runs
+
+Combine multiple `metrics_summary.csv` files without rebuilding the memo:
+
+```bash
+python tools/aggregate_runs.py \
+  --inputs "experiments/equity_panel/outputs_smoke/*" \
+  --out reports/aggregate_summary.csv \
+  --tex-out reports/aggregate_summary.tex
+```
+
+Each row is tagged with `run`, `run_path`, `crisis_label`, and `design` (sourced from `summary.json`), and an optional LaTeX table is emitted when `--tex-out` is supplied.
+
+---
+
+## 11. CI overview
 
 `.github/workflows/smoke.yml` executes:
 
@@ -262,7 +304,7 @@ This ensures smoke regressions surface quickly and reviewers always have current
 
 ---
 
-## 11. Tips & troubleshooting
+## 12. Tips & troubleshooting
 
 - **Cache hygiene**: Use `--resume --cache-dir .cache` to keep per-window statistics; delete `.cache/` when changing estimator/preprocess combos that affect the cache key signature.
 - **Tagged directories**: Prefer the `<design>_J*_solver-*_est-*_prep-*` naming convention. `tools/clean_outputs.py` moves legacy files aside and `tools/summarize_run.py` warns when legacy outputs are ignored.

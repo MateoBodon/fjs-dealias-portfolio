@@ -83,12 +83,21 @@ def table_estimators_panel(df: pd.DataFrame, *, root: Path = DEFAULT_FIG_ROOT) -
         edge_med = group["edge_margin_median"].dropna() if "edge_margin_median" in group else pd.Series(dtype=float)
         edge_iqr = group["edge_margin_iqr"].dropna() if "edge_margin_iqr" in group else pd.Series(dtype=float)
 
+        substitution_series = (
+            group["substitution_fraction"].dropna()
+            if "substitution_fraction" in group
+            else pd.Series(dtype=float)
+        )
         record: dict[str, object] = {
             "estimator": estimator,
             "detection_rate": detection_rate,
             "crisis_label": crisis_label,
             "edge_margin_median": float(edge_med.iloc[0]) if not edge_med.empty else np.nan,
             "edge_margin_iqr": float(edge_iqr.iloc[0]) if not edge_iqr.empty else np.nan,
+            "dm_p_ew_qlike": np.nan,
+            "dm_p_mv_qlike": np.nan,
+            "mean_qlike": np.nan,
+            "substitution_fraction": float(substitution_series.iloc[0]) if not substitution_series.empty else np.nan,
         }
 
         if ew_row is not None:
@@ -99,6 +108,8 @@ def table_estimators_panel(df: pd.DataFrame, *, root: Path = DEFAULT_FIG_ROOT) -
                     "ci_hi_ew": float(ew_row.get("ci_hi", np.nan)),
                     "dm_p_ew": float(ew_row.get("dm_p", np.nan)),
                     "n_windows": int(ew_row.get("n_windows", 0)),
+                    "dm_p_ew_qlike": float(ew_row.get("dm_p_qlike", np.nan)),
+                    "mean_qlike": float(ew_row.get("mean_qlike", np.nan)),
                 }
             )
         if mv_row is not None:
@@ -109,6 +120,7 @@ def table_estimators_panel(df: pd.DataFrame, *, root: Path = DEFAULT_FIG_ROOT) -
                     "ci_hi_mv": float(mv_row.get("ci_hi", np.nan)),
                     "dm_p_mv": float(mv_row.get("dm_p", np.nan)),
                     "n_windows": int(mv_row.get("n_windows", record.get("n_windows", 0))),
+                    "dm_p_mv_qlike": float(mv_row.get("dm_p_qlike", np.nan)),
                 }
             )
 

@@ -44,6 +44,12 @@ def load_run(path: Path | str) -> dict[str, pd.DataFrame]:
     else:
         frames["rolling"] = pd.DataFrame()
 
+    detections_path = run_path / "detection_summary.csv"
+    if detections_path.exists():
+        frames["detections"] = pd.read_csv(detections_path)
+    else:
+        frames["detections"] = pd.DataFrame()
+
     summary_path = run_path / "summary.json"
     if summary_path.exists():
         summary_obj = json.loads(summary_path.read_text())
@@ -113,6 +119,17 @@ def _dm_values(de_row: pd.Series, estimator: str) -> tuple[float, float]:
     return dm_p, dm_stat
 
 
+def _dm_values_qlike(de_row: pd.Series, estimator: str) -> tuple[float, float]:
+    suffix = DM_SUFFIXES.get(estimator)
+    if not suffix:
+        return float("nan"), float("nan")
+    p_col = f"dm_p_de_vs_{suffix}_qlike"
+    stat_col = f"dm_stat_de_vs_{suffix}_qlike"
+    dm_p = float(de_row.get(p_col, float("nan")))
+    dm_stat = float(de_row.get(stat_col, float("nan")))
+    return dm_p, dm_stat
+
+
 def _ci_bounds(de_row: pd.Series, estimator: str) -> tuple[float, float]:
     suffix = DM_SUFFIXES.get(estimator)
     if not suffix:
@@ -160,6 +177,35 @@ def collect_estimator_panel(run_paths: Sequence[Path | str]) -> pd.DataFrame:
                     windows_evaluated = float(window_series.iloc[0])
                 except (TypeError, ValueError):
                     windows_evaluated = float("nan")
+        substitution_fraction = float("nan")
+        if (
+            not summary.empty
+            and "gating.windows_substituted" in summary
+            and pd.notna(windows_evaluated)
+            and windows_evaluated > 0
+        ):
+            sub_series = summary["gating.windows_substituted"].dropna()
+            if not sub_series.empty:
+                try:
+                    substituted = float(sub_series.iloc[0])
+                    substitution_fraction = substituted / float(windows_evaluated)
+                except (TypeError, ValueError):
+                    substitution_fraction = float("nan")
+        skip_no_iso_share = float("nan")
+        if not summary.empty and "gating.skip_reasons" in summary and pd.notna(windows_evaluated) and windows_evaluated > 0:
+            skip_series = summary["gating.skip_reasons"].dropna()
+            if not skip_series.empty:
+                entry = skip_series.iloc[0]
+                if isinstance(entry, list):
+                    for item in entry:
+                        if isinstance(item, dict) and item.get("reason") == "no_isolated_spike":
+                            try:
+                                count_val = float(item.get("count", 0.0))
+                            except (TypeError, ValueError):
+                                count_val = float("nan")
+                            if not pd.isna(count_val):
+                                skip_no_iso_share = count_val / float(windows_evaluated)
+                            break
         summary_crisis = ""
         if not summary.empty and "crisis_label" in summary:
             crisis_series = summary["crisis_label"].dropna()
@@ -190,7 +236,9 @@ def collect_estimator_panel(run_paths: Sequence[Path | str]) -> pd.DataFrame:
                 mean_mse = float(row.get("mean_mse", float("nan")))
                 delta_mse = mean_mse - de_mean if pd.notna(mean_mse) and pd.notna(de_mean) else float("nan")
                 dm_p, dm_stat = _dm_values(de_row, estimator)
+                dm_p_qlike, dm_stat_qlike = _dm_values_qlike(de_row, estimator)
                 ci_lo, ci_hi = _ci_bounds(de_row, estimator)
+                mean_qlike = float(row.get("mean_qlike", float("nan")))
 
                 crisis_value = summary_crisis or str(row.get("label", ""))
 
@@ -201,9 +249,12 @@ def collect_estimator_panel(run_paths: Sequence[Path | str]) -> pd.DataFrame:
                     "strategy": strategy,
                     "estimator": estimator,
                     "mean_mse": mean_mse,
+                    "mean_qlike": mean_qlike,
                     "delta_mse_vs_de": delta_mse,
                     "dm_p": dm_p,
                     "dm_stat": dm_stat,
+                    "dm_p_qlike": dm_p_qlike,
+                    "dm_stat_qlike": dm_stat_qlike,
                     "n_windows": int(row.get("n_windows", 0)),
                     "detection_rate": detection_rate,
                     **edge_stats,
@@ -211,6 +262,8 @@ def collect_estimator_panel(run_paths: Sequence[Path | str]) -> pd.DataFrame:
                     "ci_hi": ci_hi,
                     "design": design_value,
                     "rolling_windows_evaluated": windows_evaluated,
+                    "substitution_fraction": substitution_fraction,
+                    "skip_no_isolated_share": skip_no_iso_share,
                 }
                 records.append(record)
 
@@ -223,14 +276,19 @@ def collect_estimator_panel(run_paths: Sequence[Path | str]) -> pd.DataFrame:
                 "strategy",
                 "estimator",
                 "mean_mse",
+                "mean_qlike",
                 "delta_mse_vs_de",
                 "dm_p",
                 "dm_stat",
+                "dm_p_qlike",
+                "dm_stat_qlike",
                 "n_windows",
                 "detection_rate",
                 "edge_margin_count",
                 "edge_margin_median",
                 "edge_margin_iqr",
+                "substitution_fraction",
+                "skip_no_isolated_share",
             ]
         )
 

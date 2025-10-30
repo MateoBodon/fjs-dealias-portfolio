@@ -155,9 +155,11 @@ def _collect_rejection_records(summary_df: pd.DataFrame, run_tag: str) -> list[d
     return records
 
 
-def _build_key_tables(panel_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+def _build_key_tables(
+    panel_df: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     if panel_df.empty:
-        return pd.DataFrame(), pd.DataFrame()
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
 
     records: list[dict[str, float | str]] = []
     for (run_tag, estimator), group in panel_df.groupby(["run", "estimator"], sort=False):
@@ -178,6 +180,16 @@ def _build_key_tables(panel_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFram
             if "rolling_windows_evaluated" in group
             else pd.Series(dtype=float)
         )
+        substitution_series = (
+            group["substitution_fraction"].dropna()
+            if "substitution_fraction" in group
+            else pd.Series(dtype=float)
+        )
+        no_iso_series = (
+            group["skip_no_isolated_share"].dropna()
+            if "skip_no_isolated_share" in group
+            else pd.Series(dtype=float)
+        )
 
         record: dict[str, float | str] = {
             "run": run_tag,
@@ -189,14 +201,19 @@ def _build_key_tables(panel_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFram
             "ci_lo_ew": float("nan"),
             "ci_hi_ew": float("nan"),
             "dm_p_ew": float("nan"),
+            "dm_p_ew_qlike": float("nan"),
             "delta_mse_mv": float("nan"),
             "ci_lo_mv": float("nan"),
             "ci_hi_mv": float("nan"),
             "dm_p_mv": float("nan"),
+            "dm_p_mv_qlike": float("nan"),
             "edge_margin_median": float(edge_med_series.iloc[0]) if not edge_med_series.empty else float("nan"),
             "edge_margin_iqr": float(edge_iqr_series.iloc[0]) if not edge_iqr_series.empty else float("nan"),
             "n_windows": float("nan"),
             "rolling_windows_evaluated": float(windows_series.iloc[0]) if not windows_series.empty else float("nan"),
+            "mean_qlike": float("nan"),
+            "substitution_fraction": float(substitution_series.iloc[0]) if not substitution_series.empty else float("nan"),
+            "skip_no_isolated_share": float(no_iso_series.iloc[0]) if not no_iso_series.empty else float("nan"),
         }
 
         if ew_row is not None:
@@ -204,19 +221,24 @@ def _build_key_tables(panel_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFram
             record["ci_lo_ew"] = float(ew_row.get("ci_lo", float("nan")))
             record["ci_hi_ew"] = float(ew_row.get("ci_hi", float("nan")))
             record["dm_p_ew"] = float(ew_row.get("dm_p", float("nan")))
+            record["dm_p_ew_qlike"] = float(ew_row.get("dm_p_qlike", float("nan")))
             record["n_windows"] = float(ew_row.get("n_windows", float("nan")))
+            record["mean_qlike"] = float(ew_row.get("mean_qlike", float("nan")))
         if mv_row is not None:
             record["delta_mse_mv"] = float(mv_row.get("delta_mse_vs_de", float("nan")))
             record["ci_lo_mv"] = float(mv_row.get("ci_lo", float("nan")))
             record["ci_hi_mv"] = float(mv_row.get("ci_hi", float("nan")))
             record["dm_p_mv"] = float(mv_row.get("dm_p", float("nan")))
+            record["dm_p_mv_qlike"] = float(mv_row.get("dm_p_qlike", float("nan")))
             if pd.isna(record["n_windows"]):
                 record["n_windows"] = float(mv_row.get("n_windows", float("nan")))
+            if pd.isna(record["mean_qlike"]):
+                record["mean_qlike"] = float(mv_row.get("mean_qlike", float("nan")))
 
         records.append(record)
 
     if not records:
-        return pd.DataFrame(), pd.DataFrame()
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
 
     numeric_df = pd.DataFrame(records).sort_values(["run", "estimator"]).reset_index(drop=True)
 
@@ -225,6 +247,7 @@ def _build_key_tables(panel_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFram
         detection_display = _format_detection(row["detection_rate"])
         design_value = str(row.get("design", "")).lower()
         windows_val = row.get("rolling_windows_evaluated", float("nan"))
+        skip_share_val = float(row.get("skip_no_isolated_share", float("nan")))
         if (
             design_value == "nested"
             and not pd.isna(row.get("detection_rate"))
@@ -234,6 +257,8 @@ def _build_key_tables(panel_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFram
             and detection_display != "n/a"
         ):
             detection_display += " (no accepted detections; check guardrails)"
+        if not pd.isna(skip_share_val) and skip_share_val >= 0.2:
+            detection_display += f" ⚠ gate-no_iso {skip_share_val * 100:.0f}%"
         display_rows.append(
             {
                 "run": row["run"],
@@ -243,11 +268,16 @@ def _build_key_tables(panel_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFram
                 "delta_mse_ew": _format_delta(row["delta_mse_ew"]),
                 "CI_EW": _format_ci(row["ci_lo_ew"], row["ci_hi_ew"]),
                 "DM_p_EW": _format_pvalue(row["dm_p_ew"]),
+                "DM_p_EW_QLIKE": _format_pvalue(row.get("dm_p_ew_qlike", float("nan"))),
                 "delta_mse_mv": _format_delta(row["delta_mse_mv"]),
                 "CI_MV": _format_ci(row["ci_lo_mv"], row["ci_hi_mv"]),
                 "DM_p_MV": _format_pvalue(row["dm_p_mv"]),
+                "DM_p_MV_QLIKE": _format_pvalue(row.get("dm_p_mv_qlike", float("nan"))),
                 "edge_margin_median": _format_edge_metric(row["edge_margin_median"]),
                 "edge_margin_IQR": _format_edge_metric(row["edge_margin_iqr"]),
+                "mean_qlike": _format_edge_metric(row.get("mean_qlike", float("nan"))),
+                "substitution_fraction": _format_detection(row.get("substitution_fraction", float("nan"))),
+                "no_iso_skip_share": _format_percent(skip_share_val),
                 "n_windows": _format_windows(row["n_windows"]),
             }
         )
@@ -262,16 +292,62 @@ def _build_key_tables(panel_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFram
             "delta_mse_ew",
             "CI_EW",
             "DM_p_EW",
+            "DM_p_EW_QLIKE",
             "delta_mse_mv",
             "CI_MV",
             "DM_p_MV",
+            "DM_p_MV_QLIKE",
             "edge_margin_median",
             "edge_margin_IQR",
+            "mean_qlike",
+            "substitution_fraction",
+            "no_iso_skip_share",
             "n_windows",
         ],
     )
 
-    return numeric_df, display_df
+    qlike_display_rows: list[dict[str, str]] = []
+    for _, row in numeric_df.iterrows():
+        qlike_display_rows.append(
+            {
+                "run": row["run"],
+                "crisis_label": row["crisis_label"] or "n/a",
+                "estimator": row["estimator"],
+                "DM_p_EW_QLIKE": _format_pvalue(row["dm_p_ew_qlike"]),
+                "DM_p_MV_QLIKE": _format_pvalue(row["dm_p_mv_qlike"]),
+                "mean_qlike": _format_edge_metric(row["mean_qlike"]),
+                "substitution_fraction": _format_detection(row.get("substitution_fraction", float("nan"))),
+                "no_iso_skip_share": _format_percent(row.get("skip_no_isolated_share", float("nan"))),
+            }
+        )
+
+    qlike_display_df = pd.DataFrame(
+        qlike_display_rows,
+        columns=[
+            "run",
+            "crisis_label",
+            "estimator",
+            "DM_p_EW_QLIKE",
+            "DM_p_MV_QLIKE",
+            "mean_qlike",
+            "substitution_fraction",
+            "no_iso_skip_share",
+        ],
+    )
+
+    qlike_numeric_df = numeric_df[
+        [
+            "run",
+            "estimator",
+            "dm_p_ew_qlike",
+            "dm_p_mv_qlike",
+            "mean_qlike",
+            "substitution_fraction",
+            "skip_no_isolated_share",
+        ]
+    ].copy()
+
+    return numeric_df, display_df, qlike_numeric_df, qlike_display_df
 
 
 def _build_rejection_tables(rejection_records: list[dict[str, float]]) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -321,6 +397,8 @@ def build_memo(config_path: Path) -> Path:
     rejection_records: list[dict[str, float]] = []
     ablation_frames: list[pd.DataFrame] = []
     ablation_figures: list[tuple[str, Path]] = []
+    alignment_medians: dict[str, float] = {}
+    no_iso_shares: dict[str, float] = {}
 
     for run_path in run_paths:
         frames = load_run(run_path)
@@ -332,6 +410,11 @@ def build_memo(config_path: Path) -> Path:
         run_meta = {}
         if run_meta_path.exists():
             run_meta = json.loads(run_meta_path.read_text(encoding="utf-8"))
+        summary_json_path = run_path / "summary.json"
+        summary_json: dict[str, object] = {}
+        if summary_json_path.exists():
+            summary_json = json.loads(summary_json_path.read_text(encoding="utf-8"))
+        detection_df = frames.get("detections", pd.DataFrame())
 
         design = run_meta.get("design") or summary_df.get("design").iloc[0] if not summary_df.empty and "design" in summary_df else "n/a"
         nested = run_meta.get("nested_replicates") or summary_df.get("nested_replicates").iloc[0] if not summary_df.empty and "nested_replicates" in summary_df else "n/a"
@@ -344,9 +427,46 @@ def build_memo(config_path: Path) -> Path:
             crisis_label = str(summary_df["label"].iloc[0])
         estimators = sorted(panel_df["estimator"].unique()) if not panel_df.empty else []
 
+        alignment_median = float("nan")
+        if not detection_df.empty and "angle_min_deg" in detection_df:
+            angle_series = detection_df["angle_min_deg"].dropna()
+            if not angle_series.empty:
+                alignment_median = float(angle_series.median())
+                alignment_medians[run_path.name] = alignment_median
+
+        no_iso_share = float("nan")
+        gating_payload = summary_json.get("gating", {}) if isinstance(summary_json, dict) else {}
+        skip_entries = gating_payload.get("skip_reasons", []) if isinstance(gating_payload, dict) else []
+        if isinstance(skip_entries, list):
+            for entry in skip_entries:
+                if isinstance(entry, dict) and entry.get("reason") == "no_isolated_spike":
+                    try:
+                        count_val = float(entry.get("count", 0.0))
+                    except (TypeError, ValueError):
+                        count_val = 0.0
+                    windows_total = summary_json.get("rolling_windows_evaluated") if isinstance(summary_json, dict) else None
+                    try:
+                        windows_val = float(windows_total) if windows_total is not None else float("nan")
+                    except (TypeError, ValueError):
+                        windows_val = float("nan")
+                    if not pd.isna(windows_val) and windows_val > 0:
+                        no_iso_share = count_val / windows_val
+                        no_iso_shares[run_path.name] = no_iso_share
+                    break
+
         run_label = crisis_label or run_path.name
+        alignment_fragment = (
+            f", median angle={alignment_median:.1f}°"
+            if not pd.isna(alignment_median)
+            else ""
+        )
+        no_iso_fragment = (
+            f" [no_isolated {no_iso_share * 100:.0f}%]"
+            if not pd.isna(no_iso_share) and no_iso_share >= 0.2
+            else ""
+        )
         run_lines.append(
-            f"- **{run_label}** (design={design}, J={nested}, period={start_date} → {end_date}) — estimators: {', '.join(estimators) if estimators else 'n/a'}"
+            f"- **{run_label}** (design={design}, J={nested}, period={start_date} → {end_date}{alignment_fragment}{no_iso_fragment}) — estimators: {', '.join(estimators) if estimators else 'n/a'}"
         )
 
         rejection_records.extend(_collect_rejection_records(summary_df, run_path.name))
@@ -387,8 +507,14 @@ def build_memo(config_path: Path) -> Path:
     else:
         combined_table = pd.DataFrame(columns=["run", "crisis_label", "estimator"])
 
-    key_numeric_df, key_display_df = _build_key_tables(combined_table)
+    (
+        key_numeric_df,
+        key_display_df,
+        key_qlike_numeric_df,
+        key_qlike_display_df,
+    ) = _build_key_tables(combined_table)
     key_table_md = _markdown_table(key_display_df) if not key_display_df.empty else "(no data)"
+    key_qlike_table_md = _markdown_table(key_qlike_display_df) if not key_qlike_display_df.empty else "(no data)"
 
     if key_numeric_df.empty:
         detection_mean = float("nan")
@@ -396,6 +522,9 @@ def build_memo(config_path: Path) -> Path:
         delta_median = float("nan")
         dm_sig = 0
         dm_total = 0
+        dm_sig_qlike = 0
+        dm_total_qlike = 0
+        substitution_mean = float("nan")
     else:
         per_run_detection = key_numeric_df.groupby("run")["detection_rate"].max()
         detection_mean = float(per_run_detection.dropna().mean()) if not per_run_detection.dropna().empty else float("nan")
@@ -417,6 +546,25 @@ def build_memo(config_path: Path) -> Path:
             dm_sig = 0
             dm_total = 0
 
+        dm_columns_qlike = []
+        if "dm_p_ew_qlike" in key_qlike_numeric_df.columns:
+            dm_columns_qlike.append(key_qlike_numeric_df["dm_p_ew_qlike"])
+        if "dm_p_mv_qlike" in key_qlike_numeric_df.columns:
+            dm_columns_qlike.append(key_qlike_numeric_df["dm_p_mv_qlike"])
+        if dm_columns_qlike:
+            dm_concat_qlike = pd.concat(dm_columns_qlike).dropna()
+            dm_sig_qlike = int((dm_concat_qlike < 0.05).sum())
+            dm_total_qlike = int(dm_concat_qlike.shape[0])
+        else:
+            dm_sig_qlike = 0
+            dm_total_qlike = 0
+
+        if "substitution_fraction" in key_qlike_numeric_df.columns:
+            sub_series = key_qlike_numeric_df["substitution_fraction"].dropna()
+            substitution_mean = float(sub_series.mean()) if not sub_series.empty else float("nan")
+        else:
+            substitution_mean = float("nan")
+
     bullet_detection = (
         f"Average detection coverage across RC runs: {_format_percent(detection_mean)}."
         if not pd.isna(detection_mean)
@@ -432,6 +580,31 @@ def build_memo(config_path: Path) -> Path:
         if dm_total
         else "No Diebold–Mariano statistics reported."
     )
+    bullet_dm_qlike = (
+        f"{dm_sig_qlike} of {dm_total_qlike} QLIKE DM tests show p < 0.05."
+        if dm_total_qlike
+        else "No QLIKE Diebold–Mariano statistics reported."
+    )
+    bullet_substitution = (
+        f"Accepted detections substitute in {_format_percent(substitution_mean)} of evaluated windows."
+        if not pd.isna(substitution_mean)
+        else "Substitution share not available."
+    )
+    if alignment_medians:
+        alignment_series = pd.Series(alignment_medians)
+        bullet_alignment = (
+            f"Median alignment angle across runs: {alignment_series.median():.1f}° (mean {alignment_series.mean():.1f}°)."
+        )
+    else:
+        bullet_alignment = "Alignment diagnostics unavailable."
+
+    if no_iso_shares:
+        no_iso_series = pd.Series(no_iso_shares)
+        bullet_no_iso = (
+            f"'no_isolated_spike' gate skipped {_format_percent(no_iso_series.mean())} of windows on average (max {_format_percent(no_iso_series.max())})."
+        )
+    else:
+        bullet_no_iso = "No 'no_isolated_spike' gate activations recorded."
 
     rejection_percent_df, rejection_markdown_df = _build_rejection_tables(rejection_records)
     if rejection_markdown_df.empty:
@@ -540,7 +713,8 @@ def build_memo(config_path: Path) -> Path:
     )
 
     key_results_intro = (
-        "Values are measured versus the de-aliased baseline; negative Delta MSE indicates an improvement."
+        "Values are measured versus the de-aliased baseline; negative Delta MSE indicates an improvement. "
+        "The first table reports MSE deltas and DM p-values, while the second summarises QLIKE DM statistics and substitution share."
     )
 
     if not ablation_table_md:
@@ -556,6 +730,7 @@ def build_memo(config_path: Path) -> Path:
         "run_summary": "\n".join(run_lines) if run_lines else "(no runs)",
         "key_results_intro": key_results_intro,
         "key_results_table": key_table_md,
+        "key_results_table_qlike": key_qlike_table_md,
         "coverage_paragraph": coverage_paragraph,
         "rejection_table_md": rejection_table_md,
         "ablation_caption": ablation_caption,
@@ -564,6 +739,10 @@ def build_memo(config_path: Path) -> Path:
         "bullet_detection": bullet_detection,
         "bullet_mse": bullet_mse,
         "bullet_dm": bullet_dm,
+        "bullet_dm_qlike": bullet_dm_qlike,
+        "bullet_substitution": bullet_substitution,
+        "bullet_alignment": bullet_alignment,
+        "bullet_no_iso": bullet_no_iso,
         "artifact_list": artifact_list,
     }
     memo_text = template.format(**context)

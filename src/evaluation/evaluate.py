@@ -82,6 +82,22 @@ def sign_test_pvalue(differences: Iterable[float] | np.ndarray) -> float:
     return float(p_value)
 
 
+def qlike(
+    forecasts: Iterable[float] | np.ndarray,
+    realised: Iterable[float] | np.ndarray,
+) -> np.ndarray:
+    """Quasi-likelihood (QLIKE) loss for variance forecasts."""
+
+    f_arr = np.asarray(list(forecasts), dtype=np.float64).ravel()
+    r_arr = np.asarray(list(realised), dtype=np.float64).ravel()
+    if f_arr.size != r_arr.size:
+        raise ValueError("Forecast and realised arrays must have matching lengths.")
+    eps = 1e-12
+    f_safe = np.clip(f_arr, eps, None)
+    r_safe = np.clip(r_arr, 0.0, None)
+    return np.log(f_safe) + r_safe / f_safe
+
+
 def block_bootstrap_ci_median(
     series: Iterable[float] | np.ndarray,
     *,
@@ -141,6 +157,38 @@ def block_bootstrap_ci_median(
     lo = float(np.quantile(medians, alpha / 2.0))
     hi = float(np.quantile(medians, 1.0 - alpha / 2.0))
     return lo, hi
+
+
+def alignment_diagnostics(
+    covariance: np.ndarray,
+    direction: np.ndarray,
+    *,
+    top_p: int = 3,
+) -> tuple[float, float]:
+    """Return (angle_deg, energy_mu) between detection direction and PCA subspace."""
+
+    cov = np.asarray(covariance, dtype=np.float64)
+    if cov.ndim != 2 or cov.shape[0] != cov.shape[1]:
+        raise ValueError("Covariance matrix must be square.")
+    vec = np.asarray(direction, dtype=np.float64).reshape(-1)
+    if cov.shape[0] != vec.size:
+        raise ValueError("Direction vector dimension mismatch.")
+    if top_p <= 0:
+        raise ValueError("top_p must be positive.")
+
+    # Ensure orthonormal eigenbasis
+    eigvals, eigvecs = np.linalg.eigh(cov)
+    order = np.argsort(eigvals)[::-1]
+    basis = eigvecs[:, order[: min(int(top_p), cov.shape[0])]]
+    vec_norm = np.linalg.norm(vec)
+    if vec_norm <= 0.0:
+        raise ValueError("Direction vector must have non-zero norm.")
+    unit_vec = vec / vec_norm
+    projection = basis.T @ unit_vec
+    proj_norm = np.clip(np.linalg.norm(projection), -1.0, 1.0)
+    angle_rad = np.arccos(proj_norm)
+    energy_mu = float(unit_vec.T @ cov @ unit_vec)
+    return float(np.degrees(angle_rad)), energy_mu
 
 
 # --- Plotting ---------------------------------------------------------------
@@ -278,6 +326,7 @@ def build_metrics_summary(
     *,
     errors_by_combo: Mapping[str, Mapping[int, float]],
     coverage_errors: Mapping[str, float],
+    qlike_by_combo: Mapping[str, Mapping[int, float]] | None = None,
     label: str,
     block_len: int = 12,
     n_boot: int = 1000,
@@ -311,6 +360,8 @@ def build_metrics_summary(
             "median_mse": float(np.median(errors_array)),
             "iqr_mse": iqr(errors_array),
             "coverage_error": float(coverage_errors.get(combo_key, float("nan"))),
+            "mean_qlike": float("nan"),
+            "median_qlike": float("nan"),
             "sign_test_p_de_vs_lw": float("nan"),
             "sign_test_p_de_vs_alias": float("nan"),
             "delta_median_de_minus_lw": float("nan"),
@@ -327,7 +378,17 @@ def build_metrics_summary(
             "dm_p_de_vs_cc": float("nan"),
             "dm_stat_de_vs_factor": float("nan"),
             "dm_p_de_vs_factor": float("nan"),
+            "dm_stat_de_vs_lw_qlike": float("nan"),
+            "dm_p_de_vs_lw_qlike": float("nan"),
+            "dm_stat_de_vs_oas_qlike": float("nan"),
+            "dm_p_de_vs_oas_qlike": float("nan"),
         }
+
+        qlike_map = qlike_by_combo.get(combo_key, {}) if qlike_by_combo is not None else {}
+        if qlike_map:
+            qlike_array = np.array([qlike_map[idx] for idx in sorted(qlike_map.keys())], dtype=np.float64)
+            entry["mean_qlike"] = float(np.mean(qlike_array))
+            entry["median_qlike"] = float(np.median(qlike_array))
 
         # Only compute Δ summaries for De-aliased rows where both comparators are present
         if est == EST_DE:
@@ -377,6 +438,27 @@ def build_metrics_summary(
                 dm_stat, dm_p = dm_test(de_vals, comp_vals)
                 entry[f"dm_stat_de_vs_{suffix}"] = dm_stat
                 entry[f"dm_p_de_vs_{suffix}"] = dm_p
+
+            if qlike_by_combo is not None and qlike_map:
+                de_qlike_map = qlike_by_combo.get(combo_key, {})
+                lw_qlike_map = qlike_by_combo.get(f"{strat}::{EST_LW}", {})
+                oas_qlike_map = qlike_by_combo.get(f"{strat}::OAS", {})
+                if de_qlike_map and lw_qlike_map:
+                    common = sorted(set(de_qlike_map.keys()) & set(lw_qlike_map.keys()))
+                    if common:
+                        de_vals = np.array([de_qlike_map[i] for i in common], dtype=np.float64)
+                        lw_vals = np.array([lw_qlike_map[i] for i in common], dtype=np.float64)
+                        dm_stat, dm_p = dm_test(de_vals, lw_vals)
+                        entry["dm_stat_de_vs_lw_qlike"] = dm_stat
+                        entry["dm_p_de_vs_lw_qlike"] = dm_p
+                if de_qlike_map and oas_qlike_map:
+                    common = sorted(set(de_qlike_map.keys()) & set(oas_qlike_map.keys()))
+                    if common:
+                        de_vals = np.array([de_qlike_map[i] for i in common], dtype=np.float64)
+                        oas_vals = np.array([oas_qlike_map[i] for i in common], dtype=np.float64)
+                        dm_stat, dm_p = dm_test(de_vals, oas_vals)
+                        entry["dm_stat_de_vs_oas_qlike"] = dm_stat
+                        entry["dm_p_de_vs_oas_qlike"] = dm_p
 
         rows.append(entry)
 

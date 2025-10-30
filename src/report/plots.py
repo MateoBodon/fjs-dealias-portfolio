@@ -12,6 +12,7 @@ __all__ = [
     "plot_edge_margin_hist",
     "plot_detection_rate",
     "plot_ablation_heatmap",
+    "plot_alignment_angles",
 ]
 
 DEFAULT_FIG_ROOT = Path("figures")
@@ -118,6 +119,36 @@ def plot_detection_rate(df: pd.DataFrame, *, root: Path = DEFAULT_FIG_ROOT) -> P
     fig.tight_layout()
 
     path = output_dir / "detection_rate.png"
+    fig.savefig(path, dpi=200)
+    plt.close(fig)
+    return path
+
+
+def plot_alignment_angles(df: pd.DataFrame, *, root: Path = DEFAULT_FIG_ROOT) -> Path:
+    if df.empty:
+        raise ValueError("Alignment DataFrame is empty.")
+
+    run_tag = _single_run_tag(df)
+    output_dir = root / run_tag / "plots"
+    _ensure_dir(output_dir)
+
+    column = "angle_min_deg"
+    if column not in df.columns:
+        raise ValueError("Expected 'angle_min_deg' column in DataFrame.")
+
+    values = df[column].dropna().to_numpy(dtype=float)
+    if values.size == 0:
+        raise ValueError("No finite alignment angles available for plotting.")
+
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.hist(values, bins=min(len(values), 18) or 10, color="C2", edgecolor="black")
+    ax.set_xlabel("Minimum principal angle (degrees)")
+    ax.set_ylabel("Count")
+    ax.set_title("Alignment of accepted detections vs PCA subspace")
+    ax.set_xlim(0, 90)
+    fig.tight_layout()
+
+    path = output_dir / "alignment_angles.png"
     fig.savefig(path, dpi=200)
     plt.close(fig)
     return path

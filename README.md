@@ -24,7 +24,28 @@ Optional data: `experiments/equity_panel/config*.yaml` expect `data/returns_dail
 
 ---
 
-## 2. Repository map
+## 2. Data & Reproducibility
+
+- **Daily input.** `experiments/equity_panel/run.py` looks for `data/returns_daily.csv` with columns `date,ticker,ret`. The repository ships a compact sample (Sharadar US equities through 2024-12-31) so smoke tests work offline.
+- **Regenerating a mini sample.** If the returns file is missing, the runner will synthesise `data/prices_daily.csv` and derive returns on first use. To refresh the bundled sample explicitly, convert `data/prices_sample.csv` via:
+
+  ```bash
+  python - <<'PY'
+  import pandas as pd
+  from finance.io import load_prices_csv, to_daily_returns
+
+  prices = load_prices_csv("data/prices_sample.csv")
+  returns = to_daily_returns(prices)
+  returns.to_csv("data/returns_daily.csv", index=False)
+  PY
+  ```
+
+- **Week alignment & timezone.** Balanced panels assume Monday–Friday business weeks in America/New_York. The default `--drop-partial-weeks` policy removes short weeks; switch to `--impute-partial-weeks` if your source includes holidays or alternative sessions.
+- **Run catalogues.** The latest tagged drops live in [`experiments/equity_panel/LATEST.md`](experiments/equity_panel/LATEST.md); browse local outputs with [`tools/list_runs.py`](tools/list_runs.py).
+
+---
+
+## 3. Repository map
 
 | Path | Purpose |
 | --- | --- |
@@ -39,7 +60,7 @@ Optional data: `experiments/equity_panel/config*.yaml` expect `data/returns_dail
 
 ---
 
-## 3. Testing & linting
+## 4. Testing & linting
 
 | Command | Scope |
 | --- | --- |
@@ -57,9 +78,9 @@ Markers (`pytest.ini`):
 
 ---
 
-## 4. Running equity experiments
+## 5. Running equity experiments
 
-### 4.1 Smoke slice (fast sanity check)
+### 5.1 Smoke slice (fast sanity check)
 
 ```bash
 PYTHONPATH=src OMP_NUM_THREADS=1 python experiments/equity_panel/run.py \
@@ -77,11 +98,11 @@ PYTHONPATH=src OMP_NUM_THREADS=1 python experiments/equity_panel/run.py \
 
 Outputs land in `experiments/equity_panel/outputs_smoke/<design>_J*_solver-*_est-*_prep-*`.
 
-### 4.2 Nested design
+### 5.2 Nested design
 
 Add `--design nested --nested-replicates 5` to the command above or copy/adapt the nested configs under `experiments/equity_panel/`.
 
-### 4.3 Crisis slices
+### 5.3 Crisis slices
 
 Two crisis presets are provided:
 
@@ -90,14 +111,14 @@ Two crisis presets are provided:
 
 Kick off a crisis run with the same CLI switches shown for the smoke slice, but substitute the crisis config and (optionally) tweak the estimator.
 
-### 4.4 Release Candidate batch
+### 5.4 Release Candidate batch
 
 `make rc` orchestrates:
 
 1. Smoke runs for estimators `{dealias,lw,oas,cc,factor,tyler_shrink}` across the oneway design.
 2. Nested smoke (`design=nested`) for a longer 2022 slice.
 3. (If present) tagged crisis directories under `experiments/equity_panel/outputs_crisis_*`.
-4. Gallery + memo generation (see sections 5 & 6).
+4. Gallery + memo generation (see sections 7 & 8).
 
 `make rc-lite` is a spot-check pass that only runs `{dealias,lw,oas}` on the smoke and 2020 crisis configs before rebuilding the gallery and memo.
 
@@ -110,31 +131,30 @@ The gallery for this drop lives under `figures/rc/`, and the memo digest is in `
 | Regime | Detection rate | ΔMSE (EW) vs De-aliased | DM highlights | Commentary & figures |
 | --- | --- | --- | --- | --- |
 | Smoke (oneway, 2023-01→03) | 4/4 windows (100%) | LW: −1.05×10⁻⁶, OAS: −1.11×10⁻⁶, CC: −7.5×10⁻⁸, Tyler: +2.57×10⁻¹ | Tyler vs De: p≈0.0137 (significant); every other DM test ≥0.074 | Shrinkage baselines dominate the aliased/de-aliased pair; see `figures/rc/oneway_J5_solver-auto_est-lw_prep-none/plots/dm_pvals.png` and `.../edge_margin_hist.png`. |
-| Nested smoke (2022-01→2023-12) | 0/24 windows (0%) | All ΔMSE values collapse to ~0 because detections never pass guardrails | DM stats effectively degenerate | Detection reporting is broken for the nested design—`summary.json` shows `detection_rate: 0`. Revisit guardrails or panel policy before shipping nested RC metrics. |
-| Crisis runs | (not in gallery) | — | — | Crisis outputs still land under `experiments/equity_panel/outputs_crisis_{2020,2022}/`; the shared run tag currently prevents them from appearing beside the smoke runs. Update the tagging scheme (e.g. include the crisis label in the run suffix) before the next RC. |
+| Nested smoke (2022-01→2023-12) | 0/24 windows (0%) | ΔMSE columns remain ≈0 because every window is skipped by guardrails | DM stats effectively degenerate | Memo now badges the run with “no accepted detections; check guardrails”; see `figures/rc/nested_J5_solver-auto_est-dealias_prep-none/tables/estimators.csv` plus `summary.json`’s `nested_skip_reasons`. |
+| Crisis 2020 (oneway, 2020-02-15→05-31) | 4/4 windows (100%) | De-aliased median ΔMSE vs LW: +2.18×10⁻⁵ (worse); vs Tyler: +0.12 | DM(p) vs LW ≈ 1.1×10⁻⁴, vs OAS ≈ 9.3×10⁻⁵, vs Tyler ≈ 9.5×10⁻⁴ | De-aliased loses to shrinkage baselines but detections are plentiful; browse `figures/rc/oneway_J5_solver-auto_est-dealias_prep-none__crisis_20200215_20200531/plots/*.png`. |
 
 Memo extras:
 
 - **Key Results panel:** compact estimator-by-run table with detection, ΔMSE, CIs, DM p-values, edge margins, and window counts.
-- **Rejection summary:** percentages for `{edge_buffer,off_component_ratio,stability_fail,energy_floor,neg_mu}` (currently all zero because upstream metrics are zeroed).
+- **Rejection summary:** populated once guardrails trigger; the crisis slice still shows only the “other” bookkeeping bucket.
 - **Ablation snapshot:** automatically embeds when `ablation_summary.csv` exists; the present drop shows a placeholder because the new smoke ablation grid timed out before completing.
 
 Artifacts of interest:
 
 - Tables/plots per run: `figures/rc/<run_tag>/tables/*.csv|md|tex`, `figures/rc/<run_tag>/plots/*.png`.
 - Memo Markdown: `reports/memo.md` and timestamped copies under `reports/`.
-- Crisis CSVs/plots: still available under `experiments/equity_panel/outputs_crisis_*/*`; add unique tags so they rejoin the gallery.
+- Crisis CSVs/plots: `experiments/equity_panel/outputs_crisis_2020/oneway_J5_solver-auto_est-dealias_prep-none__crisis_20200215_20200531` (similar tags appear for other crises).
 
 **Action items before the next RC**
 
-- Fix nested detection (0 % coverage) so the memo stops reporting empty ΔMSE/CI fields.
-- Feed real rejection counts into `rejection_stats.*`; the memo table already surfaces them once populated.
+- Fix nested detection (0 % coverage) so the memo badge can be retired.
+- Investigate crisis-step tuning: the 2020 slice shows de-aliased ≫ shrinkage MSE and very small edge buffers despite perfect coverage.
 - Either relax runtime limits or shrink the grid further so `experiments/equity_panel/config.ablation.smoke.yaml` emits `ablation_summary.csv` and the gallery plots `ablation_heatmap.png`.
-- Update gallery tagging for crisis runs to avoid overwriting smoke artifacts.
 
 ---
 
-## 5. Smoke hygiene & summarisation
+## 6. Smoke hygiene & summarisation
 
 - Archive or purge untagged outputs:
   ```bash
@@ -153,9 +173,9 @@ Artifacts of interest:
 
 ---
 
-## 6. Gallery generation
+## 7. Gallery generation
 
-### 6.1 Smoke gallery
+### 7.1 Smoke gallery
 
 ```bash
 make gallery
@@ -171,7 +191,7 @@ Reads `experiments/equity_panel/config.gallery.yaml`, collects matching runs (pr
   - `edge_margin_hist.png`
   - Optional `ablation_heatmap.png` when `ablation_summary.csv` is present.
 
-### 6.2 RC gallery
+### 7.2 RC gallery
 
 `make rc` automatically runs `tools/build_gallery.py --config experiments/equity_panel/config.rc.yaml`, writing to `figures/rc/`. The YAML lists smoke, nested, and crisis directories; update it to add new estimators or additional crisis runs.
 
@@ -179,7 +199,7 @@ Gallaries use the same reporting helpers (`src/report/gather.py`, `src/report/ta
 
 ---
 
-## 7. Memo workflow
+## 8. Memo workflow
 
 `tools/build_memo.py` consumes the same YAML used for gallery generation and renders a Markdown memo using `reports/templates/memo.md.j2`. The memo contains:
 

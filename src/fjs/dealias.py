@@ -39,6 +39,7 @@ class Detection(TypedDict):
     # Optional sensitivity band diagnostics (±fraction on Cs)
     z_plus_low: float | None
     z_plus_high: float | None
+    z_plus_scm: float | None
     threshold_low: float | None
     threshold_high: float | None
     stability_margin_low: float | None
@@ -51,6 +52,9 @@ class Detection(TypedDict):
     off_component_ratio: float | None
     # Pre-gating diagnostics
     pre_outlier_count: int | None
+    # Edge diagnostics
+    edge_mode: str | None
+    edge_scale: float | None
 
 
 @dataclass
@@ -411,6 +415,8 @@ def dealias_search(
     cs_scale: float | None = None,
     diagnostics: dict[str, int] | None = None,
     stats: dict[str, Any] | None = None,
+    edge_scale: float | None = None,
+    edge_mode: str | None = None,
 ) -> list[Detection]:
     """
     Perform Algorithm 1 de-aliasing search for one-way balanced designs.
@@ -549,6 +555,16 @@ def dealias_search(
 
     C_for_mp = c_vec if use_design_c_for_C else c_weights
 
+    edge_scale_val = 1.0
+    if edge_scale is not None:
+        try:
+            edge_scale_val = float(edge_scale)
+        except (TypeError, ValueError):
+            edge_scale_val = 1.0
+        if not np.isfinite(edge_scale_val) or edge_scale_val <= 0.0:
+            edge_scale_val = 1.0
+    edge_mode_name = (edge_mode or "scm").strip()
+
     def _edge_margin_for(Cs_local: np.ndarray):
         def margin(a_vec_local: np.ndarray, lam_val: float) -> float | None:
             if nonnegative_a and np.any(a_vec_local < -1e-8):
@@ -564,7 +580,8 @@ def dealias_search(
                 )
             except (RuntimeError, ValueError):
                 return None
-            threshold_local = _threshold_from_z(z_plus_local)
+            z_scaled = float(z_plus_local) * edge_scale_val
+            threshold_local = _threshold_from_z(z_scaled)
             return float(lam_val - threshold_local)
 
         return margin
@@ -608,7 +625,7 @@ def dealias_search(
             theta_key = _angle_key(theta_current)
             solver_tag = angle_source.get(theta_key, "grid")
         try:
-            z_plus = mp_edge(
+            z_plus_base = mp_edge(
                 a_vec.tolist(),
                 C_for_mp.tolist(),
                 d_vec.tolist(),
@@ -617,6 +634,8 @@ def dealias_search(
             )
         except (RuntimeError, ValueError):
             continue
+
+        z_plus_scaled = float(z_plus_base) * edge_scale_val
 
         # Evaluate scanning matrix per chosen basis
         if scan_basis_norm == "sigma":
@@ -634,7 +653,7 @@ def dealias_search(
         eigvals = eigvals[order_idx]
         eigvecs = eigvecs[:, order_idx]
 
-        threshold_main = _threshold_from_z(z_plus)
+        threshold_main = _threshold_from_z(z_plus_scaled)
 
         # Optional band diagnostics for this orientation
         if cs_vec_low is not None:
@@ -646,7 +665,8 @@ def dealias_search(
                     n_total,
                     Cs=cs_vec_low,
                 )
-                threshold_low = _threshold_from_z(z_plus_low)
+                z_plus_low = float(z_plus_low) * edge_scale_val
+                threshold_low = _threshold_from_z(float(z_plus_low))
             except (RuntimeError, ValueError):
                 z_plus_low = float("nan")
                 threshold_low = float("nan")
@@ -662,7 +682,8 @@ def dealias_search(
                     n_total,
                     Cs=cs_vec_high,
                 )
-                threshold_high = _threshold_from_z(z_plus_high)
+                z_plus_high = float(z_plus_high) * edge_scale_val
+                threshold_high = _threshold_from_z(float(z_plus_high))
             except (RuntimeError, ValueError):
                 z_plus_high = float("nan")
                 threshold_high = float("nan")
@@ -680,7 +701,7 @@ def dealias_search(
             if margin_main < 0.0:
                 _diag_inc("edge_buffer")
                 continue
-            edge_margin_raw = float(lam_val - z_plus)
+            edge_margin_raw = float(lam_val - z_plus_scaled)
             t_vals: np.ndarray | None
             t_target: float | None
             try:
@@ -839,7 +860,8 @@ def dealias_search(
                 components=component_vals,
                 eigvec=eigvecs[:, idx].copy(),
                 stability_margin=stability_margin,
-                z_plus=float(z_plus),
+                z_plus=float(z_plus_scaled),
+                z_plus_scm=float(z_plus_base),
                 threshold_main=float(threshold_main),
                 z_plus_low=(None if z_plus_low is None else float(z_plus_low)),
                 z_plus_high=(None if z_plus_high is None else float(z_plus_high)),
@@ -859,7 +881,9 @@ def dealias_search(
                 pre_outlier_count=int(pre_outlier_count_vec),
                 edge_margin=edge_margin_raw,
                 buffer_margin=float(margin_main),
-                t_values=(None if t_vals is None else np.abs(t_vals).astype(float).tolist()),
+                t_values=(
+                    None if t_vals is None else np.abs(t_vals).astype(float).tolist()
+                ),
                 admissible_root=_compute_admissible_root(
                     lam_val,
                     a_vec,
@@ -868,6 +892,8 @@ def dealias_search(
                     n_total,
                     cs_vec,
                 ),
+                edge_mode=edge_mode_name,
+                edge_scale=float(edge_scale_val),
             )
             detection["solver_used"] = solver_tag
             detections.append(detection)

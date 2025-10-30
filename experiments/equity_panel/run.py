@@ -50,6 +50,7 @@ from fjs.dealias import dealias_search
 from fjs.gating import count_isolated_outliers, select_top_k
 from fjs.mp import estimate_Cs_from_MS, mp_edge
 from fjs.spectra import plot_spectrum_with_edges, plot_spike_timeseries
+from fjs.robust import edge_from_scatter, huber_scatter, tyler_scatter
 from plotting import (
     e1_plot_spectrum_with_mp,
     e2_plot_spike_timeseries,
@@ -103,6 +104,8 @@ DEFAULT_CONFIG = {
     "minvar_ridge": 1e-3,
     "minvar_box": [0.0, 0.05],
     "turnover_cost_bps": 0.0,
+    "edge_mode": "scm",
+    "edge_huber_c": 1.5,
     "gating": {
         "enable": True,
         "q_max": 2,
@@ -1039,6 +1042,8 @@ def _run_single_period(
     preprocess_flags: Mapping[str, str] | None = None,
     gating: Mapping[str, Any] | None = None,
     alignment_top_p: int = 3,
+    edge_mode: str = "scm",
+    edge_huber_c: float = 1.5,
 ) -> None:
     """Execute the rolling evaluation for a single date range."""
 
@@ -1073,6 +1078,8 @@ def _run_single_period(
     if solver_mode not in {"auto", "rootfind", "grid"}:
         raise ValueError("oneway_a_solver must be 'auto', 'rootfind', or 'grid'.")
     estimator_mode = (estimator or "dealias").strip().lower()
+    edge_mode_cfg = (edge_mode or "scm").strip().lower()
+    edge_huber_c_val = float(edge_huber_c)
     solver_usage: set[str] = set()
     tickers = balanced_panel.ordered_tickers
     dropped_weeks = balanced_panel.dropped_weeks
@@ -1198,6 +1205,9 @@ def _run_single_period(
     var_forecasts_alias_baseline: list[float] = []
     var_forecasts_de_baseline: list[float] = []
     var_forecasts_lw_baseline: list[float] = []
+    factor_warned = False
+    factor_obs_warned = False
+    poet_warned = False
 
     total_windows = weekly_balanced.shape[0] - (window_weeks + horizon_weeks) + 1
     window_iter = rolling_windows(weekly_balanced, window_weeks, horizon_weeks)
@@ -1307,6 +1317,56 @@ def _run_single_period(
         ):
             save_window(window_cache_dir, cache_key, prepared.cache_payload)
 
+        edge_scale_val = 1.0
+        edge_scm_val = float("nan")
+        edge_selected_val = float("nan")
+        n_fit_samples = int(y_fit_daily.shape[0])
+        p_dim = int(y_fit_daily.shape[1]) if y_fit_daily.ndim == 2 else 0
+        if p_dim > 0 and n_fit_samples > 0:
+            try:
+                scatter_scm = np.cov(y_fit_daily, rowvar=False, ddof=1)
+                scatter_scm = 0.5 * (scatter_scm + scatter_scm.T)
+                edge_scm_val = edge_from_scatter(scatter_scm, p_dim, n_fit_samples)
+            except Exception:
+                edge_scm_val = float("nan")
+            if edge_mode_cfg == "tyler":
+                try:
+                    scatter_tyler = tyler_scatter(y_fit_daily)
+                    edge_selected_val = edge_from_scatter(
+                        scatter_tyler,
+                        p_dim,
+                        n_fit_samples,
+                    )
+                except Exception:
+                    edge_selected_val = float("nan")
+            elif edge_mode_cfg == "huber":
+                try:
+                    scatter_huber = huber_scatter(y_fit_daily, edge_huber_c_val)
+                    edge_selected_val = edge_from_scatter(
+                        scatter_huber,
+                        p_dim,
+                        n_fit_samples,
+                    )
+                except Exception:
+                    edge_selected_val = float("nan")
+            else:
+                edge_selected_val = edge_scm_val
+            if (
+                np.isfinite(edge_scm_val)
+                and edge_scm_val > 0.0
+                and np.isfinite(edge_selected_val)
+                and edge_selected_val > 0.0
+            ):
+                edge_scale_val = float(edge_selected_val / edge_scm_val)
+                if not np.isfinite(edge_scale_val) or edge_scale_val <= 0.0:
+                    edge_scale_val = 1.0
+            else:
+                edge_scale_val = 1.0
+
+        edge_scale_used = edge_scale_val
+        if not np.isfinite(edge_scale_used) or edge_scale_used <= 0.0:
+            edge_scale_used = 1.0
+
         off_cap = off_component_leak_cap
         diag_local: dict[str, int] = {}
         detections = dealias_search(
@@ -1331,6 +1391,8 @@ def _run_single_period(
             stats=stats_local,
             design=design_override,
             oneway_a_solver=solver_mode,
+            edge_scale=edge_scale_used,
+            edge_mode=edge_mode_cfg,
         )
         for key, value in diag_local.items():
             rejection_totals[key] = rejection_totals.get(key, 0) + int(value)
@@ -1504,6 +1566,10 @@ def _run_single_period(
             "skip_reason": window_skip_reason or "",
             "isolated_spikes": int(isolated_count_raw),
             "gate_discarded_count": len(gate_discard_detail),
+            "edge_mode": edge_mode_cfg,
+            "edge_scale": float(edge_scale_used),
+            "edge_scm": float(edge_scm_val),
+            "edge_selected": float(edge_selected_val),
         }
         if gate_discard_detail:
             window_record["gate_discarded"] = json.dumps(gate_discard_detail)
@@ -1602,6 +1668,16 @@ def _run_single_period(
                 if isinstance(top, dict)
                 else float("nan")
             )
+            window_record["top_z_plus_scm"] = (
+                float(top.get("z_plus_scm", np.nan))
+                if isinstance(top, dict)
+                else float("nan")
+            )
+            window_record["top_edge_scale"] = (
+                float(top.get("edge_scale", np.nan))
+                if isinstance(top, dict)
+                else float("nan")
+            )
             window_record["top_threshold_main"] = (
                 float(top.get("threshold_main", np.nan))
                 if isinstance(top, dict)
@@ -1636,6 +1712,8 @@ def _run_single_period(
             window_record["top_admissible_root"] = False
             window_record["detections_detail"] = "[]"
             window_record["top_z_plus"] = float("nan")
+            window_record["top_z_plus_scm"] = float("nan")
+            window_record["top_edge_scale"] = float("nan")
             window_record["top_threshold_main"] = float("nan")
             window_record["top_off_component_ratio"] = float("nan")
             window_record["top_component_sigma1"] = float("nan")
@@ -1814,8 +1892,63 @@ def _run_single_period(
                             float(realised_alias_raw),
                         )
                     )
-                except Exception:
-                    pass
+                except Exception as exc:
+                    if not factor_warned and estimator_mode == "factor":
+                        print(
+                            f"[equity-panel] observed factor baseline skipped: {exc}",
+                            file=sys.stderr,
+                        )
+                        factor_warned = True
+                try:
+                    forecast_factor_obs, realised_factor_obs = oos_variance_forecast(
+                        fit_matrix,
+                        hold_matrix,
+                        weights,
+                        estimator="factor_obs",
+                        factor_returns=factor_returns,
+                        asset_names=ordered_tickers,
+                        fit_index=fit.index,
+                    )
+                    estimator_outputs.append(
+                        (
+                            "Factor-Observed",
+                            float(forecast_factor_obs),
+                            float(realised_factor_obs),
+                            float(realised_alias_raw),
+                        )
+                    )
+                except Exception as exc:
+                    if not factor_obs_warned:
+                        print(
+                            f"[equity-panel] factor_obs baseline skipped: {exc}",
+                            file=sys.stderr,
+                        )
+                        factor_obs_warned = True
+
+            try:
+                forecast_poet, realised_poet_raw = oos_variance_forecast(
+                    fit_matrix,
+                    hold_matrix,
+                    weights,
+                    estimator="poet",
+                    asset_names=ordered_tickers,
+                    fit_index=fit.index,
+                )
+                estimator_outputs.append(
+                    (
+                        "POET-lite",
+                        float(forecast_poet),
+                        float(realised_poet_raw),
+                        float(realised_alias_raw),
+                    )
+                )
+            except Exception as exc:
+                if not poet_warned:
+                    print(
+                        f"[equity-panel] POET baseline skipped: {exc}",
+                        file=sys.stderr,
+                    )
+                    poet_warned = True
 
             hold_returns = hold_matrix @ weights
             for estimator_name, forecast_value, realised_raw, fallback_raw in estimator_outputs:
@@ -1955,6 +2088,9 @@ def _run_single_period(
         errors_by_combo=errors_by_combo,
         coverage_errors=coverage_errors,
         qlike_by_combo=qlike_by_combo,
+        var_forecasts=var95_by_combo,
+        realised_returns=realised_returns_by_combo,
+        es_forecasts=None,
         label=label,
         block_len=12,
         n_boot=n_boot,
@@ -1988,6 +2124,10 @@ def _run_single_period(
                 "isolated_spikes",
                 "gate_discarded_count",
                 "gate_discarded",
+                "edge_mode",
+                "edge_scale",
+                "edge_scm",
+                "edge_selected",
                 "top_lambda_hat",
                 "top_mu_hat",
                 "top_a0",
@@ -1999,6 +2139,8 @@ def _run_single_period(
                 "top_admissible_root",
                 "top_sigma1_eigval",
                 "top_z_plus",
+                "top_z_plus_scm",
+                "top_edge_scale",
                 "top_threshold_main",
                 "top_off_component_ratio",
                 "top_component_sigma1",
@@ -2080,6 +2222,12 @@ def _run_single_period(
         edge_median = None
         edge_iqr = None
 
+    de_scoped_equity = False
+    if design_mode == "nested" and records:
+        skip_reasons_seq = [str(item.get("skip_reason", "")) for item in records]
+        if skip_reasons_seq and all(reason == "no_isolated_spike" for reason in skip_reasons_seq):
+            de_scoped_equity = True
+
     summary_payload: dict[str, Any] = {
         "label": label,
         "start_date": str(start_ts.date()),
@@ -2102,12 +2250,16 @@ def _run_single_period(
             "iqr": edge_iqr,
         },
         "design": design_mode,
+        "edge_mode": edge_mode_cfg,
+        "edge_huber_c": float(edge_huber_c_val),
         "nested_replicates": int(nested_reps_value),
         "estimator": estimator_mode,
         "preprocess_flags": dict(preprocess_flags or {}),
         "solver_used": sorted(solver_usage),
         "alignment_top_p": int(alignment_top_p),
     }
+    if de_scoped_equity:
+        summary_payload["nested_scope"] = {"de_scoped_equity": True}
     if crisis_label is not None:
         summary_payload["crisis_label"] = str(crisis_label)
     if design_mode == "nested":
@@ -2333,6 +2485,8 @@ def run_experiment(
     minvar_ridge_override: float | None = None,
     minvar_box_override: str | None = None,
     turnover_cost_override: float | None = None,
+    edge_mode_override: str | None = None,
+    edge_huber_c_override: float | None = None,
 ) -> None:
     """Execute the rolling equity forecasting experiment."""
 
@@ -2382,6 +2536,10 @@ def run_experiment(
         config["minvar_box"] = minvar_box_override
     if turnover_cost_override is not None:
         config["turnover_cost_bps"] = float(turnover_cost_override)
+    if edge_mode_override is not None:
+        config["edge_mode"] = str(edge_mode_override)
+    if edge_huber_c_override is not None:
+        config["edge_huber_c"] = float(edge_huber_c_override)
     panel_policy = str(
         partial_week_policy
         if partial_week_policy is not None
@@ -2440,6 +2598,8 @@ def run_experiment(
         "cc",
         "factor",
         "tyler_shrink",
+        "factor_obs",
+        "poet",
     }
     if estimator_value not in allowed_estimators:
         raise ValueError(
@@ -2447,6 +2607,18 @@ def run_experiment(
             f"Valid options: {', '.join(sorted(allowed_estimators))}."
         )
     config["estimator"] = estimator_value
+
+    edge_mode_value = str(config.get("edge_mode", "scm")).lower()
+    if edge_mode_value not in {"scm", "tyler", "huber"}:
+        raise ValueError("edge_mode must be one of {'scm', 'tyler', 'huber'}.")
+    config["edge_mode"] = edge_mode_value
+    edge_huber_c_val = float(config.get("edge_huber_c", 1.5))
+    if edge_mode_value == "huber":
+        if edge_huber_c_val <= 0.0:
+            raise ValueError("edge_huber_c must be positive when edge_mode='huber'.")
+    else:
+        edge_huber_c_val = max(edge_huber_c_val, 1.0)
+    config["edge_huber_c"] = float(edge_huber_c_val)
 
     factor_returns: pd.DataFrame | None = None
     factor_csv_cfg = config.get("factor_csv")
@@ -2473,6 +2645,12 @@ def run_experiment(
         if factor_df.empty:
             raise ValueError("Factor CSV contains no usable numeric data after cleaning.")
         factor_returns = factor_df
+
+    if factor_returns is None and estimator_value in {"factor", "factor_obs"}:
+        print(
+            "[equity-panel] factor baseline requested but no factors.csv provided; skipping.",
+            file=sys.stderr,
+        )
 
     try:
         alignment_top_p_cfg = int(config.get("alignment_top_p", 3))
@@ -2605,6 +2783,8 @@ def run_experiment(
                 preprocess_flags=preprocess_flags,
                 gating=cast(Mapping[str, Any] | None, config.get("gating")),
                 alignment_top_p=alignment_top_p_cfg,
+                edge_mode=str(config.get("edge_mode", "scm")),
+                edge_huber_c=float(config.get("edge_huber_c", 1.5)),
             )
 
             try:
@@ -2625,6 +2805,7 @@ def run_experiment(
                     preprocess_flags=preprocess_flags,
                     label=label_with_suffix,
                     crisis_label=str(crisis_tag) if crisis_tag else None,
+                    edge_mode=edge_mode_value,
                 )
             except Exception:
                 # Best effort; do not fail the entire run
@@ -2692,6 +2873,19 @@ def main() -> None:
         type=str,
         default=None,
         help="Optional CSV of factor returns (date-indexed) for observed-factor covariance.",
+    )
+    parser.add_argument(
+        "--edge-mode",
+        type=str,
+        choices=["scm", "tyler", "huber"],
+        default=None,
+        help="Edge estimation mode for detection margins (default: scm).",
+    )
+    parser.add_argument(
+        "--edge-huber-c",
+        type=float,
+        default=None,
+        help="Huber threshold used when --edge-mode=huber (default: 1.5).",
     )
     parser.add_argument(
         "--minvar-ridge",
@@ -2902,7 +3096,9 @@ def main() -> None:
         minvar_ridge_override=args.minvar_ridge,
         minvar_box_override=args.minvar_box,
         turnover_cost_override=args.turnover_cost,
-)
+        edge_mode_override=args.edge_mode,
+        edge_huber_c_override=args.edge_huber_c,
+    )
 
 
 if __name__ == "__main__":

@@ -11,6 +11,9 @@ from .evaluate import (
     plot_variance_error_panel,
     plot_coverage_error,
     build_metrics_summary,
+    kupiec_pof_test,
+    christoffersen_independence_test,
+    expected_shortfall_test,
 )
 from .dm import dm_test
 
@@ -96,5 +99,8 @@ __all__ = [
     "plot_variance_error_panel",
     "plot_coverage_error",
     "build_metrics_summary",
+    "kupiec_pof_test",
+    "christoffersen_independence_test",
+    "expected_shortfall_test",
     "dm_test",
 ]

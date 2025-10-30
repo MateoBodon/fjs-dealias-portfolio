@@ -11,6 +11,7 @@ from numpy.typing import NDArray
 from fjs.balanced import mean_squares
 from fjs.dealias import dealias_covariance
 
+from evaluation.factor import observed_factor_covariance, poet_lite_covariance
 from .factors import factor_covariance
 from .ledoit import lw_cov
 from .robust import tyler_shrink_covariance
@@ -84,7 +85,17 @@ def oos_variance_forecast(
     y_fit: NDArray[np.float64],
     y_hold: NDArray[np.float64],
     w: NDArray[np.float64],
-    estimator: Literal["dealias", "lw", "scm", "oas", "cc", "factor", "tyler_shrink"],
+    estimator: Literal[
+        "dealias",
+        "lw",
+        "scm",
+        "oas",
+        "cc",
+        "factor",
+        "tyler_shrink",
+        "factor_obs",
+        "poet",
+    ],
     **kwargs: Any,
 ) -> tuple[float, float]:
     """Compute out-of-sample variance forecasts and realised variance.
@@ -147,6 +158,42 @@ def oos_variance_forecast(
     elif estimator == "tyler_shrink":
         ridge = float(kwargs.get("ridge", 1e-3))
         sigma = tyler_shrink_covariance(x_fit, ridge=ridge)
+    elif estimator == "factor_obs":
+        factor_df = kwargs.get("factor_returns")
+        asset_names = kwargs.get("asset_names")
+        fit_index = kwargs.get("fit_index")
+        if factor_df is None or asset_names is None or fit_index is None:
+            raise ValueError(
+                "factor_obs estimator requires 'factor_returns', 'asset_names', and 'fit_index'."
+            )
+        returns_df = pd.DataFrame(
+            x_fit,
+            index=pd.Index(fit_index),
+            columns=list(asset_names),
+        )
+        sigma = observed_factor_covariance(
+            returns_df,
+            factor_df,
+            add_intercept=kwargs.get("add_intercept", True),
+        )
+    elif estimator == "poet":
+        asset_names = kwargs.get("asset_names")
+        fit_index = kwargs.get("fit_index")
+        if asset_names is None:
+            asset_columns = [f"a{i}" for i in range(x_fit.shape[1])]
+        else:
+            asset_columns = list(asset_names)
+        if fit_index is None:
+            index = pd.RangeIndex(start=0, stop=x_fit.shape[0])
+        else:
+            index = pd.Index(fit_index)
+        returns_df = pd.DataFrame(x_fit, index=index, columns=asset_columns)
+        poet_result = poet_lite_covariance(
+            returns_df,
+            max_factors=int(kwargs.get("max_factors", 10)),
+            shrink=str(kwargs.get("shrink", "diag")),
+        )
+        sigma = poet_result.covariance
     elif estimator == "dealias":
         sigma_emp = np.cov(x_fit, rowvar=False, ddof=1)
         detections = kwargs.get("detections")

@@ -22,8 +22,8 @@
 
 ## New estimator switches
 
-- `--estimator {aliased,dealias,lw,oas,cc,factor,tyler_shrink}` tags the run, cache entries, and `run_meta`.
-- `--factor-csv tests/data/factors_tiny.csv` enables the observed-factor covariance; the CSV must be wide, date-indexed.
+- `--estimator {aliased,dealias,lw,oas,cc,factor,factor_obs,poet,tyler_shrink}` tags the run, cache entries, and `run_meta`.
+- `--factor-csv tests/data/factors_tiny.csv` enables the observed-factor covariance; the CSV must be wide, date-indexed. `factor_obs` auto-skips (with a warning) if factors are absent, while `poet` needs no extra inputs.
 - Shrinkage benchmarks (LW, OAS, constant-correlation, Tyler) and the factor estimator all appear in `metrics_summary.csv`; Diebold–Mariano columns (`dm_stat_*`, `dm_p_*`) compare them to the de-aliased baseline.
 
 ## Robust preprocessing toggles
@@ -32,6 +32,12 @@
 - `--huber c` clips at `median ± c·MAD` per column; use when thin tails help guard ablations.
 - Preprocess selections become part of cache keys, panel manifests, artifact directories, and `run_meta.preprocess_flags`.
 - Pair with `--estimator tyler_shrink` to use the Tyler–ridge covariance in evaluation and DM tables.
+
+## Edge-mode overrides
+
+- `--edge-mode {scm,tyler,huber}` scales the MP edge before applying the δ/δ_frac buffers. Each window records both `edge_scm` and `edge_selected` in `detection_summary.csv` and `summary.json` logs the chosen mode.
+- `--edge-huber-c 1.5` tunes the Huber scatter threshold when `--edge-mode huber`.
+- Memo lines include `[edge=<mode>]` badges; nested runs that bail solely due to `no_isolated_spike` are flagged with “nested scope de-scoped”.
 
 ## Min-variance regularisation and turnover
 

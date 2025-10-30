@@ -124,6 +124,40 @@ Kick off a crisis run with the same CLI switches shown for the smoke slice, but 
 
 All RC targets respect the run policy flags (`--workers`, `--resume`, `--cache-dir .cache`, `--drop-partial-weeks`, etc.).
 
+### 5.5 Robust MP edges
+
+Edge detection margins can now be re-scaled with robust scatter estimates. The runner accepts `--edge-mode {scm,tyler,huber}`; the default `scm` leaves the historical behaviour untouched, while `tyler` and `huber` multiply the Marčenko–Pastur edge by a Tyler or Huber scatter ratio. Every window writes both values (`edge_scm`, `edge_selected`) to `detection_summary.csv` and the memo badges the chosen mode.
+
+Example: compare stock SCM vs Tyler margins on the smoke slice.
+
+```bash
+PYTHONPATH=src python experiments/equity_panel/run.py \
+    --config experiments/equity_panel/config.smoke.yaml \
+    --no-progress --precompute-panel --drop-partial-weeks \
+    --edge-mode tyler --estimator dealias
+```
+
+The same command with `--edge-mode scm` produces the benchmark run; the memo and `summary.json` include `"nested_scope": {"de_scoped_equity": true}` when nested windows are skipped solely by the `no_isolated_spike` guard.
+
+### 5.6 Factor baselines
+
+Two minimal factor models join the evaluation matrix:
+
+- `--estimator factor_obs` plugs the observed-factor covariance (`Σ = BΣ_fBᵀ + Σ_ε`) via `src/evaluation/factor.py`. Supply factor returns with `--factor-csv path/to/factors.csv` (columns = factors).
+- `--estimator poet` fits a POET-lite covariance with an automatic IC for `k` and diagonal residual shrinkage. No external factor file is required.
+
+Both estimators appear in `metrics_summary.csv`, the aggregate tables, and the memo (look for the `Factor-Observed` and `POET-lite` rows). When factor data are missing the runner leaves a warning and skips the observed baseline gracefully.
+
+### 5.7 Synthetic null/power harness
+
+`experiments/synthetic/power_null.py` sweeps the detector under both the MP null and planted-spike power designs. It reports false-positive rates across edge/gating settings and plots power curves with ΔMSE/QLIKE deltas versus Ledoit–Wolf:
+
+```bash
+PYTHONPATH=src python experiments/synthetic/power_null.py --edge-modes scm tyler --trials-null 300 --trials-power 200
+```
+
+Artifacts live under `experiments/synthetic/outputs/` (`power_null_summary.csv`, `fpr_heatmap.png`, `power_curves.png`).
+
 **Latest RC snapshot (30 Oct 2025)**
 
 The gallery for this drop lives under `figures/rc/`, and the memo digest is in `reports/memo.md` (rendered via the new key-results panel, rejection summary, and ablation placeholder). Highlights:

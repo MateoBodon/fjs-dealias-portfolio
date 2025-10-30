@@ -17,6 +17,7 @@ errors and per-observation VaR forecasts/realised returns.
 """
 
 from dataclasses import dataclass
+from math import erfc, log, sqrt
 from pathlib import Path
 from typing import Any, Dict, Iterable, Mapping
 
@@ -157,6 +158,82 @@ def block_bootstrap_ci_median(
     lo = float(np.quantile(medians, alpha / 2.0))
     hi = float(np.quantile(medians, 1.0 - alpha / 2.0))
     return lo, hi
+
+
+def _clip_prob(value: float, eps: float = 1e-8) -> float:
+    return float(min(max(value, eps), 1.0 - eps))
+
+
+def kupiec_pof_test(violations: np.ndarray, alpha: float = 0.05) -> float:
+    """Return the Kupiec proportion-of-failures p-value."""
+
+    indicators = np.asarray(violations, dtype=bool).ravel()
+    n = int(indicators.size)
+    if n == 0:
+        return float("nan")
+    hits = int(indicators.sum())
+    pi_hat = (hits + 0.5) / (n + 1.0)
+    pi_hat = _clip_prob(pi_hat)
+    alpha = _clip_prob(float(alpha))
+    log_l0 = hits * log(alpha) + (n - hits) * log(1.0 - alpha)
+    log_l1 = hits * log(pi_hat) + (n - hits) * log(1.0 - pi_hat)
+    lr = max(0.0, -2.0 * (log_l0 - log_l1))
+    return float(erfc(sqrt(lr / 2.0)))
+
+
+def christoffersen_independence_test(violations: np.ndarray) -> float:
+    """Return the Christoffersen independence test p-value."""
+
+    indicators = np.asarray(violations, dtype=bool).ravel()
+    if indicators.size <= 1:
+        return float("nan")
+    prev = indicators[:-1]
+    curr = indicators[1:]
+    N00 = int(np.sum((~prev) & (~curr)))
+    N01 = int(np.sum((~prev) & curr))
+    N10 = int(np.sum(prev & (~curr)))
+    N11 = int(np.sum(prev & curr))
+    denom0 = N00 + N01
+    denom1 = N10 + N11
+    if denom0 == 0 or denom1 == 0:
+        return float("nan")
+    pi01 = _clip_prob(N01 / denom0)
+    pi11 = _clip_prob(N11 / denom1)
+    pi_hat = _clip_prob((N01 + N11) / (denom0 + denom1))
+    log_l0 = (denom0 * log(1.0 - pi_hat)) + (denom1 * log(pi_hat))
+    log_l1 = (
+        N00 * log(1.0 - pi01)
+        + N01 * log(pi01)
+        + N10 * log(1.0 - pi11)
+        + N11 * log(pi11)
+    )
+    lr = max(0.0, -2.0 * (log_l0 - log_l1))
+    return float(erfc(sqrt(lr / 2.0)))
+
+
+def expected_shortfall_test(
+    losses: np.ndarray,
+    es_forecasts: np.ndarray,
+    violations: np.ndarray,
+) -> float:
+    """Approximate two-sided t-test comparing realised losses and ES forecasts."""
+
+    losses = np.asarray(losses, dtype=np.float64).ravel()
+    es_forecasts = np.asarray(es_forecasts, dtype=np.float64).ravel()
+    mask = np.asarray(violations, dtype=bool).ravel()
+    if losses.shape != es_forecasts.shape or losses.shape != mask.shape:
+        raise ValueError("losses, es_forecasts, and violations must share shape.")
+    hit_mask = mask & np.isfinite(losses) & np.isfinite(es_forecasts)
+    m = int(hit_mask.sum())
+    if m < 2:
+        return float("nan")
+    diff = losses[hit_mask] - es_forecasts[hit_mask]
+    mean_diff = float(np.mean(diff))
+    std_diff = float(np.std(diff, ddof=1))
+    if std_diff <= 0.0:
+        return float(1.0 if abs(mean_diff) < 1e-8 else 0.0)
+    t_stat = mean_diff / (std_diff / sqrt(float(m)))
+    return float(erfc(abs(t_stat) / sqrt(2.0)))
 
 
 def alignment_diagnostics(
@@ -327,6 +404,9 @@ def build_metrics_summary(
     errors_by_combo: Mapping[str, Mapping[int, float]],
     coverage_errors: Mapping[str, float],
     qlike_by_combo: Mapping[str, Mapping[int, float]] | None = None,
+    var_forecasts: Mapping[str, Iterable[float]] | None = None,
+    realised_returns: Mapping[str, Iterable[float]] | None = None,
+    es_forecasts: Mapping[str, Iterable[float]] | None = None,
     label: str,
     block_len: int = 12,
     n_boot: int = 1000,
@@ -337,6 +417,7 @@ def build_metrics_summary(
     The input follows the convention used by the equity runner:
     keys are "{strategy}::{estimator}" and values map window index -> squared error.
     For De-aliased rows, the function augments with paired ΔMSE vs LW and Aliased.
+    Optional VaR/ES sequences supply backtest diagnostics when available.
     """
 
     rows: list[dict[str, Any]] = []
@@ -382,6 +463,9 @@ def build_metrics_summary(
             "dm_p_de_vs_lw_qlike": float("nan"),
             "dm_stat_de_vs_oas_qlike": float("nan"),
             "dm_p_de_vs_oas_qlike": float("nan"),
+            "var_kupiec_p": float("nan"),
+            "var_independence_p": float("nan"),
+            "es_shortfall_p": float("nan"),
         }
 
         qlike_map = qlike_by_combo.get(combo_key, {}) if qlike_by_combo is not None else {}
@@ -389,6 +473,27 @@ def build_metrics_summary(
             qlike_array = np.array([qlike_map[idx] for idx in sorted(qlike_map.keys())], dtype=np.float64)
             entry["mean_qlike"] = float(np.mean(qlike_array))
             entry["median_qlike"] = float(np.median(qlike_array))
+
+        if var_forecasts is not None and realised_returns is not None:
+            var_seq = var_forecasts.get(combo_key, [])
+            realised_seq = realised_returns.get(combo_key, [])
+            var_arr = np.array(list(var_seq), dtype=np.float64)
+            realised_arr = np.array(list(realised_seq), dtype=np.float64)
+            if var_arr.size == realised_arr.size and var_arr.size > 0:
+                mask = np.isfinite(var_arr) & np.isfinite(realised_arr)
+                if mask.any():
+                    violations = realised_arr[mask] < var_arr[mask]
+                    entry["var_kupiec_p"] = kupiec_pof_test(violations, alpha=0.05)
+                    entry["var_independence_p"] = christoffersen_independence_test(violations)
+                    if es_forecasts is not None and combo_key in es_forecasts:
+                        es_seq = es_forecasts.get(combo_key, [])
+                        es_arr = np.array(list(es_seq), dtype=np.float64)
+                        if es_arr.size == var_arr.size:
+                            entry["es_shortfall_p"] = expected_shortfall_test(
+                                losses=realised_arr[mask],
+                                es_forecasts=es_arr[mask],
+                                violations=violations,
+                            )
 
         # Only compute Δ summaries for De-aliased rows where both comparators are present
         if est == EST_DE:
@@ -399,6 +504,8 @@ def build_metrics_summary(
                 "OAS": "oas",
                 "Constant-Correlation": "cc",
                 "Factor": "factor",
+                "Factor-Observed": "factor_obs",
+                "POET-lite": "poet",
                 "Tyler-Shrink": "tyler",
             }
             lw_map = errors_by_combo.get(base_lw_key, {})

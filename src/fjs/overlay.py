@@ -10,6 +10,7 @@ from typing import Iterable, Sequence
 import numpy as np
 from numpy.typing import NDArray
 
+from .config import get_detection_settings
 from .edge import EdgeConfig, EdgeEstimate, EdgeMode, compute_edge
 
 __all__ = [
@@ -57,22 +58,54 @@ class DetectionResult:
 class OverlayConfig:
     """Configuration parameters for the overlay pipeline."""
 
-    edge: EdgeConfig = field(default_factory=EdgeConfig)
-    max_detections: int = 5
-    min_margin: float = 0.05
-    min_isolation: float = 0.05
+    edge: EdgeConfig | None = None
+    max_detections: int | None = None
+    min_margin: float | None = None
+    min_isolation: float | None = None
     shrinkage: float = 0.05
     sample_count: int | None = None
 
     def __post_init__(self) -> None:
-        if self.max_detections <= 0:
+        if self.max_detections is not None and self.max_detections <= 0:
             raise ValueError("max_detections must be positive.")
-        if self.min_margin < 0.0:
+        if self.min_margin is not None and self.min_margin < 0.0:
             raise ValueError("min_margin must be non-negative.")
-        if self.min_isolation < 0.0:
+        if self.min_isolation is not None and self.min_isolation < 0.0:
             raise ValueError("min_isolation must be non-negative.")
         if not (0.0 <= self.shrinkage <= 1.0):
             raise ValueError("shrinkage must lie in [0, 1].")
+
+    def resolved(self) -> "OverlayConfig":
+        settings = get_detection_settings()
+        if self.edge is None:
+            mode = (settings.edge_mode or "scm").strip().lower()
+            if mode == "huber":
+                edge_cfg = EdgeConfig(mode=EdgeMode.HUBER, huber_c=settings.huber_c)
+            elif mode == "tyler":
+                edge_cfg = EdgeConfig(mode=EdgeMode.TYLER)
+            else:
+                edge_cfg = EdgeConfig(mode=EdgeMode.SCM)
+        else:
+            edge_cfg = self.edge
+
+        if self.max_detections is not None:
+            max_det = self.max_detections
+        else:
+            max_det = settings.q_max if settings.q_max and settings.q_max > 0 else None
+
+        min_margin = self.min_margin if self.min_margin is not None else settings.min_margin
+        min_isolation = (
+            self.min_isolation if self.min_isolation is not None else settings.min_isolation
+        )
+
+        return OverlayConfig(
+            edge=edge_cfg,
+            max_detections=max_det,
+            min_margin=min_margin,
+            min_isolation=min_isolation,
+            shrinkage=self.shrinkage,
+            sample_count=self.sample_count,
+        )
 
 
 def _eigendecompose(covariance: NDArray[np.float64]) -> Spectrum:
@@ -115,7 +148,8 @@ def detect_spikes(
     Identify eigen-directions that warrant eigenvalue replacement.
     """
 
-    cfg = config or OverlayConfig()
+    base_cfg = config or OverlayConfig()
+    cfg = base_cfg.resolved()
     spectrum = _eigendecompose(covariance)
 
     if samples is not None:
@@ -152,7 +186,7 @@ def detect_spikes(
             direction=direction,
         )
         detections.append(detection)
-        if len(detections) >= cfg.max_detections:
+        if cfg.max_detections is not None and len(detections) >= cfg.max_detections:
             break
 
     return DetectionResult(detections=tuple(detections), spectrum=spectrum, edge=edge)

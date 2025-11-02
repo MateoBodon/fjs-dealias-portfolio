@@ -11,6 +11,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from fjs.balanced import mean_squares
+from fjs.config import DetectionSettings, get_detection_settings
 from fjs.mp import admissible_m_from_lambda, estimate_Cs_from_MS, mp_edge, t_vec
 from fjs.theta_solver import ThetaSolverParams, solve_theta_for_t2_zero
 
@@ -426,10 +427,10 @@ def dealias_search(
     target_r: int,
     *,
     Cs: Sequence[float] | None = None,  # noqa: N803
-    a_grid: int = 120,
-    delta: float = 0.5,
+    a_grid: int | None = None,
+    delta: float | None = None,
     delta_frac: float | None = None,
-    eps: float = 0.02,
+    eps: float | None = None,
     energy_min_abs: float | None = None,
     stability_eta_deg: float = 1.0,
     use_tvector: bool = True,
@@ -446,6 +447,7 @@ def dealias_search(
     stats: dict[str, Any] | None = None,
     edge_scale: float | None = None,
     edge_mode: str | None = None,
+    settings: DetectionSettings | None = None,
 ) -> list[Detection]:
     """
     Perform Algorithm 1 de-aliasing search for one-way balanced designs.
@@ -511,6 +513,33 @@ def dealias_search(
 
     if diagnostics is not None:
         diagnostics.clear()
+
+    settings_obj = settings or get_detection_settings()
+
+    if delta is None:
+        delta = settings_obj.delta
+    delta = float(delta)
+
+    if delta_frac is None:
+        delta_frac = settings_obj.delta_frac
+    delta_frac = float(delta_frac) if delta_frac is not None else None
+
+    if a_grid is None:
+        a_grid = settings_obj.a_grid_size
+    a_grid = int(a_grid)
+
+    if cs_drop_top_frac is None:
+        cs_drop_top_frac = settings_obj.cs_drop_top_frac
+    cs_drop_top_frac = float(cs_drop_top_frac) if cs_drop_top_frac is not None else None
+
+    angle_min_cos = float(settings_obj.angle_min_cos)
+    require_isolated = bool(settings_obj.require_isolated)
+    max_q = max(0, int(settings_obj.q_max)) if settings_obj.q_max is not None else 0
+    if eps is None:
+        eps = settings_obj.t_eps
+    eps = float(eps)
+    if off_component_leak_cap is None:
+        off_component_leak_cap = settings_obj.off_component_cap
 
     def _diag_inc(name: str) -> None:
         if diagnostics is not None:
@@ -592,7 +621,8 @@ def dealias_search(
             edge_scale_val = 1.0
         if not np.isfinite(edge_scale_val) or edge_scale_val <= 0.0:
             edge_scale_val = 1.0
-    edge_mode_name = (edge_mode or "scm").strip()
+    resolved_edge_mode = edge_mode if edge_mode is not None else settings_obj.edge_mode
+    edge_mode_name = (resolved_edge_mode or "scm").strip()
 
     def _edge_margin_for(Cs_local: np.ndarray):
         def margin(a_vec_local: np.ndarray, lam_val: float) -> float | None:
@@ -643,7 +673,10 @@ def dealias_search(
         else:
             C_for_mp = c_weights
 
+    terminate = False
     for candidate_index, a_vec in enumerate(candidate_vectors):
+        if terminate:
+            break
         if nonnegative_a and np.any(a_vec < -1e-8):
             if _FJS_DEBUG_ENABLED:
                 _debug_log(
@@ -670,6 +703,10 @@ def dealias_search(
         }
         if theta_current is not None:
             debug_base["theta_rad"] = float(theta_current)
+        if angle_min_cos > 0.0 and debug_base["min_cos"] < angle_min_cos:
+            _debug_log({**debug_base, "decision": "reject", "reason": "angle_threshold", "angle_min_cos": angle_min_cos})
+            _diag_inc("angle_gate")
+            continue
         try:
             z_plus_base = mp_edge(
                 a_vec.tolist(),
@@ -741,6 +778,11 @@ def dealias_search(
 
         # Pre-gating count of outliers for this angle
         pre_outlier_count_vec = int(np.count_nonzero(eigvals >= threshold_main))
+
+        if require_isolated and pre_outlier_count_vec > 1:
+            _debug_log({**debug_base, "decision": "reject", "reason": "multi_outlier", "pre_outliers": int(pre_outlier_count_vec)})
+            _diag_inc("multi_outlier")
+            continue
 
         for idx, lam_val in enumerate(eigvals):
             debug_ctx = {
@@ -985,6 +1027,9 @@ def dealias_search(
                 "admissible_root": bool(detection["admissible_root"]),
             }
             _debug_log(debug_payload)
+            if max_q > 0 and len(detections) >= max_q:
+                terminate = True
+                break
 
             if (
                 use_theta_solver

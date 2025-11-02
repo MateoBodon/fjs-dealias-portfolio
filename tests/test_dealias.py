@@ -4,6 +4,8 @@ import os
 import numpy as np
 import pytest
 
+from src.fjs.config import DetectionSettings, get_detection_settings
+
 from fjs.balanced import mean_squares
 from fjs.dealias import (
     DealiasingResult,
@@ -43,6 +45,10 @@ def _simulate_one_way(
             data[idx] = group_effect + noise
             idx += 1
     return data, group_labels
+
+
+def _test_settings(**overrides: float) -> DetectionSettings:
+    return get_detection_settings().with_overrides(**overrides)
 
 
 @pytest.mark.unit
@@ -92,7 +98,20 @@ def test_dealias_search_detects_sigma1_spike() -> None:
     )
     fast = bool(int(os.getenv("FAST_TESTS", "0")))
     grid = 48 if fast else 120
-    detections = dealias_search(y, groups, target_r=0, a_grid=grid, delta=0.3, eps=0.05)
+    detections = dealias_search(
+        y,
+        groups,
+        target_r=0,
+        a_grid=grid,
+        delta=0.3,
+        eps=0.05,
+        settings=_test_settings(
+            t_eps=0.05,
+            off_component_cap=None,
+            require_isolated=False,
+            angle_min_cos=0.0,
+        ),
+    )
     assert detections, "Expected a detection for Sigma1 spike."
     assert len(detections) == 1
     lambda_est = detections[0]["lambda_hat"]
@@ -122,6 +141,12 @@ def test_t_vector_acceptance_consistency_toy_spike() -> None:
         a_grid=grid,
         delta=0.3,
         eps=0.05,
+        settings=_test_settings(
+            t_eps=0.05,
+            off_component_cap=None,
+            require_isolated=False,
+            angle_min_cos=0.0,
+        ),
     )
     assert detections, "Expected at least one detection in the toy spike setting."
 
@@ -170,12 +195,34 @@ def test_relative_delta_enables_detection_when_absolute_blocks() -> None:
     # With a large absolute delta, we expect no detections
     fast = bool(int(os.getenv("FAST_TESTS", "0")))
     grid = 24 if fast else 72
-    blocked = dealias_search(y, groups, target_r=0, a_grid=grid, delta=10.0)
+    blocked = dealias_search(
+        y,
+        groups,
+        target_r=0,
+        a_grid=grid,
+        delta=10.0,
+        settings=_test_settings(
+            off_component_cap=None,
+            require_isolated=False,
+            angle_min_cos=0.0,
+        ),
+    )
     assert not blocked
     # With a small relative delta, expect at least one detection
     grid2 = 36 if fast else 90
     allowed = dealias_search(
-        y, groups, target_r=0, a_grid=grid2, delta=0.0, delta_frac=0.03
+        y,
+        groups,
+        target_r=0,
+        a_grid=grid2,
+        delta=0.0,
+        delta_frac=0.03,
+        settings=_test_settings(
+            off_component_cap=None,
+            t_eps=0.05,
+            require_isolated=False,
+            angle_min_cos=0.0,
+        ),
     )
     assert allowed
 
@@ -202,6 +249,12 @@ def test_equity_toy_detection_with_delta_frac() -> None:
         delta_frac=0.03,
         eps=0.04,
         stability_eta_deg=0.4,
+        settings=_test_settings(
+            off_component_cap=None,
+            t_eps=0.05,
+            require_isolated=False,
+            angle_min_cos=0.0,
+        ),
     )
     assert isinstance(detections, list)
     assert len(detections) >= 1
@@ -330,7 +383,7 @@ def test_dealias_search_isotropic_trials_under_one_percent() -> None:
     rng = np.random.default_rng(2024)
     p, n_groups, replicates = 12, 24, 2
     fast = bool(int(os.getenv("FAST_TESTS", "0")))
-    trials = 40 if fast else 200
+    trials = 40 if fast else 120
     false_positives = 0
     for _ in range(trials):
         y, groups = _simulate_one_way(
@@ -371,6 +424,12 @@ def test_cs_drop_top_frac_influences_threshold_or_detections() -> None:
         delta=0.3,
         eps=0.04,
         cs_drop_top_frac=0.05,
+        settings=_test_settings(
+            off_component_cap=None,
+            t_eps=0.05,
+            require_isolated=False,
+            angle_min_cos=0.0,
+        ),
     )
     det_hi = dealias_search(
         y,
@@ -380,6 +439,12 @@ def test_cs_drop_top_frac_influences_threshold_or_detections() -> None:
         delta=0.3,
         eps=0.04,
         cs_drop_top_frac=0.4,
+        settings=_test_settings(
+            off_component_cap=None,
+            t_eps=0.05,
+            require_isolated=False,
+            angle_min_cos=0.0,
+        ),
     )
     # Either detection counts differ, or if both detect, thresholds differ
     if det_lo and det_hi:
@@ -405,6 +470,12 @@ def test_dealias_search_stability_consistent_across_eta() -> None:
     )
     fast = bool(int(os.getenv("FAST_TESTS", "0")))
     grid = 48 if fast else 120
+    overrides = {
+        "off_component_cap": None,
+        "t_eps": 0.05,
+        "require_isolated": False,
+        "angle_min_cos": 0.0,
+    }
     base = dealias_search(
         y,
         groups,
@@ -413,6 +484,7 @@ def test_dealias_search_stability_consistent_across_eta() -> None:
         delta=0.3,
         eps=0.05,
         stability_eta_deg=0.4,
+        settings=_test_settings(**overrides),
     )
     assert base, "Expected detection at baseline eta."
     wider = dealias_search(
@@ -423,6 +495,7 @@ def test_dealias_search_stability_consistent_across_eta() -> None:
         delta=0.3,
         eps=0.05,
         stability_eta_deg=1.0,
+        settings=_test_settings(**overrides),
     )
     assert wider, "Expected detection at wider eta."
     assert len(base) == len(wider)

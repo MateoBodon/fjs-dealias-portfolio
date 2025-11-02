@@ -53,3 +53,9 @@
 - **Decisions**: Structured debug output as JSON for downstream parsing; enumerated candidate/a-grid indices including dynamically added root-find vectors.
 - **Checks**: Target test still failing pending threshold integration; debug traces verified via `FJS_DEBUG=1` dry run.
 - **Next Actions**: Load calibrated thresholds, align gating parameters, and drive null FPR back under 2%.
+
+## 2025-11-02T04:29Z
+- **Step**: Added detection settings loader (YAML + thresholds.json), hardened `dealias_search`/overlay defaults (Tyler edge, isolation gating, off-component cap, t-eps), and introduced calibrated slow tests (null FPR ≤2%, power ≥80%).
+- **Decisions**: Default `t_eps=0.06`, `off_component_cap=0.3`, `require_isolated=True`, and `q_max=1` keep null false positives suppressed; unit/integration tests override settings when legacy behaviour is required.
+- **Checks**: `tests/test_dealias.py`, `tests/fjs/test_config.py`, and `tests/fjs/test_dealias_calibrated.py` now pass locally; failing null FPR test resolved.
+- **Next Actions**: Refresh docs, rebuild RC artifacts (`make rc && make gallery`), and add memo postmortem before final regression (`pytest -q`).

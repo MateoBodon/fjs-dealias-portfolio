@@ -1,7 +1,18 @@
-# Default detection configuration (scaffold)
+# Default detection configuration tuned via calibration harness.
+thresholds_path:
+  - reports/calibration/thresholds.json
+# Overlay edge estimator defaults
 edge_mode: tyler
 huber_c: 2.5
-buffer: 0.0
-buffer_frac: 0.05
-max_detections: 10
-shrinkage: 0.05
+# Marčenko-Pastur buffering (absolute + fractional)
+delta: 0.5
+delta_frac: 0.0
+# Candidate generation & gating
+a_grid_size: 120
+require_isolated: true
+angle_min_cos: 0.05
+t_eps: 0.06
+q_max: 1
+cs_drop_top_frac: 0.05
+min_isolation: 0.05
+off_component_cap: 0.3

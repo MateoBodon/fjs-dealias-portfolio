@@ -9,10 +9,11 @@ the numerical routines are wired up.
 from __future__ import annotations
 
 __all__ = [
-    "ries_covariance",
-    "ewma_covariance",
+    "RIEConfig",
+    "rie_covariance",
     "EWMAConfig",
+    "ewma_covariance",
 ]
 
-from .rie import ries_covariance
-from .ewma import ewma_covariance, EWMAConfig
+from .rie import RIEConfig, rie_covariance
+from .ewma import EWMAConfig, ewma_covariance

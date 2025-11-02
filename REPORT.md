@@ -23,3 +23,9 @@
 - **Decisions**: Detection keeps full eigen-decomposition context to allow rank-one updates; shrinkage only applied off-spike towards robust edge.
 - **Checks**: `pytest -q -x` still halts at `tests/test_dealias.py::test_dealias_search_limits_sigma2_false_positives` (pre-refactor false positives).
 - **Next Actions**: Integrate RIE and EWMA baselines and begin calibrating overlay thresholds against synthetic suites.
+
+## 2025-11-02T03:11Z
+- **Step**: Implemented RIE eigenvalue clipping and EWMA covariance with weighted means; replaced stub baseline tests with numerical checks.
+- **Decisions**: Clipped MP bulk to its mean to stabilise RIE while leaving spikes intact; EWMA debiases weights by default to maintain unit mass.
+- **Checks**: `pytest -q -x` still fails at `tests/test_dealias.py::test_dealias_search_limits_sigma2_false_positives` pending overlay refactor.
+- **Next Actions**: Build synthetic calibration harness for threshold tuning and generate artefact scaffolding.

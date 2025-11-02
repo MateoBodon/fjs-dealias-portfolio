@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+import json
 import math
+import os
 from typing import Any, TypedDict
 
 import numpy as np
@@ -11,6 +13,33 @@ from numpy.typing import NDArray
 from fjs.balanced import mean_squares
 from fjs.mp import admissible_m_from_lambda, estimate_Cs_from_MS, mp_edge, t_vec
 from fjs.theta_solver import ThetaSolverParams, solve_theta_for_t2_zero
+
+_FJS_DEBUG_RAW = os.getenv("FJS_DEBUG", "").strip().lower()
+_FJS_DEBUG_ENABLED = _FJS_DEBUG_RAW in {"1", "true", "yes", "on", "debug"}
+
+
+def _debug_log(payload: dict[str, Any]) -> None:
+    if not _FJS_DEBUG_ENABLED:
+        return
+
+    def _convert(value: Any) -> Any:
+        if isinstance(value, np.ndarray):
+            return value.tolist()
+        if isinstance(value, (np.floating, np.integer)):
+            return value.item()
+        if isinstance(value, (float, int, str, bool)) or value is None:
+            return value
+        if isinstance(value, (list, tuple)):
+            return [_convert(v) for v in value]
+        if isinstance(value, dict):
+            return {str(k): _convert(v) for k, v in value.items()}
+        try:
+            return float(value)
+        except Exception:
+            return str(value)
+
+    sanitized = {str(k): _convert(v) for k, v in payload.items()}
+    print(f"[FJS_DEBUG] {json.dumps(sanitized, sort_keys=True)}", flush=True)
 
 
 class DesignParams(TypedDict):
@@ -614,8 +643,17 @@ def dealias_search(
         else:
             C_for_mp = c_weights
 
-    for a_vec in candidate_vectors:
+    for candidate_index, a_vec in enumerate(candidate_vectors):
         if nonnegative_a and np.any(a_vec < -1e-8):
+            if _FJS_DEBUG_ENABLED:
+                _debug_log(
+                    {
+                        "candidate_index": int(candidate_index),
+                        "decision": "reject",
+                        "reason": "nonnegative_constraint",
+                        "min_cos": float(np.min(np.abs(a_vec))),
+                    }
+                )
             continue
         theta_current = None
         theta_key = None
@@ -624,6 +662,14 @@ def dealias_search(
             theta_current = float(math.atan2(a_vec[1], a_vec[0]))
             theta_key = _angle_key(theta_current)
             solver_tag = angle_source.get(theta_key, "grid")
+        debug_base = {
+            "candidate_index": int(candidate_index),
+            "a_grid": int(a_grid),
+            "min_cos": float(np.min(np.abs(a_vec))),
+            "solver": solver_tag,
+        }
+        if theta_current is not None:
+            debug_base["theta_rad"] = float(theta_current)
         try:
             z_plus_base = mp_edge(
                 a_vec.tolist(),
@@ -633,9 +679,11 @@ def dealias_search(
                 Cs=cs_vec,
             )
         except (RuntimeError, ValueError):
+            _debug_log({**debug_base, "decision": "reject", "reason": "mp_edge_fail"})
             continue
 
         z_plus_scaled = float(z_plus_base) * edge_scale_val
+        debug_base["z_plus"] = float(z_plus_scaled)
 
         # Evaluate scanning matrix per chosen basis
         if scan_basis_norm == "sigma":
@@ -695,13 +743,24 @@ def dealias_search(
         pre_outlier_count_vec = int(np.count_nonzero(eigvals >= threshold_main))
 
         for idx, lam_val in enumerate(eigvals):
+            debug_ctx = {
+                **debug_base,
+                "eigen_index": int(idx),
+                "lambda": float(lam_val),
+                "threshold": float(threshold_main),
+                "pre_outliers": int(pre_outlier_count_vec),
+            }
             if lam_val < threshold_main:
+                _debug_log({**debug_ctx, "decision": "reject", "reason": "below_threshold"})
                 break
             margin_main = lam_val - threshold_main
+            debug_ctx["margin_main"] = float(margin_main)
             if margin_main < 0.0:
+                _debug_log({**debug_ctx, "decision": "reject", "reason": "edge_buffer"})
                 _diag_inc("edge_buffer")
                 continue
             edge_margin_raw = float(lam_val - z_plus_scaled)
+            debug_ctx["edge_margin"] = float(edge_margin_raw)
             t_vals: np.ndarray | None
             t_target: float | None
             try:
@@ -721,6 +780,7 @@ def dealias_search(
                     t_target = float(t_vals[target_r])
             except (RuntimeError, ValueError):
                 if use_tvector:
+                    _debug_log({**debug_ctx, "decision": "reject", "reason": "t_vec_fail"})
                     _diag_inc("other")
                     continue
                 t_vals = None
@@ -728,11 +788,13 @@ def dealias_search(
 
             if use_tvector:
                 if t_vals is None or t_target is None or abs(t_target) <= eps:
+                    _debug_log({**debug_ctx, "decision": "reject", "reason": "t_target_small"})
                     _diag_inc("other")
                     continue
                 t_off = np.delete(t_vals, target_r)
                 # Stricter absolute off-component cap to match guardrail tests
                 if t_off.size and float(np.max(np.abs(t_off))) > float(eps):
+                    _debug_log({**debug_ctx, "decision": "reject", "reason": "t_off_caps"})
                     _diag_inc("other")
                     continue
 
@@ -741,11 +803,13 @@ def dealias_search(
             else:
                 mu_hat = float(lam_val / t_target)
             if not np.isfinite(mu_hat):
+                _debug_log({**debug_ctx, "decision": "reject", "reason": "mu_nonfinite"})
                 _diag_inc("other")
                 continue
             if mu_hat <= 0.0:
                 mu_hat = abs(mu_hat)
                 if mu_hat <= 0.0:
+                    _debug_log({**debug_ctx, "decision": "reject", "reason": "mu_nonpositive"})
                     _diag_inc("neg_mu")
                     continue
 
@@ -761,6 +825,14 @@ def dealias_search(
                 energy_min_abs is not None
                 and energy_magnitude <= float(energy_min_abs)
             ):
+                _debug_log(
+                    {
+                        **debug_ctx,
+                        "decision": "reject",
+                        "reason": "energy_floor",
+                        "energy": float(energy_magnitude),
+                    }
+                )
                 _diag_inc("energy_floor")
                 continue
             denom = max(energy_magnitude, 1e-12)
@@ -769,10 +841,12 @@ def dealias_search(
                 default=0.0,
             )
             off_component_ratio = float(worst_off / denom) if denom > 0 else float("inf")
+            debug_ctx["off_component_ratio"] = float(off_component_ratio)
             if (
                 off_component_leak_cap is not None
                 and off_component_ratio > float(off_component_leak_cap)
             ):
+                _debug_log({**debug_ctx, "decision": "reject", "reason": "off_component_ratio"})
                 _diag_inc("off_component_ratio")
                 continue
 
@@ -783,6 +857,7 @@ def dealias_search(
                     a_plus = _rotate_on_sphere(a_vec, tangent_dir, eta_rad)
                     a_minus = _rotate_on_sphere(a_vec, -tangent_dir, eta_rad)
                 except ValueError:
+                    _debug_log({**debug_ctx, "decision": "reject", "reason": "stability_rotate"})
                     _diag_inc("stability_fail")
                     continue
                 margin_plus = _edge_margin(a_plus, lam_val)
@@ -793,12 +868,15 @@ def dealias_search(
                 margin_plus = margin_main
                 margin_minus = margin_main
             if margin_plus is None or margin_plus < 0.0:
+                _debug_log({**debug_ctx, "decision": "reject", "reason": "stability_plus"})
                 _diag_inc("stability_fail")
                 continue
             if margin_minus is None or margin_minus < 0.0:
+                _debug_log({**debug_ctx, "decision": "reject", "reason": "stability_minus"})
                 _diag_inc("stability_fail")
                 continue
             stability_margin = float(min(margin_main, margin_plus, margin_minus))
+            debug_ctx["stability_margin"] = float(stability_margin)
 
             # Sensitivity margins/decisions (diagnostics only)
             stability_margin_low: float | None
@@ -897,6 +975,16 @@ def dealias_search(
             )
             detection["solver_used"] = solver_tag
             detections.append(detection)
+            debug_payload = {
+                **debug_ctx,
+                "decision": "accept",
+                "mu_hat": float(mu_hat),
+                "stability_margin": float(stability_margin),
+                "buffer_margin": float(margin_main),
+                "edge_margin": float(edge_margin_raw),
+                "admissible_root": bool(detection["admissible_root"]),
+            }
+            _debug_log(debug_payload)
 
             if (
                 use_theta_solver

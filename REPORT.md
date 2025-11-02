@@ -47,3 +47,9 @@
 - **Decisions**: Fallback to plain-text tables when optional plotting/tabulate deps missing; default Makefile commands run with `PYTHONPATH=.` to expose packages.
 - **Checks**: `pytest -q -x` still red at `tests/test_dealias.py::test_dealias_search_limits_sigma2_false_positives`; other suites pass. `make rc` and `make gallery` completed successfully.
 - **Next Actions**: Address legacy `dealias_search` FPR regression in follow-up; prepare final review summary.
+
+## 2025-11-02T03:47Z
+- **Step**: Reproduced `tests/test_dealias.py::test_dealias_search_limits_sigma2_false_positives` failure and instrumented `dealias_search` with `FJS_DEBUG` per-candidate logging (edge margins, admissibility, isolation, angle, reason codes).
+- **Decisions**: Structured debug output as JSON for downstream parsing; enumerated candidate/a-grid indices including dynamically added root-find vectors.
+- **Checks**: Target test still failing pending threshold integration; debug traces verified via `FJS_DEBUG=1` dry run.
+- **Next Actions**: Load calibrated thresholds, align gating parameters, and drive null FPR back under 2%.

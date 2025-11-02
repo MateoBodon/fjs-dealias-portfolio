@@ -39,3 +39,9 @@
 - **Decisions**: Normalised config hashes via `calibration_cache_meta`, reused cached JSON when dependencies unchanged, and ensured parallel windows reuse sequential logic for identical outputs.
 - **Checks**: `pytest tests/test_power_null.py -q -m slow`, `pytest tests/experiments/test_eval_run.py -q`.
 - **Next Actions**: Enhance turnover-aware MV, DM effective sample reporting, and add optional bootstrap scaffolding.
+
+## 2025-11-02T08:18Z
+- **Step**: Added turnover-aware MV weights (`mv_gamma`, `mv_tau`) with reproducible worker gating, aligned DM samples with effective n, and introduced optional block-bootstrap ΔMSE bands.
+- **Decisions**: Stored per-window IDs for alignment, surfaced `n_effective` in DM outputs, and seeded bootstrap draws via `config.bootstrap_samples` for deterministic CI bands.
+- **Checks**: `pytest tests/experiments/test_eval_run.py -q`, `pytest -q` (defaults exclude slow).
+- **Next Actions**: Extend memo/gallery diagnostics and draft advisor RC brief with README linkage.

@@ -1,0 +1,2 @@
+regime,detections,detection_rate,edge_margin_mean,stability_margin_mean,isolation_share
+calm,0.25,0.03125,0.24220416961507663,0.11280438840689945,0.24999999892377478

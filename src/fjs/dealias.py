@@ -410,8 +410,8 @@ def dealias_search(
     cs_sensitivity_frac: float | None = None,
     use_design_c_for_C: bool = False,
     scan_basis: str = "ms",
-    oneway_a_solver: str = "auto",
-    off_component_leak_cap: float | None = None,
+    oneway_a_solver: str = "grid",
+    off_component_leak_cap: float | None = 0.3,
     cs_scale: float | None = None,
     diagnostics: dict[str, int] | None = None,
     stats: dict[str, Any] | None = None,
@@ -535,9 +535,10 @@ def dealias_search(
             alpha = 1.0
         cs_vec = (alpha * cs_vec).astype(np.float64, copy=False)
 
+    grid_size = max(8, min(int(a_grid), 60))
     candidate_vectors = _generate_unit_vectors(
         len(c_vec),
-        int(a_grid),
+        grid_size,
         nonnegative=nonnegative_a,
     )
     angle_source: dict[float, str] = {}

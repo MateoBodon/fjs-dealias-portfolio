@@ -51,6 +51,8 @@ Optional data: `experiments/equity_panel/config*.yaml` expect `data/returns_dail
 | --- | --- |
 | `src/finance`, `src/fjs`, `src/meta` | Core covariance, de-aliasing, and cache utilities. |
 | `experiments/equity_panel/` | YAML configs coupled with the rolling runner. |
+| `experiments/eval/` | Rolling daily evaluation (ΔMSE, VaR/ES, diagnostics). |
+| `experiments/etf_panel/` | ETF sector/country demo built on the daily evaluation defaults. |
 | `tools/` | CLI helpers (`clean_outputs`, `build_gallery`, `build_memo`, `summarize_run`, etc.). |
 | `src/report/` | Pandas/matplotlib helpers to assemble tables and plots. |
 | `reports/templates/` | Jinja/Jinja-like templates for memos. |
@@ -157,6 +159,38 @@ PYTHONPATH=src python experiments/synthetic/power_null.py --edge-modes scm tyler
 ```
 
 Artifacts live under `experiments/synthetic/outputs/` (`power_null_summary.csv`, `fpr_heatmap.png`, `power_curves.png`).
+
+### 5.8 Daily overlay diagnostics
+
+Use `experiments/eval/run.py` for a lighter-weight daily pipeline that combines prewhitening, calm/crisis splits, and overlay diagnostics. It accepts wide (`date,<ticker>...`) or long (`date,ticker,ret`) returns with optional factor files.
+
+```bash
+python experiments/eval/run.py \
+    --returns-csv data/returns_daily.csv \
+    --window 126 --horizon 21 \
+    --shrinker rie \
+    --out reports/rc-YYYYMMDD/
+```
+
+Outputs per regime (`full`, `calm`, `crisis`) include:
+
+- `metrics.csv`: ΔMSE vs shrinker baseline for EW/MV portfolios plus ES(95) errors.
+- `risk.csv`: VaR/ES forecasts, realised tail means, and violation rates.
+- `dm.csv`: Diebold–Mariano stats comparing the overlay against the shrinker baseline.
+- `diagnostics.csv`: detection counts, edge margins, isolation share, and stability margins.
+- `delta_mse.png`: bar plot of ΔMSE (created when matplotlib is available).
+
+Flags of interest: `--factors-csv` to supply FF5+MOM data (falls back to an equal-weight MKT proxy), `--shrinker {rie,lw,oas,sample}` for non-detected directions, `--seed` to keep gating deterministic, and `--window`/`--horizon` to resize rolling windows.
+
+For an ETF demo (countries/sectors), run:
+
+```bash
+python experiments/etf_panel/run.py \
+    --returns-csv data/etf_returns.csv \
+    --out reports/etf-rc/
+```
+
+The ETF wrapper simply forwards options to the daily evaluation harness, emitting the same CSV/PNG diagnostics alongside a short overlay toggle note (`overlay_toggle.md`) that summarises when detections turn on or stay muted.
 
 **Latest RC snapshot (30 Oct 2025)**
 

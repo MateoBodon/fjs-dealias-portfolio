@@ -1,0 +1,5 @@
+# Default evaluation overrides for Sprint 5.
+calm_quantile: 0.2
+crisis_quantile: 0.8
+vol_ewma_span: 21
+reason_codes: true

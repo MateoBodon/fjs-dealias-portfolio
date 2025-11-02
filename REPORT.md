@@ -21,3 +21,9 @@
 - **Decisions**: Defaulted evaluation `a_grid=60` for deterministic runtime; fallback loader handles wide/long returns; overlay eigenvalue failures revert to baseline shrinker.
 - **Checks**: `python experiments/eval/run.py --returns-csv reports/rc-20251103/sample_returns.csv --window 40 --horizon 10 --out reports/rc-20251103/` succeeds.
 - **Next Actions**: Run full test suite and prepare Conventional Commit summary.
+
+## 2025-11-02T07:05Z
+- **Step**: Added config-layer precedence (defaults → thresholds.json → YAML → CLI) with resolved-config echo, wrote `resolved_config.json`, and embedded reason-code enums in diagnostics.
+- **Decisions**: Normalised CLI/YAML aliases (`--out` → `out_dir`), defaulted calm/crisis quantiles via layered config, and captured per-regime reason modes alongside resolved-config paths.
+- **Checks**: `pytest tests/experiments/test_eval_run.py -q`.
+- **Next Actions**: Guard volatility regime quantiles against look-ahead and centralise deterministic seeds/a-grid handling.

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
@@ -25,6 +26,8 @@ from baselines import load_observed_factors, prewhiten_returns
 from baselines.factors import PrewhitenResult
 from evaluation.dm import dm_test
 from fjs.overlay import OverlayConfig, apply_overlay, detect_spikes
+from experiments.eval.config import resolve_eval_config
+from experiments.eval.diagnostics import DiagnosticReason
 
 try:
     from data.loader import DailyLoaderConfig, DailyPanel, load_daily_panel
@@ -92,6 +95,14 @@ class EvalConfig:
     end: str | None = None
     shrinker: str = "rie"
     seed: int = 0
+    calm_quantile: float = 0.2
+    crisis_quantile: float = 0.8
+    vol_ewma_span: int = 21
+    config_path: Path | None = None
+    thresholds_path: Path | None = None
+    echo_config: bool = True
+    reason_codes: bool = True
+    workers: int | None = None
 
 
 @dataclass(slots=True, frozen=True)
@@ -106,7 +117,42 @@ class EvalOutputs:
 _REGIMES = ("full", "calm", "crisis")
 
 
-def parse_args(argv: Sequence[str] | None = None) -> EvalConfig:
+def _serialise_config(config: EvalConfig) -> dict[str, Any]:
+    return {
+        "returns_csv": str(config.returns_csv),
+        "factors_csv": str(config.factors_csv) if config.factors_csv else None,
+        "window": config.window,
+        "horizon": config.horizon,
+        "out_dir": str(config.out_dir),
+        "start": config.start,
+        "end": config.end,
+        "shrinker": config.shrinker,
+        "seed": config.seed,
+        "calm_quantile": config.calm_quantile,
+        "crisis_quantile": config.crisis_quantile,
+        "vol_ewma_span": config.vol_ewma_span,
+        "config_path": str(config.config_path) if config.config_path else None,
+        "thresholds_path": str(config.thresholds_path) if config.thresholds_path else None,
+        "echo_config": config.echo_config,
+        "reason_codes": config.reason_codes,
+        "workers": config.workers,
+    }
+
+
+def _mode_string(values: pd.Series) -> str:
+    valid = values.dropna()
+    if valid.empty:
+        return ""
+    try:
+        mode_values = valid.mode(dropna=True)  # type: ignore[call-arg]
+    except TypeError:
+        mode_values = valid.astype(str).mode(dropna=True)  # type: ignore[call-arg]
+    if mode_values.empty:
+        return ""
+    return str(mode_values.iloc[0])
+
+
+def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str, Any]]:
     parser = argparse.ArgumentParser(description="Daily overlay evaluation with diagnostics.")
     parser.add_argument("--returns-csv", type=Path, required=True, help="Path to daily returns CSV.")
     parser.add_argument(
@@ -115,31 +161,75 @@ def parse_args(argv: Sequence[str] | None = None) -> EvalConfig:
         default=None,
         help="Optional FF5+MOM factor CSV (falls back to MKT proxy when absent).",
     )
-    parser.add_argument("--window", type=int, default=126, help="Estimation window (days).")
-    parser.add_argument("--horizon", type=int, default=21, help="Holdout horizon (days).")
+    parser.add_argument("--window", type=int, default=None, help="Estimation window (days).")
+    parser.add_argument("--horizon", type=int, default=None, help="Holdout horizon (days).")
     parser.add_argument("--start", type=str, default=None, help="Optional start date (YYYY-MM-DD).")
     parser.add_argument("--end", type=str, default=None, help="Optional end date (YYYY-MM-DD).")
-    parser.add_argument("--out", type=Path, default=Path("reports/eval-latest"), help="Output directory.")
+    parser.add_argument("--out", type=Path, default=None, help="Output directory.")
     parser.add_argument(
         "--shrinker",
         type=str,
-        default="rie",
+        default=None,
         choices=["rie", "lw", "oas", "sample"],
         help="Baseline shrinker for non-detected directions.",
     )
-    parser.add_argument("--seed", type=int, default=0, help="Deterministic seed for gating utilities.")
-    args = parser.parse_args(argv)
-    return EvalConfig(
-        returns_csv=args.returns_csv,
-        factors_csv=args.factors_csv,
-        window=args.window,
-        horizon=args.horizon,
-        out_dir=args.out,
-        start=args.start,
-        end=args.end,
-        shrinker=args.shrinker,
-        seed=args.seed,
+    parser.add_argument("--seed", type=int, default=None, help="Deterministic seed for gating utilities.")
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help="Optional YAML configuration file applied after thresholds and before CLI overrides.",
     )
+    parser.add_argument(
+        "--thresholds",
+        type=Path,
+        default=None,
+        help="Optional JSON thresholds file applied after defaults and before YAML config.",
+    )
+    parser.add_argument(
+        "--echo-config",
+        action="store_true",
+        help="Print the resolved configuration dictionary before running evaluation.",
+    )
+    parser.add_argument(
+        "--calm-quantile",
+        dest="calm_quantile",
+        type=float,
+        default=None,
+        help="Override calm-volatility quantile (default from config layers).",
+    )
+    parser.add_argument(
+        "--crisis-quantile",
+        dest="crisis_quantile",
+        type=float,
+        default=None,
+        help="Override crisis-volatility quantile (default from config layers).",
+    )
+    parser.add_argument(
+        "--vol-ewma-span",
+        dest="vol_ewma_span",
+        type=int,
+        default=None,
+        help="EWMA span (in days) for volatility regime proxy.",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=None,
+        help="Optional worker count for experimental parallel evaluation.",
+    )
+    parser.add_argument(
+        "--no-reason-codes",
+        dest="reason_codes",
+        action="store_false",
+        help="Disable reason-code annotation in diagnostics.",
+    )
+    args = parser.parse_args(argv)
+    resolved = resolve_eval_config(vars(args))
+    config = resolved.config
+    if config.echo_config or args.echo_config:
+        print(json.dumps(resolved.resolved, indent=2, sort_keys=True))
+    return config, resolved.resolved
 
 
 def _compute_vol_proxy(returns: pd.DataFrame, span: int = 21) -> pd.Series:
@@ -249,18 +339,34 @@ def _prepare_returns(config: EvalConfig) -> tuple[DailyPanel, pd.DataFrame, Prew
     return panel, returns, whitening
 
 
-def run_evaluation(config: EvalConfig) -> EvalOutputs:
+def run_evaluation(
+    config: EvalConfig,
+    *,
+    resolved_config: Mapping[str, Any] | None = None,
+) -> EvalOutputs:
     panel, returns, whitening = _prepare_returns(config)
     residuals = whitening.residuals
-    vol_proxy = _compute_vol_proxy(residuals)
-    calm_cut = float(vol_proxy.quantile(0.2)) if not vol_proxy.empty else float("inf")
-    crisis_cut = float(vol_proxy.quantile(0.8)) if not vol_proxy.empty else float("-inf")
+    vol_proxy = _compute_vol_proxy(residuals, span=config.vol_ewma_span)
+    calm_cut = (
+        float(vol_proxy.quantile(config.calm_quantile))
+        if not vol_proxy.empty
+        else float("inf")
+    )
+    crisis_cut = (
+        float(vol_proxy.quantile(config.crisis_quantile))
+        if not vol_proxy.empty
+        else float("-inf")
+    )
 
     out_dir = config.out_dir
     out_dir.mkdir(parents=True, exist_ok=True)
     regime_dirs = {reg: out_dir / reg for reg in _REGIMES}
     for dir_path in regime_dirs.values():
         dir_path.mkdir(parents=True, exist_ok=True)
+    resolved_payload = dict(resolved_config) if resolved_config is not None else _serialise_config(config)
+    resolved_path = out_dir / "resolved_config.json"
+    resolved_path.write_text(json.dumps(resolved_payload, indent=2, sort_keys=True))
+    resolved_path_str = str(resolved_path)
 
     overlay_cfg = OverlayConfig(
         shrinker=config.shrinker,
@@ -282,22 +388,39 @@ def run_evaluation(config: EvalConfig) -> EvalOutputs:
             continue
         hold_start = pd.to_datetime(hold.index[0])
         regime = _window_regime(vol_proxy, hold_start, calm_cut, crisis_cut)
+        reason = DiagnosticReason.NO_DETECTIONS
         try:
             fit_balanced, group_labels = _balanced_window(fit)
         except ValueError:
+            diagnostics_records.append(
+                {
+                    "regime": regime,
+                    "detections": 0,
+                    "detection_rate": 0.0,
+                    "edge_margin_mean": 0.0,
+                    "stability_margin_mean": 0.0,
+                    "isolation_share": 0.0,
+                    "reason_code": str(DiagnosticReason.BALANCE_FAILURE)
+                    if config.reason_codes
+                    else "",
+                    "resolved_config_path": resolved_path_str,
+                }
+            )
             continue
         fit_matrix = fit_balanced.to_numpy(dtype=np.float64)
         p_assets = fit_matrix.shape[1]
         sample_cov = np.cov(fit_matrix, rowvar=False, ddof=1)
         group_count = int(np.unique(group_labels).size)
-        try:
-            detections = (
-                detect_spikes(fit_matrix, group_labels, config=overlay_cfg)
-                if group_count >= 5
-                else []
-            )
-        except Exception:
+        if group_count < 5:
             detections = []
+            reason = DiagnosticReason.INSUFFICIENT_GROUPS
+        else:
+            try:
+                detections = detect_spikes(fit_matrix, group_labels, config=overlay_cfg)
+                reason = DiagnosticReason.ACCEPTED if detections else DiagnosticReason.NO_DETECTIONS
+            except Exception:
+                detections = []
+                reason = DiagnosticReason.DETECTION_ERROR
         overlay_cov = apply_overlay(
             sample_cov,
             detections,
@@ -365,19 +488,39 @@ def run_evaluation(config: EvalConfig) -> EvalOutputs:
             edge_margins = []
             stability = []
             isolation = []
+        reason_value = reason.value if config.reason_codes else ""
         diagnostics_records.append(
             {
                 "regime": regime,
                 "detections": len(detections),
-                "detection_rate": len(detections) / float(p_assets),
+                "detection_rate": len(detections) / float(p_assets) if p_assets else 0.0,
                 "edge_margin_mean": float(np.mean(edge_margins)) if edge_margins else 0.0,
                 "stability_margin_mean": float(np.mean(stability)) if stability else 0.0,
                 "isolation_share": float(np.mean(isolation)) if isolation else 0.0,
+                "reason_code": reason_value,
+                "resolved_config_path": resolved_path_str,
             }
         )
 
     metrics_df = pd.DataFrame(window_records)
     diagnostics_df = pd.DataFrame(diagnostics_records)
+    expected_diag_columns = [
+        "regime",
+        "detections",
+        "detection_rate",
+        "edge_margin_mean",
+        "stability_margin_mean",
+        "isolation_share",
+        "reason_code",
+        "resolved_config_path",
+    ]
+    if diagnostics_df.empty:
+        diagnostics_df = pd.DataFrame(columns=expected_diag_columns)
+    else:
+        for column in expected_diag_columns:
+            if column not in diagnostics_df.columns:
+                diagnostics_df[column] = np.nan
+        diagnostics_df = diagnostics_df[expected_diag_columns]
 
     outputs_metrics: dict[str, Path] = {}
     outputs_risk: dict[str, Path] = {}
@@ -461,6 +604,26 @@ def run_evaluation(config: EvalConfig) -> EvalOutputs:
         )
         .reset_index()
     )
+    if diagnostics_summary.empty:
+        diagnostics_summary["reason_code"] = ""
+        diagnostics_summary["resolved_config_path"] = resolved_path_str
+    else:
+        reason_summary = (
+            diagnostics_df.groupby("regime")["reason_code"]
+            .agg(_mode_string)
+            .reset_index()
+        )
+        path_summary = (
+            diagnostics_df.groupby("regime")["resolved_config_path"]
+            .agg(
+                lambda col: (
+                    col.dropna().iloc[0] if not col.dropna().empty else resolved_path_str
+                )
+            )
+            .reset_index()
+        )
+        diagnostics_summary = diagnostics_summary.merge(reason_summary, on="regime", how="left")
+        diagnostics_summary = diagnostics_summary.merge(path_summary, on="regime", how="left")
 
     for regime, path in regime_dirs.items():
         subset_metrics = summary_df[summary_df["regime"] == regime]
@@ -540,8 +703,8 @@ def run_evaluation(config: EvalConfig) -> EvalOutputs:
 
 
 def main(argv: Sequence[str] | None = None) -> None:
-    config = parse_args(argv)
-    run_evaluation(config)
+    config, resolved = parse_args(argv)
+    run_evaluation(config, resolved_config=resolved)
 
 
 if __name__ == "__main__":  # pragma: no cover

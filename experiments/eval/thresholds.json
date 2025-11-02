@@ -1,0 +1,6 @@
+{
+  "calm_quantile": 0.18,
+  "crisis_quantile": 0.82,
+  "vol_ewma_span": 21,
+  "reason_codes": true
+}

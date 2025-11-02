@@ -11,3 +11,9 @@
 - **Decisions**: APIs raise `NotImplementedError` to make missing functionality explicit while enabling test scaffolding.
 - **Checks**: `pytest -q -x` still halts at `tests/test_dealias.py::test_dealias_search_limits_sigma2_false_positives` (expected pre-overlay fix).
 - **Next Actions**: Implement daily loader and grouping logic with balanced universe enforcement and update tests accordingly.
+
+## 2025-11-02T03:00Z
+- **Step**: Implemented daily loader with winsorisation/balanced-universe enforcement and DoW/vol-state groupers; replaced stub tests with behavioural checks.
+- **Decisions**: Rank-based quantile binning for volatility states keeps bins evenly populated; weekdays enforce Mon–Fri coverage to align with trading calendar.
+- **Checks**: `pytest -q -x` continues to fail at `tests/test_dealias.py::test_dealias_search_limits_sigma2_false_positives` (legacy overlay behaviour).
+- **Next Actions**: Wire robust edge estimation and overlay detection routines before tightening failing dealias tests.

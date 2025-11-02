@@ -89,6 +89,10 @@ def test_run_evaluation_emits_artifacts(tmp_path_factory: pytest.TempPathFactory
         assert diag_df["crisis_threshold"].notna().any()
         assert diag_df["vol_signal"].notna().any()
 
+    detail_diag = outputs.diagnostics_detail["full"]
+    assert detail_diag.exists()
+    assert outputs.diagnostics_detail["all"].exists()
+
 
 def test_resolve_eval_config_precedence(tmp_path_factory: pytest.TempPathFactory) -> None:
     tmp_dir = tmp_path_factory.mktemp("config_layers")
@@ -268,6 +272,13 @@ def test_run_evaluation_is_reproducible(tmp_path_factory: pytest.TempPathFactory
     shared_cols = [col for col in diag_one.columns if col != "resolved_config_path"]
     pd.testing.assert_frame_equal(diag_one[shared_cols], diag_two[shared_cols])
     pd.testing.assert_frame_equal(diag_one[shared_cols], diag_workers[shared_cols])
+
+    detail_one = pd.read_csv(outputs_one.diagnostics_detail["full"]).sort_index(axis=1)
+    detail_two = pd.read_csv(outputs_two.diagnostics_detail["full"]).sort_index(axis=1)
+    detail_workers = pd.read_csv(outputs_workers.diagnostics_detail["full"]).sort_index(axis=1)
+    detail_cols = [col for col in detail_one.columns if col != "resolved_config_path"]
+    pd.testing.assert_frame_equal(detail_one[detail_cols], detail_two[detail_cols])
+    pd.testing.assert_frame_equal(detail_one[detail_cols], detail_workers[detail_cols])
 
 
 def test_bootstrap_bands_populate_for_overlay(tmp_path_factory: pytest.TempPathFactory) -> None:

@@ -59,6 +59,12 @@ def load_run(path: Path | str) -> dict[str, pd.DataFrame]:
     else:
         frames["summary"] = pd.DataFrame()
 
+    diagnostics_detail_path = run_path / "diagnostics_detail.csv"
+    if diagnostics_detail_path.exists():
+        frames["diagnostics_detail"] = pd.read_csv(diagnostics_detail_path)
+    else:
+        frames["diagnostics_detail"] = pd.DataFrame()
+
     frames["run_path"] = pd.DataFrame({"run": [run_path]})
     return frames
 

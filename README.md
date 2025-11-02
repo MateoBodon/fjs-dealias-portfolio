@@ -53,7 +53,7 @@ Optional data: `experiments/equity_panel/config*.yaml` expect `data/returns_dail
 | `experiments/equity_panel/` | YAML configs coupled with the rolling runner. |
 | `experiments/eval/` | Rolling daily evaluation (ΔMSE, VaR/ES, diagnostics). |
 | `experiments/etf_panel/` | ETF sector/country demo built on the daily evaluation defaults. |
-| `tools/` | CLI helpers (`clean_outputs`, `build_gallery`, `build_memo`, `summarize_run`, etc.). |
+| `tools/` | CLI helpers (`clean_outputs`, `build_gallery`, `build_memo`, `build_brief`, `summarize_run`, etc.). |
 | `src/report/` | Pandas/matplotlib helpers to assemble tables and plots. |
 | `reports/templates/` | Jinja/Jinja-like templates for memos. |
 | `tests/` | Unit/integration tests. Fixtures under `tests/report_fixtures/` drive reporting tests. |
@@ -212,6 +212,8 @@ Artifacts of interest:
 
 - Tables/plots per run: `figures/rc/<run_tag>/tables/*.csv|md|tex`, `figures/rc/<run_tag>/plots/*.png`.
 - Memo Markdown: `reports/memo.md` and timestamped copies under `reports/`.
+- Advisor brief: `reports/brief.md` plus timestamped copies under `reports/`.
+- Summary diagnostics (edge hist, isolation bars, stability scatter): `figures/rc/summary/*.png`.
 - Crisis CSVs/plots: `experiments/equity_panel/outputs_crisis_2020/oneway_J5_solver-auto_est-dealias_prep-none__crisis_20200215_20200531` (similar tags appear for other crises).
 
 **Action items before the next RC**
@@ -275,6 +277,8 @@ Gallaries use the same reporting helpers (`src/report/gather.py`, `src/report/ta
 - Run selection summary (design, replicates, date window, estimators).
 - Key estimator table (detection rate, ΔMSE, DM p-values).
 - Bullets on detection coverage, ΔMSE directionality, and DM significance.
+- Reason-code summary table with dominant gating outcomes.
+- Diagnostics snapshot (edge-margin histogram, isolation-share bars, direction–stability scatter).
 - Links to tables/plots and the per-run `run_meta.json`.
 
 Outputs:
@@ -283,6 +287,23 @@ Outputs:
 - `reports/memo_<timestamp>.md`
 
 CI (`.github/workflows/smoke.yml`) runs the gallery + memo steps for smoke runs and uploads `figures/` plus `reports/memo.md` as artifacts.
+
+---
+
+### 8.1 Advisor brief
+
+`tools/build_brief.py` renders a single-page summary targeting advisors. It reuses the gallery YAML and surfaces:
+
+- Detection coverage and DM significance highlights.
+- Top gating reason with recommended follow-up.
+- A compact reason-code table for each run.
+
+Outputs:
+
+- `reports/brief.md`
+- `reports/brief_<timestamp>.md`
+
+Include the brief alongside the memo when circulating RC updates.
 
 ---
 

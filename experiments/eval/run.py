@@ -120,6 +120,7 @@ class EvalOutputs:
     dm: dict[str, Path]
     diagnostics: dict[str, Path]
     plots: dict[str, Path]
+    diagnostics_detail: dict[str, Path]
 
 
 _REGIMES = ("full", "calm", "crisis")
@@ -730,6 +731,7 @@ def run_evaluation(
     outputs_dm: dict[str, Path] = {}
     outputs_diag: dict[str, Path] = {}
     outputs_plots: dict[str, Path] = {}
+    outputs_diag_detail: dict[str, Path] = {}
 
     if metrics_df.empty:
         for regime, path in regime_dirs.items():
@@ -758,12 +760,18 @@ def run_evaluation(
                 dm_path, index=False
             )
             diagnostics_df.to_csv(diag_path, index=False)
+            detail_path = path / "diagnostics_detail.csv"
+            diagnostics_df.to_csv(detail_path, index=False)
             outputs_metrics[regime] = metrics_path
             outputs_risk[regime] = risk_path
             outputs_dm[regime] = dm_path
             outputs_diag[regime] = diag_path
             outputs_plots[regime] = path / "delta_mse.png"
-        return EvalOutputs(outputs_metrics, outputs_risk, outputs_dm, outputs_diag, outputs_plots)
+            outputs_diag_detail[regime] = detail_path
+        detail_root_path = out_dir / "diagnostics_detail.csv"
+        diagnostics_df.to_csv(detail_root_path, index=False)
+        outputs_diag_detail["all"] = detail_root_path
+        return EvalOutputs(outputs_metrics, outputs_risk, outputs_dm, outputs_diag, outputs_plots, outputs_diag_detail)
 
     summaries = []
     for regime in _REGIMES:
@@ -897,6 +905,11 @@ def run_evaluation(
         diag_subset.to_csv(diag_path, index=False)
         outputs_diag[regime] = diag_path
 
+        detail_path = path / "diagnostics_detail.csv"
+        detail_subset = diagnostics_df[diagnostics_df["regime"] == regime]
+        detail_subset.to_csv(detail_path, index=False)
+        outputs_diag_detail[regime] = detail_path
+
         if plt is not None and not subset_metrics.empty:  # pragma: no cover - plotting smoke
             fig, ax = plt.subplots(figsize=(6, 4))
             pivot = subset_metrics.pivot(index="estimator", columns="portfolio", values="delta_mse_vs_baseline")
@@ -912,12 +925,17 @@ def run_evaluation(
         else:
             outputs_plots[regime] = path / "delta_mse.png"
 
+    detail_root_path = out_dir / "diagnostics_detail.csv"
+    diagnostics_df.to_csv(detail_root_path, index=False)
+    outputs_diag_detail["all"] = detail_root_path
+
     return EvalOutputs(
         metrics=outputs_metrics,
         risk=outputs_risk,
         dm=outputs_dm,
         diagnostics=outputs_diag,
         plots=outputs_plots,
+        diagnostics_detail=outputs_diag_detail,
     )
 
 

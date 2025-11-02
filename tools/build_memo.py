@@ -10,6 +10,8 @@ from typing import Iterable
 
 import pandas as pd
 import yaml
+import matplotlib.pyplot as plt
+import numpy as np
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = PROJECT_ROOT / "src"
@@ -420,6 +422,9 @@ def build_memo(config_path: Path) -> Path:
         raise ValueError("No runs discovered for memo generation.")
 
     gallery_root = Path("figures") / gallery_name
+    gallery_root.mkdir(parents=True, exist_ok=True)
+    summary_plots_dir = gallery_root / "summary"
+    summary_plots_dir.mkdir(parents=True, exist_ok=True)
     reports_dir = Path("reports")
     reports_dir.mkdir(parents=True, exist_ok=True)
 
@@ -432,6 +437,8 @@ def build_memo(config_path: Path) -> Path:
     alignment_medians: dict[str, float] = {}
     no_iso_shares: dict[str, float] = {}
     nested_scope_notes: list[str] = []
+    detail_frames: list[pd.DataFrame] = []
+    reason_records: list[dict[str, object]] = []
 
     for run_path in run_paths:
         frames = load_run(run_path)
@@ -448,6 +455,21 @@ def build_memo(config_path: Path) -> Path:
         if summary_json_path.exists():
             summary_json = json.loads(summary_json_path.read_text(encoding="utf-8"))
         detection_df = frames.get("detections", pd.DataFrame())
+        detail_df = frames.get("diagnostics_detail", pd.DataFrame())
+        if not detail_df.empty:
+            detail_with_run = detail_df.copy()
+            detail_with_run["run"] = run_path.name
+            if "reason_code" in detail_with_run:
+                detail_with_run["reason_code"] = detail_with_run["reason_code"].fillna("unknown")
+            else:
+                detail_with_run["reason_code"] = "unknown"
+            detail_frames.append(detail_with_run)
+            reason_counts = (
+                detail_with_run.groupby(["run", "regime", "reason_code"], dropna=False)
+                .size()
+                .reset_index(name="count")
+            )
+            reason_records.extend(reason_counts.to_dict("records"))
 
         design = run_meta.get("design") or summary_df.get("design").iloc[0] if not summary_df.empty and "design" in summary_df else "n/a"
         nested = run_meta.get("nested_replicates") or summary_df.get("nested_replicates").iloc[0] if not summary_df.empty and "nested_replicates" in summary_df else "n/a"
@@ -566,6 +588,11 @@ def build_memo(config_path: Path) -> Path:
         combined_table = pd.concat(panel_frames, ignore_index=True, sort=False)
     else:
         combined_table = pd.DataFrame(columns=["run", "crisis_label", "estimator"])
+
+    if detail_frames:
+        detail_combined = pd.concat(detail_frames, ignore_index=True, sort=False)
+    else:
+        detail_combined = pd.DataFrame()
 
     (
         key_numeric_df,
@@ -761,6 +788,125 @@ def build_memo(config_path: Path) -> Path:
                     ablation_figure_md = f"![Ablation heatmap ({run_name})]({figure_path.as_posix()})"
                     break
 
+    if reason_records:
+        reason_df = pd.DataFrame(reason_records)
+        totals_df = (
+            reason_df.groupby(["run", "regime"], as_index=False)["count"].sum().rename(columns={"count": "total"})
+        )
+        pivot_reason = (
+            reason_df.pivot_table(
+                index=["run", "regime"],
+                columns="reason_code",
+                values="count",
+                aggfunc="sum",
+                fill_value=0,
+            )
+            .reset_index()
+            .merge(totals_df, on=["run", "regime"], how="left")
+        )
+        for col in pivot_reason.columns:
+            if col not in {"run", "regime", "total"}:
+                pivot_reason[col] = pivot_reason[col] / pivot_reason["total"].replace(0, np.nan)
+        pivot_reason = pivot_reason.drop(columns=["total"], errors="ignore")
+        display_reason = pivot_reason.copy()
+        display_reason = display_reason.rename(columns=lambda col: _prettify_reason(col) if col not in {"run", "regime"} else col)
+        for col in display_reason.columns:
+            if col not in {"run", "regime"}:
+                display_reason[col] = display_reason[col].apply(_format_percent)
+        reason_table_md = _markdown_table(display_reason)
+    else:
+        reason_table_md = "(no reason-code diagnostics)"
+
+    summary_plot_paths: list[Path] = []
+    if not detail_combined.empty:
+        edge_series = pd.to_numeric(detail_combined.get("edge_margin_mean"), errors="coerce")
+        if edge_series is not None:
+            edge_values = edge_series.dropna()
+        else:
+            edge_values = pd.Series(dtype=float)
+        if not edge_values.empty:
+            fig, ax = plt.subplots(figsize=(6, 4))
+            ax.hist(edge_values, bins=20, color="#1f77b4", alpha=0.85)
+            ax.set_title("Edge Margin Mean Distribution")
+            ax.set_xlabel("Edge margin mean")
+            ax.set_ylabel("Frequency")
+            fig.tight_layout()
+            edge_hist_path = summary_plots_dir / "edge_margin_hist.png"
+            fig.savefig(edge_hist_path, dpi=200)
+            plt.close(fig)
+            edge_margin_hist_md = f"![Edge margin distribution]({edge_hist_path.as_posix()})"
+            summary_plot_paths.append(edge_hist_path)
+        else:
+            edge_margin_hist_md = "(edge margin histogram unavailable)"
+
+        iso_series = pd.to_numeric(detail_combined.get("isolation_share"), errors="coerce")
+        if iso_series is not None:
+            iso_df = (
+                detail_combined.assign(isolation_share=iso_series)
+                .dropna(subset=["isolation_share"])
+                .groupby("run")
+                ["isolation_share"].mean()
+                .sort_values(ascending=False)
+                .reset_index()
+            )
+        else:
+            iso_df = pd.DataFrame()
+        if not iso_df.empty:
+            fig, ax = plt.subplots(figsize=(6, 4))
+            ax.barh(iso_df["run"], iso_df["isolation_share"] * 100.0, color="#ff7f0e")
+            ax.set_xlabel("Mean isolation share (%)")
+            ax.set_title("Isolation Share by Run")
+            fig.tight_layout()
+            iso_bar_path = summary_plots_dir / "isolation_share_bar.png"
+            fig.savefig(iso_bar_path, dpi=200)
+            plt.close(fig)
+            isolation_share_bar_md = f"![Isolation share by run]({iso_bar_path.as_posix()})"
+            summary_plot_paths.append(iso_bar_path)
+        else:
+            isolation_share_bar_md = "(isolation share chart unavailable)"
+
+        stability_cols = {col for col in detail_combined.columns if col in {"edge_margin_mean", "stability_margin_mean"}}
+        if {"edge_margin_mean", "stability_margin_mean"}.issubset(stability_cols):
+            scatter_df = detail_combined.copy()
+            scatter_df["edge_margin_mean"] = pd.to_numeric(scatter_df["edge_margin_mean"], errors="coerce")
+            scatter_df["stability_margin_mean"] = pd.to_numeric(scatter_df["stability_margin_mean"], errors="coerce")
+            scatter_summary = (
+                scatter_df.dropna(subset=["edge_margin_mean", "stability_margin_mean"])
+                .groupby("run")[["edge_margin_mean", "stability_margin_mean"]]
+                .mean()
+                .reset_index()
+            )
+        else:
+            scatter_summary = pd.DataFrame()
+        if not scatter_summary.empty:
+            fig, ax = plt.subplots(figsize=(6, 4))
+            ax.scatter(
+                scatter_summary["edge_margin_mean"],
+                scatter_summary["stability_margin_mean"],
+                c="#2ca02c",
+                alpha=0.85,
+            )
+            for _, row in scatter_summary.iterrows():
+                ax.annotate(row["run"], (row["edge_margin_mean"], row["stability_margin_mean"]), fontsize=8)
+            ax.set_xlabel("Edge margin mean")
+            ax.set_ylabel("Stability margin mean")
+            ax.set_title("Direction vs Stability")
+            fig.tight_layout()
+            scatter_path = summary_plots_dir / "direction_stability_scatter.png"
+            fig.savefig(scatter_path, dpi=200)
+            plt.close(fig)
+            direction_stability_plot_md = f"![Direction vs stability]({scatter_path.as_posix()})"
+            summary_plot_paths.append(scatter_path)
+        else:
+            direction_stability_plot_md = "(direction vs stability plot unavailable)"
+    else:
+        edge_margin_hist_md = "(edge margin histogram unavailable)"
+        isolation_share_bar_md = "(isolation share chart unavailable)"
+        direction_stability_plot_md = "(direction vs stability plot unavailable)"
+
+    if summary_plot_paths:
+        artifact_map["summary"].append(f"plots: {summary_plots_dir.as_posix()}")
+
     artifact_lines = [
         f"- {run}: " + "; ".join(paths)
         for run, paths in artifact_map.items()
@@ -811,6 +957,10 @@ def build_memo(config_path: Path) -> Path:
         "bullet_substitution": bullet_substitution,
         "bullet_alignment": bullet_alignment,
         "bullet_no_iso": bullet_no_iso,
+        "reason_table_md": reason_table_md,
+        "edge_margin_hist_md": edge_margin_hist_md,
+        "isolation_share_bar_md": isolation_share_bar_md,
+        "direction_stability_plot_md": direction_stability_plot_md,
         "artifact_list": artifact_list,
     }
     memo_text = template.format(**context)

@@ -4,9 +4,11 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections import defaultdict
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable, Mapping
+from typing import Iterable, Mapping, Sequence
 
 import matplotlib
 
@@ -54,6 +56,20 @@ GATING_SETTINGS: Mapping[str, Mapping[str, object]] = {
     "default": {"enable": True, "require_isolated": True, "q_max": 2},
     "loose": {"enable": True, "require_isolated": False, "q_max": 3},
 }
+
+DEFAULT_DELTA_FRAC_GRID: tuple[float, ...] = (
+    0.0,
+    0.005,
+    0.01,
+    0.015,
+    0.02,
+    0.025,
+    0.03,
+    0.04,
+    0.05,
+    0.075,
+    0.1,
+)
 
 
 def _edge_scale_for_mode(y: np.ndarray, mode: str, huber_c: float = 1.5) -> tuple[float, float, float]:
@@ -104,14 +120,26 @@ def _detections_for_mode(
     edge_mode: str,
     gating: Mapping[str, object],
     config: Mapping[str, object],
+    delta_frac_override: float | None = None,
 ) -> list[dict]:
     scale, _, _ = _edge_scale_for_mode(y, edge_mode)
+    try:
+        delta_frac_value = float(config["delta_frac"])
+    except (KeyError, TypeError, ValueError):
+        delta_frac_value = 0.0
+    if delta_frac_override is not None:
+        try:
+            delta_frac_value = float(delta_frac_override)
+        except (TypeError, ValueError):
+            delta_frac_value = 0.0
+    if delta_frac_value < 0.0:
+        delta_frac_value = 0.0
     detections = dealias_search(
         y,
         groups,
         target_r=0,
         delta=float(config["delta"]),
-        delta_frac=float(config["delta_frac"]),
+        delta_frac=delta_frac_value,
         eps=float(config["eps"]),
         stability_eta_deg=float(config["stability_eta_deg"]),
         cs_drop_top_frac=float(config["cs_drop_top_frac"]),
@@ -246,6 +274,93 @@ def run_trials(
     return results
 
 
+def calibrate_delta_thresholds(
+    *,
+    config: Mapping[str, object],
+    edge_modes: Iterable[str],
+    trials_null: int,
+    alpha: float,
+    rng: np.random.Generator,
+    delta_grid: Sequence[float] | None = None,
+) -> dict[str, object]:
+    """Estimate minimal delta_frac values achieving target null FPR for each (p, T)."""
+
+    if alpha <= 0.0 or alpha >= 1.0:
+        raise ValueError("alpha must lie in (0, 1).")
+    modes = [mode.lower() for mode in edge_modes]
+    if not modes:
+        return {}
+    grid_values = (
+        sorted({float(max(val, 0.0)) for val in delta_grid})
+        if delta_grid
+        else list(DEFAULT_DELTA_FRAC_GRID)
+    )
+    if not grid_values:
+        grid_values = [0.0]
+    gating_label = "default"
+    gating_cfg = GATING_SETTINGS.get(gating_label, {})
+
+    detection_counts: dict[tuple[str, int, int], dict[float, int]] = {}
+    trial_counts: dict[tuple[str, int, int], int] = defaultdict(int)
+
+    for _ in range(trials_null):
+        y, groups = _simulate_null(config, rng=rng)
+        p_dim = int(y.shape[1]) if y.ndim == 2 else 0
+        t_len = int(y.shape[0])
+        if p_dim <= 0 or t_len <= 0:
+            continue
+        for mode in modes:
+            key = (mode, p_dim, t_len)
+            trial_counts[key] += 1
+            count_map = detection_counts.setdefault(
+                key, {delta_val: 0 for delta_val in grid_values}
+            )
+            for delta_val in grid_values:
+                detections = _detections_for_mode(
+                    y,
+                    groups,
+                    edge_mode=mode,
+                    gating=gating_cfg,
+                    config=config,
+                    delta_frac_override=delta_val,
+                )
+                if detections:
+                    count_map[delta_val] = count_map.get(delta_val, 0) + 1
+
+    threshold_payload: dict[str, dict[str, dict[str, float]]] = defaultdict(dict)
+    for key, counts in detection_counts.items():
+        mode, p_dim, t_len = key
+        trials = int(trial_counts.get(key, 0))
+        if trials <= 0:
+            continue
+        # Ensure we include any grid values that may not have been initialised (edge case)
+        for delta_val in grid_values:
+            counts.setdefault(delta_val, 0)
+        fpr_map = {delta_val: counts[delta_val] / trials for delta_val in grid_values}
+        selected_delta: float | None = None
+        for delta_val in grid_values:
+            if fpr_map[delta_val] <= alpha:
+                selected_delta = delta_val
+                break
+        if selected_delta is None:
+            selected_delta = grid_values[-1]
+        threshold_payload[mode][f"{p_dim}x{t_len}"] = {
+            "delta_frac": float(selected_delta),
+            "fpr": float(fpr_map.get(selected_delta, 0.0)),
+            "trials": trials,
+        }
+
+    return {
+        "alpha": float(alpha),
+        "trials_null": int(trials_null),
+        "edge_modes": modes,
+        "gating": gating_label,
+        "delta_grid": [float(val) for val in grid_values],
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "thresholds": {mode: dict(entries) for mode, entries in threshold_payload.items()},
+    }
+
+
 def summarise_results(results: list[TrialResult]) -> pd.DataFrame:
     records: list[dict[str, object]] = []
     if not results:
@@ -341,6 +456,23 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Directory to store summary and plots (default experiments/synthetic/outputs).",
     )
+    parser.add_argument(
+        "--calibrate-delta",
+        action="store_true",
+        help="Calibrate delta_frac thresholds under the null.",
+    )
+    parser.add_argument(
+        "--alpha",
+        type=float,
+        default=0.01,
+        help="Target false-positive rate when calibrating delta_frac on the null (default 0.01).",
+    )
+    parser.add_argument(
+        "--out",
+        type=str,
+        default=None,
+        help="Path for calibrated delta JSON (default calibration/edge_delta_thresholds.json).",
+    )
     return parser.parse_args()
 
 
@@ -389,6 +521,26 @@ def main() -> None:
         "design": args.design,
     }
     (output_dir / "power_null_meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
+
+    if args.calibrate_delta:
+        cal_rng = np.random.default_rng(args.seed + 1)
+        calibration = calibrate_delta_thresholds(
+            config=config,
+            edge_modes=edge_modes,
+            trials_null=int(config["trials_null"]),
+            alpha=float(args.alpha),
+            rng=cal_rng,
+            delta_grid=None,
+        )
+        if calibration:
+            out_path = (
+                Path(args.out).expanduser() if args.out is not None else PROJECT_ROOT / "calibration" / "edge_delta_thresholds.json"
+            )
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            out_path.write_text(json.dumps(calibration, indent=2), encoding="utf-8")
+            print(f"Calibrated delta thresholds written to {out_path}")
+        else:
+            print("Calibration produced no thresholds (no valid null trials encountered).", file=sys.stderr)
 
 
 if __name__ == "__main__":

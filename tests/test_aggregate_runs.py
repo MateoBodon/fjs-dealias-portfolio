@@ -54,3 +54,4 @@ def test_aggregate_runs_cli(tmp_path: Path) -> None:
         rows = list(reader)
     assert rows, "Aggregated CSV should contain rows"
     assert {"run", "crisis_label", "design"}.issubset(reader.fieldnames or [])
+    assert "gating_mode" in (reader.fieldnames or [])

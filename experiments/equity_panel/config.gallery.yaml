@@ -3,3 +3,11 @@ gallery:
 runs:
   - root: experiments/equity_panel/outputs_smoke
     pattern: "oneway_*"
+  - root: experiments/equity_panel/outputs_crisis_tyler
+    pattern: "oneway_*"
+  - root: experiments/equity_panel/outputs_smoke_calibrated
+    pattern: "oneway_*"
+  - root: experiments/equity_panel/outputs_smoke_huber
+    pattern: "oneway_*"
+  - root: experiments/equity_panel/outputs_nested_smoke
+    pattern: "nested_*"

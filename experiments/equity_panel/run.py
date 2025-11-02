@@ -47,7 +47,7 @@ from finance.returns import balance_weeks
 from fjs.balanced import mean_squares
 from fjs.balanced_nested import mean_squares_nested
 from fjs.dealias import dealias_search
-from fjs.gating import count_isolated_outliers, select_top_k
+from fjs.gating import count_isolated_outliers, lookup_calibrated_delta, select_top_k
 from fjs.mp import estimate_Cs_from_MS, mp_edge
 from fjs.spectra import plot_spectrum_with_edges, plot_spike_timeseries
 from fjs.robust import edge_from_scatter, huber_scatter, tyler_scatter
@@ -110,6 +110,8 @@ DEFAULT_CONFIG = {
         "enable": True,
         "q_max": 2,
         "require_isolated": True,
+        "mode": "fixed",
+        "calibration_path": "calibration/edge_delta_thresholds.json",
     },
     "alignment_top_p": 3,
 }
@@ -1080,6 +1082,12 @@ def _run_single_period(
     estimator_mode = (estimator or "dealias").strip().lower()
     edge_mode_cfg = (edge_mode or "scm").strip().lower()
     edge_huber_c_val = float(edge_huber_c)
+    try:
+        delta_frac_config = float(delta_frac) if delta_frac is not None else None
+    except (TypeError, ValueError):
+        delta_frac_config = None
+    if delta_frac_config is not None and delta_frac_config < 0.0:
+        delta_frac_config = 0.0
     solver_usage: set[str] = set()
     tickers = balanced_panel.ordered_tickers
     dropped_weeks = balanced_panel.dropped_weeks
@@ -1181,6 +1189,16 @@ def _run_single_period(
     detection_windows = 0
     substituted_windows = 0
     gating_cfg = dict(gating or {})
+    gating_mode_value = str(gating_cfg.get("mode", "fixed") or "fixed").strip().lower()
+    if gating_mode_value not in {"fixed", "calibrated"}:
+        gating_mode_value = "fixed"
+    calibration_path_cfg = gating_cfg.get("calibration_path")
+    if calibration_path_cfg is not None:
+        calibration_path = Path(str(calibration_path_cfg)).expanduser()
+        if not calibration_path.is_absolute():
+            calibration_path = (PROJECT_ROOT / calibration_path).resolve()
+    else:
+        calibration_path = (PROJECT_ROOT / "calibration" / "edge_delta_thresholds.json").resolve()
     gating_enabled = bool(gating_cfg.get("enable", True))
     try:
         gating_q_max = int(gating_cfg.get("q_max", 0) or 0)
@@ -1191,6 +1209,9 @@ def _run_single_period(
     gating_require_isolated = bool(gating_cfg.get("require_isolated", True))
     gating_skip_reasons: dict[str, int] = {}
     gating_discard_log: list[dict[str, Any]] = []
+    delta_usage_records: list[dict[str, Any]] = []
+    delta_used_values: list[float] = []
+    calibration_misses: set[tuple[str, int, int]] = set()
     try:
         alignment_top_p = int(alignment_top_p)
     except (TypeError, ValueError):
@@ -1367,6 +1388,47 @@ def _run_single_period(
         if not np.isfinite(edge_scale_used) or edge_scale_used <= 0.0:
             edge_scale_used = 1.0
 
+        base_delta_frac_val = float(delta_frac_config) if delta_frac_config is not None else 0.0
+        delta_frac_calibrated = None
+        if gating_mode_value == "calibrated" and p_dim > 0 and n_fit_samples > 0:
+            delta_frac_calibrated = lookup_calibrated_delta(
+                edge_mode=edge_mode_cfg,
+                p=p_dim,
+                t=n_fit_samples,
+                calibration_path=calibration_path,
+            )
+            if delta_frac_calibrated is None:
+                miss_key = (edge_mode_cfg, p_dim, n_fit_samples)
+                if miss_key not in calibration_misses:
+                    calibration_misses.add(miss_key)
+                    print(
+                        (
+                            f"[gate] Missing calibrated delta for edge={edge_mode_cfg} "
+                            f"(p={p_dim}, T={n_fit_samples}); using config delta_frac={base_delta_frac_val:.4f}"
+                        ),
+                        file=sys.stderr,
+                    )
+        if delta_frac_calibrated is not None:
+            delta_frac_used_value = max(base_delta_frac_val, float(delta_frac_calibrated))
+        else:
+            delta_frac_used_value = base_delta_frac_val
+        if delta_frac_used_value < 0.0 or not np.isfinite(delta_frac_used_value):
+            delta_frac_used_value = 0.0
+        delta_used_values.append(float(delta_frac_used_value))
+        delta_usage_records.append(
+            {
+                "window": int(window_idx),
+                "p": int(p_dim),
+                "t": int(n_fit_samples),
+                "delta_frac_used": float(delta_frac_used_value),
+                **(
+                    {"delta_frac_calibrated": float(delta_frac_calibrated)}
+                    if delta_frac_calibrated is not None
+                    else {}
+                ),
+            }
+        )
+
         off_cap = off_component_leak_cap
         diag_local: dict[str, int] = {}
         detections = dealias_search(
@@ -1374,7 +1436,7 @@ def _run_single_period(
             groups_fit,
             target_r=target_component,
             delta=delta,
-            delta_frac=delta_frac,
+            delta_frac=float(delta_frac_used_value),
             eps=eps,
             energy_min_abs=energy_min_abs,
             stability_eta_deg=stability_eta,
@@ -1530,10 +1592,8 @@ def _run_single_period(
                     lam_top = float(np.linalg.eigvalsh(sigma_a)[-1])
                 except Exception:
                     continue
-                threshold = z_plus + max(
-                    float(delta),
-                    (float(delta_frac) * z_plus) if (delta_frac is not None) else 0.0,
-                )
+                delta_frac_term = float(delta_frac_used_value) * z_plus if delta_frac_used_value else 0.0
+                threshold = z_plus + max(float(delta), delta_frac_term)
                 rows.append(
                     {
                         "theta": float(theta),
@@ -1570,6 +1630,15 @@ def _run_single_period(
             "edge_scale": float(edge_scale_used),
             "edge_scm": float(edge_scm_val),
             "edge_selected": float(edge_selected_val),
+            "delta_frac_used": float(delta_frac_used_value),
+            "delta_frac_config": (
+                float(delta_frac_config) if delta_frac_config is not None else float("nan")
+            ),
+            "delta_frac_calibrated": (
+                float(delta_frac_calibrated) if delta_frac_calibrated is not None else float("nan")
+            ),
+            "p_dim": int(p_dim),
+            "n_fit_samples": int(n_fit_samples),
         }
         if gate_discard_detail:
             window_record["gate_discarded"] = json.dumps(gate_discard_detail)
@@ -2077,6 +2146,28 @@ def _run_single_period(
         except Exception:
             pass
 
+    for key in ("edge_buffer", "off_component_ratio", "stability_fail", "energy_floor", "neg_mu", "other"):
+        rejection_totals.setdefault(key, 0)
+
+    total_records = len(records)
+    detection_count = int(detection_windows)
+    detection_rate = float(detection_count / total_records) if total_records else 0.0
+    substitution_fraction = (
+        float(substituted_windows) / float(total_records) if total_records else float("nan")
+    )
+    no_iso_count = int(gating_skip_reasons.get("no_isolated_spike", 0))
+    skip_no_iso_share = (
+        float(no_iso_count) / float(total_records) if total_records else float("nan")
+    )
+    if edge_margin_values:
+        edge_array = np.asarray(edge_margin_values, dtype=np.float64)
+        edge_median = float(np.median(edge_array))
+        q1, q3 = np.percentile(edge_array, [25.0, 75.0])
+        edge_iqr = float(q3 - q1)
+    else:
+        edge_median = None
+        edge_iqr = None
+
     baseline_errors_map = errors_by_combo.get(baseline_alias_key, {})
     baseline_keys = set(baseline_errors_map.keys())
 
@@ -2096,6 +2187,24 @@ def _run_single_period(
         n_boot=n_boot,
         alpha=0.05,
     )
+    if not metrics_summary.empty:
+        metrics_summary["substitution_fraction"] = substitution_fraction
+        metrics_summary["skip_no_isolated_share"] = skip_no_iso_share
+        metrics_summary["edge_margin_median"] = (
+            float(edge_median) if edge_median is not None else float("nan")
+        )
+        metrics_summary["edge_margin_iqr"] = (
+            float(edge_iqr) if edge_iqr is not None else float("nan")
+        )
+        metrics_summary["edge_margin_count"] = len(edge_margin_values)
+        metrics_summary["edge_mode"] = edge_mode_cfg
+        metrics_summary["gating_mode"] = gating_mode_value
+        if delta_used_values:
+            metrics_summary["delta_frac_used_min"] = float(min(delta_used_values))
+            metrics_summary["delta_frac_used_max"] = float(max(delta_used_values))
+        else:
+            metrics_summary["delta_frac_used_min"] = float("nan")
+            metrics_summary["delta_frac_used_max"] = float("nan")
     metrics_summary.to_csv(output_dir / "metrics_summary.csv", index=False)
 
     results_df = pd.DataFrame(records)
@@ -2207,25 +2316,13 @@ def _run_single_period(
                     except Exception:
                         pass
 
-    for key in ("edge_buffer", "off_component_ratio", "stability_fail", "energy_floor", "neg_mu", "other"):
-        rejection_totals.setdefault(key, 0)
-
-    total_records = len(records)
-    detection_count = int(detection_windows)
-    detection_rate = float(detection_count / total_records) if total_records else 0.0
-    if edge_margin_values:
-        edge_array = np.asarray(edge_margin_values, dtype=np.float64)
-        edge_median = float(np.median(edge_array))
-        q1, q3 = np.percentile(edge_array, [25.0, 75.0])
-        edge_iqr = float(q3 - q1)
-    else:
-        edge_median = None
-        edge_iqr = None
-
     de_scoped_equity = False
     if design_mode == "nested" and records:
         skip_reasons_seq = [str(item.get("skip_reason", "")) for item in records]
+        isolated_series = [int(item.get("isolated_spikes", 0) or 0) for item in records]
         if skip_reasons_seq and all(reason == "no_isolated_spike" for reason in skip_reasons_seq):
+            de_scoped_equity = True
+        elif isolated_series and all(count == 0 for count in isolated_series):
             de_scoped_equity = True
 
     summary_payload: dict[str, Any] = {
@@ -2241,6 +2338,8 @@ def _run_single_period(
         "rolling_windows_evaluated": len(records),
         "detection_windows": detection_count,
         "detection_rate": detection_rate,
+        "substitution_fraction": substitution_fraction,
+        "skip_no_isolated_share": skip_no_iso_share,
         "replicates_per_week": int(replicates),
         "n_assets": int(weekly_balanced.shape[1]),
         "strategies": {name: bool(strategy_success[name]) for name in strategies},
@@ -2257,9 +2356,18 @@ def _run_single_period(
         "preprocess_flags": dict(preprocess_flags or {}),
         "solver_used": sorted(solver_usage),
         "alignment_top_p": int(alignment_top_p),
+        "gating_mode": gating_mode_value,
     }
+    if delta_used_values:
+        summary_payload["delta_frac_used_min"] = float(min(delta_used_values))
+        summary_payload["delta_frac_used_max"] = float(max(delta_used_values))
     if de_scoped_equity:
-        summary_payload["nested_scope"] = {"de_scoped_equity": True}
+        nested_note: dict[str, Any] = {"de_scoped_equity": True}
+        if design_mode == "nested" and records:
+            total_windows_nested = len(records)
+            if total_windows_nested > 0 and all(int(item.get("isolated_spikes", 0) or 0) == 0 for item in records):
+                nested_note["reason"] = f"no isolated spikes across {total_windows_nested} nested windows"
+        summary_payload["nested_scope"] = nested_note
     if crisis_label is not None:
         summary_payload["crisis_label"] = str(crisis_label)
     if design_mode == "nested":
@@ -2297,7 +2405,26 @@ def _run_single_period(
         "q_max": int(gating_q_max),
         "require_isolated": bool(gating_require_isolated),
         "windows_substituted": int(substituted_windows),
+        "mode": gating_mode_value,
     }
+    if delta_frac_config is not None:
+        gating_summary["delta_frac_config"] = float(delta_frac_config)
+    if delta_used_values:
+        gating_summary["delta_frac_used_min"] = float(min(delta_used_values))
+        gating_summary["delta_frac_used_max"] = float(max(delta_used_values))
+    if delta_usage_records:
+        gating_summary["delta_frac_windows"] = delta_usage_records
+    if gating_mode_value == "calibrated":
+        gating_summary["calibration_path"] = str(calibration_path)
+        if calibration_misses:
+            gating_summary["calibration_missing"] = [
+                {
+                    "edge_mode": mode,
+                    "p": int(p_val),
+                    "t": int(t_val),
+                }
+                for mode, p_val, t_val in sorted(calibration_misses)
+            ]
     if gating_skip_reasons:
         gating_summary["skip_reasons"] = [
             {"reason": reason, "count": int(count)}
@@ -2349,7 +2476,7 @@ def _run_single_period(
             output_dir,
             cs_drop_top_frac,
             delta,
-            delta_frac,
+            delta_frac_config,
             eps,
             stability_eta,
             signed_a,
@@ -2487,6 +2614,8 @@ def run_experiment(
     turnover_cost_override: float | None = None,
     edge_mode_override: str | None = None,
     edge_huber_c_override: float | None = None,
+    gating_mode_override: str | None = None,
+    gating_calibration_override: str | None = None,
 ) -> None:
     """Execute the rolling equity forecasting experiment."""
 
@@ -2540,6 +2669,13 @@ def run_experiment(
         config["edge_mode"] = str(edge_mode_override)
     if edge_huber_c_override is not None:
         config["edge_huber_c"] = float(edge_huber_c_override)
+    gating_cfg_overrides = dict(config.get("gating", {}) or {})
+    if gating_mode_override is not None:
+        gating_cfg_overrides["mode"] = str(gating_mode_override)
+    if gating_calibration_override is not None:
+        gating_cfg_overrides["calibration_path"] = str(gating_calibration_override)
+    if gating_cfg_overrides:
+        config["gating"] = gating_cfg_overrides
     panel_policy = str(
         partial_week_policy
         if partial_week_policy is not None
@@ -2888,6 +3024,19 @@ def main() -> None:
         help="Huber threshold used when --edge-mode=huber (default: 1.5).",
     )
     parser.add_argument(
+        "--gating-mode",
+        type=str,
+        choices=["fixed", "calibrated"],
+        default=None,
+        help="Gating mode override (fixed or calibrated).",
+    )
+    parser.add_argument(
+        "--gating-calibration",
+        type=str,
+        default=None,
+        help="Path to calibrated delta thresholds JSON (used when gating mode is calibrated).",
+    )
+    parser.add_argument(
         "--minvar-ridge",
         type=float,
         default=None,
@@ -3098,6 +3247,8 @@ def main() -> None:
         turnover_cost_override=args.turnover_cost,
         edge_mode_override=args.edge_mode,
         edge_huber_c_override=args.edge_huber_c,
+        gating_mode_override=args.gating_mode,
+        gating_calibration_override=args.gating_calibration,
     )
 
 

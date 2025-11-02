@@ -23,10 +23,11 @@ def _resolve_runs(patterns: Sequence[str]) -> list[Path]:
     return sorted({run for run in run_dirs})
 
 
-def _load_run_metadata(run_dir: Path) -> tuple[str, str, str]:
+def _load_run_metadata(run_dir: Path) -> tuple[str, str, str, str]:
     crisis_label = ""
     design = ""
     edge_mode = ""
+    gating_mode = ""
     summary_path = run_dir / "summary.json"
     if summary_path.exists():
         try:
@@ -37,7 +38,11 @@ def _load_run_metadata(run_dir: Path) -> tuple[str, str, str]:
             crisis_label = str(payload.get("crisis_label", ""))
             design = str(payload.get("design", ""))
             edge_mode = str(payload.get("edge_mode", ""))
-    return crisis_label, design, edge_mode
+            gating = payload.get("gating", {})
+            if isinstance(gating, dict):
+                gating_mode = str(gating.get("mode", ""))
+            gating_mode = str(payload.get("gating_mode", gating_mode))
+    return crisis_label, design, edge_mode, gating_mode
 
 
 def aggregate_runs(run_dirs: Iterable[Path]) -> pd.DataFrame:
@@ -52,12 +57,19 @@ def aggregate_runs(run_dirs: Iterable[Path]) -> pd.DataFrame:
             continue
         if df.empty:
             continue
-        crisis_label, design, edge_mode = _load_run_metadata(run_dir)
+        crisis_label, design, edge_mode, gating_mode = _load_run_metadata(run_dir)
         df.insert(0, "run", run_dir.name)
         df.insert(1, "run_path", str(run_dir))
         df.insert(2, "crisis_label", crisis_label)
         df.insert(3, "design", design)
-        df.insert(4, "edge_mode", edge_mode)
+        if "edge_mode" not in df.columns:
+            df.insert(4, "edge_mode", edge_mode)
+        else:
+            df["edge_mode"] = df["edge_mode"].fillna(edge_mode)
+        if "gating_mode" not in df.columns:
+            df.insert(5, "gating_mode", gating_mode)
+        else:
+            df["gating_mode"] = df["gating_mode"].fillna(gating_mode)
         frames.append(df)
     if not frames:
         return pd.DataFrame()

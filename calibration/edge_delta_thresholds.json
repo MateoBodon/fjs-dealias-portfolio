@@ -1,0 +1,39 @@
+{
+  "alpha": 0.01,
+  "trials_null": 80,
+  "edge_modes": [
+    "scm",
+    "tyler"
+  ],
+  "gating": "default",
+  "delta_grid": [
+    0.0,
+    0.005,
+    0.01,
+    0.015,
+    0.02,
+    0.025,
+    0.03,
+    0.04,
+    0.05,
+    0.075,
+    0.1
+  ],
+  "generated_at": "2025-10-31T04:58:05.203015+00:00",
+  "thresholds": {
+    "scm": {
+      "40x180": {
+        "delta_frac": 0.0,
+        "fpr": 0.0,
+        "trials": 80
+      }
+    },
+    "tyler": {
+      "40x180": {
+        "delta_frac": 0.0,
+        "fpr": 0.0,
+        "trials": 80
+      }
+    }
+  }
+}

@@ -190,6 +190,22 @@ def _build_key_tables(
             if "skip_no_isolated_share" in group
             else pd.Series(dtype=float)
         )
+        edge_mode_series = group["edge_mode"].dropna() if "edge_mode" in group else pd.Series(dtype=object)
+        edge_mode_value = str(edge_mode_series.iloc[0]) if not edge_mode_series.empty else ""
+        gating_mode_series = group["gating_mode"].dropna() if "gating_mode" in group else pd.Series(dtype=object)
+        gating_mode_value = str(gating_mode_series.iloc[0]) if not gating_mode_series.empty else ""
+        delta_frac_med_series = (
+            group["delta_frac_used_median"].dropna()
+            if "delta_frac_used_median" in group
+            else pd.Series(dtype=float)
+        )
+        delta_frac_used_median = float(delta_frac_med_series.iloc[0]) if not delta_frac_med_series.empty else float("nan")
+        var_kupiec_series = group["var_kupiec_p"].dropna() if "var_kupiec_p" in group else pd.Series(dtype=float)
+        var_kupiec_value = float(var_kupiec_series.iloc[0]) if not var_kupiec_series.empty else float("nan")
+        var_indep_series = group["var_independence_p"].dropna() if "var_independence_p" in group else pd.Series(dtype=float)
+        var_indep_value = float(var_indep_series.iloc[0]) if not var_indep_series.empty else float("nan")
+        es_series = group["es_shortfall_p"].dropna() if "es_shortfall_p" in group else pd.Series(dtype=float)
+        es_value = float(es_series.iloc[0]) if not es_series.empty else float("nan")
 
         record: dict[str, float | str] = {
             "run": run_tag,
@@ -214,6 +230,12 @@ def _build_key_tables(
             "mean_qlike": float("nan"),
             "substitution_fraction": float(substitution_series.iloc[0]) if not substitution_series.empty else float("nan"),
             "skip_no_isolated_share": float(no_iso_series.iloc[0]) if not no_iso_series.empty else float("nan"),
+            "edge_mode": edge_mode_value,
+            "gating_mode": gating_mode_value,
+            "delta_frac_used_median": delta_frac_used_median,
+            "var_kupiec_p": var_kupiec_value,
+            "var_independence_p": var_indep_value,
+            "es_shortfall_p": es_value,
         }
 
         if ew_row is not None:
@@ -264,6 +286,7 @@ def _build_key_tables(
                 "run": row["run"],
                 "crisis_label": row["crisis_label"] or "n/a",
                 "estimator": row["estimator"],
+                "edge|gate": f"{row.get('edge_mode', '') or 'n/a'} | {row.get('gating_mode', '') or 'n/a'}",
                 "detection_rate": detection_display,
                 "delta_mse_ew": _format_delta(row["delta_mse_ew"]),
                 "CI_EW": _format_ci(row["ci_lo_ew"], row["ci_hi_ew"]),
@@ -278,6 +301,10 @@ def _build_key_tables(
                 "mean_qlike": _format_edge_metric(row.get("mean_qlike", float("nan"))),
                 "substitution_fraction": _format_detection(row.get("substitution_fraction", float("nan"))),
                 "no_iso_skip_share": _format_percent(skip_share_val),
+                "delta_frac_used": _format_edge_metric(row.get("delta_frac_used_median", float("nan"))),
+                "VaR_pof": _format_pvalue(row.get("var_kupiec_p", float("nan"))),
+                "VaR_indep": _format_pvalue(row.get("var_independence_p", float("nan"))),
+                "ES_p": _format_pvalue(row.get("es_shortfall_p", float("nan"))),
                 "n_windows": _format_windows(row["n_windows"]),
             }
         )
@@ -288,6 +315,7 @@ def _build_key_tables(
             "run",
             "crisis_label",
             "estimator",
+            "edge|gate",
             "detection_rate",
             "delta_mse_ew",
             "CI_EW",
@@ -302,6 +330,10 @@ def _build_key_tables(
             "mean_qlike",
             "substitution_fraction",
             "no_iso_skip_share",
+            "delta_frac_used",
+            "VaR_pof",
+            "VaR_indep",
+            "ES_p",
             "n_windows",
         ],
     )
@@ -399,6 +431,7 @@ def build_memo(config_path: Path) -> Path:
     ablation_figures: list[tuple[str, Path]] = []
     alignment_medians: dict[str, float] = {}
     no_iso_shares: dict[str, float] = {}
+    nested_scope_notes: list[str] = []
 
     for run_path in run_paths:
         frames = load_run(run_path)
@@ -469,10 +502,29 @@ def build_memo(config_path: Path) -> Path:
         nested_scope_fragment = ""
         if isinstance(nested_scope_payload, dict) and nested_scope_payload.get("de_scoped_equity"):
             nested_scope_fragment = " — nested scope de-scoped (no isolated spikes)"
+            nested_scope_notes.append(f"{run_label}: nested equity de-scoped (gating blocked all windows)")
         edge_mode_value = ""
         if isinstance(summary_json, dict) and summary_json.get("edge_mode"):
             edge_mode_value = str(summary_json.get("edge_mode"))
-        edge_mode_fragment = f" [edge={edge_mode_value}]" if edge_mode_value else ""
+        gating_mode_value = ""
+        if isinstance(gating_payload, dict) and gating_payload.get("mode"):
+            gating_mode_value = str(gating_payload.get("mode"))
+        delta_frac_median = float("nan")
+        if not detection_df.empty and "delta_frac_used" in detection_df:
+            try:
+                delta_series = pd.to_numeric(detection_df["delta_frac_used"], errors="coerce").dropna()
+            except Exception:
+                delta_series = pd.Series(dtype=float)
+            if not delta_series.empty:
+                delta_frac_median = float(delta_series.median())
+        badge_bits: list[str] = []
+        if edge_mode_value:
+            badge_bits.append(f"edge={edge_mode_value}")
+        if gating_mode_value:
+            badge_bits.append(f"gate={gating_mode_value}")
+        if not pd.isna(delta_frac_median):
+            badge_bits.append(f"df~{delta_frac_median:.3f}")
+        edge_mode_fragment = f" [{' | '.join(badge_bits)}]" if badge_bits else ""
         run_lines.append(
             f"- **{run_label}** (design={design}, J={nested}, period={start_date} → {end_date}{alignment_fragment}{no_iso_fragment}){nested_scope_fragment}{edge_mode_fragment} — estimators: {', '.join(estimators) if estimators else 'n/a'}"
         )
@@ -730,12 +782,20 @@ def build_memo(config_path: Path) -> Path:
     if not ablation_caption:
         ablation_caption = "No ablation sweep artifacts were detected for this gallery."
 
+    if nested_scope_notes:
+        nested_scope_section = "\n## Nested Scope\n" + "\n".join(
+            f"- {note}" for note in nested_scope_notes
+        ) + "\n"
+    else:
+        nested_scope_section = ""
+
     template_path = Path("reports/templates/memo.md.j2")
     template = template_path.read_text(encoding="utf-8")
     context = {
         "gallery_name": gallery_name,
         "problem_statement": problem_statement,
         "run_summary": "\n".join(run_lines) if run_lines else "(no runs)",
+        "nested_scope_section": nested_scope_section,
         "key_results_intro": key_results_intro,
         "key_results_table": key_table_md,
         "key_results_table_qlike": key_qlike_table_md,

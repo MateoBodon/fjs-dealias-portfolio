@@ -2,8 +2,11 @@ from __future__ import annotations
 
 """Utility helpers for gating de-alias detections prior to substitution."""
 
+import json
 from collections.abc import Iterable, Mapping
+from functools import lru_cache
 import math
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -129,4 +132,72 @@ def select_top_k(
     return selected, discarded
 
 
-__all__ = ["count_isolated_outliers", "select_top_k"]
+@lru_cache(maxsize=8)
+def _load_delta_thresholds(path_str: str) -> dict[str, Any]:
+    """Load the calibrated delta thresholds JSON with basic validation."""
+
+    path = Path(path_str)
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def lookup_calibrated_delta(
+    edge_mode: str,
+    p: int,
+    t: int,
+    *,
+    calibration_path: str | Path | None,
+) -> float | None:
+    """Return the calibrated delta_frac for the given (edge_mode, p, t) combo.
+
+    The calibration file is expected to contain a ``thresholds`` mapping keyed
+    by edge mode (lowercase) whose values map ``"{p}x{t}"`` → threshold entry.
+    Entries may either be plain floats or dictionaries with a ``delta_frac``
+    field; any other structure is ignored. Missing entries return ``None``.
+    """
+
+    if calibration_path is None:
+        return None
+    edge_mode_key = str(edge_mode or "").strip().lower()
+    if not edge_mode_key:
+        return None
+    try:
+        p_val = int(p)
+        t_val = int(t)
+    except (TypeError, ValueError):
+        return None
+    if p_val <= 0 or t_val <= 0:
+        return None
+    path = Path(calibration_path).expanduser()
+    if not path.is_absolute():
+        path = path.resolve()
+    payload = _load_delta_thresholds(str(path))
+    thresholds = payload.get("thresholds")
+    if not isinstance(thresholds, dict):
+        return None
+    mode_map = thresholds.get(edge_mode_key)
+    if not isinstance(mode_map, dict):
+        return None
+    key = f"{p_val}x{t_val}"
+    entry = mode_map.get(key)
+    if entry is None:
+        return None
+    if isinstance(entry, Mapping):
+        value = entry.get("delta_frac")
+    else:
+        value = entry
+    try:
+        delta_val = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not np.isfinite(delta_val) or delta_val < 0.0:
+        return None
+    return float(delta_val)
+
+
+__all__ = ["count_isolated_outliers", "select_top_k", "lookup_calibrated_delta"]

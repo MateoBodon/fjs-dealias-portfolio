@@ -68,8 +68,25 @@
 
 ## Calibration (Oct 2025)
 
-- **Smoke + crisis reruns.** `PYTHONPATH=src python3 experiments/equity_panel/run.py --config experiments/equity_panel/config.smoke.yaml --no-progress --precompute-panel --drop-partial-weeks --estimator dealias` and the matching `--crisis 20200215:20200531` rerun now write gating telemetry (`windows_substituted`, `skip_reasons`) plus alignment angles in `detection_summary.csv`. With the current defaults the smoke slice substituted 3/4 windows (one `no_isolated_spike` skip, median alignment ≈17°) and the 2020 crisis slice substituted all six windows (median alignment ≈31°).
+- **Smoke + crisis reruns.** `PYTHONPATH=src python3 experiments/equity_panel/run.py --config experiments/equity_panel/config.smoke.yaml --no-progress --precompute-panel --drop-partial-weeks --estimator dealias` produces the smoke slice (SCM edge by default). Pair it with `--edge-mode tyler --crisis 20200215:20200531` for the 2020 crisis run, `--edge-mode huber --edge-huber-c 1.5` for the robust-edge variant, and `--gating-mode calibrated --gating-calibration calibration/edge_delta_thresholds.json` for the post-calibration reruns. `summary.json` now includes `edge_mode`, `gating.mode`, `substitution_fraction`, calibrated δ ranges, and (for nested runs) `nested_scope` with a rationale when all windows are skipped.
 - **Gallery + memo regeneration.** `python3 tools/build_gallery.py --config experiments/equity_panel/config.gallery.yaml` and `python3 tools/build_memo.py --config experiments/equity_panel/config.gallery.yaml` refresh the plots/tables; look for the new `alignment_angles.png` plot per run and the memo’s QLIKE/alignment panel.
 - **Acceptance sweep.** `PYTHONPATH=src python3 experiments/equity_panel/sweep_acceptance.py --design oneway --estimators dealias lw oas cc tyler --grid default` populates `experiments/equity_panel/sweeps/` with tagged run directories, `sweep_summary.csv`, and the overview heatmaps `E5_detection_rate.png` / `E5_mse_gain.png`. The grid `{δ_frac, ε} = {0.01,0.02} × {0.02,0.03}` with `η ∈ {0.4,0.6}` and `a_grid ∈ {90,120}` produced indistinguishable detection and ΔMSE profiles, so we retained the guardrail values (δ_frac = 0.02, ε = 0.03, η = 0.4) and standardised on `a_grid = 120`.
-- **Run aggregation.** `python3 tools/aggregate_runs.py --inputs "experiments/equity_panel/outputs*" --out reports/aggregate_summary.csv --tex-out reports/aggregate_summary.tex` concatenates the latest slices; the table includes both MSE and QLIKE columns for quick comparisons.
-- **Defaults snapshot.** `experiments/equity_panel/config.yaml` and `config.smoke.yaml` now carry `gating` defaults (`enable: true`, `q_max: 2`, `require_isolated: true`) alongside `alignment_top_p: 3`.
+- **Run aggregation.** Stitch the canonical RC slices into a single table:
+
+  ```bash
+  python3 tools/aggregate_runs.py --inputs \
+    experiments/equity_panel/outputs_smoke_scm/oneway_J5_solver-auto_est-dealias_prep-none \
+    experiments/equity_panel/outputs_crisis_tyler/oneway_J5_solver-auto_est-dealias_prep-none__crisis_20200215_20200531 \
+    experiments/equity_panel/outputs_smoke_huber/oneway_J5_solver-auto_est-dealias_prep-none__crisis_20200215_20200531 \
+    experiments/equity_panel/outputs_smoke_calibrated/oneway_J5_solver-auto_est-dealias_prep-none \
+    experiments/equity_panel/outputs_smoke_calibrated/oneway_J5_solver-auto_est-dealias_prep-none__crisis_20200215_20200531 \
+    experiments/equity_panel/outputs_nested_smoke/nested_J5_solver-auto_est-dealias_prep-none \
+    --out reports/aggregate_summary.csv
+  ```
+
+  Columns now expose `edge_mode`, `gating_mode`, `substitution_fraction`, `skip_no_isolated_share`, `delta_frac_used_min/max`, and VaR diagnostics so the memo tables can badge edge/gate settings directly.
+- **Defaults snapshot.** `experiments/equity_panel/config.yaml` and `config.smoke.yaml` now carry `gating` defaults (`enable: true`, `q_max: 2`, `require_isolated: true`, `mode: fixed`, `calibration_path: calibration/edge_delta_thresholds.json`) alongside `alignment_top_p: 3`.
+- **Calibrated gating workflow.**
+  1. `PYTHONPATH=src python3 experiments/synthetic/power_null.py --design oneway --edge-modes scm tyler --calibrate-delta --alpha 0.01 --out calibration/edge_delta_thresholds.json`
+  2. `PYTHONPATH=src python3 experiments/equity_panel/run.py … --gating-mode calibrated --gating-calibration calibration/edge_delta_thresholds.json`
+  3. Rebuild the gallery, memo, and aggregates so the edge/gate badges pick up the calibrated thresholds.

@@ -165,6 +165,7 @@ def collect_estimator_panel(run_paths: Sequence[Path | str]) -> pd.DataFrame:
         data = load_run(run)
         metrics = data["metrics"].copy()
         summary = data["summary"].copy()
+        detections_df = data.get("detections", pd.DataFrame())
 
         design_value = ""
         if not summary.empty and "design" in summary:
@@ -176,6 +177,16 @@ def collect_estimator_panel(run_paths: Sequence[Path | str]) -> pd.DataFrame:
             edge_series = summary["edge_mode"].dropna()
             if not edge_series.empty:
                 edge_mode_value = str(edge_series.iloc[0])
+        gating_mode_value = ""
+        if not summary.empty:
+            if "gating.mode" in summary:
+                gating_series = summary["gating.mode"].dropna()
+                if not gating_series.empty:
+                    gating_mode_value = str(gating_series.iloc[0])
+            elif "gating_mode" in summary:
+                gm_series = summary["gating_mode"].dropna()
+                if not gm_series.empty:
+                    gating_mode_value = str(gm_series.iloc[0])
         windows_evaluated = float("nan")
         if not summary.empty and "rolling_windows_evaluated" in summary:
             window_series = summary["rolling_windows_evaluated"].dropna()
@@ -221,6 +232,17 @@ def collect_estimator_panel(run_paths: Sequence[Path | str]) -> pd.DataFrame:
 
         detection_rate = _extract_detection(summary)
         edge_stats = _extract_edge_stats(summary)
+
+        delta_frac_used_median = float("nan")
+        delta_frac_used_max = float("nan")
+        if isinstance(detections_df, pd.DataFrame) and not detections_df.empty and "delta_frac_used" in detections_df:
+            try:
+                delta_series = pd.to_numeric(detections_df["delta_frac_used"], errors="coerce").dropna()
+            except Exception:
+                delta_series = pd.Series(dtype=float)
+            if not delta_series.empty:
+                delta_frac_used_median = float(delta_series.median())
+                delta_frac_used_max = float(delta_series.max())
 
         if metrics.empty:
             continue
@@ -272,9 +294,12 @@ def collect_estimator_panel(run_paths: Sequence[Path | str]) -> pd.DataFrame:
                     "ci_hi": ci_hi,
                     "design": design_value,
                     "edge_mode": edge_mode_value,
+                    "gating_mode": gating_mode_value,
                     "rolling_windows_evaluated": windows_evaluated,
                     "substitution_fraction": substitution_fraction,
                     "skip_no_isolated_share": skip_no_iso_share,
+                    "delta_frac_used_median": delta_frac_used_median,
+                    "delta_frac_used_max": delta_frac_used_max,
                 }
                 records.append(record)
 
@@ -302,8 +327,11 @@ def collect_estimator_panel(run_paths: Sequence[Path | str]) -> pd.DataFrame:
                 "edge_margin_median",
                 "edge_margin_iqr",
                 "edge_mode",
+                "gating_mode",
                 "substitution_fraction",
                 "skip_no_isolated_share",
+                "delta_frac_used_median",
+                "delta_frac_used_max",
             ]
         )
 

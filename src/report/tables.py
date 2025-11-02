@@ -84,6 +84,20 @@ def table_estimators_panel(df: pd.DataFrame, *, root: Path = DEFAULT_FIG_ROOT) -
         edge_iqr = group["edge_margin_iqr"].dropna() if "edge_margin_iqr" in group else pd.Series(dtype=float)
         edge_mode_series = group["edge_mode"].dropna() if "edge_mode" in group else pd.Series(dtype=object)
         edge_mode_value = str(edge_mode_series.iloc[0]) if not edge_mode_series.empty else ""
+        gating_mode_series = group["gating_mode"].dropna() if "gating_mode" in group else pd.Series(dtype=object)
+        gating_mode_value = str(gating_mode_series.iloc[0]) if not gating_mode_series.empty else ""
+        delta_frac_series = (
+            group["delta_frac_used_median"].dropna()
+            if "delta_frac_used_median" in group
+            else pd.Series(dtype=float)
+        )
+        delta_frac_used_median = float(delta_frac_series.iloc[0]) if not delta_frac_series.empty else np.nan
+        delta_frac_max_series = (
+            group["delta_frac_used_max"].dropna()
+            if "delta_frac_used_max" in group
+            else pd.Series(dtype=float)
+        )
+        delta_frac_used_max = float(delta_frac_max_series.iloc[0]) if not delta_frac_max_series.empty else np.nan
 
         substitution_series = (
             group["substitution_fraction"].dropna()
@@ -104,6 +118,9 @@ def table_estimators_panel(df: pd.DataFrame, *, root: Path = DEFAULT_FIG_ROOT) -
             "var_kupiec_p": np.nan,
             "var_independence_p": np.nan,
             "es_shortfall_p": np.nan,
+            "gating_mode": gating_mode_value,
+            "delta_frac_used_median": delta_frac_used_median,
+            "delta_frac_used_max": delta_frac_used_max,
         }
 
         if ew_row is not None:
@@ -144,6 +161,10 @@ def table_estimators_panel(df: pd.DataFrame, *, root: Path = DEFAULT_FIG_ROOT) -
     table_df.to_csv(csv_path, index=False)
 
     md_df = table_df.copy()
+    md_df["edge_gate"] = md_df.apply(
+        lambda row: f"{str(row.get('edge_mode', '')) or 'n/a'} | {str(row.get('gating_mode', '')) or 'n/a'}",
+        axis=1,
+    )
     for lo_col, hi_col in (("ci_lo_ew", "ci_hi_ew"), ("ci_lo_mv", "ci_hi_mv")):
         if lo_col in md_df.columns and hi_col in md_df.columns:
             suffix = lo_col.rsplit("_", 1)[-1].upper()
@@ -155,7 +176,11 @@ def table_estimators_panel(df: pd.DataFrame, *, root: Path = DEFAULT_FIG_ROOT) -
                 else:
                     ci_values.append(f"[{_format_float(float(lo))}, {_format_float(float(hi))}]")
             md_df[display_col] = ci_values
-    md_df = md_df.drop(columns=[col for col in CI_COLUMNS if col in md_df.columns], errors="ignore")
+    md_df = md_df.drop(
+        columns=[col for col in CI_COLUMNS if col in md_df.columns] + ["edge_mode", "gating_mode"],
+        errors="ignore",
+    )
+    md_df.rename(columns={"edge_gate": "edge|gate"}, inplace=True)
     _write_markdown(md_df, md_path)
 
     table_df.to_latex(tex_path, index=False, float_format=lambda x: _format_float(float(x)))

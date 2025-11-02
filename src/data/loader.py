@@ -15,6 +15,8 @@ from typing import Iterable, Sequence
 import numpy as np
 import pandas as pd
 
+from .groups import VolStateConfig, group_dayofweek, group_volstate
+
 __all__ = [
     "DailyLoaderConfig",
     "DailyPanel",
@@ -46,6 +48,7 @@ class DailyPanel:
     """Container for the balanced daily panel data."""
 
     returns: pd.DataFrame
+    groups: dict[str, pd.Series]
     meta: dict[str, object]
 
 
@@ -160,6 +163,8 @@ def load_daily_panel(
     source: str | Path | Iterable[Path] | pd.DataFrame,
     *,
     config: DailyLoaderConfig | None = None,
+    vol_proxy: pd.Series | None = None,
+    vol_config: VolStateConfig | None = None,
 ) -> DailyPanel:
     """
     Load and clean daily return data, enforcing a balanced universe.
@@ -186,6 +191,13 @@ def load_daily_panel(
     winsorised = _winsorise_cross_section(balanced, cfg.winsor_lower, cfg.winsor_upper)
     winsorised.index.name = "date"
 
+    day_groups = group_dayofweek(winsorised)
+    vol_groups = group_volstate(winsorised, vix=vol_proxy, config=vol_config)
+    groups = {
+        "day_of_week": day_groups,
+        "vol_state": vol_groups,
+    }
+
     meta: dict[str, object] = {
         "symbols": list(winsorised.columns),
         "start": winsorised.index.min(),
@@ -193,6 +205,7 @@ def load_daily_panel(
         "n_days": int(winsorised.shape[0]),
         "p": int(winsorised.shape[1]),
         "winsor": (cfg.winsor_lower, cfg.winsor_upper),
+        "group_keys": tuple(groups.keys()),
     }
 
-    return DailyPanel(returns=winsorised, meta=meta)
+    return DailyPanel(returns=winsorised, groups=groups, meta=meta)

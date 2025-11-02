@@ -65,3 +65,9 @@
 - **Decisions**: Loosened synthetic overrides (`off_component_cap=None`, `t_eps=0.05`, `require_isolated=False`) inside simulation modules to maintain power while retaining strict defaults elsewhere.
 - **Checks**: `pytest -q` green (warnings only from sparse multi-spike means); `make rc` + `make gallery` regenerated memo/gallery with detection diagnostics.
 - **Next Actions**: Stage RC artifacts, documentation updates, and push branch after final review.
+
+## 2025-11-02T05:33Z
+- **Step**: Added Day-of-Week/Vol-State replicates to the daily loader, VIX-aware volatility bucketing with realised-vol fallback, and updated data unit tests.
+- **Decisions**: Store group keys alongside balanced panels; default vol-state bins stay at four levels with deterministic EWMA-based fallback when VIX gaps.
+- **Checks**: `pytest tests/data/test_loader.py tests/data/test_groups.py` passes.
+- **Next Actions**: Implement factor prewhitening pipeline and extend residual de-aliasing tests.

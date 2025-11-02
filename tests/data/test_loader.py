@@ -39,6 +39,15 @@ def test_load_daily_panel_balances_and_winsorises() -> None:
     assert meta["p"] == 3
     assert meta["n_days"] == 3
     assert meta["symbols"] == ["A", "B", "C"]
+    assert meta["group_keys"] == ("day_of_week", "vol_state")
+
+    groups = panel.groups
+    assert set(groups.keys()) == {"day_of_week", "vol_state"}
+    assert list(groups["day_of_week"]) == [3, 4, 5]
+    vol_state = groups["vol_state"]
+    assert vol_state.dtype.name == "category"
+    assert vol_state.isna().sum() == 0
+    assert vol_state.cat.categories.tolist() == ["low", "medium", "high", "crash"]
 
 
 def test_load_daily_panel_required_symbol_missing_errors() -> None:

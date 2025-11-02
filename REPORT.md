@@ -59,3 +59,9 @@
 - **Decisions**: Default `t_eps=0.06`, `off_component_cap=0.3`, `require_isolated=True`, and `q_max=1` keep null false positives suppressed; unit/integration tests override settings when legacy behaviour is required.
 - **Checks**: `tests/test_dealias.py`, `tests/fjs/test_config.py`, and `tests/fjs/test_dealias_calibrated.py` now pass locally; failing null FPR test resolved.
 - **Next Actions**: Refresh docs, rebuild RC artifacts (`make rc && make gallery`), and add memo postmortem before final regression (`pytest -q`).
+
+## 2025-11-02T04:59Z
+- **Step**: Rebuilt RC artifacts (`reports/rc-20251102/`), appended detection postmortem, and updated synthetic/power harnesses plus theta/guardrail tests to use calibrated detection settings.
+- **Decisions**: Loosened synthetic overrides (`off_component_cap=None`, `t_eps=0.05`, `require_isolated=False`) inside simulation modules to maintain power while retaining strict defaults elsewhere.
+- **Checks**: `pytest -q` green (warnings only from sparse multi-spike means); `make rc` + `make gallery` regenerated memo/gallery with detection diagnostics.
+- **Next Actions**: Stage RC artifacts, documentation updates, and push branch after final review.

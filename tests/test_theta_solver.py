@@ -7,6 +7,7 @@ import pytest
 
 from fjs.balanced import mean_squares
 from fjs.dealias import dealias_search
+from tests.test_dealias import _test_settings
 from fjs.theta_solver import ThetaSolverParams, solve_theta_for_t2_zero
 
 
@@ -108,6 +109,12 @@ def test_theta_solver_fallback_to_grid(monkeypatch: pytest.MonkeyPatch) -> None:
         diagnostics={},
         stats=stats,
         oneway_a_solver="rootfind",
+        settings=_test_settings(
+            off_component_cap=None,
+            t_eps=0.05,
+            require_isolated=False,
+            angle_min_cos=0.0,
+        ),
     )
     assert detections
     assert all(det.get("solver_used") == "grid" for det in detections)
@@ -135,6 +142,12 @@ def test_theta_solver_logs_solver_flag() -> None:
         diagnostics={},
         stats=stats,
         oneway_a_solver="auto",
+        settings=_test_settings(
+            off_component_cap=None,
+            t_eps=0.05,
+            require_isolated=False,
+            angle_min_cos=0.0,
+        ),
     )
     assert detections
     assert all(det.get("solver_used") in {"grid", "rootfind"} for det in detections)

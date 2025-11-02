@@ -8,6 +8,7 @@ import pytest
 from data.panels import build_balanced_weekday_panel
 from fjs.balanced import mean_squares
 from fjs.dealias import _default_design, dealias_search
+from tests.test_dealias import _test_settings
 from fjs.mp import estimate_Cs_from_MS, mp_edge
 from finance.io import load_returns_csv
 
@@ -34,6 +35,14 @@ def _make_single_spike_panel(
     return y, labels
 
 
+_OVERRIDES = {
+    "off_component_cap": None,
+    "t_eps": 0.05,
+    "require_isolated": False,
+    "angle_min_cos": 0.0,
+}
+
+
 def test_single_spike_mu_hat_within_standard_error() -> None:
     rng = np.random.default_rng(123)
     p, groups, replicates = 10, 60, 3
@@ -54,6 +63,7 @@ def test_single_spike_mu_hat_within_standard_error() -> None:
         delta=0.3,
         eps=0.03,
         stability_eta_deg=0.4,
+        settings=_test_settings(**_OVERRIDES),
     )
     assert detections, "Expected a detection in the single-spike setting."
     mu_hat = float(detections[0]["mu_hat"])
@@ -109,6 +119,7 @@ def test_decisions_stable_within_eta_band() -> None:
         delta=0.35,
         eps=0.03,
         stability_eta_deg=eta,
+        settings=_test_settings(**_OVERRIDES),
     )
     assert detections, "Expected at least one detection."
 
@@ -176,6 +187,7 @@ def test_wrds_window_yields_detection_with_relaxed_leakage() -> None:
         scan_basis="sigma",
         off_component_leak_cap=None,
         energy_min_abs=1e-6,
+        settings=_test_settings(**_OVERRIDES),
     )
     assert detections, "Expected at least one detection on the WRDS weekly panel."
     ratios = [

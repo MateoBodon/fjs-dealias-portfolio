@@ -35,6 +35,7 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from fjs.balanced import mean_squares
+from fjs.config import get_detection_settings
 from fjs.dealias import dealias_search
 from pairing import align_spikes
 from fjs.spectra import plot_spike_timeseries
@@ -64,6 +65,15 @@ DEFAULT_CONFIG = {
     "output_dir": "figures/synthetic",
     "progress": True,
 }
+
+
+_SYNTH_SETTINGS = get_detection_settings().with_overrides(
+    off_component_cap=None,
+    t_eps=0.05,
+    require_isolated=False,
+    angle_min_cos=0.0,
+    q_max=3,
+)
 
 
 def load_config(path: Path | None) -> dict[str, Any]:
@@ -345,6 +355,7 @@ def s3_bias(config: dict[str, Any], rng: np.random.Generator) -> pd.DataFrame:
                     None if off_cap is None else float(off_cap)
                 ),
                 energy_min_abs=energy_min,
+                settings=_SYNTH_SETTINGS,
             )
             if detections:
                 detects += 1
@@ -417,6 +428,7 @@ def s4_guardrail_analysis(
                 None if off_cap is None else float(off_cap)
             ),
             energy_min_abs=energy_min,
+            settings=_SYNTH_SETTINGS,
         )
         detections_lax = dealias_search(
             y_mat,
@@ -432,6 +444,7 @@ def s4_guardrail_analysis(
             scan_basis=scan_basis,
             off_component_leak_cap=None,
             energy_min_abs=None,
+            settings=_SYNTH_SETTINGS,
         )
         if detections_default:
             default_hits += 1
@@ -545,6 +558,7 @@ def s5_multi_spike_bias(
                 None if off_cap is None else float(off_cap)
             ),
             energy_min_abs=energy_min,
+            settings=_SYNTH_SETTINGS,
         )
         # Top-k aliased eigenvalues
         eigvals, eigvecs = np.linalg.eigh(sigma1)

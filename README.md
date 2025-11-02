@@ -32,6 +32,7 @@ Optional data: `experiments/equity_panel/config*.yaml` expect `data/returns_dail
 - **Threshold calibration**: `python scripts/calibrate_thresholds.py --p 200 --n 252 --trials 200 --out reports/calibration` sweeps detection margins, persisting `thresholds.json` and ROC traces.
 - **Memo/Gallery**: `python tools/memo_builder.py --metrics reports/rc-latest/metrics_full.csv --dm reports/rc-latest/dm_full.csv --var reports/rc-latest/var_full.csv --out reports/rc-latest/memo.md` and `python tools/gallery.py --metrics reports/rc-latest/metrics_full.csv --var reports/rc-latest/var_full.csv --out reports/rc-latest/gallery` assemble review artifacts.
 - **One-shot RC**: `make rc` chains all of the above into `reports/rc-YYYYMMDD/` (with `make gallery` rerendering figures only).
+- **Detection settings**: `src/fjs/config.py` loads `configs/detection.yaml` and any `reports/**/calibration/thresholds.json` to derive overlay/de-alias defaults; pass `settings=` to `dealias_search`/`OverlayConfig` for experiment-specific overrides.
 
 ---
 

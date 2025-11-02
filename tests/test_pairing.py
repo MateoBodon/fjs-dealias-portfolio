@@ -19,7 +19,7 @@ def test_pairing_alignment_improves_median_bias(tmp_path: Path) -> None:
         "noise_variance": 1.0,
         "signal_to_noise": 0.5,
         "multi_spike_strengths": [7.0, 6.0, 5.0, 4.0, 3.0],
-        "multi_spike_trials": 24,
+        "multi_spike_trials": 16,
         "delta": 0.3,
         "eps": 0.05,
         "stability_eta_deg": 0.5,

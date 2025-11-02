@@ -40,6 +40,8 @@ make setup
 - Keep changes **small**; write tests alongside code.
 - Run `scripts/calibrate_thresholds.py` when threshold tables change and commit updated `thresholds.json`/ROC artifacts.
 - Use `experiments/eval/run.py` (or `make rc`) to generate ΔMSE/DM/VaR summaries and refresh memo/gallery outputs.
+- Configure detection defaults via `configs/detection.yaml` + `reports/**/calibration/thresholds.json`; override programmatically through `src/fjs/config.get_detection_settings()` when tests require deterministic gating.
+- Enable `FJS_DEBUG=1` to stream per-candidate diagnostics (edge margins, admissibility, isolation, angle, a-grid index, accept/reject reason).
 
 ### Don’t
 - Don’t broaden permissions; don’t fetch external datasets without explicit instruction.

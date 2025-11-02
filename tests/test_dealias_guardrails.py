@@ -7,6 +7,7 @@ import pytest
 
 from fjs.balanced import mean_squares
 from fjs.dealias import _default_design, _sigma_of_a_from_MS, dealias_search
+from tests.test_dealias import _test_settings
 from fjs.mp import estimate_Cs_from_MS, mp_edge
 
 pytestmark = pytest.mark.slow
@@ -128,6 +129,12 @@ def test_dealias_detections_are_angularly_stable() -> None:
         target_r=0,
         delta=0.5,
         eps=0.02,
+        settings=_test_settings(
+            t_eps=0.05,
+            off_component_cap=None,
+            require_isolated=False,
+            angle_min_cos=0.0,
+        ),
     )
     assert detections, "Expected at least one detection for spiked design."
 

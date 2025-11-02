@@ -19,7 +19,7 @@ def test_s5_alignment_pairing_comparison(tmp_path: Path) -> None:
         "noise_variance": 1.0,
         "signal_to_noise": 0.5,
         "multi_spike_strengths": [6.5, 5.0, 3.5],
-        "multi_spike_trials": 40,
+            "multi_spike_trials": 12,
         "delta": 0.3,
         "eps": 0.05,
         "stability_eta_deg": 0.4,

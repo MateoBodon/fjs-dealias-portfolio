@@ -26,6 +26,7 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from experiments.synthetic_oneway.run import simulate_panel, simulate_multi_spike
+from fjs.config import get_detection_settings
 from fjs.dealias import dealias_search
 from fjs.robust import edge_from_scatter, huber_scatter, tyler_scatter
 from finance.eval import oos_variance_forecast
@@ -52,9 +53,24 @@ DEFAULT_CONFIG = {
     "output_dir": "experiments/synthetic/outputs",
 }
 
+_BASE_DETECTION = get_detection_settings()
 GATING_SETTINGS: Mapping[str, Mapping[str, object]] = {
-    "default": {"enable": True, "require_isolated": True, "q_max": 2},
-    "loose": {"enable": True, "require_isolated": False, "q_max": 3},
+    "default": {
+        "enable": True,
+        "require_isolated": False,
+        "q_max": max((_BASE_DETECTION.q_max or 0), 2),
+        "angle_min_cos": 0.0,
+        "off_component_cap": None,
+        "t_eps": max(_BASE_DETECTION.t_eps, 0.05),
+    },
+    "loose": {
+        "enable": True,
+        "require_isolated": False,
+        "q_max": max((_BASE_DETECTION.q_max or 0), 3),
+        "angle_min_cos": 0.0,
+        "off_component_cap": None,
+        "t_eps": max(_BASE_DETECTION.t_eps, 0.08),
+    },
 }
 
 DEFAULT_DELTA_FRAC_GRID: tuple[float, ...] = (
@@ -134,6 +150,14 @@ def _detections_for_mode(
             delta_frac_value = 0.0
     if delta_frac_value < 0.0:
         delta_frac_value = 0.0
+    detection_settings = _BASE_DETECTION.with_overrides(
+        require_isolated=gating.get("require_isolated", _BASE_DETECTION.require_isolated),
+        q_max=gating.get("q_max", _BASE_DETECTION.q_max),
+        angle_min_cos=gating.get("angle_min_cos", _BASE_DETECTION.angle_min_cos),
+        off_component_cap=gating.get("off_component_cap", _BASE_DETECTION.off_component_cap),
+        t_eps=gating.get("t_eps", _BASE_DETECTION.t_eps),
+    )
+
     detections = dealias_search(
         y,
         groups,
@@ -147,6 +171,7 @@ def _detections_for_mode(
         a_grid=int(config["a_grid"]),
         edge_scale=scale,
         edge_mode=edge_mode,
+        settings=detection_settings,
     )
     if gating.get("enable", True):
         require_iso = bool(gating.get("require_isolated", True))

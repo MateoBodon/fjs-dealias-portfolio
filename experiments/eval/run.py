@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
+from concurrent.futures import ThreadPoolExecutor
+
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -408,15 +410,11 @@ def run_evaluation(
         a_grid=int(config.overlay_a_grid),
     )
 
-    window_records: list[dict[str, object]] = []
-    diagnostics_records: list[dict[str, object]] = []
-
-    total_days = residuals.shape[0]
-    for start in range(0, total_days - config.window - config.horizon + 1):
+    def _evaluate_window(start: int) -> tuple[list[dict[str, object]], dict[str, object] | None]:
         fit = residuals.iloc[start : start + config.window]
         hold = residuals.iloc[start + config.window : start + config.window + config.horizon]
         if hold.empty:
-            continue
+            return [], None
         train_end = pd.to_datetime(fit.index[-1])
         calm_cut, crisis_cut = _vol_thresholds(vol_proxy_past, train_end, config)
         train_vol_slice = vol_proxy_past.loc[:train_end].dropna()
@@ -433,31 +431,36 @@ def run_evaluation(
         vol_signal_value = float(vol_signal_series.loc[hold_start]) if hold_start in vol_signal_series.index else float("nan")
         if np.isnan(vol_signal_value):
             vol_signal_value = fallback_vol
-        reason = DiagnosticReason.NO_DETECTIONS
+
         try:
             fit_balanced, group_labels = _balanced_window(fit)
         except ValueError:
-            diagnostics_records.append(
-                {
-                    "regime": regime,
-                    "detections": 0,
-                    "detection_rate": 0.0,
-                    "edge_margin_mean": 0.0,
-                    "stability_margin_mean": 0.0,
-                    "isolation_share": 0.0,
-                    "reason_code": str(DiagnosticReason.BALANCE_FAILURE)
-                    if config.reason_codes
-                    else "",
-                    "resolved_config_path": resolved_path_str,
-                }
+            reason_value = (
+                DiagnosticReason.BALANCE_FAILURE.value if config.reason_codes else ""
             )
-            continue
+            diag_record = {
+                "regime": regime,
+                "detections": 0,
+                "detection_rate": 0.0,
+                "edge_margin_mean": 0.0,
+                "stability_margin_mean": 0.0,
+                "isolation_share": 0.0,
+                "reason_code": reason_value,
+                "resolved_config_path": resolved_path_str,
+                "calm_threshold": float(calm_cut),
+                "crisis_threshold": float(crisis_cut),
+                "vol_signal": float(vol_signal_value),
+            }
+            return [], diag_record
+
         fit_matrix = fit_balanced.to_numpy(dtype=np.float64)
         p_assets = fit_matrix.shape[1]
         sample_cov = np.cov(fit_matrix, rowvar=False, ddof=1)
         group_count = int(np.unique(group_labels).size)
+
+        reason = DiagnosticReason.NO_DETECTIONS
         if group_count < 5:
-            detections = []
+            detections: list[dict[str, object]] = []
             reason = DiagnosticReason.INSUFFICIENT_GROUPS
         else:
             try:
@@ -466,18 +469,9 @@ def run_evaluation(
             except Exception:
                 detections = []
                 reason = DiagnosticReason.DETECTION_ERROR
-        overlay_cov = apply_overlay(
-            sample_cov,
-            detections,
-            observations=fit_matrix,
-            config=overlay_cfg,
-        )
-        baseline_cov = apply_overlay(
-            sample_cov,
-            [],
-            observations=fit_matrix,
-            config=overlay_cfg,
-        )
+
+        overlay_cov = apply_overlay(sample_cov, detections, observations=fit_matrix, config=overlay_cfg)
+        baseline_cov = apply_overlay(sample_cov, [], observations=fit_matrix, config=overlay_cfg)
         covariances = {
             "overlay": overlay_cov,
             "baseline": baseline_cov,
@@ -489,15 +483,13 @@ def run_evaluation(
         mv_weights = _min_variance_weights(baseline_cov)
         weights_map = {"ew": eq_weights, "mv": mv_weights}
 
+        metrics_block: list[dict[str, object]] = []
         for estimator, cov in covariances.items():
             for portfolio, weights in weights_map.items():
                 forecast_var = float(weights.T @ cov @ weights)
                 sigma = float(np.sqrt(max(forecast_var, 1e-12)))
                 realised_returns = hold_matrix @ weights
-                if realised_returns.size > 1:
-                    realised_var = float(np.var(realised_returns, ddof=1))
-                else:
-                    realised_var = float("nan")
+                realised_var = float(np.var(realised_returns, ddof=1)) if realised_returns.size > 1 else float("nan")
                 var95 = float(stats.norm.ppf(0.05) * sigma)
                 es95 = _expected_shortfall(sigma)
                 violations = realised_returns < var95
@@ -506,7 +498,7 @@ def run_evaluation(
                 mse = (forecast_var - realised_var) ** 2 if np.isfinite(realised_var) else float("nan")
                 es_error = (es95 - realised_es) ** 2 if np.isfinite(realised_es) else float("nan")
 
-                window_records.append(
+                metrics_block.append(
                     {
                         "regime": regime,
                         "estimator": estimator,
@@ -533,22 +525,43 @@ def run_evaluation(
             edge_margins = []
             stability = []
             isolation = []
+
         reason_value = reason.value if config.reason_codes else ""
-        diagnostics_records.append(
-            {
-                "regime": regime,
-                "detections": len(detections),
-                "detection_rate": len(detections) / float(p_assets) if p_assets else 0.0,
-                "edge_margin_mean": float(np.mean(edge_margins)) if edge_margins else 0.0,
-                "stability_margin_mean": float(np.mean(stability)) if stability else 0.0,
-                "isolation_share": float(np.mean(isolation)) if isolation else 0.0,
-                "reason_code": reason_value,
-                "resolved_config_path": resolved_path_str,
-                "calm_threshold": float(calm_cut),
-                "crisis_threshold": float(crisis_cut),
-                "vol_signal": float(vol_signal_value),
-            }
-        )
+        diag_record = {
+            "regime": regime,
+            "detections": len(detections),
+            "detection_rate": len(detections) / float(p_assets) if p_assets else 0.0,
+            "edge_margin_mean": float(np.mean(edge_margins)) if edge_margins else 0.0,
+            "stability_margin_mean": float(np.mean(stability)) if stability else 0.0,
+            "isolation_share": float(np.mean(isolation)) if isolation else 0.0,
+            "reason_code": reason_value,
+            "resolved_config_path": resolved_path_str,
+            "calm_threshold": float(calm_cut),
+            "crisis_threshold": float(crisis_cut),
+            "vol_signal": float(vol_signal_value),
+        }
+        return metrics_block, diag_record
+
+    window_records: list[dict[str, object]] = []
+    diagnostics_records: list[dict[str, object]] = []
+
+    total_days = residuals.shape[0]
+    start_indices = range(0, total_days - config.window - config.horizon + 1)
+    if config.workers and config.workers > 1:
+        max_workers = max(1, int(config.workers))
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            for metrics_block, diag_record in executor.map(_evaluate_window, start_indices):
+                if metrics_block:
+                    window_records.extend(metrics_block)
+                if diag_record is not None:
+                    diagnostics_records.append(diag_record)
+    else:
+        for start in start_indices:
+            metrics_block, diag_record = _evaluate_window(start)
+            if metrics_block:
+                window_records.extend(metrics_block)
+            if diag_record is not None:
+                diagnostics_records.append(diag_record)
 
     metrics_df = pd.DataFrame(window_records)
     diagnostics_df = pd.DataFrame(diagnostics_records)

@@ -33,3 +33,9 @@
 - **Decisions**: Shifted EWMA by one day before lookups, wrote helper `_vol_thresholds` for tests, and recorded calm/crisis thresholds plus vol signals in diagnostics.
 - **Checks**: `pytest tests/experiments/test_eval_run.py -q`.
 - **Next Actions**: Tag slow tests, add CLI worker flag, and wire calibration cache controls for performance improvements.
+
+## 2025-11-02T07:46Z
+- **Step**: Marked heavy synthetic tests as slow with CI default `-m "not slow"`, added synthetic calibration caching with `_meta`+mtime guard plus `--force`, and introduced optional evaluation `--workers` using thread pooling.
+- **Decisions**: Normalised config hashes via `calibration_cache_meta`, reused cached JSON when dependencies unchanged, and ensured parallel windows reuse sequential logic for identical outputs.
+- **Checks**: `pytest tests/test_power_null.py -q -m slow`, `pytest tests/experiments/test_eval_run.py -q`.
+- **Next Actions**: Enhance turnover-aware MV, DM effective sample reporting, and add optional bootstrap scaffolding.

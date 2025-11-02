@@ -180,23 +180,34 @@ def test_run_evaluation_is_reproducible(tmp_path_factory: pytest.TempPathFactory
 
     cfg_one = EvalConfig(out_dir=Path(out_one), **base_kwargs)
     cfg_two = EvalConfig(out_dir=Path(out_two), **base_kwargs)
+    out_workers = tmp_path_factory.mktemp("outputs_workers")
+    cfg_workers = EvalConfig(out_dir=Path(out_workers), workers=2, **base_kwargs)
 
     outputs_one = run_evaluation(cfg_one)
     outputs_two = run_evaluation(cfg_two)
+    outputs_workers = run_evaluation(cfg_workers)
 
     metrics_one = pd.read_csv(outputs_one.metrics["full"]).sort_index(axis=1)
     metrics_two = pd.read_csv(outputs_two.metrics["full"]).sort_index(axis=1)
+    metrics_workers = pd.read_csv(outputs_workers.metrics["full"]).sort_index(axis=1)
     pd.testing.assert_frame_equal(metrics_one, metrics_two)
+    pd.testing.assert_frame_equal(metrics_one, metrics_workers)
 
     risk_one = pd.read_csv(outputs_one.risk["full"]).sort_index(axis=1)
     risk_two = pd.read_csv(outputs_two.risk["full"]).sort_index(axis=1)
+    risk_workers = pd.read_csv(outputs_workers.risk["full"]).sort_index(axis=1)
     pd.testing.assert_frame_equal(risk_one, risk_two)
+    pd.testing.assert_frame_equal(risk_one, risk_workers)
 
     dm_one = pd.read_csv(outputs_one.dm["full"]).sort_index(axis=1)
     dm_two = pd.read_csv(outputs_two.dm["full"]).sort_index(axis=1)
+    dm_workers = pd.read_csv(outputs_workers.dm["full"]).sort_index(axis=1)
     pd.testing.assert_frame_equal(dm_one, dm_two)
+    pd.testing.assert_frame_equal(dm_one, dm_workers)
 
     diag_one = pd.read_csv(outputs_one.diagnostics["full"]).sort_index(axis=1)
     diag_two = pd.read_csv(outputs_two.diagnostics["full"]).sort_index(axis=1)
+    diag_workers = pd.read_csv(outputs_workers.diagnostics["full"]).sort_index(axis=1)
     shared_cols = [col for col in diag_one.columns if col != "resolved_config_path"]
     pd.testing.assert_frame_equal(diag_one[shared_cols], diag_two[shared_cols])
+    pd.testing.assert_frame_equal(diag_one[shared_cols], diag_workers[shared_cols])

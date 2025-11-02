@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 import matplotlib
 
@@ -70,6 +71,85 @@ DEFAULT_DELTA_FRAC_GRID: tuple[float, ...] = (
     0.075,
     0.1,
 )
+
+
+def _resolve_delta_grid(delta_grid: Sequence[float] | None) -> list[float]:
+    if delta_grid:
+        values = sorted({float(max(val, 0.0)) for val in delta_grid})
+        return values if values else [0.0]
+    return [float(val) for val in DEFAULT_DELTA_FRAC_GRID]
+
+
+def _normalise_for_meta(value: object) -> object:
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, Mapping):
+        return {str(k): _normalise_for_meta(v) for k, v in sorted(value.items(), key=lambda item: str(item[0]))}
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        return [_normalise_for_meta(v) for v in value]
+    return value
+
+
+def calibration_cache_meta(
+    *,
+    config: Mapping[str, object],
+    edge_modes: Sequence[str],
+    alpha: float,
+    trials_null: int,
+    delta_grid: Sequence[float],
+) -> dict[str, object]:
+    normalised_config = _normalise_for_meta(dict(config))
+    config_json = json.dumps(normalised_config, sort_keys=True, separators=(",", ":"))
+    config_hash = hashlib.sha1(config_json.encode("utf-8")).hexdigest()
+    return {
+        "schema": 1,
+        "config_hash": config_hash,
+        "edge_modes": sorted({str(mode).lower() for mode in edge_modes}),
+        "alpha": float(alpha),
+        "trials_null": int(trials_null),
+        "delta_grid": [float(val) for val in delta_grid],
+    }
+
+
+def load_calibration_cache(
+    path: Path,
+    meta: Mapping[str, object],
+    dependencies: Sequence[Path] | None = None,
+) -> dict[str, Any] | None:
+    cache_path = Path(path)
+    if not cache_path.exists():
+        return None
+    try:
+        cache_mtime = cache_path.stat().st_mtime
+    except OSError:
+        return None
+
+    for dep in dependencies or ():
+        try:
+            dep_path = Path(dep)
+            if dep_path.exists() and dep_path.stat().st_mtime > cache_mtime:
+                return None
+        except OSError:
+            return None
+
+    try:
+        payload = json.loads(cache_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    cache_meta = payload.get("_meta")
+    if cache_meta != dict(meta):
+        return None
+    return payload
+
+
+def write_calibration_cache(path: Path, payload: Mapping[str, Any], meta: Mapping[str, object]) -> None:
+    cache_path = Path(path)
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    stored_payload = dict(payload)
+    stored_payload["_meta"] = dict(meta)
+    cache_path.write_text(json.dumps(stored_payload, indent=2), encoding="utf-8")
 
 
 def _edge_scale_for_mode(y: np.ndarray, mode: str, huber_c: float = 1.5) -> tuple[float, float, float]:
@@ -290,13 +370,7 @@ def calibrate_delta_thresholds(
     modes = [mode.lower() for mode in edge_modes]
     if not modes:
         return {}
-    grid_values = (
-        sorted({float(max(val, 0.0)) for val in delta_grid})
-        if delta_grid
-        else list(DEFAULT_DELTA_FRAC_GRID)
-    )
-    if not grid_values:
-        grid_values = [0.0]
+    grid_values = _resolve_delta_grid(delta_grid)
     gating_label = "default"
     gating_cfg = GATING_SETTINGS.get(gating_label, {})
 
@@ -473,6 +547,11 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Path for calibrated delta JSON (default calibration/edge_delta_thresholds.json).",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force calibration recomputation even when cache appears up to date.",
+    )
     return parser.parse_args()
 
 
@@ -523,24 +602,48 @@ def main() -> None:
     (output_dir / "power_null_meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
 
     if args.calibrate_delta:
-        cal_rng = np.random.default_rng(args.seed + 1)
-        calibration = calibrate_delta_thresholds(
+        out_path = (
+            Path(args.out).expanduser() if args.out is not None else PROJECT_ROOT / "calibration" / "edge_delta_thresholds.json"
+        )
+        grid_values = _resolve_delta_grid(None)
+        initial_meta = calibration_cache_meta(
             config=config,
             edge_modes=edge_modes,
-            trials_null=int(config["trials_null"]),
             alpha=float(args.alpha),
-            rng=cal_rng,
-            delta_grid=None,
+            trials_null=int(config["trials_null"]),
+            delta_grid=grid_values,
         )
-        if calibration:
-            out_path = (
-                Path(args.out).expanduser() if args.out is not None else PROJECT_ROOT / "calibration" / "edge_delta_thresholds.json"
-            )
-            out_path.parent.mkdir(parents=True, exist_ok=True)
-            out_path.write_text(json.dumps(calibration, indent=2), encoding="utf-8")
-            print(f"Calibrated delta thresholds written to {out_path}")
+        dependencies = [
+            Path(__file__).resolve(),
+            SRC_ROOT / "fjs" / "dealias.py",
+            SRC_ROOT / "fjs" / "gating.py",
+        ]
+        cached = None if args.force else load_calibration_cache(out_path, initial_meta, dependencies=dependencies)
+        if cached is not None:
+            print(f"Calibration cache hit at {out_path}; use --force to recompute.")
         else:
-            print("Calibration produced no thresholds (no valid null trials encountered).", file=sys.stderr)
+            cal_rng = np.random.default_rng(args.seed + 1)
+            calibration = calibrate_delta_thresholds(
+                config=config,
+                edge_modes=edge_modes,
+                trials_null=int(config["trials_null"]),
+                alpha=float(args.alpha),
+                rng=cal_rng,
+                delta_grid=None,
+            )
+            if calibration:
+                actual_grid = [float(val) for val in calibration.get("delta_grid", grid_values)]
+                write_meta = calibration_cache_meta(
+                    config=config,
+                    edge_modes=edge_modes,
+                    alpha=float(args.alpha),
+                    trials_null=int(config["trials_null"]),
+                    delta_grid=actual_grid,
+                )
+                write_calibration_cache(out_path, calibration, write_meta)
+                print(f"Calibrated delta thresholds written to {out_path}")
+            else:
+                print("Calibration produced no thresholds (no valid null trials encountered).", file=sys.stderr)
 
 
 if __name__ == "__main__":

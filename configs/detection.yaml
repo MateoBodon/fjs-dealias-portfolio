@@ -1,0 +1,7 @@
+# Default detection configuration (scaffold)
+edge_mode: tyler
+huber_c: 2.5
+buffer: 0.0
+buffer_frac: 0.05
+max_detections: 10
+shrinkage: 0.05

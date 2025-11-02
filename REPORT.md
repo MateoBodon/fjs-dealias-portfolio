@@ -27,3 +27,9 @@
 - **Decisions**: Normalised CLI/YAML aliases (`--out` → `out_dir`), defaulted calm/crisis quantiles via layered config, and captured per-regime reason modes alongside resolved-config paths.
 - **Checks**: `pytest tests/experiments/test_eval_run.py -q`.
 - **Next Actions**: Guard volatility regime quantiles against look-ahead and centralise deterministic seeds/a-grid handling.
+
+## 2025-11-02T07:24Z
+- **Step**: Hardened volatility regime splits with train-only quantiles and past-only EWMA, centralised overlay seed/a-grid in config, and seeded numpy/random for deterministic runs.
+- **Decisions**: Shifted EWMA by one day before lookups, wrote helper `_vol_thresholds` for tests, and recorded calm/crisis thresholds plus vol signals in diagnostics.
+- **Checks**: `pytest tests/experiments/test_eval_run.py -q`.
+- **Next Actions**: Tag slow tests, add CLI worker flag, and wire calibration cache controls for performance improvements.

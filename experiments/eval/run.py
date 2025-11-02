@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import random
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -103,6 +104,8 @@ class EvalConfig:
     echo_config: bool = True
     reason_codes: bool = True
     workers: int | None = None
+    overlay_a_grid: int = 60
+    overlay_seed: int | None = None
 
 
 @dataclass(slots=True, frozen=True)
@@ -136,6 +139,8 @@ def _serialise_config(config: EvalConfig) -> dict[str, Any]:
         "echo_config": config.echo_config,
         "reason_codes": config.reason_codes,
         "workers": config.workers,
+        "overlay_a_grid": config.overlay_a_grid,
+        "overlay_seed": config.overlay_seed,
     }
 
 
@@ -150,6 +155,21 @@ def _mode_string(values: pd.Series) -> str:
     if mode_values.empty:
         return ""
     return str(mode_values.iloc[0])
+
+
+def _vol_thresholds(
+    vol_proxy: pd.Series,
+    train_end: pd.Timestamp,
+    config: EvalConfig,
+) -> tuple[float, float]:
+    window_slice = vol_proxy.loc[:train_end].dropna()
+    if window_slice.empty:
+        return float("inf"), float("-inf")
+    calm_cut = float(window_slice.quantile(config.calm_quantile))
+    crisis_cut = float(window_slice.quantile(config.crisis_quantile))
+    if calm_cut > crisis_cut:
+        calm_cut, crisis_cut = crisis_cut, calm_cut
+    return calm_cut, crisis_cut
 
 
 def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str, Any]]:
@@ -211,6 +231,20 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
         type=int,
         default=None,
         help="EWMA span (in days) for volatility regime proxy.",
+    )
+    parser.add_argument(
+        "--overlay-a-grid",
+        dest="overlay_a_grid",
+        type=int,
+        default=None,
+        help="Angular grid resolution for overlay t-vector search.",
+    )
+    parser.add_argument(
+        "--overlay-seed",
+        dest="overlay_seed",
+        type=int,
+        default=None,
+        help="Optional seed override specifically for overlay search.",
     )
     parser.add_argument(
         "--workers",
@@ -285,11 +319,15 @@ def _window_regime(
     date: pd.Timestamp,
     calm_cut: float,
     crisis_cut: float,
+    *,
+    fallback: float | None = None,
 ) -> str:
     if date not in vol_proxy.index:
         proxy_value = vol_proxy.reindex(vol_proxy.index.union([date])).sort_index().ffill().loc[date]
     else:
         proxy_value = vol_proxy.loc[date]
+    if np.isnan(proxy_value) and fallback is not None:
+        proxy_value = fallback
     if np.isnan(proxy_value):
         return "full"
     if proxy_value <= calm_cut:
@@ -345,18 +383,11 @@ def run_evaluation(
     resolved_config: Mapping[str, Any] | None = None,
 ) -> EvalOutputs:
     panel, returns, whitening = _prepare_returns(config)
+    random.seed(config.seed)
+    np.random.seed(config.seed)
     residuals = whitening.residuals
-    vol_proxy = _compute_vol_proxy(residuals, span=config.vol_ewma_span)
-    calm_cut = (
-        float(vol_proxy.quantile(config.calm_quantile))
-        if not vol_proxy.empty
-        else float("inf")
-    )
-    crisis_cut = (
-        float(vol_proxy.quantile(config.crisis_quantile))
-        if not vol_proxy.empty
-        else float("-inf")
-    )
+    vol_proxy_full = _compute_vol_proxy(residuals, span=config.vol_ewma_span)
+    vol_proxy_past = vol_proxy_full.shift(1)
 
     out_dir = config.out_dir
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -373,8 +404,8 @@ def run_evaluation(
         q_max=1,
         max_detections=1,
         edge_mode="tyler",
-        seed=config.seed,
-        a_grid=60,
+        seed=config.overlay_seed if config.overlay_seed is not None else config.seed,
+        a_grid=int(config.overlay_a_grid),
     )
 
     window_records: list[dict[str, object]] = []
@@ -386,8 +417,22 @@ def run_evaluation(
         hold = residuals.iloc[start + config.window : start + config.window + config.horizon]
         if hold.empty:
             continue
+        train_end = pd.to_datetime(fit.index[-1])
+        calm_cut, crisis_cut = _vol_thresholds(vol_proxy_past, train_end, config)
+        train_vol_slice = vol_proxy_past.loc[:train_end].dropna()
+        fallback_vol = float(train_vol_slice.iloc[-1]) if not train_vol_slice.empty else float("nan")
         hold_start = pd.to_datetime(hold.index[0])
-        regime = _window_regime(vol_proxy, hold_start, calm_cut, crisis_cut)
+        regime = _window_regime(
+            vol_proxy_past,
+            hold_start,
+            calm_cut,
+            crisis_cut,
+            fallback=fallback_vol,
+        )
+        vol_signal_series = vol_proxy_past.reindex(vol_proxy_past.index.union([hold_start])).sort_index().ffill()
+        vol_signal_value = float(vol_signal_series.loc[hold_start]) if hold_start in vol_signal_series.index else float("nan")
+        if np.isnan(vol_signal_value):
+            vol_signal_value = fallback_vol
         reason = DiagnosticReason.NO_DETECTIONS
         try:
             fit_balanced, group_labels = _balanced_window(fit)
@@ -499,6 +544,9 @@ def run_evaluation(
                 "isolation_share": float(np.mean(isolation)) if isolation else 0.0,
                 "reason_code": reason_value,
                 "resolved_config_path": resolved_path_str,
+                "calm_threshold": float(calm_cut),
+                "crisis_threshold": float(crisis_cut),
+                "vol_signal": float(vol_signal_value),
             }
         )
 
@@ -513,6 +561,9 @@ def run_evaluation(
         "isolation_share",
         "reason_code",
         "resolved_config_path",
+        "calm_threshold",
+        "crisis_threshold",
+        "vol_signal",
     ]
     if diagnostics_df.empty:
         diagnostics_df = pd.DataFrame(columns=expected_diag_columns)
@@ -601,12 +652,18 @@ def run_evaluation(
             edge_margin_mean=("edge_margin_mean", "mean"),
             stability_margin_mean=("stability_margin_mean", "mean"),
             isolation_share=("isolation_share", "mean"),
+            calm_threshold=("calm_threshold", "mean"),
+            crisis_threshold=("crisis_threshold", "mean"),
+            vol_signal=("vol_signal", "mean"),
         )
         .reset_index()
     )
     if diagnostics_summary.empty:
         diagnostics_summary["reason_code"] = ""
         diagnostics_summary["resolved_config_path"] = resolved_path_str
+        diagnostics_summary["calm_threshold"] = np.nan
+        diagnostics_summary["crisis_threshold"] = np.nan
+        diagnostics_summary["vol_signal"] = np.nan
     else:
         reason_summary = (
             diagnostics_df.groupby("regime")["reason_code"]

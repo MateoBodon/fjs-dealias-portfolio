@@ -61,6 +61,8 @@ DEFAULTS: dict[str, Any] = {
     "vol_ewma_span": 21,
     "reason_codes": True,
     "echo_config": True,
+    "overlay_a_grid": 60,
+    "overlay_seed": None,
 }
 
 
@@ -136,6 +138,8 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         echo_config=bool(merged.get("echo_config", DEFAULTS["echo_config"])),
         reason_codes=bool(merged.get("reason_codes", DEFAULTS["reason_codes"])),
         workers=int(merged["workers"]) if merged.get("workers") is not None else None,
+        overlay_a_grid=int(merged.get("overlay_a_grid", DEFAULTS["overlay_a_grid"])),
+        overlay_seed=int(merged["overlay_seed"]) if merged.get("overlay_seed") is not None else None,
     )
 
     resolved = {
@@ -156,6 +160,8 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         "thresholds_path": str(config.thresholds_path) if config.thresholds_path else None,
         "reason_codes": config.reason_codes,
         "echo_config": config.echo_config,
+        "overlay_a_grid": config.overlay_a_grid,
+        "overlay_seed": config.overlay_seed,
     }
 
     return ResolveResult(config=config, resolved=resolved)

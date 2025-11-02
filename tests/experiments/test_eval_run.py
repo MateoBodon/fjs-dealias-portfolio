@@ -9,7 +9,7 @@ import pytest
 
 from experiments.eval.config import resolve_eval_config
 from experiments.eval.diagnostics import DiagnosticReason
-from experiments.eval.run import EvalConfig, run_evaluation
+from experiments.eval.run import EvalConfig, run_evaluation, _vol_thresholds
 
 
 def _make_returns_csv(tmp_path: pytest.TempPathFactory) -> str:
@@ -60,12 +60,22 @@ def test_run_evaluation_emits_artifacts(tmp_path_factory: pytest.TempPathFactory
     full_diag = outputs.diagnostics["full"]
     assert full_diag.exists()
     diag_df = pd.read_csv(full_diag)
-    assert {"detection_rate", "reason_code", "resolved_config_path"}.issubset(diag_df.columns)
+    assert {
+        "detection_rate",
+        "reason_code",
+        "resolved_config_path",
+        "calm_threshold",
+        "crisis_threshold",
+        "vol_signal",
+    }.issubset(diag_df.columns)
     if not diag_df.empty:
         reason_values = set(diag_df["reason_code"].dropna().unique())
         allowed = {reason.value for reason in DiagnosticReason} | {""}
         assert reason_values <= allowed
         assert diag_df["resolved_config_path"].str.endswith("resolved_config.json").all()
+        assert diag_df["calm_threshold"].notna().any()
+        assert diag_df["crisis_threshold"].notna().any()
+        assert diag_df["vol_signal"].notna().any()
 
 
 def test_resolve_eval_config_precedence(tmp_path_factory: pytest.TempPathFactory) -> None:
@@ -78,6 +88,7 @@ def test_resolve_eval_config_precedence(tmp_path_factory: pytest.TempPathFactory
         "seed": 777,
         "calm_quantile": 0.15,
         "crisis_quantile": 0.85,
+        "overlay_a_grid": 72,
     }
     thresholds_path.write_text(json.dumps(thresholds_payload), encoding="utf-8")
 
@@ -89,6 +100,7 @@ def test_resolve_eval_config_precedence(tmp_path_factory: pytest.TempPathFactory
                 "shrinker: lw",
                 "seed: 555",
                 "calm_quantile: 0.2",
+                "overlay_a_grid: 120",
             ]
         ),
         encoding="utf-8",
@@ -125,3 +137,66 @@ def test_resolve_eval_config_precedence(tmp_path_factory: pytest.TempPathFactory
     assert config.crisis_quantile == pytest.approx(0.85)
     assert resolved.resolved["window"] == 30
     assert resolved.resolved["horizon"] == 10
+    assert config.overlay_a_grid == 120
+    assert resolved.resolved["overlay_a_grid"] == 120
+
+
+def test_vol_thresholds_use_training_data(tmp_path_factory: pytest.TempPathFactory) -> None:
+    tmp_dir = tmp_path_factory.mktemp("vol_thresholds")
+    cfg = EvalConfig(
+        returns_csv=tmp_dir / "returns.csv",
+        factors_csv=None,
+        window=5,
+        horizon=2,
+        out_dir=tmp_dir,
+        shrinker="rie",
+        seed=11,
+        overlay_a_grid=80,
+    )
+    dates = pd.date_range("2024-01-01", periods=10, freq="B")
+    series = pd.Series([0.1] * 5 + [5.0] * 5, index=dates)
+    calm, crisis = _vol_thresholds(series, dates[4], cfg)
+    assert calm == pytest.approx(0.1)
+    assert crisis == pytest.approx(0.1)
+    calm_future, crisis_future = _vol_thresholds(series, dates[-1], cfg)
+    assert calm_future == pytest.approx(calm)
+    assert crisis_future > crisis
+
+
+def test_run_evaluation_is_reproducible(tmp_path_factory: pytest.TempPathFactory) -> None:
+    returns_csv = _make_returns_csv(tmp_path_factory)
+    out_one = tmp_path_factory.mktemp("outputs_one")
+    out_two = tmp_path_factory.mktemp("outputs_two")
+
+    base_kwargs = dict(
+        returns_csv=Path(returns_csv),
+        factors_csv=None,
+        window=18,
+        horizon=4,
+        shrinker="rie",
+        seed=321,
+        overlay_a_grid=90,
+    )
+
+    cfg_one = EvalConfig(out_dir=Path(out_one), **base_kwargs)
+    cfg_two = EvalConfig(out_dir=Path(out_two), **base_kwargs)
+
+    outputs_one = run_evaluation(cfg_one)
+    outputs_two = run_evaluation(cfg_two)
+
+    metrics_one = pd.read_csv(outputs_one.metrics["full"]).sort_index(axis=1)
+    metrics_two = pd.read_csv(outputs_two.metrics["full"]).sort_index(axis=1)
+    pd.testing.assert_frame_equal(metrics_one, metrics_two)
+
+    risk_one = pd.read_csv(outputs_one.risk["full"]).sort_index(axis=1)
+    risk_two = pd.read_csv(outputs_two.risk["full"]).sort_index(axis=1)
+    pd.testing.assert_frame_equal(risk_one, risk_two)
+
+    dm_one = pd.read_csv(outputs_one.dm["full"]).sort_index(axis=1)
+    dm_two = pd.read_csv(outputs_two.dm["full"]).sort_index(axis=1)
+    pd.testing.assert_frame_equal(dm_one, dm_two)
+
+    diag_one = pd.read_csv(outputs_one.diagnostics["full"]).sort_index(axis=1)
+    diag_two = pd.read_csv(outputs_two.diagnostics["full"]).sort_index(axis=1)
+    shared_cols = [col for col in diag_one.columns if col != "resolved_config_path"]
+    pd.testing.assert_frame_equal(diag_one[shared_cols], diag_two[shared_cols])

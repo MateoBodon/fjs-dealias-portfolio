@@ -2,6 +2,8 @@
 
 Robust variance forecasting over balanced equity panels, with tooling to explore alternative estimators, crisis windows, and reporting assets. The project contains the de-aliased (FJS) covariance pipeline, supporting shrinkage baselines, preprocess toggles, and an automated gallery/memo workflow for review.
 
+Agent onboarding and sprint guidelines live in [AGENTS.md](AGENTS.md).
+
 ---
 
 ## 1. Prerequisites & installation
@@ -24,7 +26,16 @@ Optional data: `experiments/equity_panel/config*.yaml` expect `data/returns_dail
 
 ---
 
-## 2. Data & Reproducibility
+## 2. Sprint automation
+
+- **Rolling evaluation**: `python experiments/eval/run.py --returns-csv data/returns_daily.csv --out reports/rc-latest` outputs ΔMSE/DM/VaR summaries for overlay vs baselines.
+- **Threshold calibration**: `python scripts/calibrate_thresholds.py --p 200 --n 252 --trials 200 --out reports/calibration` sweeps detection margins, persisting `thresholds.json` and ROC traces.
+- **Memo/Gallery**: `python tools/memo_builder.py --metrics reports/rc-latest/metrics_full.csv --dm reports/rc-latest/dm_full.csv --var reports/rc-latest/var_full.csv --out reports/rc-latest/memo.md` and `python tools/gallery.py --metrics reports/rc-latest/metrics_full.csv --var reports/rc-latest/var_full.csv --out reports/rc-latest/gallery` assemble review artifacts.
+- **One-shot RC**: `make rc` chains all of the above into `reports/rc-YYYYMMDD/` (with `make gallery` rerendering figures only).
+
+---
+
+## 3. Data & Reproducibility
 
 - **Daily input.** `experiments/equity_panel/run.py` looks for `data/returns_daily.csv` with columns `date,ticker,ret`. The repository ships a compact sample (Sharadar US equities through 2024-12-31) so smoke tests work offline.
 - **Regenerating a mini sample.** If the returns file is missing, the runner will synthesise `data/prices_daily.csv` and derive returns on first use. To refresh the bundled sample explicitly, convert `data/prices_sample.csv` via:
@@ -45,7 +56,7 @@ Optional data: `experiments/equity_panel/config*.yaml` expect `data/returns_dail
 
 ---
 
-## 3. Repository map
+## 4. Repository map
 
 | Path | Purpose |
 | --- | --- |
@@ -60,7 +71,7 @@ Optional data: `experiments/equity_panel/config*.yaml` expect `data/returns_dail
 
 ---
 
-## 4. Testing & linting
+## 5. Testing & linting
 
 | Command | Scope |
 | --- | --- |
@@ -78,7 +89,7 @@ Markers (`pytest.ini`):
 
 ---
 
-## 5. Running equity experiments
+## 6. Running equity experiments
 
 ### 5.1 Smoke slice (fast sanity check)
 
@@ -188,7 +199,7 @@ Artifacts of interest:
 
 ---
 
-## 6. Smoke hygiene & summarisation
+## 7. Smoke hygiene & summarisation
 
 - Archive or purge untagged outputs:
   ```bash
@@ -207,7 +218,7 @@ Artifacts of interest:
 
 ---
 
-## 7. Gallery generation
+## 8. Gallery generation
 
 ### 7.1 Smoke gallery
 
@@ -233,7 +244,7 @@ Gallaries use the same reporting helpers (`src/report/gather.py`, `src/report/ta
 
 ---
 
-## 8. Memo workflow
+## 9. Memo workflow
 
 `tools/build_memo.py` consumes the same YAML used for gallery generation and renders a Markdown memo using `reports/templates/memo.md.j2`. The memo contains:
 
@@ -252,7 +263,7 @@ CI (`.github/workflows/smoke.yml`) runs the gallery + memo steps for smoke runs 
 
 ---
 
-## 8. Estimators & preprocessing
+## 10. Estimators & preprocessing
 
 | CLI flag | Description |
 | --- | --- |
@@ -266,7 +277,7 @@ Preprocess selections propagate into the cache key, panel manifest, artifact dir
 
 ---
 
-## 9. Calibration & gating
+## 11. Calibration & gating
 
 - **q-discipline gate.** All equity configs inherit a `gating` block (defaults below). Set `enable: false` to revert to legacy behaviour, tune `q_max` to cap accepted detections per window, and keep `require_isolated: true` to avoid substituting when no MP-isolated spike exists.
 
@@ -324,7 +335,7 @@ The detection summary and memo bullets explicitly badge runs where `no_isolated_
 
 ---
 
-## 10. Aggregating runs
+## 12. Aggregating runs
 
 Combine multiple `metrics_summary.csv` files without rebuilding the memo. A typical RC batch stitches the SCM smoke baseline, Tyler/Hüber crisis slices (fixed gate), the calibrated Tyler reruns, and the nested slice:
 
@@ -343,7 +354,7 @@ Every aggregated row now carries `edge_mode`, `gating_mode`, `substitution_fract
 
 ---
 
-## 11. CI overview
+## 13. CI overview
 
 `.github/workflows/smoke.yml` executes:
 
@@ -358,7 +369,7 @@ This ensures smoke regressions surface quickly and reviewers always have current
 
 ---
 
-## 12. Tips & troubleshooting
+## 14. Tips & troubleshooting
 
 - **Cache hygiene**: Use `--resume --cache-dir .cache` to keep per-window statistics; delete `.cache/` when changing estimator/preprocess combos that affect the cache key signature.
 - **Tagged directories**: Prefer the `<design>_J*_solver-*_est-*_prep-*` naming convention. `tools/clean_outputs.py` moves legacy files aside and `tools/summarize_run.py` warns when legacy outputs are ignored.

@@ -87,6 +87,7 @@ def _to_long_frame(source: str | Path | Iterable[Path] | pd.DataFrame) -> pd.Dat
     long = long.dropna(subset=["ret"])
     long["ret"] = long["ret"].astype(float)
     long = long.sort_values(["date", "ticker"])
+    long = long.drop_duplicates(subset=["date", "ticker"], keep="last")
     return long
 
 

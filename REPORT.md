@@ -41,3 +41,9 @@
 - **Decisions**: Compared overlay against RIE baseline for DM; min-var portfolios stabilised with ridge 5e-4; produced bar plots when matplotlib present.
 - **Checks**: `pytest -q -x` still fails at `tests/test_dealias.py::test_dealias_search_limits_sigma2_false_positives` pending overlay gating refresh.
 - **Next Actions**: Finalise docs/tooling, hook AGENTS/README, and ensure memo/gallery targets run green.
+
+## 2025-11-02T03:36Z
+- **Step**: Refreshed docs (README, AGENTS), wired memo/gallery builders, simplified Makefile targets, and generated RC artifacts via `make rc` (reports/rc-20251101).
+- **Decisions**: Fallback to plain-text tables when optional plotting/tabulate deps missing; default Makefile commands run with `PYTHONPATH=.` to expose packages.
+- **Checks**: `pytest -q -x` still red at `tests/test_dealias.py::test_dealias_search_limits_sigma2_false_positives`; other suites pass. `make rc` and `make gallery` completed successfully.
+- **Next Actions**: Address legacy `dealias_search` FPR regression in follow-up; prepare final review summary.

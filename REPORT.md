@@ -35,3 +35,9 @@
 - **Decisions**: Shared FPR across signal levels to stabilise grid evaluation; fallback selects lowest-FPR margin if FPR≤2% grid empty.
 - **Checks**: `pytest -q -x` still red at `tests/test_dealias.py::test_dealias_search_limits_sigma2_false_positives` (pre-threshold tuning baseline).
 - **Next Actions**: Expand rolling evaluation pipeline and tie new baselines/overlay into experiments outputs.
+
+## 2025-11-02T03:19Z
+- **Step**: Built rolling evaluation harness generating ΔMSE, DM, and VaR coverage summaries plus CLI artifacts.
+- **Decisions**: Compared overlay against RIE baseline for DM; min-var portfolios stabilised with ridge 5e-4; produced bar plots when matplotlib present.
+- **Checks**: `pytest -q -x` still fails at `tests/test_dealias.py::test_dealias_search_limits_sigma2_false_positives` pending overlay gating refresh.
+- **Next Actions**: Finalise docs/tooling, hook AGENTS/README, and ensure memo/gallery targets run green.

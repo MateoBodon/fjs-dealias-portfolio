@@ -45,3 +45,9 @@
 - **Decisions**: Stored per-window IDs for alignment, surfaced `n_effective` in DM outputs, and seeded bootstrap draws via `config.bootstrap_samples` for deterministic CI bands.
 - **Checks**: `pytest tests/experiments/test_eval_run.py -q`, `pytest -q` (defaults exclude slow).
 - **Next Actions**: Extend memo/gallery diagnostics and draft advisor RC brief with README linkage.
+
+## 2025-11-02T08:46Z
+- **Step**: Expanded reporting stack with memo reason-code tables, diagnostics plots (edge hist, isolation bars, stability scatter), and added `tools/build_brief.py` for the advisor one-pager plus README hooks.
+- **Decisions**: Emitted per-window diagnostics to `diagnostics_detail.csv`, aggregated reason shares into markdown, and saved summary plots under `figures/<gallery>/summary/` for reuse.
+- **Checks**: `pytest -q`; manual smoke of `tools/build_brief.py --config experiments/equity_panel/config.rc.yaml`.
+- **Next Actions**: Coordinate gallery updates with upcoming RC sweep and validate advisor brief feedback loop.

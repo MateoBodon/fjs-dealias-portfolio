@@ -17,3 +17,9 @@
 - **Decisions**: Rank-based quantile binning for volatility states keeps bins evenly populated; weekdays enforce Mon–Fri coverage to align with trading calendar.
 - **Checks**: `pytest -q -x` continues to fail at `tests/test_dealias.py::test_dealias_search_limits_sigma2_false_positives` (legacy overlay behaviour).
 - **Next Actions**: Wire robust edge estimation and overlay detection routines before tightening failing dealias tests.
+
+## 2025-11-02T03:06Z
+- **Step**: Added Tyler/Huber edge estimator with buffering and implemented overlay detection/replacement pipeline plus synthetic spike/null tests.
+- **Decisions**: Detection keeps full eigen-decomposition context to allow rank-one updates; shrinkage only applied off-spike towards robust edge.
+- **Checks**: `pytest -q -x` still halts at `tests/test_dealias.py::test_dealias_search_limits_sigma2_false_positives` (pre-refactor false positives).
+- **Next Actions**: Integrate RIE and EWMA baselines and begin calibrating overlay thresholds against synthetic suites.

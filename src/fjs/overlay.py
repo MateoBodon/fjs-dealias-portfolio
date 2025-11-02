@@ -31,6 +31,7 @@ class OverlayConfig:
     min_edge_margin: float = 0.0
     edge_mode: str = "tyler"
     seed: int = 0
+    cs_drop_top_frac: float | None = None
 
 
 def _rie_covariance(
@@ -99,6 +100,7 @@ def detect_spikes(
         use_tvector=bool(cfg.require_isolated),
         off_component_leak_cap=cfg.off_component_cap,
         edge_mode=str(cfg.edge_mode),
+        cs_drop_top_frac=cfg.cs_drop_top_frac,
         stats=stats,
     )
     filtered: list[Detection] = []

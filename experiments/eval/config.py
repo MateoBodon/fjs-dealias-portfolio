@@ -66,6 +66,13 @@ DEFAULTS: dict[str, Any] = {
     "mv_gamma": 5e-4,
     "mv_tau": 0.0,
     "bootstrap_samples": 0,
+    "require_isolated": True,
+    "q_max": 1,
+    "edge_mode": "tyler",
+    "angle_min_cos": None,
+    "alignment_top_p": 3,
+    "cs_drop_top_frac": None,
+    "prewhiten": True,
 }
 
 
@@ -119,6 +126,26 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
     factors_csv = merged.get("factors_csv")
     out_dir = merged.get("out_dir")
 
+    require_iso_raw = merged.get("require_isolated", DEFAULTS["require_isolated"])
+    if require_iso_raw is None:
+        require_isolated = bool(DEFAULTS["require_isolated"])
+    else:
+        require_isolated = bool(require_iso_raw)
+
+    q_max_raw = merged.get("q_max", DEFAULTS["q_max"])
+    q_max = int(q_max_raw) if q_max_raw is not None else DEFAULTS["q_max"]
+
+    edge_mode_val = merged.get("edge_mode", DEFAULTS["edge_mode"]) or DEFAULTS["edge_mode"]
+
+    alignment_top_p_raw = merged.get("alignment_top_p", DEFAULTS["alignment_top_p"])
+    alignment_top_p = int(alignment_top_p_raw) if alignment_top_p_raw is not None else DEFAULTS["alignment_top_p"]
+
+    pre_raw = merged.get("prewhiten", DEFAULTS["prewhiten"])
+    if pre_raw is None:
+        prewhiten = bool(DEFAULTS["prewhiten"])
+    else:
+        prewhiten = bool(pre_raw)
+
     config = EvalConfig(
         returns_csv=Path(returns_csv),
         factors_csv=Path(factors_csv) if factors_csv else None,
@@ -146,6 +173,13 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         mv_gamma=float(merged.get("mv_gamma", DEFAULTS["mv_gamma"])),
         mv_tau=float(merged.get("mv_tau", DEFAULTS["mv_tau"])),
         bootstrap_samples=int(merged.get("bootstrap_samples", DEFAULTS["bootstrap_samples"])),
+        require_isolated=require_isolated,
+        q_max=q_max,
+        edge_mode=str(edge_mode_val),
+        angle_min_cos=float(merged["angle_min_cos"]) if merged.get("angle_min_cos") is not None else None,
+        alignment_top_p=alignment_top_p,
+        cs_drop_top_frac=float(merged["cs_drop_top_frac"]) if merged.get("cs_drop_top_frac") is not None else None,
+        prewhiten=prewhiten,
     )
 
     resolved = {
@@ -171,6 +205,13 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         "mv_gamma": config.mv_gamma,
         "mv_tau": config.mv_tau,
         "bootstrap_samples": config.bootstrap_samples,
+        "require_isolated": require_isolated,
+        "q_max": config.q_max,
+        "edge_mode": config.edge_mode,
+        "angle_min_cos": config.angle_min_cos,
+        "alignment_top_p": config.alignment_top_p,
+        "cs_drop_top_frac": config.cs_drop_top_frac,
+        "prewhiten": prewhiten,
     }
 
     return ResolveResult(config=config, resolved=resolved)

@@ -51,3 +51,9 @@
 - **Decisions**: Emitted per-window diagnostics to `diagnostics_detail.csv`, aggregated reason shares into markdown, and saved summary plots under `figures/<gallery>/summary/` for reuse.
 - **Checks**: `pytest -q`; manual smoke of `tools/build_brief.py --config experiments/equity_panel/config.rc.yaml`.
 - **Next Actions**: Coordinate gallery updates with upcoming RC sweep and validate advisor brief feedback loop.
+
+## 2025-11-02T09:30Z
+- **Step**: Added RC summary consolidation (`tools/make_summary.py`) with kill criteria + limitations artefacts, wired deterministic ablation runner (`experiments/ablate/run.py`) into `make rc`, and refreshed memo/brief templates to ingest summary/perf/detection CSVs.
+- **Decisions**: Auto-discover latest `reports/rc-*/summary/`, derived kill checks (ΔMSE, detection bandwidth, alignment cosine, reason-code) into JSON + markdown, and surfaced global ablation deltas alongside updated bullets referencing reason codes, margins, and stability.
+- **Checks**: `pytest tests/tools/test_make_summary.py tests/experiments/test_ablate_run.py tests/experiments/test_eval_run.py`.
+- **Next Actions**: Run full `make rc` once summary/ablation cache warms and circulate updated memo/brief for advisor review.

@@ -6,7 +6,7 @@ import json
 from collections import defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable, Optional
 
 import pandas as pd
 import yaml
@@ -59,6 +59,123 @@ def _discover_run_paths(entries: Iterable[dict]) -> list[Path]:
             seen.add(path)
             unique.append(path)
     return unique
+
+
+def _latest_summary_dir(root: Path = Path("reports")) -> Optional[Path]:
+    candidates = sorted(
+        (p for p in root.glob("rc-*") if (p / "summary").is_dir()),
+        key=lambda path: path.name,
+    )
+    if not candidates:
+        return None
+    return candidates[-1] / "summary"
+
+
+def _load_summary_artifacts(config: dict) -> dict[str, Any]:
+    summary_cfg = config.get("summary", {}) or {}
+
+    summary_dir_cfg = summary_cfg.get("path")
+    summary_dir = Path(summary_dir_cfg).resolve() if summary_dir_cfg else _latest_summary_dir()
+    if summary_dir is not None and not summary_dir.is_dir():
+        summary_dir = None
+
+    def _resolve_path(key: str, default_name: str | None) -> Optional[Path]:
+        candidate = summary_cfg.get(key)
+        if candidate:
+            path = Path(candidate).resolve()
+            return path if path.exists() else None
+        if default_name is None or summary_dir is None:
+            return None
+        path = summary_dir / default_name
+        return path if path.exists() else None
+
+    perf_csv = _resolve_path("perf_csv", "summary_perf.csv")
+    detection_csv = _resolve_path("detection_csv", "summary_detection.csv")
+    kill_json = _resolve_path("kill_criteria", "kill_criteria.json")
+    limitations_md = _resolve_path("limitations", "limitations.md")
+
+    ablation_candidate = summary_cfg.get("ablation_csv")
+    if ablation_candidate:
+        ablation_path = Path(ablation_candidate).resolve()
+    else:
+        ablation_path = Path("ablations/ablation_matrix.csv").resolve()
+    if not ablation_path.exists():
+        ablation_path = None
+
+    def _read_csv(path: Optional[Path]) -> pd.DataFrame:
+        if path is None:
+            return pd.DataFrame()
+        try:
+            return pd.read_csv(path)
+        except Exception:
+            return pd.DataFrame()
+
+    perf_df = _read_csv(perf_csv)
+    det_df = _read_csv(detection_csv)
+    ablation_df = _read_csv(ablation_path)
+
+    if kill_json is not None:
+        try:
+            kill_payload = json.loads(kill_json.read_text(encoding="utf-8"))
+        except Exception:
+            kill_payload = None
+    else:
+        kill_payload = None
+
+    if limitations_md is not None:
+        try:
+            limitations_text = limitations_md.read_text(encoding="utf-8").strip()
+        except Exception:
+            limitations_text = ""
+    else:
+        limitations_text = ""
+
+    return {
+        "summary_dir": summary_dir,
+        "perf_df": perf_df,
+        "det_df": det_df,
+        "kill_data": kill_payload,
+        "limitations_text": limitations_text,
+        "ablation_matrix": ablation_df,
+    }
+
+
+def _format_kill_criteria_payload(kill_data: Any) -> tuple[str, str]:
+    if not isinstance(kill_data, dict):
+        return "(kill criteria unavailable)", "UNKNOWN"
+    criteria = kill_data.get("criteria", [])
+    lines: list[str] = []
+    status_flags: list[Optional[bool]] = []
+    for crit in criteria:
+        if not isinstance(crit, dict):
+            continue
+        status = crit.get("pass")
+        status_flags.append(status)
+        label = crit.get("label") or crit.get("key", "criterion")
+        raw_val = crit.get("value")
+        if isinstance(raw_val, (int, float)) and not np.isnan(raw_val):
+            value_str = f"{raw_val:.3g}"
+        elif raw_val is None:
+            value_str = "n/a"
+        else:
+            value_str = str(raw_val)
+        threshold = crit.get("threshold")
+        if isinstance(threshold, dict):
+            threshold_str = json.dumps(threshold, sort_keys=True)
+        else:
+            threshold_str = str(threshold)
+        tag = "PASS" if status is True else "FAIL" if status is False else "N/A"
+        lines.append(f"- [{tag}] {label} (value: {value_str}, threshold: {threshold_str})")
+    if not lines:
+        lines = ["- (no criteria evaluated)"]
+    flagged = [flag for flag in status_flags if flag is not None]
+    if flagged and all(flagged):
+        status = "PASS"
+    elif flagged and not all(flagged):
+        status = "CHECK"
+    else:
+        status = "UNKNOWN"
+    return "\n".join(lines), status
 
 
 def _markdown_table(df: pd.DataFrame) -> str:
@@ -693,6 +810,149 @@ def build_memo(config_path: Path) -> Path:
     else:
         bullet_no_iso = "No 'no_isolated_spike' gate activations recorded."
 
+    summary_artifacts = _load_summary_artifacts(config)
+    summary_perf_df = summary_artifacts["perf_df"]
+    summary_det_df = summary_artifacts["det_df"]
+    kill_data = summary_artifacts["kill_data"]
+    limitations_text = summary_artifacts["limitations_text"]
+    ablation_matrix_df = summary_artifacts["ablation_matrix"]
+
+    summary_perf_table_md = "(summary performance unavailable)"
+    summary_detection_table_md = "(summary detection unavailable)"
+    kill_criteria_md = "(kill criteria unavailable)"
+    kill_overall_status = "UNKNOWN"
+    limitations_fragment = limitations_text if limitations_text else "No critical limitations detected under current criteria."
+    ablation_matrix_table_md = "(global ablation matrix unavailable)"
+
+    if not summary_perf_df.empty:
+        full_perf = summary_perf_df[summary_perf_df["regime"].astype(str).str.lower() == "full"].copy()
+        if not full_perf.empty:
+            display_cols = [
+                "portfolio",
+                "delta_mse_vs_baseline",
+                "var95_overlay",
+                "var95_baseline",
+                "dm_p_value",
+                "n_effective",
+            ]
+            existing_cols = [col for col in display_cols if col in full_perf.columns]
+            perf_display = full_perf[existing_cols].copy()
+            perf_display.rename(
+                columns={
+                    "delta_mse_vs_baseline": "ΔMSE vs baseline",
+                    "var95_overlay": "VaR95 (overlay)",
+                    "var95_baseline": "VaR95 (baseline)",
+                    "dm_p_value": "DM p-value",
+                    "n_effective": "DM n_effective",
+                },
+                inplace=True,
+            )
+            summary_perf_table_md = _markdown_table(perf_display)
+
+            ew_row = _row_for(full_perf, "full", "ew")
+            mv_row = _row_for(full_perf, "full", "mv")
+            ew_delta = _numeric(ew_row, "delta_mse_vs_baseline")
+            mv_delta = _numeric(mv_row, "delta_mse_vs_baseline")
+            if not np.isnan(ew_delta) and not np.isnan(mv_delta):
+                bullet_mse = (
+                    f"Full regime ΔMSE vs baseline: EW {ew_delta:.3g}, MV {mv_delta:.3g}."
+                )
+            ew_dm = _numeric(ew_row, "dm_p_value")
+            mv_dm = _numeric(mv_row, "dm_p_value")
+            if not np.isnan(ew_dm) or not np.isnan(mv_dm):
+                parts = []
+                if not np.isnan(ew_dm):
+                    parts.append(f"EW p={_format_pvalue(ew_dm)}")
+                if not np.isnan(mv_dm):
+                    parts.append(f"MV p={_format_pvalue(mv_dm)}")
+                bullet_dm = "Full regime DM tests: " + ", ".join(parts) + "."
+
+    if not summary_det_df.empty:
+        full_det = summary_det_df[summary_det_df["regime"].astype(str).str.lower() == "full"].copy()
+        if not full_det.empty:
+            detection_cols = [
+                "detection_rate_mean",
+                "detection_rate_median",
+                "edge_margin_mean",
+                "stability_margin_mean",
+                "isolation_share_mean",
+                "alignment_cos_mean",
+                "reason_code_mode",
+            ]
+            existing_det = [col for col in detection_cols if col in full_det.columns]
+            det_display = full_det[existing_det].copy()
+            percent_cols = {
+                "detection_rate_mean",
+                "detection_rate_median",
+                "isolation_share_mean",
+            }
+            for col in det_display.columns:
+                if det_display[col].dtype.kind in {"f", "i"}:
+                    if col in percent_cols:
+                        det_display[col] = det_display[col].apply(lambda v: _format_percent(v) if pd.notna(v) else "n/a")
+                    elif col == "alignment_cos_mean":
+                        det_display[col] = det_display[col].apply(lambda v: f"{v:.3f}" if pd.notna(v) else "n/a")
+                    else:
+                        det_display[col] = det_display[col].apply(lambda v: _format_edge_metric(v) if pd.notna(v) else "n/a")
+            det_display.rename(
+                columns={
+                    "detection_rate_mean": "Detection rate (mean)",
+                    "detection_rate_median": "Detection rate (median)",
+                    "edge_margin_mean": "Edge margin",
+                    "stability_margin_mean": "Stability margin",
+                    "isolation_share_mean": "Isolation share",
+                    "alignment_cos_mean": "Alignment cos",
+                    "reason_code_mode": "Reason code",
+                },
+                inplace=True,
+            )
+            summary_detection_table_md = _markdown_table(det_display)
+
+            det_row = full_det.iloc[0]
+            det_rate_mean = _numeric(det_row, "detection_rate_mean")
+            reason_code_mode = det_row.get("reason_code_mode", "")
+            edge_margin_mean = _numeric(det_row, "edge_margin_mean")
+            stability_mean = _numeric(det_row, "stability_margin_mean")
+            if not np.isnan(det_rate_mean):
+                bullet_detection = (
+                    f"Full regime detection { _format_percent(det_rate_mean) } (reason: {reason_code_mode or 'n/a'}); "
+                    f"edge margin {edge_margin_mean:.3f}, stability {stability_mean:.3f}."
+                )
+
+    kill_criteria_md, kill_overall_status = _format_kill_criteria_payload(kill_data)
+
+    if ablation_matrix_df is not None and not ablation_matrix_df.empty:
+        display_cols = [
+            "panel",
+            "edge_mode",
+            "require_isolated",
+            "q_max",
+            "shrinker",
+            "prewhiten",
+            "ew_delta_mse_vs_baseline_vs_default",
+            "detections_mean_vs_default",
+        ]
+        existing_cols = [col for col in display_cols if col in ablation_matrix_df.columns]
+        matrix_display = ablation_matrix_df.sort_values(
+            by="ew_delta_mse_vs_baseline_vs_default",
+            ascending=True,
+            na_position="last",
+        ).head(5)[existing_cols].copy()
+        if not matrix_display.empty:
+            if "require_isolated" in matrix_display.columns:
+                matrix_display["require_isolated"] = matrix_display["require_isolated"].map({True: "yes", False: "no"})
+            if "prewhiten" in matrix_display.columns:
+                matrix_display["prewhiten"] = matrix_display["prewhiten"].map({True: "on", False: "off"})
+            matrix_display.rename(
+                columns={
+                    "ew_delta_mse_vs_baseline_vs_default": "ΔMSE(EW) vs default",
+                    "detections_mean_vs_default": "ΔDetections vs default",
+                },
+                inplace=True,
+            )
+            ablation_matrix_table_md = _markdown_table(matrix_display)
+
+
     rejection_percent_df, rejection_markdown_df = _build_rejection_tables(rejection_records)
     if rejection_markdown_df.empty:
         rejection_table_md = "(no rejection diagnostics)"
@@ -962,6 +1222,12 @@ def build_memo(config_path: Path) -> Path:
         "isolation_share_bar_md": isolation_share_bar_md,
         "direction_stability_plot_md": direction_stability_plot_md,
         "artifact_list": artifact_list,
+        "summary_perf_table_md": summary_perf_table_md,
+        "summary_detection_table_md": summary_detection_table_md,
+        "kill_criteria_md": kill_criteria_md,
+        "kill_overall_status": kill_overall_status,
+        "limitations_fragment": limitations_fragment,
+        "ablation_matrix_table_md": ablation_matrix_table_md,
     }
     memo_text = template.format(**context)
 

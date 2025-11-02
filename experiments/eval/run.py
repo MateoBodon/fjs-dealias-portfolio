@@ -28,6 +28,7 @@ if str(SRC_ROOT) not in sys.path:
 from baselines import load_observed_factors, prewhiten_returns
 from baselines.factors import PrewhitenResult
 from evaluation.dm import dm_test
+from evaluation.evaluate import alignment_diagnostics
 from fjs.overlay import OverlayConfig, apply_overlay, detect_spikes
 from experiments.eval.config import resolve_eval_config
 from experiments.eval.diagnostics import DiagnosticReason
@@ -111,6 +112,13 @@ class EvalConfig:
     mv_gamma: float = 5e-4
     mv_tau: float = 0.0
     bootstrap_samples: int = 0
+    require_isolated: bool = True
+    q_max: int = 1
+    edge_mode: str = "tyler"
+    angle_min_cos: float | None = None
+    alignment_top_p: int = 3
+    cs_drop_top_frac: float | None = None
+    prewhiten: bool = True
 
 
 @dataclass(slots=True, frozen=True)
@@ -150,6 +158,13 @@ def _serialise_config(config: EvalConfig) -> dict[str, Any]:
         "mv_gamma": config.mv_gamma,
         "mv_tau": config.mv_tau,
         "bootstrap_samples": config.bootstrap_samples,
+        "require_isolated": config.require_isolated,
+        "q_max": config.q_max,
+        "edge_mode": config.edge_mode,
+        "angle_min_cos": config.angle_min_cos,
+        "alignment_top_p": config.alignment_top_p,
+        "cs_drop_top_frac": config.cs_drop_top_frac,
+        "prewhiten": config.prewhiten,
     }
 
 
@@ -255,6 +270,7 @@ def _vol_thresholds(
 
 def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str, Any]]:
     parser = argparse.ArgumentParser(description="Daily overlay evaluation with diagnostics.")
+    parser.set_defaults(require_isolated=None, prewhiten=None)
     parser.add_argument("--returns-csv", type=Path, required=True, help="Path to daily returns CSV.")
     parser.add_argument(
         "--factors-csv",
@@ -328,6 +344,54 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
         help="Optional seed override specifically for overlay search.",
     )
     parser.add_argument(
+        "--edge-mode",
+        dest="edge_mode",
+        type=str,
+        default=None,
+        choices=["tyler", "scm", "huber"],
+        help="Edge estimation mode for dealias search (default sourced from config layers).",
+    )
+    parser.add_argument(
+        "--q-max",
+        dest="q_max",
+        type=int,
+        default=None,
+        help="Maximum detections retained per window.",
+    )
+    parser.add_argument(
+        "--angle-min-cos",
+        dest="angle_min_cos",
+        type=float,
+        default=None,
+        help="Minimum cosine alignment with PCA subspace required to accept detections.",
+    )
+    parser.add_argument(
+        "--alignment-top-p",
+        dest="alignment_top_p",
+        type=int,
+        default=None,
+        help="Number of principal components used for alignment diagnostics.",
+    )
+    parser.add_argument(
+        "--cs-drop-top-frac",
+        dest="cs_drop_top_frac",
+        type=float,
+        default=None,
+        help="Fraction of leading eigenvalues dropped when estimating Cs (0 disables).",
+    )
+    parser.add_argument(
+        "--require-isolated",
+        dest="require_isolated",
+        action="store_true",
+        help="Require MP-isolated spikes for substitution (default true).",
+    )
+    parser.add_argument(
+        "--allow-non-isolated",
+        dest="require_isolated",
+        action="store_false",
+        help="Permit non-isolated detections to substitute eigenvalues.",
+    )
+    parser.add_argument(
         "--mv-gamma",
         dest="mv_gamma",
         type=float,
@@ -359,6 +423,12 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
         dest="reason_codes",
         action="store_false",
         help="Disable reason-code annotation in diagnostics.",
+    )
+    parser.add_argument(
+        "--no-prewhiten",
+        dest="prewhiten",
+        action="store_false",
+        help="Skip factor prewhitening (use raw returns).",
     )
     args = parser.parse_args(argv)
     resolved = resolve_eval_config(vars(args))
@@ -477,10 +547,7 @@ def _prepare_returns(config: EvalConfig) -> tuple[DailyPanel, pd.DataFrame, Prew
             factors = load_observed_factors(path=None, returns=returns)
         except FileNotFoundError:
             factors = load_observed_factors(returns=returns)
-    try:
-        whitening = prewhiten_returns(returns, factors)
-        residuals = whitening.residuals
-    except ValueError:
+    if not config.prewhiten:
         residuals = returns.copy()
         betas = pd.DataFrame(
             np.zeros((residuals.shape[1], factors.shape[1] if hasattr(factors, "shape") else 0)),
@@ -496,6 +563,28 @@ def _prepare_returns(config: EvalConfig) -> tuple[DailyPanel, pd.DataFrame, Prew
             fitted=pd.DataFrame(np.zeros_like(residuals.to_numpy()), index=residuals.index, columns=residuals.columns),
             factors=pd.DataFrame(index=residuals.index, data=np.zeros((residuals.shape[0], 0))),
         )
+    else:
+        try:
+            whitening = prewhiten_returns(returns, factors)
+            residuals = whitening.residuals
+        except ValueError:
+            residuals = returns.copy()
+            betas = pd.DataFrame(
+                np.zeros((residuals.shape[1], factors.shape[1] if hasattr(factors, "shape") else 0)),
+                index=residuals.columns,
+            )
+            intercept = pd.Series(np.zeros(residuals.shape[1]), index=residuals.columns, name="intercept")
+            r2 = pd.Series(np.zeros(residuals.shape[1]), index=residuals.columns, name="r_squared")
+            whitening = PrewhitenResult(
+                residuals=residuals,
+                betas=betas,
+                intercept=intercept,
+                r_squared=r2,
+                fitted=pd.DataFrame(
+                    np.zeros_like(residuals.to_numpy()), index=residuals.index, columns=residuals.columns
+                ),
+                factors=pd.DataFrame(index=residuals.index, data=np.zeros((residuals.shape[0], 0))),
+            )
     return panel, returns, whitening
 
 
@@ -523,11 +612,13 @@ def run_evaluation(
 
     overlay_cfg = OverlayConfig(
         shrinker=config.shrinker,
-        q_max=1,
-        max_detections=1,
-        edge_mode="tyler",
+        q_max=int(config.q_max) if config.q_max is not None else None,
+        max_detections=int(config.q_max) if config.q_max is not None else None,
+        edge_mode=str(config.edge_mode),
         seed=config.overlay_seed if config.overlay_seed is not None else config.seed,
         a_grid=int(config.overlay_a_grid),
+        require_isolated=bool(config.require_isolated),
+        cs_drop_top_frac=config.cs_drop_top_frac,
     )
 
     mv_gamma = float(config.mv_gamma)
@@ -595,6 +686,48 @@ def run_evaluation(
                 detections = []
                 reason = DiagnosticReason.DETECTION_ERROR
 
+        alignment_cos_values: list[float] = []
+        alignment_angle_values: list[float] = []
+        if detections:
+            filtered: list[dict[str, object]] = []
+            threshold = float(config.angle_min_cos) if config.angle_min_cos is not None else None
+            top_p = max(1, int(config.alignment_top_p))
+            for det in detections:
+                eigvec = det.get("eigvec")
+                angle_deg = float("nan")
+                cos_val = float("nan")
+                energy_mu = float("nan")
+                if isinstance(eigvec, np.ndarray):
+                    try:
+                        angle_deg, energy_mu = alignment_diagnostics(
+                            sample_cov,
+                            np.asarray(eigvec, dtype=np.float64),
+                            top_p=top_p,
+                        )
+                        cos_val = float(np.cos(np.deg2rad(angle_deg)))
+                    except Exception:
+                        angle_deg = float("nan")
+                        cos_val = float("nan")
+                        energy_mu = float("nan")
+                det_copy = dict(det)
+                det_copy["alignment_angle_deg"] = angle_deg
+                det_copy["alignment_cos"] = cos_val
+                det_copy["alignment_energy_mu"] = energy_mu
+                if threshold is not None:
+                    if not np.isfinite(cos_val) or cos_val < threshold:
+                        continue
+                filtered.append(det_copy)
+                if np.isfinite(cos_val):
+                    alignment_cos_values.append(cos_val)
+                if np.isfinite(angle_deg):
+                    alignment_angle_values.append(angle_deg)
+            detections = filtered
+            if not detections and reason == DiagnosticReason.ACCEPTED:
+                reason = DiagnosticReason.ALIGNMENT_REJECTED
+        else:
+            alignment_cos_values = []
+            alignment_angle_values = []
+
         overlay_cov = apply_overlay(sample_cov, detections, observations=fit_matrix, config=overlay_cfg)
         baseline_cov = apply_overlay(sample_cov, [], observations=fit_matrix, config=overlay_cfg)
         covariances = {
@@ -659,6 +792,8 @@ def run_evaluation(
             edge_margins = []
             stability = []
             isolation = []
+        alignment_cos_mean = float(np.mean(alignment_cos_values)) if alignment_cos_values else float("nan")
+        alignment_angle_mean = float(np.mean(alignment_angle_values)) if alignment_angle_values else float("nan")
 
         reason_value = reason.value if config.reason_codes else ""
         diag_record = {
@@ -673,6 +808,8 @@ def run_evaluation(
             "calm_threshold": float(calm_cut),
             "crisis_threshold": float(crisis_cut),
             "vol_signal": float(vol_signal_value),
+            "alignment_cos_mean": alignment_cos_mean,
+            "alignment_angle_mean": alignment_angle_mean,
         }
         return metrics_block, diag_record
 
@@ -712,6 +849,8 @@ def run_evaluation(
         "edge_margin_mean",
         "stability_margin_mean",
         "isolation_share",
+        "alignment_cos_mean",
+        "alignment_angle_mean",
         "reason_code",
         "resolved_config_path",
         "calm_threshold",
@@ -834,6 +973,8 @@ def run_evaluation(
             edge_margin_mean=("edge_margin_mean", "mean"),
             stability_margin_mean=("stability_margin_mean", "mean"),
             isolation_share=("isolation_share", "mean"),
+            alignment_cos_mean=("alignment_cos_mean", "mean"),
+            alignment_angle_mean=("alignment_angle_mean", "mean"),
             calm_threshold=("calm_threshold", "mean"),
             crisis_threshold=("crisis_threshold", "mean"),
             vol_signal=("vol_signal", "mean"),
@@ -846,6 +987,8 @@ def run_evaluation(
         diagnostics_summary["calm_threshold"] = np.nan
         diagnostics_summary["crisis_threshold"] = np.nan
         diagnostics_summary["vol_signal"] = np.nan
+        diagnostics_summary["alignment_cos_mean"] = np.nan
+        diagnostics_summary["alignment_angle_mean"] = np.nan
     else:
         reason_summary = (
             diagnostics_df.groupby("regime")["reason_code"]

@@ -10,6 +10,7 @@ class DiagnosticReason(str, Enum):
     BALANCE_FAILURE = "balance_failure"
     DETECTION_ERROR = "detection_error"
     HOLDOUT_EMPTY = "holdout_empty"
+    ALIGNMENT_REJECTED = "alignment_rejected"
 
     def __str__(self) -> str:  # pragma: no cover - invoked implicitly
         return self.value

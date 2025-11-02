@@ -29,3 +29,9 @@
 - **Decisions**: Clipped MP bulk to its mean to stabilise RIE while leaving spikes intact; EWMA debiases weights by default to maintain unit mass.
 - **Checks**: `pytest -q -x` still fails at `tests/test_dealias.py::test_dealias_search_limits_sigma2_false_positives` pending overlay refactor.
 - **Next Actions**: Build synthetic calibration harness for threshold tuning and generate artefact scaffolding.
+
+## 2025-11-02T03:14Z
+- **Step**: Implemented calibration harness producing thresholds.json and ROC CSV/plots; added regression test exercising low-trial sweep.
+- **Decisions**: Shared FPR across signal levels to stabilise grid evaluation; fallback selects lowest-FPR margin if FPR≤2% grid empty.
+- **Checks**: `pytest -q -x` still red at `tests/test_dealias.py::test_dealias_search_limits_sigma2_false_positives` (pre-threshold tuning baseline).
+- **Next Actions**: Expand rolling evaluation pipeline and tie new baselines/overlay into experiments outputs.

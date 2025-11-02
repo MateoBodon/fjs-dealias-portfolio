@@ -108,6 +108,9 @@ class EvalConfig:
     workers: int | None = None
     overlay_a_grid: int = 60
     overlay_seed: int | None = None
+    mv_gamma: float = 5e-4
+    mv_tau: float = 0.0
+    bootstrap_samples: int = 0
 
 
 @dataclass(slots=True, frozen=True)
@@ -143,6 +146,9 @@ def _serialise_config(config: EvalConfig) -> dict[str, Any]:
         "workers": config.workers,
         "overlay_a_grid": config.overlay_a_grid,
         "overlay_seed": config.overlay_seed,
+        "mv_gamma": config.mv_gamma,
+        "mv_tau": config.mv_tau,
+        "bootstrap_samples": config.bootstrap_samples,
     }
 
 
@@ -157,6 +163,78 @@ def _mode_string(values: pd.Series) -> str:
     if mode_values.empty:
         return ""
     return str(mode_values.iloc[0])
+
+
+def _aligned_error_table(
+    metrics: pd.DataFrame,
+    regime: str,
+    portfolio: str,
+) -> pd.DataFrame:
+    mask = metrics["portfolio"].eq(portfolio)
+    if regime != "full":
+        mask &= metrics["regime"].eq(regime)
+    subset = metrics.loc[mask, ["window_id", "estimator", "sq_error"]]
+    if subset.empty:
+        return pd.DataFrame(columns=["overlay", "baseline"])
+    pivot = subset.pivot_table(
+        index="window_id",
+        columns="estimator",
+        values="sq_error",
+        aggfunc="first",
+    )
+    if "overlay" not in pivot.columns or "baseline" not in pivot.columns:
+        return pd.DataFrame(columns=["overlay", "baseline"])
+    return pivot[["overlay", "baseline"]].dropna()
+
+
+def _aligned_dm_stat(
+    metrics: pd.DataFrame,
+    regime: str,
+    portfolio: str,
+) -> tuple[float, float, int]:
+    aligned = _aligned_error_table(metrics, regime, portfolio)
+    n_eff = int(aligned.shape[0])
+    if n_eff < 2:
+        return float("nan"), float("nan"), n_eff
+    dm_stat, p_value = dm_test(
+        aligned["overlay"].to_numpy(),
+        aligned["baseline"].to_numpy(),
+    )
+    return dm_stat, p_value, n_eff
+
+
+def _bootstrap_delta_mse(
+    diffs: np.ndarray,
+    resamples: int,
+    rng: np.random.Generator,
+    block_size: int | None = None,
+) -> tuple[float, float]:
+    n = diffs.size
+    if n == 0 or resamples <= 0:
+        return float("nan"), float("nan")
+    if block_size is None:
+        block_size = max(1, int(np.sqrt(n)))
+    block_size = max(1, min(block_size, n))
+    num_blocks = int(np.ceil(n / block_size))
+    stats = np.empty(resamples, dtype=np.float64)
+    for idx in range(resamples):
+        sample = np.empty(n, dtype=np.float64)
+        cursor = 0
+        for _ in range(num_blocks):
+            start = int(rng.integers(0, n - block_size + 1))
+            block = diffs[start : start + block_size]
+            end = min(cursor + block.size, n)
+            sample[cursor:end] = block[: end - cursor]
+            cursor = end
+            if cursor >= n:
+                break
+        if cursor < n:
+            remainder = diffs[: n - cursor]
+            sample[cursor:] = remainder
+        stats[idx] = float(np.mean(sample))
+    lower = float(np.quantile(stats, 0.025))
+    upper = float(np.quantile(stats, 0.975))
+    return lower, upper
 
 
 def _vol_thresholds(
@@ -249,6 +327,27 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
         help="Optional seed override specifically for overlay search.",
     )
     parser.add_argument(
+        "--mv-gamma",
+        dest="mv_gamma",
+        type=float,
+        default=None,
+        help="Ridge regulariser for minimum-variance weights (default sourced from config layers).",
+    )
+    parser.add_argument(
+        "--mv-tau",
+        dest="mv_tau",
+        type=float,
+        default=None,
+        help="Turnover penalty for minimum-variance weights; set to 0 for no penalty.",
+    )
+    parser.add_argument(
+        "--bootstrap-samples",
+        dest="bootstrap_samples",
+        type=int,
+        default=None,
+        help="Number of block bootstrap resamples for ΔMSE confidence bands (0 disables).",
+    )
+    parser.add_argument(
         "--workers",
         type=int,
         default=None,
@@ -289,19 +388,39 @@ def _balanced_window(frame: pd.DataFrame, replicates: int = 5) -> tuple[pd.DataF
     return trimmed, groups
 
 
-def _min_variance_weights(covariance: np.ndarray, ridge: float = 5e-4) -> np.ndarray:
+def _min_variance_weights(
+    covariance: np.ndarray,
+    *,
+    gamma: float,
+    tau: float,
+    prev_weights: np.ndarray | None,
+) -> np.ndarray:
     p = covariance.shape[0]
-    adjusted = covariance + float(ridge) * np.eye(p, dtype=np.float64)
+    identity = np.eye(p, dtype=np.float64)
+    adjusted = np.asarray(covariance, dtype=np.float64) + float(gamma + tau) * identity
+    rhs = np.zeros(p + 1, dtype=np.float64)
+    if tau > 0.0 and prev_weights is not None and prev_weights.shape[0] == p:
+        rhs[:p] = float(tau) * prev_weights
+    K = np.zeros((p + 1, p + 1), dtype=np.float64)
+    K[:p, :p] = adjusted
+    K[:p, -1] = 1.0
+    K[-1, :p] = 1.0
+    rhs[-1] = 1.0
     try:
-        inv = np.linalg.pinv(adjusted, rcond=1e-8)
+        solution = np.linalg.solve(K, rhs)
+        weights = solution[:p]
     except np.linalg.LinAlgError:
+        try:
+            solution, *_ = np.linalg.lstsq(K, rhs, rcond=None)
+            weights = solution[:p]
+        except np.linalg.LinAlgError:
+            return np.full(p, 1.0 / p, dtype=np.float64)
+    if not np.all(np.isfinite(weights)):
         return np.full(p, 1.0 / p, dtype=np.float64)
-    ones = np.ones(p, dtype=np.float64)
-    weights = inv @ ones
-    denom = float(weights.sum())
-    if abs(denom) <= 1e-12:
+    total = float(weights.sum())
+    if abs(total) <= 1e-12:
         return np.full(p, 1.0 / p, dtype=np.float64)
-    return weights / denom
+    return weights / total
 
 
 def _expected_shortfall(sigma: float, alpha: float = 0.05) -> float:
@@ -410,6 +529,10 @@ def run_evaluation(
         a_grid=int(config.overlay_a_grid),
     )
 
+    mv_gamma = float(config.mv_gamma)
+    mv_tau = float(config.mv_tau)
+    prev_mv_weights: dict[tuple[str, ...], np.ndarray] = {}
+
     def _evaluate_window(start: int) -> tuple[list[dict[str, object]], dict[str, object] | None]:
         fit = residuals.iloc[start : start + config.window]
         hold = residuals.iloc[start + config.window : start + config.window + config.horizon]
@@ -453,6 +576,7 @@ def run_evaluation(
             }
             return [], diag_record
 
+        asset_key = tuple(str(col) for col in fit_balanced.columns)
         fit_matrix = fit_balanced.to_numpy(dtype=np.float64)
         p_assets = fit_matrix.shape[1]
         sample_cov = np.cov(fit_matrix, rowvar=False, ddof=1)
@@ -480,7 +604,15 @@ def run_evaluation(
 
         hold_matrix = hold.to_numpy(dtype=np.float64)
         eq_weights = np.full(p_assets, 1.0 / p_assets, dtype=np.float64)
-        mv_weights = _min_variance_weights(baseline_cov)
+        prev_weights = prev_mv_weights.get(asset_key) if mv_tau > 0.0 else None
+        mv_weights = _min_variance_weights(
+            baseline_cov,
+            gamma=mv_gamma,
+            tau=mv_tau,
+            prev_weights=prev_weights,
+        )
+        if mv_tau > 0.0:
+            prev_mv_weights[asset_key] = mv_weights
         weights_map = {"ew": eq_weights, "mv": mv_weights}
 
         metrics_block: list[dict[str, object]] = []
@@ -500,6 +632,7 @@ def run_evaluation(
 
                 metrics_block.append(
                     {
+                        "window_id": start,
                         "regime": regime,
                         "estimator": estimator,
                         "portfolio": portfolio,
@@ -547,8 +680,11 @@ def run_evaluation(
 
     total_days = residuals.shape[0]
     start_indices = range(0, total_days - config.window - config.horizon + 1)
-    if config.workers and config.workers > 1:
-        max_workers = max(1, int(config.workers))
+    worker_setting = config.workers
+    if mv_tau > 0.0:
+        worker_setting = 1
+    if worker_setting and worker_setting > 1:
+        max_workers = max(1, int(worker_setting))
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             for metrics_block, diag_record in executor.map(_evaluate_window, start_indices):
                 if metrics_block:
@@ -565,6 +701,9 @@ def run_evaluation(
 
     metrics_df = pd.DataFrame(window_records)
     diagnostics_df = pd.DataFrame(diagnostics_records)
+    bootstrap_samples = max(0, int(config.bootstrap_samples))
+    rng_bootstrap = np.random.default_rng(config.seed + 97)
+    bootstrap_bands: dict[tuple[str, str], tuple[float, float]] = {}
     expected_diag_columns = [
         "regime",
         "detections",
@@ -656,6 +795,28 @@ def run_evaluation(
     summary_df = summary_df.merge(baseline_df, on=["regime", "portfolio"], how="left")
     summary_df["delta_mse_vs_baseline"] = summary_df["mse_mean"] - summary_df["baseline_mse"]
     summary_df["delta_es_vs_baseline"] = summary_df["es_mse_mean"] - summary_df["baseline_es_mse"]
+    summary_df["delta_mse_ci_lower"] = np.nan
+    summary_df["delta_mse_ci_upper"] = np.nan
+
+    if bootstrap_samples > 0:
+        for regime_key in _REGIMES:
+            for portfolio in ("ew", "mv"):
+                aligned_table = _aligned_error_table(metrics_df, regime_key, portfolio)
+                if aligned_table.empty:
+                    continue
+                diffs = aligned_table["overlay"].to_numpy() - aligned_table["baseline"].to_numpy()
+                if diffs.size < 2:
+                    continue
+                lower, upper = _bootstrap_delta_mse(diffs, bootstrap_samples, rng_bootstrap)
+                bootstrap_bands[(regime_key, portfolio)] = (lower, upper)
+        for (regime_key, portfolio), (lower, upper) in bootstrap_bands.items():
+            mask_overlay = (
+                summary_df["regime"].eq(regime_key)
+                & summary_df["portfolio"].eq(portfolio)
+                & summary_df["estimator"].eq("overlay")
+            )
+            summary_df.loc[mask_overlay, "delta_mse_ci_lower"] = lower
+            summary_df.loc[mask_overlay, "delta_mse_ci_upper"] = upper
 
     diagnostics_summary = (
         diagnostics_df.groupby("regime")
@@ -717,26 +878,14 @@ def run_evaluation(
 
         dm_rows = []
         for portfolio in ("ew", "mv"):
-            overlay_errors = metrics_df[
-                (metrics_df["regime"].eq(regime) if regime != "full" else True)
-                & metrics_df["portfolio"].eq(portfolio)
-                & metrics_df["estimator"].eq("overlay")
-            ]["sq_error"].to_numpy()
-            baseline_errors = metrics_df[
-                (metrics_df["regime"].eq(regime) if regime != "full" else True)
-                & metrics_df["portfolio"].eq(portfolio)
-                & metrics_df["estimator"].eq("baseline")
-            ]["sq_error"].to_numpy()
-            if overlay_errors.size and baseline_errors.size:
-                dm_stat, p_value = dm_test(overlay_errors, baseline_errors)
-            else:
-                dm_stat, p_value = float("nan"), float("nan")
+            dm_stat, p_value, n_eff = _aligned_dm_stat(metrics_df, regime, portfolio)
             dm_rows.append(
                 {
                     "portfolio": portfolio,
                     "baseline": "baseline",
                     "dm_stat": dm_stat,
                     "p_value": p_value,
+                    "n_effective": n_eff,
                 }
             )
         dm_path = path / "dm.csv"

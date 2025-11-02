@@ -4,3 +4,6 @@ crisis_quantile: 0.8
 vol_ewma_span: 21
 reason_codes: true
 overlay_a_grid: 120
+mv_gamma: 0.0005
+mv_tau: 0.0
+bootstrap_samples: 0

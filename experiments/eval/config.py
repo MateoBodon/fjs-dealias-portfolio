@@ -63,6 +63,9 @@ DEFAULTS: dict[str, Any] = {
     "echo_config": True,
     "overlay_a_grid": 60,
     "overlay_seed": None,
+    "mv_gamma": 5e-4,
+    "mv_tau": 0.0,
+    "bootstrap_samples": 0,
 }
 
 
@@ -140,6 +143,9 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         workers=int(merged["workers"]) if merged.get("workers") is not None else None,
         overlay_a_grid=int(merged.get("overlay_a_grid", DEFAULTS["overlay_a_grid"])),
         overlay_seed=int(merged["overlay_seed"]) if merged.get("overlay_seed") is not None else None,
+        mv_gamma=float(merged.get("mv_gamma", DEFAULTS["mv_gamma"])),
+        mv_tau=float(merged.get("mv_tau", DEFAULTS["mv_tau"])),
+        bootstrap_samples=int(merged.get("bootstrap_samples", DEFAULTS["bootstrap_samples"])),
     )
 
     resolved = {
@@ -162,6 +168,9 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         "echo_config": config.echo_config,
         "overlay_a_grid": config.overlay_a_grid,
         "overlay_seed": config.overlay_seed,
+        "mv_gamma": config.mv_gamma,
+        "mv_tau": config.mv_tau,
+        "bootstrap_samples": config.bootstrap_samples,
     }
 
     return ResolveResult(config=config, resolved=resolved)

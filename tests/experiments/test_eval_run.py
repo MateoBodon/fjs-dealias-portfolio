@@ -9,7 +9,13 @@ import pytest
 
 from experiments.eval.config import resolve_eval_config
 from experiments.eval.diagnostics import DiagnosticReason
-from experiments.eval.run import EvalConfig, run_evaluation, _vol_thresholds
+from experiments.eval.run import (
+    EvalConfig,
+    run_evaluation,
+    _aligned_dm_stat,
+    _min_variance_weights,
+    _vol_thresholds,
+)
 
 
 def _make_returns_csv(tmp_path: pytest.TempPathFactory) -> str:
@@ -45,7 +51,13 @@ def test_run_evaluation_emits_artifacts(tmp_path_factory: pytest.TempPathFactory
     full_metrics = outputs.metrics["full"]
     assert full_metrics.exists()
     metrics_df = pd.read_csv(full_metrics)
-    assert {"estimator", "portfolio", "delta_mse_vs_baseline"}.issubset(metrics_df.columns)
+    assert {
+        "estimator",
+        "portfolio",
+        "delta_mse_vs_baseline",
+        "delta_mse_ci_lower",
+        "delta_mse_ci_upper",
+    }.issubset(metrics_df.columns)
 
     full_risk = outputs.risk["full"]
     assert full_risk.exists()
@@ -55,7 +67,7 @@ def test_run_evaluation_emits_artifacts(tmp_path_factory: pytest.TempPathFactory
     full_dm = outputs.dm["full"]
     assert full_dm.exists()
     dm_df = pd.read_csv(full_dm)
-    assert {"dm_stat", "p_value"}.issubset(dm_df.columns)
+    assert {"dm_stat", "p_value", "n_effective"}.issubset(dm_df.columns)
 
     full_diag = outputs.diagnostics["full"]
     assert full_diag.exists()
@@ -89,6 +101,8 @@ def test_resolve_eval_config_precedence(tmp_path_factory: pytest.TempPathFactory
         "calm_quantile": 0.15,
         "crisis_quantile": 0.85,
         "overlay_a_grid": 72,
+        "mv_gamma": 0.002,
+        "mv_tau": 0.05,
     }
     thresholds_path.write_text(json.dumps(thresholds_payload), encoding="utf-8")
 
@@ -101,6 +115,7 @@ def test_resolve_eval_config_precedence(tmp_path_factory: pytest.TempPathFactory
                 "seed: 555",
                 "calm_quantile: 0.2",
                 "overlay_a_grid: 120",
+                "mv_gamma: 0.0015",
             ]
         ),
         encoding="utf-8",
@@ -124,6 +139,7 @@ def test_resolve_eval_config_precedence(tmp_path_factory: pytest.TempPathFactory
         "vol_ewma_span": None,
         "workers": None,
         "reason_codes": True,
+        "mv_tau": 0.03,
     }
 
     resolved = resolve_eval_config(cli_args)
@@ -139,6 +155,47 @@ def test_resolve_eval_config_precedence(tmp_path_factory: pytest.TempPathFactory
     assert resolved.resolved["horizon"] == 10
     assert config.overlay_a_grid == 120
     assert resolved.resolved["overlay_a_grid"] == 120
+    assert config.mv_gamma == pytest.approx(0.0015)
+    assert config.mv_tau == pytest.approx(0.03)
+    assert resolved.resolved["mv_gamma"] == pytest.approx(0.0015)
+    assert resolved.resolved["mv_tau"] == pytest.approx(0.03)
+    assert resolved.resolved["bootstrap_samples"] == 0
+
+
+def test_min_variance_weights_turnover_penalty() -> None:
+    sigma = np.array(
+        [
+            [0.05, 0.02, 0.015],
+            [0.02, 0.04, 0.018],
+            [0.015, 0.018, 0.03],
+        ],
+        dtype=np.float64,
+    )
+    prev = np.array([0.2, 0.5, 0.3], dtype=np.float64)
+    base = _min_variance_weights(sigma, gamma=5e-4, tau=0.0, prev_weights=None)
+    penalised = _min_variance_weights(sigma, gamma=5e-4, tau=0.5, prev_weights=prev)
+    assert np.isclose(base.sum(), 1.0)
+    assert np.isclose(penalised.sum(), 1.0)
+    baseline_distance = float(np.linalg.norm(base - prev))
+    penalised_distance = float(np.linalg.norm(penalised - prev))
+    assert penalised_distance <= baseline_distance + 1e-9
+
+
+def test_dm_alignment_uses_common_windows() -> None:
+    metrics = pd.DataFrame(
+        [
+            {"window_id": 0, "regime": "full", "portfolio": "ew", "estimator": "overlay", "sq_error": 0.5},
+            {"window_id": 0, "regime": "full", "portfolio": "ew", "estimator": "baseline", "sq_error": 0.7},
+            {"window_id": 1, "regime": "full", "portfolio": "ew", "estimator": "overlay", "sq_error": 0.4},
+            # Baseline missing for window 1
+            {"window_id": 2, "regime": "full", "portfolio": "ew", "estimator": "overlay", "sq_error": 0.6},
+            {"window_id": 2, "regime": "full", "portfolio": "ew", "estimator": "baseline", "sq_error": 0.55},
+        ]
+    )
+    dm_stat, p_value, n_eff = _aligned_dm_stat(metrics, "full", "ew")
+    assert n_eff == 2
+    assert np.isfinite(dm_stat)
+    assert np.isfinite(p_value)
 
 
 def test_vol_thresholds_use_training_data(tmp_path_factory: pytest.TempPathFactory) -> None:
@@ -211,3 +268,23 @@ def test_run_evaluation_is_reproducible(tmp_path_factory: pytest.TempPathFactory
     shared_cols = [col for col in diag_one.columns if col != "resolved_config_path"]
     pd.testing.assert_frame_equal(diag_one[shared_cols], diag_two[shared_cols])
     pd.testing.assert_frame_equal(diag_one[shared_cols], diag_workers[shared_cols])
+
+
+def test_bootstrap_bands_populate_for_overlay(tmp_path_factory: pytest.TempPathFactory) -> None:
+    returns_csv = _make_returns_csv(tmp_path_factory)
+    out_dir = tmp_path_factory.mktemp("bootstrap_outputs")
+    config = EvalConfig(
+        returns_csv=Path(returns_csv),
+        factors_csv=None,
+        window=18,
+        horizon=4,
+        out_dir=Path(out_dir),
+        shrinker="rie",
+        seed=432,
+        bootstrap_samples=20,
+    )
+    outputs = run_evaluation(config)
+    summary = pd.read_csv(outputs.metrics["full"])
+    overlay_rows = summary[(summary["estimator"] == "overlay") & (summary["portfolio"] == "ew")]
+    assert overlay_rows["delta_mse_ci_lower"].notna().any()
+    assert overlay_rows["delta_mse_ci_upper"].notna().any()

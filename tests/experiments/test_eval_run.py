@@ -98,8 +98,10 @@ def test_run_evaluation_emits_artifacts(tmp_path_factory: pytest.TempPathFactory
     assert outputs.diagnostics_detail["all"].exists()
     prewhiten_diag = Path(out_dir) / "prewhiten_diagnostics.csv"
     prewhiten_summary = Path(out_dir) / "prewhiten_summary.json"
+    overlay_toggle = Path(out_dir) / "overlay_toggle.md"
     assert prewhiten_diag.exists()
     assert prewhiten_summary.exists()
+    assert overlay_toggle.exists()
 
 
 def test_resolve_eval_config_precedence(tmp_path_factory: pytest.TempPathFactory) -> None:

@@ -525,6 +525,33 @@ def _write_prewhiten_diagnostics(out_dir: Path, whitening: PrewhitenResult) -> N
     summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
 
 
+def _write_overlay_toggle(path: Path, summary: pd.DataFrame) -> None:
+    if summary.empty:
+        content = ["# Overlay Toggle", "", "No detection telemetry available."]
+    else:
+        columns = [
+            ("detection_rate", "Detection Rate"),
+            ("edge_margin_mean", "Edge Margin"),
+            ("isolation_share", "Isolation Share"),
+            ("alignment_cos_mean", "Alignment Cos"),
+            ("prewhiten_r2_mean", "Prewhiten R²"),
+        ]
+        header = "| Regime | " + " | ".join(title for _, title in columns) + " |"
+        separator = "|" + " --- |" * (len(columns) + 1)
+        rows = ["# Overlay Toggle", "", header, separator]
+        for _, row in summary.iterrows():
+            values: list[str] = []
+            for col, _ in columns:
+                value = row.get(col)
+                if pd.isna(value):
+                    values.append("n/a")
+                else:
+                    values.append(f"{float(value):.3f}")
+            rows.append(f"| {row['regime']} | " + " | ".join(values) + " |")
+        content = rows
+    path.write_text("\n".join(content) + "\n", encoding="utf-8")
+
+
 def _build_grouped_window(
     frame: pd.DataFrame,
     *,
@@ -1190,6 +1217,9 @@ def run_evaluation(
         diagnostics_summary = diagnostics_summary.merge(reason_summary, on="regime", how="left")
         diagnostics_summary = diagnostics_summary.merge(path_summary, on="regime", how="left")
         diagnostics_summary = diagnostics_summary.merge(design_summary, on="regime", how="left")
+
+    overlay_toggle_path = out_dir / "overlay_toggle.md"
+    _write_overlay_toggle(overlay_toggle_path, diagnostics_summary)
 
     for regime, path in regime_dirs.items():
         subset_metrics = summary_df[summary_df["regime"] == regime]

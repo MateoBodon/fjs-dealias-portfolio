@@ -30,6 +30,9 @@ def oas_covariance(R: NDArray[np.float64]) -> NDArray[np.float64]:
     """Oracle Approximating Shrinkage covariance targeting the identity matrix."""
 
     data = _validate_input(R)
+    if not np.isfinite(data).all():
+        # Replace NaN/inf values with zero residuals to keep OAS well-defined.
+        data = np.nan_to_num(data, nan=0.0, posinf=0.0, neginf=0.0, copy=False)
     estimator = OAS(assume_centered=False)
     estimator.fit(data)
     sigma = _symmetrize(np.asarray(estimator.covariance_, dtype=np.float64))

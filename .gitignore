@@ -22,6 +22,10 @@ dist/
 experiments/**/outputs/
 experiments/**/outputs_*/
 figures/
+.cache/
+ablations/
+reports/rc-*/
+reports/rc-/
 
 # Publish fast synthetic figure previews in README
 !figures/synthetic_fast/

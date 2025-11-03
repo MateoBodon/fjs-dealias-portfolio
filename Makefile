@@ -42,10 +42,16 @@ memo: gallery
 
 report: gallery
 
-RC_PY := PYTHONPATH=src OMP_NUM_THREADS=1 python
-RC_FLAGS := --no-progress --workers $(shell python -c 'import os;print(os.cpu_count() or 4)') --assets-top 100 --stride-windows 4 --resume --cache-dir .cache --precompute-panel --drop-partial-weeks --oneway-a-solver auto
+RC_PY := PYTHONPATH=src:. OMP_NUM_THREADS=1 python3
+RC_PROGRESS ?= 0
+RC_WORKERS := $(shell python3 -c 'import os;print(os.cpu_count() or 4)')
+RC_FLAGS_BASE := --workers $(RC_WORKERS) --assets-top 100 --stride-windows 4 --resume --cache-dir .cache --precompute-panel --drop-partial-weeks --oneway-a-solver auto
+RC_FLAGS := $(RC_FLAGS_BASE)
+ifeq ($(RC_PROGRESS),0)
+RC_FLAGS := --no-progress $(RC_FLAGS)
+endif
 RC_RETURNS := data/returns_daily.csv
-RC_DATE := $(shell python -c 'import datetime as _dt; print(_dt.datetime.utcnow().strftime("%Y%m%d"))')
+RC_DATE := $(shell python3 -c 'import datetime as _dt; print(_dt.datetime.utcnow().strftime("%Y%m%d"))')
 RC_OUT := reports/rc-$(RC_DATE)
 
 rc-data:

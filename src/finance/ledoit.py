@@ -19,10 +19,13 @@ def lw_cov(x: NDArray[np.float64]) -> NDArray[np.float64]:
         Shrunk covariance estimate.
     """
 
-    if x.ndim != 2:
+    data = np.asarray(x, dtype=np.float64)
+    if data.ndim != 2:
         raise ValueError("Input data must be two-dimensional.")
+    if not np.isfinite(data).all():
+        data = np.nan_to_num(data, nan=0.0, posinf=0.0, neginf=0.0, copy=False)
     lw = LedoitWolf(store_precision=False, assume_centered=False)
-    lw.fit(x)
+    lw.fit(data)
     return np.asarray(lw.covariance_, dtype=np.float64)
 
 

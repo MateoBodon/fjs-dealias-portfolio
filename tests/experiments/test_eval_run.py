@@ -79,6 +79,9 @@ def test_run_evaluation_emits_artifacts(tmp_path_factory: pytest.TempPathFactory
         "calm_threshold",
         "crisis_threshold",
         "vol_signal",
+        "group_design",
+        "group_count",
+        "group_replicates",
     }.issubset(diag_df.columns)
     if not diag_df.empty:
         reason_values = set(diag_df["reason_code"].dropna().unique())

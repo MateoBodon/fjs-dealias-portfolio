@@ -75,6 +75,9 @@ DEFAULTS: dict[str, Any] = {
     "prewhiten": True,
     "calm_window_sample": None,
     "crisis_window_top_k": None,
+    "group_design": "week",
+    "group_min_count": 5,
+    "group_min_replicates": 3,
 }
 
 
@@ -148,6 +151,18 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
     else:
         prewhiten = bool(pre_raw)
 
+    group_design_val = str(merged.get("group_design", DEFAULTS["group_design"]) or DEFAULTS["group_design"])
+    group_min_count_val = int(
+        merged.get("group_min_count", DEFAULTS["group_min_count"])
+        if merged.get("group_min_count") is not None
+        else DEFAULTS["group_min_count"]
+    )
+    group_min_replicates_val = int(
+        merged.get("group_min_replicates", DEFAULTS["group_min_replicates"])
+        if merged.get("group_min_replicates") is not None
+        else DEFAULTS["group_min_replicates"]
+    )
+
     config = EvalConfig(
         returns_csv=Path(returns_csv),
         factors_csv=Path(factors_csv) if factors_csv else None,
@@ -188,6 +203,9 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         crisis_window_top_k=int(merged["crisis_window_top_k"])
         if merged.get("crisis_window_top_k") is not None
         else None,
+        group_design=group_design_val,
+        group_min_count=group_min_count_val,
+        group_min_replicates=group_min_replicates_val,
     )
 
     resolved = {
@@ -222,6 +240,9 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         "prewhiten": prewhiten,
         "calm_window_sample": config.calm_window_sample,
         "crisis_window_top_k": config.crisis_window_top_k,
+        "group_design": config.group_design,
+        "group_min_count": config.group_min_count,
+        "group_min_replicates": config.group_min_replicates,
     }
 
     return ResolveResult(config=config, resolved=resolved)

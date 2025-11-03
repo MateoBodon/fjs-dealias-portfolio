@@ -30,6 +30,12 @@ from baselines.factors import PrewhitenResult
 from evaluation.dm import dm_test
 from evaluation.evaluate import alignment_diagnostics
 from fjs.overlay import OverlayConfig, apply_overlay, detect_spikes
+from experiments.daily.grouping import (
+    GroupingError,
+    group_by_day_of_week,
+    group_by_vol_state,
+    group_by_week,
+)
 from experiments.eval.config import resolve_eval_config
 from experiments.eval.diagnostics import DiagnosticReason
 
@@ -121,6 +127,9 @@ class EvalConfig:
     prewhiten: bool = True
     calm_window_sample: int | None = None
     crisis_window_top_k: int | None = None
+    group_design: str = "week"
+    group_min_count: int = 5
+    group_min_replicates: int = 3
 
 
 @dataclass(slots=True, frozen=True)
@@ -169,6 +178,9 @@ def _serialise_config(config: EvalConfig) -> dict[str, Any]:
         "prewhiten": config.prewhiten,
         "calm_window_sample": config.calm_window_sample,
         "crisis_window_top_k": config.crisis_window_top_k,
+        "group_design": config.group_design,
+        "group_min_count": config.group_min_count,
+        "group_min_replicates": config.group_min_replicates,
     }
 
 
@@ -448,6 +460,28 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
         action="store_false",
         help="Skip factor prewhitening (use raw returns).",
     )
+    parser.add_argument(
+        "--group-design",
+        dest="group_design",
+        type=str,
+        default=None,
+        choices=["week", "dow", "vol"],
+        help="Replicate grouping design for the detection window.",
+    )
+    parser.add_argument(
+        "--group-min-count",
+        dest="group_min_count",
+        type=int,
+        default=None,
+        help="Minimum number of groups required to attempt detection.",
+    )
+    parser.add_argument(
+        "--group-min-replicates",
+        dest="group_min_replicates",
+        type=int,
+        default=None,
+        help="Minimum replicates per group for balancing.",
+    )
     args = parser.parse_args(argv)
     resolved = resolve_eval_config(vars(args))
     config = resolved.config
@@ -464,17 +498,27 @@ def _compute_vol_proxy(returns: pd.DataFrame, span: int = 21) -> pd.Series:
     return proxy.dropna()
 
 
-def _balanced_window(frame: pd.DataFrame, replicates: int = 5) -> tuple[pd.DataFrame, np.ndarray]:
-    week_ids = frame.index.to_period("W-MON")
-    balanced: list[pd.DataFrame] = []
-    for _, block in frame.groupby(week_ids):
-        if block.shape[0] == replicates:
-            balanced.append(block)
-    if not balanced:
-        raise ValueError("Window does not contain any fully populated weeks.")
-    trimmed = pd.concat(balanced)
-    groups = np.repeat(np.arange(len(balanced)), replicates)
-    return trimmed, groups
+def _build_grouped_window(
+    frame: pd.DataFrame,
+    *,
+    config: EvalConfig,
+    calm_threshold: float,
+    crisis_threshold: float,
+    vol_proxy: pd.Series,
+) -> tuple[pd.DataFrame, np.ndarray]:
+    design = (config.group_design or "week").lower()
+    min_replicates = max(1, int(config.group_min_replicates))
+    if design == "dow":
+        return group_by_day_of_week(frame, min_weeks=max(min_replicates, 3))
+    if design == "vol":
+        return group_by_vol_state(
+            frame,
+            vol_proxy=vol_proxy,
+            calm_threshold=float(calm_threshold),
+            crisis_threshold=float(crisis_threshold),
+            min_replicates=min_replicates,
+        )
+    return group_by_week(frame, replicates=5)
 
 
 def _min_variance_weights(
@@ -713,8 +757,14 @@ def run_evaluation(
             vol_signal_value = fallback_vol
 
         try:
-            fit_balanced, group_labels = _balanced_window(fit)
-        except ValueError:
+            fit_balanced, group_labels = _build_grouped_window(
+                fit,
+                config=config,
+                calm_threshold=calm_cut,
+                crisis_threshold=crisis_cut,
+                vol_proxy=vol_proxy_past,
+            )
+        except GroupingError:
             reason_value = (
                 DiagnosticReason.BALANCE_FAILURE.value if config.reason_codes else ""
             )
@@ -730,6 +780,11 @@ def run_evaluation(
                 "calm_threshold": float(calm_cut),
                 "crisis_threshold": float(crisis_cut),
                 "vol_signal": float(vol_signal_value),
+                "alignment_cos_mean": float("nan"),
+                "alignment_angle_mean": float("nan"),
+                "group_design": config.group_design,
+                "group_count": 0,
+                "group_replicates": 0,
             }
             return [], diag_record
 
@@ -737,10 +792,12 @@ def run_evaluation(
         fit_matrix = fit_balanced.to_numpy(dtype=np.float64)
         p_assets = fit_matrix.shape[1]
         sample_cov = np.cov(fit_matrix, rowvar=False, ddof=1)
-        group_count = int(np.unique(group_labels).size)
+        group_ids, group_counts = np.unique(group_labels, return_counts=True)
+        group_count = int(group_ids.size)
+        replicates_per_group = int(group_counts.min()) if group_counts.size else 0
 
         reason = DiagnosticReason.NO_DETECTIONS
-        if group_count < 5:
+        if group_count < int(config.group_min_count):
             detections: list[dict[str, object]] = []
             reason = DiagnosticReason.INSUFFICIENT_GROUPS
         else:
@@ -876,6 +933,9 @@ def run_evaluation(
             "vol_signal": float(vol_signal_value),
             "alignment_cos_mean": alignment_cos_mean,
             "alignment_angle_mean": alignment_angle_mean,
+            "group_design": config.group_design,
+            "group_count": group_count,
+            "group_replicates": replicates_per_group,
         }
         return metrics_block, diag_record
 
@@ -930,6 +990,9 @@ def run_evaluation(
         "calm_threshold",
         "crisis_threshold",
         "vol_signal",
+        "group_design",
+        "group_count",
+        "group_replicates",
     ]
     if diagnostics_df.empty:
         diagnostics_df = pd.DataFrame(columns=expected_diag_columns)
@@ -1052,6 +1115,8 @@ def run_evaluation(
             calm_threshold=("calm_threshold", "mean"),
             crisis_threshold=("crisis_threshold", "mean"),
             vol_signal=("vol_signal", "mean"),
+            group_count=("group_count", "mean"),
+            group_replicates=("group_replicates", "mean"),
         )
         .reset_index()
     )
@@ -1063,6 +1128,9 @@ def run_evaluation(
         diagnostics_summary["vol_signal"] = np.nan
         diagnostics_summary["alignment_cos_mean"] = np.nan
         diagnostics_summary["alignment_angle_mean"] = np.nan
+        diagnostics_summary["group_design"] = ""
+        diagnostics_summary["group_count"] = np.nan
+        diagnostics_summary["group_replicates"] = np.nan
     else:
         reason_summary = (
             diagnostics_df.groupby("regime")["reason_code"]
@@ -1078,8 +1146,14 @@ def run_evaluation(
             )
             .reset_index()
         )
+        design_summary = (
+            diagnostics_df.groupby("regime")["group_design"]
+            .agg(_mode_string)
+            .reset_index()
+        )
         diagnostics_summary = diagnostics_summary.merge(reason_summary, on="regime", how="left")
         diagnostics_summary = diagnostics_summary.merge(path_summary, on="regime", how="left")
+        diagnostics_summary = diagnostics_summary.merge(design_summary, on="regime", how="left")
 
     for regime, path in regime_dirs.items():
         subset_metrics = summary_df[summary_df["regime"] == regime]

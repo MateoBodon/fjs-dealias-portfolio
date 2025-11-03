@@ -574,6 +574,80 @@ def _compute_nested_prepared(
     )
 
 
+def _compute_grouped_design_prepared(
+    y_fit_raw: np.ndarray,
+    group_labels: np.ndarray,
+    *,
+    design_mode: str,
+    code_signature_hash: str | None,
+) -> PreparedWindowStats:
+    """Compute MANOVA statistics for alternate balanced daily groupings."""
+
+    if y_fit_raw.ndim != 2 or y_fit_raw.shape[0] == 0:
+        raise ValueError("y_fit_raw must be a non-empty two-dimensional array.")
+    groups = np.asarray(group_labels, dtype=np.intp)
+    if groups.ndim != 1:
+        raise ValueError("group_labels must be one-dimensional.")
+    if groups.shape[0] != y_fit_raw.shape[0]:
+        raise ValueError("group_labels must align with observations.")
+
+    stats_raw = mean_squares(y_fit_raw, groups)
+    ms1 = stats_raw["MS1"].astype(np.float64)
+    ms2 = stats_raw["MS2"].astype(np.float64)
+    sigma1 = stats_raw["Sigma1_hat"].astype(np.float64)
+    sigma2 = stats_raw["Sigma2_hat"].astype(np.float64)
+
+    stats_local = dict(stats_raw)
+    stats_local["MS1"] = ms1
+    stats_local["MS2"] = ms2
+    stats_local["Sigma1_hat"] = sigma1
+    stats_local["Sigma2_hat"] = sigma2
+
+    design_c = np.array([float(stats_local["J"]), 1.0], dtype=np.float64)
+    design_d = np.array(
+        [float(stats_local["I"] - 1), float(stats_local["n"] - stats_local["I"])],
+        dtype=np.float64,
+    )
+    design_N = float(stats_local["J"])
+    design_order = [[1, 2], [2]]
+
+    valid_indices = np.arange(y_fit_raw.shape[0], dtype=np.intp)
+    cache_payload = {
+        "design_mode": str(design_mode),
+        "components": 2,
+        "I": int(stats_local["I"]),
+        "J": int(stats_local["J"]),
+        "n": int(stats_local["n"]),
+        "replicates": int(stats_local["J"]),
+        "design_c": design_c,
+        "design_d": design_d,
+        "design_N": design_N,
+        "design_order": design_order,
+        "valid_indices": valid_indices,
+        "MS1": ms1,
+        "MS2": ms2,
+        "Sigma1_hat": sigma1,
+        "Sigma2_hat": sigma2,
+        "nested_replicates": None,
+        "code_signature": code_signature_hash,
+    }
+
+    return PreparedWindowStats(
+        y_fit=y_fit_raw,
+        groups=groups,
+        stats=stats_local,
+        ms_list=[ms1, ms2],
+        sigma_list=[sigma1, sigma2],
+        design_override=None,
+        design_c=design_c,
+        design_d=design_d,
+        design_N=design_N,
+        design_order=design_order,
+        nested_replicates=None,
+        cache_payload=cache_payload,
+    )
+
+
 def _prepare_window_stats(
     design_mode: str,
     fit_blocks: list[pd.DataFrame],
@@ -1073,9 +1147,13 @@ def _run_single_period(
     week_map = balanced_panel.week_map
     replicates = balanced_panel.replicates
     design_mode = design_mode.lower()
-    if design_mode not in {"oneway", "nested"}:
-        raise ValueError("design_mode must be either 'oneway' or 'nested'.")
-    nested_reps_value = int(nested_replicates) if nested_replicates > 0 else int(replicates)
+    valid_designs = {"oneway", "nested", "dow", "vol"}
+    if design_mode not in valid_designs:
+        raise ValueError(f"design_mode must be one of {sorted(valid_designs)}.")
+    if design_mode == "nested":
+        nested_reps_value = int(nested_replicates) if nested_replicates > 0 else int(replicates)
+    else:
+        nested_reps_value = int(replicates)
     solver_mode = oneway_a_solver.lower()
     if solver_mode not in {"auto", "rootfind", "grid"}:
         raise ValueError("oneway_a_solver must be 'auto', 'rootfind', or 'grid'.")
@@ -1212,6 +1290,7 @@ def _run_single_period(
     delta_usage_records: list[dict[str, Any]] = []
     delta_used_values: list[float] = []
     calibration_misses: set[tuple[str, int, int]] = set()
+    design_logged = False
     try:
         alignment_top_p = int(alignment_top_p)
     except (TypeError, ValueError):
@@ -1263,7 +1342,15 @@ def _run_single_period(
         fit_blocks = [df.loc[:, ordered_tickers] for df in fit_blocks_raw]
         hold_blocks = [df.loc[:, ordered_tickers] for df in hold_blocks_raw]
 
-        y_hold_daily = np.vstack([block.to_numpy(dtype=np.float64) for block in hold_blocks])
+        fit_block_arrays = [block.to_numpy(dtype=np.float64) for block in fit_blocks]
+        hold_block_arrays = [block.to_numpy(dtype=np.float64) for block in hold_blocks]
+        if not fit_block_arrays:
+            continue
+        y_fit_weekly_order = np.vstack(fit_block_arrays)
+        if hold_block_arrays:
+            y_hold_daily = np.vstack(hold_block_arrays)
+        else:
+            y_hold_daily = np.empty((0, y_fit_weekly_order.shape[1]), dtype=np.float64)
 
         cache_key: str | None = None
         cached_stats: dict[str, Any] | None = None
@@ -1285,13 +1372,46 @@ def _run_single_period(
             if resume_cache:
                 cached_stats = load_window(window_cache_dir, cache_key) or None
 
-        prepared, prep_info = _prepare_window_stats(
-            design_mode,
-            fit_blocks,
-            replicates,
-            cached_stats=cached_stats if resume_cache else None,
-            nested_replicates=nested_reps_value,
-        )
+        prepared: PreparedWindowStats | None = None
+        prep_info: dict[str, Any] | None = None
+
+        if design_mode in {"dow", "vol"}:
+            if design_mode == "dow":
+                groups_override = np.tile(
+                    np.arange(replicates, dtype=np.intp),
+                    len(fit_block_arrays),
+                )
+            else:
+                groups_override = np.repeat(
+                    np.arange(len(fit_block_arrays), dtype=np.intp),
+                    replicates,
+                )
+            if groups_override.shape[0] != y_fit_weekly_order.shape[0]:
+                continue
+            try:
+                prepared = _compute_grouped_design_prepared(
+                    y_fit_weekly_order,
+                    groups_override,
+                    design_mode=design_mode,
+                    code_signature_hash=CODE_SIGNATURE,
+                )
+            except ValueError:
+                continue
+            if not design_logged:
+                counts = np.bincount(groups_override)
+                print(
+                    f"[design:{design_mode}] window={window_idx} group_sizes={counts.tolist()} total_obs={int(groups_override.size)}"
+                )
+                design_logged = True
+        else:
+            prepared, prep_info = _prepare_window_stats(
+                design_mode,
+                fit_blocks,
+                replicates,
+                cached_stats=cached_stats if resume_cache else None,
+                nested_replicates=nested_reps_value,
+            )
+
         if prepared is None:
             if design_mode == "nested" and prep_info:
                 reason_value = str(prep_info.get("exit_reason", "unknown"))
@@ -2686,8 +2806,8 @@ def run_experiment(
     config["partial_week_policy"] = panel_policy
 
     design_value = str(config.get("design", "oneway")).lower()
-    if design_value not in {"oneway", "nested"}:
-        raise ValueError("design must be either 'oneway' or 'nested'.")
+    if design_value not in {"oneway", "nested", "dow", "vol"}:
+        raise ValueError("design must be one of {'oneway', 'nested', 'dow', 'vol'}.")
     config["design"] = design_value
     nested_reps_cfg = int(config.get("nested_replicates", 5))
     if nested_reps_cfg <= 0:
@@ -2980,7 +3100,7 @@ def main() -> None:
     parser.add_argument(
         "--design",
         type=str,
-        choices=["oneway", "nested"],
+        choices=["oneway", "nested", "dow", "vol"],
         default=None,
         help="Balanced design structure (default: oneway).",
     )

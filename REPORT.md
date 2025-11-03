@@ -63,3 +63,17 @@
 - **Decisions**: Sampled 10 calm windows uniformly and kept top-25 crisis windows by edge margin; accepted zero detections/ΔMSE (kill criteria fail) as signal that sampling is too aggressive and needs tuning before sign-off.
 - **Checks**: `pytest tests/test_shrinkage.py tests/experiments/test_eval_run.py tests/experiments/test_ablate_run.py`, inspected `reports/rc-20251103/summary/kill_criteria.json`, regenerated `reports/memo.md` and `reports/brief.md`.
 - **Next Actions**: Loosen calm/crisis limits or revisit overlay gating so detection coverage returns to target band ahead of advisor review.
+
+## 2025-11-03T20:07Z
+- **Step**: Created feature and docs branches (`feat/daily-groups-dow`, `feat/daily-groups-volstate`, `feat/rie-ewma`, `feat/prewhiten-overlay`, `feat/calibration-artifacts`, `docs/roadmap`) to stage sprint deliverables; verified ROADMAP.md already present.
+- **Commands**: `git branch feat/daily-groups-dow`, `git branch feat/daily-groups-volstate`, `git branch feat/rie-ewma`, `git branch feat/prewhiten-overlay`, `git branch feat/calibration-artifacts`, `git branch docs/roadmap`, `git branch --list 'feat/*' 'docs/*'`.
+- **Outputs**: Local branches available for sequential workstreams; documentation assets unchanged pending feature updates.
+- **Checks**: `pytest -q`.
+- **Next Actions**: Checkout `feat/daily-groups-dow` and implement DoW grouping module, tests, and smoke run.
+
+## 2025-11-03T20:36Z
+- **Step**: Implemented DoW daily grouping in `experiments/equity_panel/run.py` with grouped MANOVA prep, CLI design choices (`dow`/`vol`), and logging; expanded grouping tests to cover 3y replicates.
+- **Commands**: `pytest tests/experiments/test_daily_grouping.py -q`, `PYTHONPATH=src OMP_NUM_THREADS=1 python experiments/equity_panel/run.py --config experiments/equity_panel/config.smoke.yaml --design dow --no-progress --assets-top 80 --stride-windows 4 --estimator oas`, `pytest -q`.
+- **Outputs**: `experiments/equity_panel/outputs/` (dow smoke artifacts including edge_diag_window*.csv, spectrum plots, config_resolved.yaml).
+- **Checks**: `pytest -q`.
+- **Next Actions**: Switch to `feat/daily-groups-volstate`, add realized-vol grouping with tests, and rerun the daily smoke.

@@ -87,3 +87,13 @@ def test_daily_cli_forwards_defaults(tmp_path: Path, monkeypatch: pytest.MonkeyP
     assert "--out" in forwarded
     out_path = Path(forwarded[forwarded.index("--out") + 1])
     assert out_path.parts[-3:] == ("reports", "rc-20251103", "dow")
+
+
+def test_group_by_day_of_week_three_year_slice() -> None:
+    frame = _make_returns_frame("2019-01-01", 3 * 252)
+    trimmed, labels = group_by_day_of_week(frame, min_weeks=10)
+    assert trimmed.shape[0] >= 500
+    unique_labels = np.unique(labels)
+    assert unique_labels.size == 5
+    counts = [int(np.sum(labels == label)) for label in unique_labels]
+    assert min(counts) == max(counts)

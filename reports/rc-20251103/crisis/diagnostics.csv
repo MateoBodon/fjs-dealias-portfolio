@@ -1,1 +1,2 @@
-regime,detections,detection_rate,edge_margin_mean,stability_margin_mean,isolation_share
+regime,detections,detection_rate,edge_margin_mean,stability_margin_mean,isolation_share,alignment_cos_mean,alignment_angle_mean,calm_threshold,crisis_threshold,vol_signal,reason_code,resolved_config_path
+crisis,0.0,0.0,0.0,0.0,0.0,,,0.016071536505675096,0.021494814462166313,0.02547863833127319,detection_error,reports/rc-20251103/resolved_config.json

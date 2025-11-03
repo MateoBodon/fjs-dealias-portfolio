@@ -259,6 +259,30 @@ def _format_windows(value: float | int) -> str:
     return str(int(round(float(value))))
 
 
+def _numeric(row: pd.Series | None, key: str) -> float:
+    if row is None or key not in row:
+        return float("nan")
+    try:
+        return float(row[key])
+    except (TypeError, ValueError):
+        return float("nan")
+
+
+def _row_for(frame: pd.DataFrame, regime: str, portfolio: str) -> pd.Series | None:
+    if frame.empty:
+        return None
+    subset = frame
+    if "regime" in subset.columns:
+        subset = subset[subset["regime"].astype(str).str.lower() == regime.lower()]
+    if subset.empty:
+        return None
+    if "portfolio" in subset.columns:
+        subset = subset[subset["portfolio"].astype(str).str.lower() == portfolio.lower()]
+    if subset.empty:
+        return None
+    return subset.iloc[0]
+
+
 def _prettify_reason(reason: str) -> str:
     return reason.replace("_", " ")
 

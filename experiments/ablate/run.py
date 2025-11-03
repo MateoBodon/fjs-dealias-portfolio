@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import time
 import math
 import sys
 from dataclasses import dataclass
@@ -258,7 +259,8 @@ def run_ablation(
     _ensure_dir(cache_dir)
     _ensure_dir(out_csv.parent)
 
-    for combo in combinations:
+    total = len(combinations)
+    for index, combo in enumerate(combinations, start=1):
         panel_name = combo["panel"]
         panel_spec = panels[panel_name]
         combo_id = _combo_identifier({k: combo[k] for k in combo if k != "panel"} | {"panel": panel_name})
@@ -267,6 +269,7 @@ def run_ablation(
         should_run = force or not summary_perf_path.exists()
 
         if should_run:
+            run_start = time.perf_counter()
             calm_window_limit = combo.get("calm_window_sample", defaults.get("calm_window_sample"))
             if calm_window_limit is not None:
                 calm_window_limit = int(calm_window_limit)
@@ -315,13 +318,18 @@ def run_ablation(
                 calm_window_sample=calm_window_limit,
                 crisis_window_top_k=crisis_window_limit,
             )
-            print(f"[ablate] Running {combo_id}")
+            print(f"[ablate] ({index}/{total}) Running {combo_id}")
             run_evaluation(config)
+            elapsed = time.perf_counter() - run_start
         else:
-            print(f"[ablate] Reusing cached run {combo_id}")
+            elapsed = 0.0
+            print(f"[ablate] ({index}/{total}) Reusing cached run {combo_id}")
 
         artifacts_map = write_summaries([run_dir])
         artifacts = artifacts_map[run_dir]
+
+        if elapsed:
+            print(f"[ablate] ({index}/{total}) Completed {combo_id} in {elapsed:.1f}s")
 
         perf_df = artifacts.performance
         det_df = artifacts.detection

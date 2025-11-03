@@ -6,6 +6,7 @@ from typing import Iterable, Sequence
 import numpy as np
 from numpy.typing import NDArray
 
+from baselines.covariance import ewma_covariance, quest_covariance, rie_covariance
 from finance.ledoit import lw_cov
 from finance.shrinkage import oas_covariance
 from fjs.dealias import Detection, dealias_search
@@ -25,6 +26,7 @@ class OverlayConfig:
     q_max: int | None = 1
     delta: float = 0.5
     delta_frac: float | None = None
+    ewma_halflife: float = 30.0
     eps: float = 0.02
     stability_eta_deg: float = 0.4
     a_grid: int = 120
@@ -34,28 +36,6 @@ class OverlayConfig:
     edge_mode: str = "tyler"
     seed: int = 0
     cs_drop_top_frac: float | None = None
-
-
-def _rie_covariance(
-    sample_covariance: NDArray[np.float64],
-    *,
-    sample_count: int | None,
-) -> NDArray[np.float64]:
-    sigma = np.asarray(sample_covariance, dtype=np.float64)
-    sigma = 0.5 * (sigma + sigma.T)
-    eigvals, eigvecs = np.linalg.eigh(sigma)
-    eigvals = np.clip(eigvals, 0.0, None)
-    p = eigvals.size
-    if p == 0:
-        return sigma.copy()
-    if sample_count is None or sample_count <= 0:
-        shrinkage = 0.5
-    else:
-        shrinkage = min(0.99, max(0.0, float(p) / float(sample_count)))
-    bulk_mean = float(np.mean(eigvals))
-    shrunk = (1.0 - shrinkage) * eigvals + shrinkage * bulk_mean
-    adjusted = eigvecs @ np.diag(shrunk) @ eigvecs.T
-    return np.asarray(0.5 * (adjusted + adjusted.T), dtype=np.float64)
 
 
 def _baseline_covariance(
@@ -76,10 +56,24 @@ def _baseline_covariance(
     if shrinker == "sample":
         sigma = np.asarray(sample_covariance, dtype=np.float64)
         return np.asarray(0.5 * (sigma + sigma.T), dtype=np.float64)
+    if shrinker == "quest":
+        count = config.sample_count
+        if count is None:
+            if observations is None:
+                raise ValueError("observations required to infer sample_count for QuEST.")
+            count = int(observations.shape[0])
+        return quest_covariance(np.asarray(sample_covariance, dtype=np.float64), sample_count=int(count))
+    if shrinker == "ewma":
+        if observations is None:
+            raise ValueError("observations required for EWMA covariance.")
+        return ewma_covariance(np.asarray(observations, dtype=np.float64), halflife=float(config.ewma_halflife))
     # Default RIE-style shrinkage
-    return _rie_covariance(
+    count = config.sample_count
+    if count is None and observations is not None:
+        count = int(observations.shape[0])
+    return rie_covariance(
         np.asarray(sample_covariance, dtype=np.float64),
-        sample_count=config.sample_count,
+        sample_count=count,
     )
 
 

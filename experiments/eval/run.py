@@ -130,6 +130,7 @@ class EvalConfig:
     group_design: str = "week"
     group_min_count: int = 5
     group_min_replicates: int = 3
+    ewma_halflife: float = 30.0
 
 
 @dataclass(slots=True, frozen=True)
@@ -181,6 +182,7 @@ def _serialise_config(config: EvalConfig) -> dict[str, Any]:
         "group_design": config.group_design,
         "group_min_count": config.group_min_count,
         "group_min_replicates": config.group_min_replicates,
+        "ewma_halflife": config.ewma_halflife,
     }
 
 
@@ -303,7 +305,7 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
         "--shrinker",
         type=str,
         default=None,
-        choices=["rie", "lw", "oas", "sample"],
+        choices=["rie", "lw", "oas", "sample", "quest", "ewma"],
         help="Baseline shrinker for non-detected directions.",
     )
     parser.add_argument("--seed", type=int, default=None, help="Deterministic seed for gating utilities.")
@@ -358,6 +360,13 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
         type=int,
         default=None,
         help="Optional seed override specifically for overlay search.",
+    )
+    parser.add_argument(
+        "--ewma-halflife",
+        dest="ewma_halflife",
+        type=float,
+        default=None,
+        help="Half-life (in days) for EWMA shrinkage baseline (requires --shrinker ewma).",
     )
     parser.add_argument(
         "--edge-mode",
@@ -496,6 +505,24 @@ def _compute_vol_proxy(returns: pd.DataFrame, span: int = 21) -> pd.Series:
     proxy = np.sqrt(ewma)
     proxy.name = "vol_proxy"
     return proxy.dropna()
+
+
+def _write_prewhiten_diagnostics(out_dir: Path, whitening: PrewhitenResult) -> None:
+    if whitening.residuals.empty:
+        return
+    diag_path = out_dir / "prewhiten_diagnostics.csv"
+    summary_path = out_dir / "prewhiten_summary.json"
+    betas = whitening.betas.copy()
+    betas["intercept"] = whitening.intercept
+    betas["r_squared"] = whitening.r_squared
+    betas.to_csv(diag_path)
+    r2_series = whitening.r_squared
+    summary = {
+        "asset_count": int(r2_series.shape[0]),
+        "mean_r_squared": float(r2_series.mean()),
+        "median_r_squared": float(r2_series.median()),
+    }
+    summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
 
 
 def _build_grouped_window(
@@ -716,6 +743,9 @@ def run_evaluation(
         dir_path.mkdir(parents=True, exist_ok=True)
     resolved_payload = dict(resolved_config) if resolved_config is not None else _serialise_config(config)
     resolved_path = out_dir / "resolved_config.json"
+    _write_prewhiten_diagnostics(out_dir, whitening)
+    prewhiten_r2_mean = float(whitening.r_squared.mean()) if not whitening.r_squared.empty else float("nan")
+    resolved_payload["prewhiten_r2_mean"] = prewhiten_r2_mean
     resolved_path.write_text(json.dumps(resolved_payload, indent=2, sort_keys=True))
     resolved_path_str = str(resolved_path)
 
@@ -728,6 +758,7 @@ def run_evaluation(
         a_grid=int(config.overlay_a_grid),
         require_isolated=bool(config.require_isolated),
         cs_drop_top_frac=config.cs_drop_top_frac,
+        ewma_halflife=float(config.ewma_halflife),
     )
 
     mv_gamma = float(config.mv_gamma)
@@ -785,6 +816,7 @@ def run_evaluation(
                 "group_design": config.group_design,
                 "group_count": 0,
                 "group_replicates": 0,
+                "prewhiten_r2_mean": prewhiten_r2_mean,
             }
             return [], diag_record
 
@@ -936,6 +968,7 @@ def run_evaluation(
             "group_design": config.group_design,
             "group_count": group_count,
             "group_replicates": replicates_per_group,
+            "prewhiten_r2_mean": prewhiten_r2_mean,
         }
         return metrics_block, diag_record
 
@@ -993,6 +1026,7 @@ def run_evaluation(
         "group_design",
         "group_count",
         "group_replicates",
+        "prewhiten_r2_mean",
     ]
     if diagnostics_df.empty:
         diagnostics_df = pd.DataFrame(columns=expected_diag_columns)
@@ -1117,6 +1151,7 @@ def run_evaluation(
             vol_signal=("vol_signal", "mean"),
             group_count=("group_count", "mean"),
             group_replicates=("group_replicates", "mean"),
+            prewhiten_r2_mean=("prewhiten_r2_mean", "mean"),
         )
         .reset_index()
     )
@@ -1131,6 +1166,7 @@ def run_evaluation(
         diagnostics_summary["group_design"] = ""
         diagnostics_summary["group_count"] = np.nan
         diagnostics_summary["group_replicates"] = np.nan
+        diagnostics_summary["prewhiten_r2_mean"] = np.nan
     else:
         reason_summary = (
             diagnostics_df.groupby("regime")["reason_code"]

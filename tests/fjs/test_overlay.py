@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from baselines.covariance import ewma_covariance, quest_covariance
 from fjs.dealias import Detection
 from fjs.overlay import OverlayConfig, apply_overlay, detect_spikes
 
@@ -82,3 +83,23 @@ def test_detect_spikes_uses_tyler_edge_mode() -> None:
     assert detections
     assert all(det.get("edge_mode") == "tyler" for det in detections)
     assert len(detections) <= 2
+
+
+def test_apply_overlay_with_ewma_shrinker_matches_baseline() -> None:
+    rng = np.random.default_rng(99)
+    observations = rng.normal(scale=0.3, size=(80, 4))
+    sample_cov = np.cov(observations, rowvar=False, ddof=1)
+    config = OverlayConfig(shrinker="ewma", ewma_halflife=5.0, require_isolated=False, q_max=1)
+    result = apply_overlay(sample_cov, [], observations=observations, config=config)
+    baseline = ewma_covariance(observations, halflife=5.0)
+    assert np.allclose(result, baseline, atol=1e-8)
+
+
+def test_apply_overlay_with_quest_shrinker_matches_baseline() -> None:
+    rng = np.random.default_rng(101)
+    observations = rng.normal(scale=0.4, size=(70, 5))
+    sample_cov = np.cov(observations, rowvar=False, ddof=1)
+    config = OverlayConfig(shrinker="quest", require_isolated=False, q_max=1)
+    result = apply_overlay(sample_cov, [], observations=observations, config=config)
+    baseline = quest_covariance(sample_cov, sample_count=observations.shape[0])
+    assert np.allclose(result, baseline, atol=1e-8)

@@ -78,6 +78,7 @@ DEFAULTS: dict[str, Any] = {
     "group_design": "week",
     "group_min_count": 5,
     "group_min_replicates": 3,
+    "ewma_halflife": 30.0,
 }
 
 
@@ -162,6 +163,7 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         if merged.get("group_min_replicates") is not None
         else DEFAULTS["group_min_replicates"]
     )
+    ewma_halflife_val = float(merged.get("ewma_halflife", DEFAULTS["ewma_halflife"]))
 
     config = EvalConfig(
         returns_csv=Path(returns_csv),
@@ -206,6 +208,7 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         group_design=group_design_val,
         group_min_count=group_min_count_val,
         group_min_replicates=group_min_replicates_val,
+        ewma_halflife=ewma_halflife_val,
     )
 
     resolved = {
@@ -243,6 +246,7 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         "group_design": config.group_design,
         "group_min_count": config.group_min_count,
         "group_min_replicates": config.group_min_replicates,
+        "ewma_halflife": config.ewma_halflife,
     }
 
     return ResolveResult(config=config, resolved=resolved)

@@ -82,6 +82,7 @@ def test_run_evaluation_emits_artifacts(tmp_path_factory: pytest.TempPathFactory
         "group_design",
         "group_count",
         "group_replicates",
+        "prewhiten_r2_mean",
     }.issubset(diag_df.columns)
     if not diag_df.empty:
         reason_values = set(diag_df["reason_code"].dropna().unique())
@@ -95,6 +96,10 @@ def test_run_evaluation_emits_artifacts(tmp_path_factory: pytest.TempPathFactory
     detail_diag = outputs.diagnostics_detail["full"]
     assert detail_diag.exists()
     assert outputs.diagnostics_detail["all"].exists()
+    prewhiten_diag = Path(out_dir) / "prewhiten_diagnostics.csv"
+    prewhiten_summary = Path(out_dir) / "prewhiten_summary.json"
+    assert prewhiten_diag.exists()
+    assert prewhiten_summary.exists()
 
 
 def test_resolve_eval_config_precedence(tmp_path_factory: pytest.TempPathFactory) -> None:

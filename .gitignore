@@ -26,6 +26,9 @@ figures/
 ablations/
 reports/rc-*/
 reports/rc-/
+!reports/rc-*/
+reports/rc-*/**
+!reports/rc-*/memo.md
 
 # Publish fast synthetic figure previews in README
 !figures/synthetic_fast/

@@ -83,6 +83,9 @@ def test_run_evaluation_emits_artifacts(tmp_path_factory: pytest.TempPathFactory
         "group_count",
         "group_replicates",
         "prewhiten_r2_mean",
+        "group_label_counts",
+        "group_observations",
+        "vol_state_label",
     }.issubset(diag_df.columns)
     if not diag_df.empty:
         reason_values = set(diag_df["reason_code"].dropna().unique())
@@ -92,6 +95,8 @@ def test_run_evaluation_emits_artifacts(tmp_path_factory: pytest.TempPathFactory
         assert diag_df["calm_threshold"].notna().any()
         assert diag_df["crisis_threshold"].notna().any()
         assert diag_df["vol_signal"].notna().any()
+        assert diag_df["group_label_counts"].notna().all()
+        assert diag_df["vol_state_label"].notna().all()
 
     detail_diag = outputs.diagnostics_detail["full"]
     assert detail_diag.exists()
@@ -102,6 +107,40 @@ def test_run_evaluation_emits_artifacts(tmp_path_factory: pytest.TempPathFactory
     assert prewhiten_diag.exists()
     assert prewhiten_summary.exists()
     assert overlay_toggle.exists()
+
+
+def test_run_evaluation_vol_design_logs_state(tmp_path_factory: pytest.TempPathFactory) -> None:
+    tmp_dir = tmp_path_factory.mktemp("vol_design")
+    dates = pd.date_range("2024-02-01", periods=90, freq="B")
+    rng = np.random.default_rng(2042)
+    scales = np.array([0.004, 0.012, 0.025], dtype=np.float64)
+    data = np.vstack([rng.normal(scale=scales[idx % 3], size=6) for idx in range(len(dates))])
+    frame = pd.DataFrame(data, index=dates, columns=[f"S{col}" for col in range(6)])
+    returns_csv = tmp_dir / "returns.csv"
+    frame.reset_index().rename(columns={"index": "date"}).to_csv(returns_csv, index=False)
+    out_dir = tmp_dir / "outputs"
+    config = EvalConfig(
+        returns_csv=returns_csv,
+        factors_csv=None,
+        window=21,
+        horizon=5,
+        out_dir=out_dir,
+        shrinker="rie",
+        seed=17,
+        group_design="vol",
+        group_min_count=3,
+        group_min_replicates=2,
+        vol_ewma_span=5,
+    )
+    outputs = run_evaluation(config)
+    detail_path = outputs.diagnostics_detail["all"]
+    detail = pd.read_csv(detail_path)
+    non_empty = detail[detail["group_label_counts"].astype(str) != ""]
+    assert not non_empty.empty
+    assert non_empty["group_label_counts"].str.contains("calm:").any()
+    assert non_empty["group_label_counts"].str.contains("mid:").any()
+    assert non_empty["group_label_counts"].str.contains("crisis:").any()
+    assert set(non_empty["vol_state_label"].unique()) <= {"calm", "mid", "crisis", "unknown"}
 
 
 def test_resolve_eval_config_precedence(tmp_path_factory: pytest.TempPathFactory) -> None:

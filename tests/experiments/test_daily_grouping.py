@@ -60,6 +60,24 @@ def test_group_by_vol_state_balances() -> None:
     assert counts[0] == counts[1] == counts[2] == 15
 
 
+def test_group_by_vol_state_enforces_min_replicates() -> None:
+    frame = _make_returns_frame("2024-02-01", 45)
+    vol_values = np.concatenate([
+        np.full(15, 0.35),
+        np.full(15, 0.95),
+        np.full(15, 1.75),
+    ])
+    vol_proxy = pd.Series(vol_values, index=frame.index)
+    with pytest.raises(GroupingError):
+        group_by_vol_state(
+            frame,
+            vol_proxy=vol_proxy,
+            calm_threshold=0.6,
+            crisis_threshold=1.4,
+            min_replicates=16,
+        )
+
+
 def test_daily_cli_forwards_defaults(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     returns_csv = tmp_path / "returns.csv"
     frame = _make_returns_frame("2024-03-01", 30)

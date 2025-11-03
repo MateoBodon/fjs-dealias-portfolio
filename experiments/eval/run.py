@@ -145,6 +145,48 @@ class EvalOutputs:
 
 _REGIMES = ("full", "calm", "crisis")
 
+_DOW_LABELS = {
+    0: "mon",
+    1: "tue",
+    2: "wed",
+    3: "thu",
+    4: "fri",
+}
+
+_VOL_LABELS = {
+    0: "calm",
+    1: "mid",
+    2: "crisis",
+}
+
+
+def _format_group_label_counts(labels: np.ndarray, design: str) -> tuple[str, dict[int, int]]:
+    if labels.size == 0:
+        return "", {}
+    unique, counts = np.unique(labels, return_counts=True)
+    if unique.size == 0:
+        return "", {}
+    design_key = design.lower()
+    label_map = _DOW_LABELS if design_key == "dow" else _VOL_LABELS if design_key == "vol" else {}
+    entries: list[str] = []
+    counts_map: dict[int, int] = {}
+    pairs = [(int(raw_label), int(raw_count)) for raw_label, raw_count in zip(unique.tolist(), counts.tolist())]
+    for label, count in sorted(pairs, key=lambda pair: pair[0]):
+        counts_map[label] = count
+        label_name = label_map.get(label, str(label))
+        entries.append(f"{label_name}:{count}")
+    return "|".join(entries), counts_map
+
+
+def _vol_state_label(value: float, calm_cut: float, crisis_cut: float) -> str:
+    if not np.isfinite(value):
+        return "unknown"
+    if value <= calm_cut:
+        return "calm"
+    if value >= crisis_cut:
+        return "crisis"
+    return "mid"
+
 
 def _serialise_config(config: EvalConfig) -> dict[str, Any]:
     return {
@@ -795,6 +837,7 @@ def run_evaluation(
     def _evaluate_window(start: int) -> tuple[list[dict[str, object]], dict[str, object] | None]:
         fit = residuals.iloc[start : start + config.window]
         hold = residuals.iloc[start + config.window : start + config.window + config.horizon]
+        design = (config.group_design or "week").lower()
         if hold.empty:
             return [], None
         train_end = pd.to_datetime(fit.index[-1])
@@ -813,6 +856,8 @@ def run_evaluation(
         vol_signal_value = float(vol_signal_series.loc[hold_start]) if hold_start in vol_signal_series.index else float("nan")
         if np.isnan(vol_signal_value):
             vol_signal_value = fallback_vol
+
+        hold_vol_state = _vol_state_label(vol_signal_value, calm_cut, crisis_cut)
 
         try:
             fit_balanced, group_labels = _build_grouped_window(
@@ -844,6 +889,9 @@ def run_evaluation(
                 "group_count": 0,
                 "group_replicates": 0,
                 "prewhiten_r2_mean": prewhiten_r2_mean,
+                "group_label_counts": "",
+                "group_observations": 0,
+                "vol_state_label": hold_vol_state,
             }
             return [], diag_record
 
@@ -854,6 +902,9 @@ def run_evaluation(
         group_ids, group_counts = np.unique(group_labels, return_counts=True)
         group_count = int(group_ids.size)
         replicates_per_group = int(group_counts.min()) if group_counts.size else 0
+
+        group_label_counts, counts_map = _format_group_label_counts(group_labels, design)
+        group_observations = int(sum(counts_map.values()))
 
         reason = DiagnosticReason.NO_DETECTIONS
         if group_count < int(config.group_min_count):
@@ -996,6 +1047,9 @@ def run_evaluation(
             "group_count": group_count,
             "group_replicates": replicates_per_group,
             "prewhiten_r2_mean": prewhiten_r2_mean,
+            "group_label_counts": group_label_counts,
+            "group_observations": group_observations,
+            "vol_state_label": hold_vol_state,
         }
         return metrics_block, diag_record
 
@@ -1025,6 +1079,12 @@ def run_evaluation(
 
     metrics_df = pd.DataFrame(window_records)
     diagnostics_df = pd.DataFrame(diagnostics_records)
+    if "group_label_counts" not in diagnostics_df.columns:
+        diagnostics_df["group_label_counts"] = ""
+    if "group_observations" not in diagnostics_df.columns:
+        diagnostics_df["group_observations"] = np.nan
+    if "vol_state_label" not in diagnostics_df.columns:
+        diagnostics_df["vol_state_label"] = ""
     metrics_df, diagnostics_df = _limit_windows_by_regime(
         metrics_df,
         diagnostics_df,
@@ -1054,13 +1114,19 @@ def run_evaluation(
         "group_count",
         "group_replicates",
         "prewhiten_r2_mean",
+        "group_label_counts",
+        "group_observations",
+        "vol_state_label",
     ]
     if diagnostics_df.empty:
         diagnostics_df = pd.DataFrame(columns=expected_diag_columns)
     else:
         for column in expected_diag_columns:
             if column not in diagnostics_df.columns:
-                diagnostics_df[column] = np.nan
+                if column in {"group_label_counts", "vol_state_label"}:
+                    diagnostics_df[column] = ""
+                else:
+                    diagnostics_df[column] = np.nan
         diagnostics_df = diagnostics_df[expected_diag_columns]
 
     outputs_metrics: dict[str, Path] = {}
@@ -1163,25 +1229,36 @@ def run_evaluation(
             summary_df.loc[mask_overlay, "delta_mse_ci_lower"] = lower
             summary_df.loc[mask_overlay, "delta_mse_ci_upper"] = upper
 
-    diagnostics_summary = (
-        diagnostics_df.groupby("regime")
-        .agg(
-            detections=("detections", "mean"),
-            detection_rate=("detection_rate", "mean"),
-            edge_margin_mean=("edge_margin_mean", "mean"),
-            stability_margin_mean=("stability_margin_mean", "mean"),
-            isolation_share=("isolation_share", "mean"),
-            alignment_cos_mean=("alignment_cos_mean", "mean"),
-            alignment_angle_mean=("alignment_angle_mean", "mean"),
-            calm_threshold=("calm_threshold", "mean"),
-            crisis_threshold=("crisis_threshold", "mean"),
-            vol_signal=("vol_signal", "mean"),
-            group_count=("group_count", "mean"),
-            group_replicates=("group_replicates", "mean"),
-            prewhiten_r2_mean=("prewhiten_r2_mean", "mean"),
+    agg_spec = {
+        "detections": ("detections", "mean"),
+        "detection_rate": ("detection_rate", "mean"),
+        "edge_margin_mean": ("edge_margin_mean", "mean"),
+        "stability_margin_mean": ("stability_margin_mean", "mean"),
+        "isolation_share": ("isolation_share", "mean"),
+        "alignment_cos_mean": ("alignment_cos_mean", "mean"),
+        "alignment_angle_mean": ("alignment_angle_mean", "mean"),
+        "calm_threshold": ("calm_threshold", "mean"),
+        "crisis_threshold": ("crisis_threshold", "mean"),
+        "vol_signal": ("vol_signal", "mean"),
+        "group_count": ("group_count", "mean"),
+        "group_replicates": ("group_replicates", "mean"),
+        "prewhiten_r2_mean": ("prewhiten_r2_mean", "mean"),
+        "group_observations": ("group_observations", "mean"),
+    }
+    available_spec = {
+        key: value for key, value in agg_spec.items() if value[0] in diagnostics_df.columns
+    }
+    if available_spec:
+        diagnostics_summary = (
+            diagnostics_df.groupby("regime")
+            .agg(**available_spec)
+            .reset_index()
         )
-        .reset_index()
-    )
+    else:
+        diagnostics_summary = pd.DataFrame(columns=["regime"])
+    for output_col in agg_spec:
+        if output_col not in diagnostics_summary.columns:
+            diagnostics_summary[output_col] = np.nan
     if diagnostics_summary.empty:
         diagnostics_summary["reason_code"] = ""
         diagnostics_summary["resolved_config_path"] = resolved_path_str
@@ -1194,6 +1271,9 @@ def run_evaluation(
         diagnostics_summary["group_count"] = np.nan
         diagnostics_summary["group_replicates"] = np.nan
         diagnostics_summary["prewhiten_r2_mean"] = np.nan
+        diagnostics_summary["group_observations"] = np.nan
+        diagnostics_summary["group_label_counts"] = ""
+        diagnostics_summary["vol_state_label"] = ""
     else:
         reason_summary = (
             diagnostics_df.groupby("regime")["reason_code"]
@@ -1217,6 +1297,24 @@ def run_evaluation(
         diagnostics_summary = diagnostics_summary.merge(reason_summary, on="regime", how="left")
         diagnostics_summary = diagnostics_summary.merge(path_summary, on="regime", how="left")
         diagnostics_summary = diagnostics_summary.merge(design_summary, on="regime", how="left")
+        if "group_label_counts" in diagnostics_df.columns:
+            label_counts_summary = (
+                diagnostics_df.groupby("regime")["group_label_counts"]
+                .agg(_mode_string)
+                .reset_index()
+            )
+            diagnostics_summary = diagnostics_summary.merge(label_counts_summary, on="regime", how="left")
+        else:
+            diagnostics_summary["group_label_counts"] = ""
+        if "vol_state_label" in diagnostics_df.columns:
+            vol_state_summary = (
+                diagnostics_df.groupby("regime")["vol_state_label"]
+                .agg(_mode_string)
+                .reset_index()
+            )
+            diagnostics_summary = diagnostics_summary.merge(vol_state_summary, on="regime", how="left")
+        else:
+            diagnostics_summary["vol_state_label"] = ""
 
     overlay_toggle_path = out_dir / "overlay_toggle.md"
     _write_overlay_toggle(overlay_toggle_path, diagnostics_summary)

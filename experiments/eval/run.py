@@ -119,6 +119,8 @@ class EvalConfig:
     alignment_top_p: int = 3
     cs_drop_top_frac: float | None = None
     prewhiten: bool = True
+    calm_window_sample: int | None = None
+    crisis_window_top_k: int | None = None
 
 
 @dataclass(slots=True, frozen=True)
@@ -165,6 +167,8 @@ def _serialise_config(config: EvalConfig) -> dict[str, Any]:
         "alignment_top_p": config.alignment_top_p,
         "cs_drop_top_frac": config.cs_drop_top_frac,
         "prewhiten": config.prewhiten,
+        "calm_window_sample": config.calm_window_sample,
+        "crisis_window_top_k": config.crisis_window_top_k,
     }
 
 
@@ -373,6 +377,20 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
         help="Number of principal components used for alignment diagnostics.",
     )
     parser.add_argument(
+        "--calm-window-sample",
+        dest="calm_window_sample",
+        type=int,
+        default=None,
+        help="Uniformly sample this many calm windows (omit or set <=0 to disable).",
+    )
+    parser.add_argument(
+        "--crisis-window-topk",
+        dest="crisis_window_top_k",
+        type=int,
+        default=None,
+        help="Select top-K crisis windows by edge margin (omit or set <=0 to disable).",
+    )
+    parser.add_argument(
         "--cs-drop-top-frac",
         dest="cs_drop_top_frac",
         type=float,
@@ -504,6 +522,53 @@ def _realised_tail_mean(returns: np.ndarray, var_threshold: float) -> float:
     if tail.size == 0:
         return float("nan")
     return float(np.mean(tail))
+
+
+def _limit_windows_by_regime(
+    metrics_df: pd.DataFrame,
+    diagnostics_df: pd.DataFrame,
+    *,
+    calm_limit: int | None,
+    crisis_limit: int | None,
+    seed: int,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    if metrics_df.empty or diagnostics_df.empty:
+        return metrics_df, diagnostics_df
+    if "window_id" not in diagnostics_df.columns or "window_id" not in metrics_df.columns:
+        return metrics_df, diagnostics_df
+
+    calm_limit = int(calm_limit) if calm_limit is not None and calm_limit > 0 else None
+    crisis_limit = int(crisis_limit) if crisis_limit is not None and crisis_limit > 0 else None
+    if calm_limit is None and crisis_limit is None:
+        return metrics_df, diagnostics_df
+
+    keep_ids: set[int] = set()
+    rng = np.random.default_rng(seed + 211)
+
+    for regime, frame in diagnostics_df.groupby("regime"):
+        window_ids = frame["window_id"].dropna().to_numpy(dtype=int, copy=False)
+        if window_ids.size == 0:
+            continue
+        if regime == "calm" and calm_limit is not None and window_ids.size > calm_limit:
+            chosen = rng.choice(window_ids, size=calm_limit, replace=False)
+        elif regime == "crisis" and crisis_limit is not None:
+            edge_sorted = frame.assign(edge_sort=frame["edge_margin_mean"].fillna(-np.inf))
+            edge_sorted = edge_sorted.sort_values(["edge_sort", "window_id"], ascending=[False, True])
+            limited = edge_sorted["window_id"].to_numpy(dtype=int)
+            if crisis_limit < limited.size:
+                chosen = limited[:crisis_limit]
+            else:
+                chosen = limited
+        else:
+            chosen = window_ids
+        keep_ids.update(int(x) for x in np.atleast_1d(chosen))
+
+    if not keep_ids:
+        return metrics_df, diagnostics_df
+
+    metrics_filtered = metrics_df[metrics_df["window_id"].isin(keep_ids)].reset_index(drop=True)
+    diagnostics_filtered = diagnostics_df[diagnostics_df["window_id"].isin(keep_ids)].reset_index(drop=True)
+    return metrics_filtered, diagnostics_filtered
 
 
 def _window_regime(
@@ -797,6 +862,7 @@ def run_evaluation(
 
         reason_value = reason.value if config.reason_codes else ""
         diag_record = {
+            "window_id": start,
             "regime": regime,
             "detections": len(detections),
             "detection_rate": len(detections) / float(p_assets) if p_assets else 0.0,
@@ -839,10 +905,18 @@ def run_evaluation(
 
     metrics_df = pd.DataFrame(window_records)
     diagnostics_df = pd.DataFrame(diagnostics_records)
+    metrics_df, diagnostics_df = _limit_windows_by_regime(
+        metrics_df,
+        diagnostics_df,
+        calm_limit=config.calm_window_sample,
+        crisis_limit=config.crisis_window_top_k,
+        seed=config.seed,
+    )
     bootstrap_samples = max(0, int(config.bootstrap_samples))
     rng_bootstrap = np.random.default_rng(config.seed + 97)
     bootstrap_bands: dict[tuple[str, str], tuple[float, float]] = {}
     expected_diag_columns = [
+        "window_id",
         "regime",
         "detections",
         "detection_rate",

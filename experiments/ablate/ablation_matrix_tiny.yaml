@@ -1,0 +1,44 @@
+defaults:
+  window: 126
+  horizon: 21
+  shrinker: rie
+  seed: 123
+  overlay_a_grid: 60
+  overlay_seed: 123
+  require_isolated: true
+  q_max: 1
+  edge_mode: tyler
+  angle_min_cos: 0.985
+  alignment_top_p: 3
+  cs_drop_top_frac: 0.10
+  calm_quantile: 0.20
+  crisis_quantile: 0.80
+  vol_ewma_span: 21
+  mv_gamma: 0.0005
+  mv_tau: 0.0
+  bootstrap_samples: 0
+  prewhiten: true
+  calm_window_sample: 10
+  crisis_window_top_k: 25
+
+grid:
+  panel: [equities]
+  edge_mode: [scm, tyler]
+  require_isolated: [true]
+  angle_min_cos: [0.985, 0.99]
+  q_max: [1]
+  cs_drop_top_frac: [0.10]
+  shrinker: [rie, oas]
+  prewhiten: [true, false]
+
+panels:
+  equities:
+    returns_csv: data/returns_daily.csv
+
+io:
+  cache_dir: ablations/cache
+  out_csv: ablations/ablation_matrix.csv
+
+summary:
+  regime: full
+  portfolios: [ew, mv]

@@ -40,6 +40,8 @@ INT_KEYS = {
     "alignment_top_p",
     "vol_ewma_span",
     "bootstrap_samples",
+    "calm_window_sample",
+    "crisis_window_top_k",
 }
 FLOAT_KEYS = {
     "angle_min_cos",
@@ -194,9 +196,20 @@ def _safe_get(series: pd.Series, key: str) -> float:
         return float("nan")
 
 
-def run_ablation(config_path: Path, *, force: bool = False, limit: int | None = None) -> Path:
+def run_ablation(
+    config_path: Path,
+    *,
+    force: bool = False,
+    limit: int | None = None,
+    calm_window_sample: int | None = None,
+    crisis_window_top_k: int | None = None,
+) -> Path:
     cfg = _load_yaml(config_path)
     defaults = _normalise_defaults(cfg.get("defaults", {}))
+    if calm_window_sample is not None:
+        defaults["calm_window_sample"] = int(calm_window_sample)
+    if crisis_window_top_k is not None:
+        defaults["crisis_window_top_k"] = int(crisis_window_top_k)
     grid = cfg.get("grid", {})
     if not grid:
         raise ValueError("Ablation config requires a non-empty grid section.")
@@ -254,6 +267,12 @@ def run_ablation(config_path: Path, *, force: bool = False, limit: int | None = 
         should_run = force or not summary_perf_path.exists()
 
         if should_run:
+            calm_window_limit = combo.get("calm_window_sample", defaults.get("calm_window_sample"))
+            if calm_window_limit is not None:
+                calm_window_limit = int(calm_window_limit)
+            crisis_window_limit = combo.get("crisis_window_top_k", defaults.get("crisis_window_top_k"))
+            if crisis_window_limit is not None:
+                crisis_window_limit = int(crisis_window_limit)
             _ensure_dir(run_dir)
             config = EvalConfig(
                 returns_csv=panel_spec.returns_csv,
@@ -293,6 +312,8 @@ def run_ablation(config_path: Path, *, force: bool = False, limit: int | None = 
                     else defaults.get("cs_drop_top_frac")
                 ),
                 prewhiten=bool(combo.get("prewhiten", defaults.get("prewhiten", True))),
+                calm_window_sample=calm_window_limit,
+                crisis_window_top_k=crisis_window_limit,
             )
             print(f"[ablate] Running {combo_id}")
             run_evaluation(config)
@@ -427,12 +448,30 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         default=None,
         help="Process only the first N combinations (testing/debug).",
     )
+    parser.add_argument(
+        "--calm-window-sample",
+        type=int,
+        default=None,
+        help="Uniform calm-window sample size applied to every evaluation.",
+    )
+    parser.add_argument(
+        "--crisis-window-topk",
+        type=int,
+        default=None,
+        help="Top-K crisis windows by edge margin retained for each evaluation.",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: Sequence[str] | None = None) -> None:
     args = parse_args(argv)
-    run_ablation(args.config.resolve(), force=args.force, limit=args.limit)
+    run_ablation(
+        args.config.resolve(),
+        force=args.force,
+        limit=args.limit,
+        calm_window_sample=args.calm_window_sample,
+        crisis_window_top_k=args.crisis_window_topk,
+    )
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -73,6 +73,8 @@ DEFAULTS: dict[str, Any] = {
     "alignment_top_p": 3,
     "cs_drop_top_frac": None,
     "prewhiten": True,
+    "calm_window_sample": None,
+    "crisis_window_top_k": None,
 }
 
 
@@ -180,6 +182,12 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         alignment_top_p=alignment_top_p,
         cs_drop_top_frac=float(merged["cs_drop_top_frac"]) if merged.get("cs_drop_top_frac") is not None else None,
         prewhiten=prewhiten,
+        calm_window_sample=int(merged["calm_window_sample"])
+        if merged.get("calm_window_sample") is not None
+        else None,
+        crisis_window_top_k=int(merged["crisis_window_top_k"])
+        if merged.get("crisis_window_top_k") is not None
+        else None,
     )
 
     resolved = {
@@ -212,6 +220,8 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         "alignment_top_p": config.alignment_top_p,
         "cs_drop_top_frac": config.cs_drop_top_frac,
         "prewhiten": prewhiten,
+        "calm_window_sample": config.calm_window_sample,
+        "crisis_window_top_k": config.crisis_window_top_k,
     }
 
     return ResolveResult(config=config, resolved=resolved)

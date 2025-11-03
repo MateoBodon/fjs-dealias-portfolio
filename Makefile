@@ -53,6 +53,9 @@ endif
 RC_RETURNS := data/returns_daily.csv
 RC_DATE := $(shell python3 -c 'import datetime as _dt; print(_dt.datetime.utcnow().strftime("%Y%m%d"))')
 RC_OUT := reports/rc-$(RC_DATE)
+ABLA_GRID ?= experiments/ablate/ablation_matrix.yaml
+RC_CALM_WINDOW_SAMPLE ?=
+RC_CRISIS_WINDOW_TOPK ?=
 
 rc-data:
 	$(RC_PY) experiments/equity_panel/run.py --config experiments/equity_panel/config.smoke.yaml $(RC_FLAGS) --estimator dealias
@@ -69,7 +72,7 @@ rc-eval:
 	$(RC_PY) experiments/eval/run.py --returns-csv $(RC_RETURNS) --out $(RC_OUT)
 
 rc-ablations:
-	$(RC_PY) experiments/ablate/run.py --config experiments/ablate/ablation_matrix.yaml
+	$(RC_PY) experiments/ablate/run.py --config $(ABLA_GRID) $(if $(RC_CALM_WINDOW_SAMPLE),--calm-window-sample $(RC_CALM_WINDOW_SAMPLE),) $(if $(RC_CRISIS_WINDOW_TOPK),--crisis-window-topk $(RC_CRISIS_WINDOW_TOPK),)
 
 rc-summary:
 	$(RC_PY) tools/make_summary.py --rc-dir $(RC_OUT)

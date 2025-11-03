@@ -1,0 +1,39 @@
+{
+  "alpha": 0.02,
+  "delta_abs": 0.5,
+  "generated_at": "2025-11-03T21:26:19.624736+00:00",
+  "p_assets": 40,
+  "n_groups": 180,
+  "replicates": 3,
+  "trials_null": 40,
+  "trials_alt": 20,
+  "delta_frac_grid": [
+    0.02,
+    0.035
+  ],
+  "stability_grid": [
+    0.35
+  ],
+  "edge_modes": [
+    "tyler",
+    "huber"
+  ],
+  "thresholds": {
+    "tyler": {
+      "delta_frac": 0.02,
+      "stability_eta_deg": 0.35,
+      "fpr": 0.0,
+      "trials_null": 40,
+      "power": 1.0,
+      "trials_alt": 20
+    },
+    "huber": {
+      "delta_frac": 0.02,
+      "stability_eta_deg": 0.35,
+      "fpr": 0.0,
+      "trials_null": 40,
+      "power": 1.0,
+      "trials_alt": 20
+    }
+  }
+}

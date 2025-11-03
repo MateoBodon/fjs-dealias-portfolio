@@ -24,7 +24,9 @@ class OverlayConfig:
     max_detections: int | None = None
     q_max: int | None = 1
     delta: float = 0.5
+    delta_frac: float | None = None
     eps: float = 0.02
+    stability_eta_deg: float = 0.4
     a_grid: int = 120
     require_isolated: bool = True
     off_component_cap: float | None = 0.3
@@ -95,7 +97,9 @@ def detect_spikes(
         np.asarray(groups, dtype=np.intp),
         target_r=0,
         delta=float(cfg.delta),
+        delta_frac=float(cfg.delta_frac) if cfg.delta_frac is not None else None,
         eps=float(cfg.eps),
+        stability_eta_deg=float(cfg.stability_eta_deg),
         a_grid=int(cfg.a_grid),
         use_tvector=bool(cfg.require_isolated),
         off_component_leak_cap=cfg.off_component_cap,

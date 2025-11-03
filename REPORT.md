@@ -57,3 +57,9 @@
 - **Decisions**: Auto-discover latest `reports/rc-*/summary/`, derived kill checks (ΔMSE, detection bandwidth, alignment cosine, reason-code) into JSON + markdown, and surfaced global ablation deltas alongside updated bullets referencing reason codes, margins, and stability.
 - **Checks**: `pytest tests/tools/test_make_summary.py tests/experiments/test_ablate_run.py tests/experiments/test_eval_run.py`.
 - **Next Actions**: Run full `make rc` once summary/ablation cache warms and circulate updated memo/brief for advisor review.
+
+## 2025-11-03T19:49Z
+- **Step**: Added shrinker zero-fill WARN/PSD guards, introduced calm/crisis window sampling with a tiny ablation grid, and ran `make rc ABLA_GRID=experiments/ablate/ablation_matrix_tiny.yaml RC_PROGRESS=1 RC_WORKERS=9` to refresh RC artefacts (memo + brief rebuilt).
+- **Decisions**: Sampled 10 calm windows uniformly and kept top-25 crisis windows by edge margin; accepted zero detections/ΔMSE (kill criteria fail) as signal that sampling is too aggressive and needs tuning before sign-off.
+- **Checks**: `pytest tests/test_shrinkage.py tests/experiments/test_eval_run.py tests/experiments/test_ablate_run.py`, inspected `reports/rc-20251103/summary/kill_criteria.json`, regenerated `reports/memo.md` and `reports/brief.md`.
+- **Next Actions**: Loosen calm/crisis limits or revisit overlay gating so detection coverage returns to target band ahead of advisor review.

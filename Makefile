@@ -28,6 +28,11 @@ test-slow:
 test-all:
 	pytest -m "unit or integration"
 
+.PHONY: smoke-daily
+smoke-daily:
+	PYTHONPATH=src python experiments/daily/run.py --returns-csv data/returns_daily.csv --design dow --window 60 --horizon 10 --out reports/smoke-daily/dow
+	PYTHONPATH=src python experiments/daily/run.py --returns-csv data/returns_daily.csv --design vol --window 60 --horizon 10 --out reports/smoke-daily/vol --shrinker quest
+
 .PHONY: test-progress
 test-progress:
 	# Verbose output with progress bar (pytest-sugar), parallel if available

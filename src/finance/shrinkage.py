@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
+
 import numpy as np
 from numpy.typing import NDArray
 from sklearn.covariance import OAS
 
 _PSD_TOL = 1e-10
+_LOGGER = logging.getLogger(__name__)
 
 
 def _validate_input(R: NDArray[np.float64]) -> NDArray[np.float64]:
@@ -26,20 +29,41 @@ def _symmetrize(matrix: NDArray[np.float64]) -> NDArray[np.float64]:
     return np.asarray(0.5 * (matrix + matrix.T), dtype=np.float64)
 
 
+def _warn_and_fill_nonfinite(name: str, data: NDArray[np.float64]) -> NDArray[np.float64]:
+    mask = ~np.isfinite(data)
+    if not np.any(mask):
+        return data
+
+    total = int(mask.sum())
+    row_counts = {int(idx): int(count) for idx, count in enumerate(mask.sum(axis=1)) if count}
+    col_counts = {int(idx): int(count) for idx, count in enumerate(mask.sum(axis=0)) if count}
+    _LOGGER.warning(
+        "%s received %d non-finite values; zero-filled residuals (rows=%s, cols=%s)",
+        name,
+        total,
+        row_counts,
+        col_counts,
+    )
+    return np.nan_to_num(data, nan=0.0, posinf=0.0, neginf=0.0, copy=False)
+
+
+def _assert_psd_and_symmetric(name: str, matrix: NDArray[np.float64]) -> None:
+    if not np.allclose(matrix, matrix.T, atol=1e-10):
+        raise ValueError(f"{name} covariance is not symmetric within tolerance.")
+    eigvals = np.linalg.eigvalsh(matrix)
+    if eigvals.size and float(eigvals.min()) < -_PSD_TOL:
+        raise ValueError(f"{name} covariance is not positive semi-definite.")
+
+
 def oas_covariance(R: NDArray[np.float64]) -> NDArray[np.float64]:
     """Oracle Approximating Shrinkage covariance targeting the identity matrix."""
 
     data = _validate_input(R)
-    if not np.isfinite(data).all():
-        # Replace NaN/inf values with zero residuals to keep OAS well-defined.
-        data = np.nan_to_num(data, nan=0.0, posinf=0.0, neginf=0.0, copy=False)
+    data = _warn_and_fill_nonfinite("oas_covariance", data)
     estimator = OAS(assume_centered=False)
     estimator.fit(data)
     sigma = _symmetrize(np.asarray(estimator.covariance_, dtype=np.float64))
-
-    eigvals = np.linalg.eigvalsh(sigma)
-    if eigvals.size and float(eigvals.min()) < -_PSD_TOL:
-        raise ValueError("OAS covariance is not positive semi-definite.")
+    _assert_psd_and_symmetric("oas_covariance", sigma)
     return sigma
 
 
@@ -80,9 +104,6 @@ def cc_covariance(R: NDArray[np.float64]) -> NDArray[np.float64]:
 
     sigma = shrinkage * target + (1.0 - shrinkage) * sample_cov
     sigma = _symmetrize(sigma)
-
-    eigvals = np.linalg.eigvalsh(sigma)
-    if eigvals.size and float(eigvals.min()) < -_PSD_TOL:
-        raise ValueError("Constant-correlation covariance is not positive semi-definite.")
+    _assert_psd_and_symmetric("cc_covariance", sigma)
 
     return sigma

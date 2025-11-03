@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from finance.ledoit import lw_cov
 from finance.robust import huberize, tyler_shrink_covariance, winsorize
 from finance.shrinkage import cc_covariance, oas_covariance
 
@@ -39,6 +40,26 @@ def test_constant_correlation_shrinkage_reduces_off_diagonal_weight() -> None:
     std = np.sqrt(np.diag(cc_cov))
     corr = cc_cov / np.outer(std, std)
     np.testing.assert_allclose(np.diag(corr), np.ones(4), atol=1e-12)
+
+
+def test_shrinkers_warn_on_nonfinite_and_remain_psd(caplog: pytest.LogCaptureFixture) -> None:
+    rng = np.random.default_rng(7)
+    base = rng.standard_normal((128, 6))
+    base[0, 0] = np.nan
+    base[5, 3] = np.inf
+
+    with caplog.at_level("WARNING"):
+        sigma_oas = oas_covariance(base.copy())
+    assert any("oas_covariance received" in record.message for record in caplog.records)
+    np.testing.assert_allclose(sigma_oas, sigma_oas.T, atol=1e-12)
+    assert np.linalg.eigvalsh(sigma_oas).min() >= -1e-10
+
+    caplog.clear()
+    with caplog.at_level("WARNING"):
+        sigma_lw = lw_cov(base.copy())
+    assert any("lw_cov received" in record.message for record in caplog.records)
+    np.testing.assert_allclose(sigma_lw, sigma_lw.T, atol=1e-12)
+    assert np.linalg.eigvalsh(sigma_lw).min() >= -1e-10
 
 
 def test_winsorize_clips_extremes() -> None:

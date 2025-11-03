@@ -1,92 +1,118 @@
-# Runbook
+# RUNBOOK — Next RC Reproduction
+_Last updated: 2025-11-03_
 
-## Smoke vs. full equity runs
+## 0. Environment
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .
+export PYTHONPATH=src
+```
 
-- Smoke run (≈5 min, 6+1 weeks, 80 assets):
-  ```bash
-  PYTHONPATH=src OMP_NUM_THREADS=1 python experiments/equity_panel/run.py \
-      --config experiments/equity_panel/config.smoke.yaml \
-      --no-progress --workers $(python -c 'import os;print(os.cpu_count() or 4)') \
-      --assets-top 80 --stride-windows 4 --resume --cache-dir .cache \
-      --precompute-panel --drop-partial-weeks --estimator oas
-  ```
-  Artifacts land in `experiments/equity_panel/outputs_smoke/<design>_J*_solver-*_est-*_prep-*/`.
-- Full run (≈90 min, 156+4 weeks): drop the stride/top overrides and let `--estimator dealias`.
+## 1. Daily Panels with Replicates
+Run the Day-of-Week (`dow`) and volatility-state (`vol`) replicates using the daily harness.
+```bash
+python experiments/daily/run.py \
+    --returns-csv data/daily_returns.csv \
+    --design dow \
+    --window 126 --horizon 21 \
+    --shrinker rie \
+    --edge-mode tyler \
+    --out reports/rc-$(date +%Y%m%d)/dow
 
-## Test suites
+python experiments/daily/run.py \
+    --returns-csv data/daily_returns.csv \
+    --design vol \
+    --window 126 --horizon 21 \
+    --shrinker rie \
+    --edge-mode huber \
+    --out reports/rc-$(date +%Y%m%d)/vol
+```
+Both commands write `metrics.csv`, `risk.csv`, `dm.csv`, `diagnostics.csv`, and `delta_mse.png` for full/calm/crisis windows plus `overlay_toggle.md`.
 
-- `make test-fast` → `pytest -m unit` (deterministic micro-tests; keep data to ≤12 assets, ≤6 weeks).
-- `make test-integration` → `pytest -m integration` (smoke-sized multi-module flows).
-- `make test-slow` → `pytest -m slow` (long synthetic studies, optional locally).
-- `make test-all` → union of unit + integration (default CI footprint). Mark multi-minute jobs as `heavy`.
+## 2. Overlay Baseline Comparisons
+Re-run with EWMA and QuEST shrinkage while toggling observed-factor prewhitening.
+```bash
+python experiments/daily/run.py \
+    --returns-csv data/daily_returns.csv \
+    --design dow \
+    --shrinker quest \
+    --prewhiten ff5_mom \
+    --out reports/rc-$(date +%Y%m%d)/dow_quest
 
-## New estimator switches
+python experiments/daily/run.py \
+    --returns-csv data/daily_returns.csv \
+    --design vol \
+    --shrinker ewma \
+    --ewma-halflife 30 \
+    --overlay-off \
+    --out reports/rc-$(date +%Y%m%d)/vol_ewma
+```
 
-- `--estimator {aliased,dealias,lw,oas,cc,factor,factor_obs,poet,tyler_shrink}` tags the run, cache entries, and `run_meta`.
-- `--factor-csv tests/data/factors_tiny.csv` enables the observed-factor covariance; the CSV must be wide, date-indexed. `factor_obs` auto-skips (with a warning) if factors are absent, while `poet` needs no extra inputs.
-- Shrinkage benchmarks (LW, OAS, constant-correlation, Tyler) and the factor estimator all appear in `metrics_summary.csv`; Diebold–Mariano columns (`dm_stat_*`, `dm_p_*`) compare them to the de-aliased baseline.
+## 3. Calibration Sweep
+Synthetic null/power calibration at matched dimensionality.
+```bash
+python experiments/synthetic/calibrate_thresholds.py \
+    --p 120 --n 180 \
+    --fpr-target 0.015 \
+    --sims 2000 \
+    --out calibration/thresholds.json
+```
+Inspect the report: `python tools/show_thresholds.py calibration/thresholds.json`.
 
-## Robust preprocessing toggles
+## 4. Crisis/Calm Evaluation Bundle
+Aggregate replicates and baselines into a single RC drop.
+```bash
+python tools/collect_rc.py \
+    --rc-date $(date +%Y%m%d) \
+    --runs reports/rc-$(date +%Y%m%d)/dow reports/rc-$(date +%Y%m%d)/vol \
+    --include reports/rc-$(date +%Y%m%d)/dow_quest reports/rc-$(date +%Y%m%d)/vol_ewma \
+    --overlay calibration/thresholds.json
+```
+Outputs live under `reports/rc-$(date +%Y%m%d)/` with `memo.md`, `gallery/`, `overlay_toggle.md`, and telemetry CSVs.
 
-- `--winsorize q` applies column-wise clipping to the empirical `[q, 1-q]` quantiles (mutually exclusive with Huber).
-- `--huber c` clips at `median ± c·MAD` per column; use when thin tails help guard ablations.
-- Preprocess selections become part of cache keys, panel manifests, artifact directories, and `run_meta.preprocess_flags`.
-- Pair with `--estimator tyler_shrink` to use the Tyler–ridge covariance in evaluation and DM tables.
+## 5. ETF Alt-Panel Demo
+```bash
+python experiments/etf_panel/run.py \
+    --returns-csv data/etf_returns.csv \
+    --window 126 --horizon 21 \
+    --shrinker rie \
+    --out reports/etf-rc/
+```
 
-## Edge-mode overrides
+## 6. Testing & Smoke Targets
+```bash
+pytest tests/baselines/test_prewhiten.py \
+       tests/baselines/test_rie.py \
+       tests/baselines/test_ewma.py \
+       tests/fjs/test_overlay.py \
+       tests/experiments/test_eval_run.py \
+       tests/experiments/test_daily_run.py \
+       tests/synthetic/test_calibration.py
 
-- `--edge-mode {scm,tyler,huber}` scales the MP edge before applying the δ/δ_frac buffers. Each window records both `edge_scm` and `edge_selected` in `detection_summary.csv` and `summary.json` logs the chosen mode.
-- `--edge-huber-c 1.5` tunes the Huber scatter threshold when `--edge-mode huber`.
-- Memo lines include `[edge=<mode>]` badges; nested runs that bail solely due to `no_isolated_spike` are flagged with “nested scope de-scoped”.
+make smoke-daily
+```
 
-## Min-variance regularisation and turnover
+## 7. Memo & Gallery Refresh
+```bash
+make rc RC_DATE=$(date +%Y%m%d)
+make gallery RC_DATE=$(date +%Y%m%d)
+```
+Review deliverables:
+```bash
+less reports/rc-$(date +%Y%m%d)/memo.md
+open figures/rc-$(date +%Y%m%d)/index.html
+```
 
-- `--minvar-ridge 1e-3` adds λ²I to the min-var covariance; tweak with `--minvar-box lo,hi` (defaults 0,0.05).
-- Turnover diagnostics (`*_turnover`, `*_turnover_cost`) are written per window.
-- Apply transaction costs via `--turnover-cost 25` (basis points).
-
-## Summaries
-
-- `python tools/summarize_run.py <run_dir>` prints estimator MSE breakdowns plus DM p-values.
-- `tools/list_runs.py` remains the index of archived runs.
-
-## Clean outputs
-
-- Inspect pending moves: `python tools/clean_outputs.py --dry-run`
-- Delete legacy artifacts once verified: `python tools/clean_outputs.py --purge`
-
-## Build gallery
-
-- Build tables/plots for configured runs: `make gallery`
-- Inspect generated assets: `ls figures/smoke/<run_tag>/{tables,plots}`
-
-## Release Candidate
-
-- Generate RC runs, gallery, and memo: `make rc`
-- Review outputs: `ls figures/rc/<run_tag>` and `less reports/memo.md`
-- Extend coverage by editing `experiments/equity_panel/config.rc.yaml` (add estimators or crisis configs) before rerunning `make rc`.
-
-## Calibration (Oct 2025)
-
-- **Smoke + crisis reruns.** `PYTHONPATH=src python3 experiments/equity_panel/run.py --config experiments/equity_panel/config.smoke.yaml --no-progress --precompute-panel --drop-partial-weeks --estimator dealias` produces the smoke slice (SCM edge by default). Pair it with `--edge-mode tyler --crisis 20200215:20200531` for the 2020 crisis run, `--edge-mode huber --edge-huber-c 1.5` for the robust-edge variant, and `--gating-mode calibrated --gating-calibration calibration/edge_delta_thresholds.json` for the post-calibration reruns. `summary.json` now includes `edge_mode`, `gating.mode`, `substitution_fraction`, calibrated δ ranges, and (for nested runs) `nested_scope` with a rationale when all windows are skipped.
-- **Gallery + memo regeneration.** `python3 tools/build_gallery.py --config experiments/equity_panel/config.gallery.yaml` and `python3 tools/build_memo.py --config experiments/equity_panel/config.gallery.yaml` refresh the plots/tables; look for the new `alignment_angles.png` plot per run and the memo’s QLIKE/alignment panel.
-- **Acceptance sweep.** `PYTHONPATH=src python3 experiments/equity_panel/sweep_acceptance.py --design oneway --estimators dealias lw oas cc tyler --grid default` populates `experiments/equity_panel/sweeps/` with tagged run directories, `sweep_summary.csv`, and the overview heatmaps `E5_detection_rate.png` / `E5_mse_gain.png`. The grid `{δ_frac, ε} = {0.01,0.02} × {0.02,0.03}` with `η ∈ {0.4,0.6}` and `a_grid ∈ {90,120}` produced indistinguishable detection and ΔMSE profiles, so we retained the guardrail values (δ_frac = 0.02, ε = 0.03, η = 0.4) and standardised on `a_grid = 120`.
-- **Run aggregation.** Stitch the canonical RC slices into a single table:
-
-  ```bash
-  python3 tools/aggregate_runs.py --inputs \
-    experiments/equity_panel/outputs_smoke_scm/oneway_J5_solver-auto_est-dealias_prep-none \
-    experiments/equity_panel/outputs_crisis_tyler/oneway_J5_solver-auto_est-dealias_prep-none__crisis_20200215_20200531 \
-    experiments/equity_panel/outputs_smoke_huber/oneway_J5_solver-auto_est-dealias_prep-none__crisis_20200215_20200531 \
-    experiments/equity_panel/outputs_smoke_calibrated/oneway_J5_solver-auto_est-dealias_prep-none \
-    experiments/equity_panel/outputs_smoke_calibrated/oneway_J5_solver-auto_est-dealias_prep-none__crisis_20200215_20200531 \
-    experiments/equity_panel/outputs_nested_smoke/nested_J5_solver-auto_est-dealias_prep-none \
-    --out reports/aggregate_summary.csv
-  ```
-
-  Columns now expose `edge_mode`, `gating_mode`, `substitution_fraction`, `skip_no_isolated_share`, `delta_frac_used_min/max`, and VaR diagnostics so the memo tables can badge edge/gate settings directly.
-- **Defaults snapshot.** `experiments/equity_panel/config.yaml` and `config.smoke.yaml` now carry `gating` defaults (`enable: true`, `q_max: 2`, `require_isolated: true`, `mode: fixed`, `calibration_path: calibration/edge_delta_thresholds.json`) alongside `alignment_top_p: 3`.
-- **Calibrated gating workflow.**
-  1. `PYTHONPATH=src python3 experiments/synthetic/power_null.py --design oneway --edge-modes scm tyler --calibrate-delta --alpha 0.01 --out calibration/edge_delta_thresholds.json`
-  2. `PYTHONPATH=src python3 experiments/equity_panel/run.py … --gating-mode calibrated --gating-calibration calibration/edge_delta_thresholds.json`
-  3. Rebuild the gallery, memo, and aggregates so the edge/gate badges pick up the calibrated thresholds.
+## 8. Packaging
+```bash
+git status
+pytest -q
+make smoke-daily
+```
+If clean and green, tag the RC:
+```bash
+VERSION=$(date +%Y%m%d)
+git tag -a rc-${VERSION} -m "RC ${VERSION}"
+git push origin rc-${VERSION}
+```

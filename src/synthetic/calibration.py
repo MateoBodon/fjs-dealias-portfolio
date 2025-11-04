@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,6 +15,7 @@ __all__ = [
     "CalibrationConfig",
     "CalibrationResult",
     "ThresholdEntry",
+    "GridStat",
     "calibrate_thresholds",
     "write_thresholds",
 ]
@@ -27,16 +29,17 @@ class CalibrationConfig:
     n_groups: int = 180
     replicates: int = 3
     alpha: float = 0.02
-    trials_null: int = 400
-    trials_alt: int = 200
+    trials_null: int = 60
+    trials_alt: int = 60
     delta_abs: float = 0.5
     eps: float = 0.02
-    delta_frac_grid: Sequence[float] = (0.0, 0.01, 0.015, 0.02, 0.025, 0.03)
-    stability_grid: Sequence[float] = (0.2, 0.3, 0.4, 0.5)
+    delta_frac_grid: Sequence[float] = (0.0, 0.015, 0.02, 0.03)
+    stability_grid: Sequence[float] = (0.3, 0.4, 0.5)
     spike_strength: float = 4.0
-    edge_modes: Sequence[str] = ("tyler", "huber")
+    edge_modes: Sequence[str] = ("scm", "tyler")
     q_max: int = 2
     seed: int = 0
+    workers: int | None = None
 
 
 @dataclass(frozen=True)
@@ -62,12 +65,37 @@ class ThresholdEntry:
 
 
 @dataclass(frozen=True)
+class GridStat:
+    edge_mode: str
+    delta_abs: float
+    delta_frac: float
+    stability_eta_deg: float
+    fpr: float
+    power: float | None
+
+    def to_dict(self) -> dict[str, float | str | None]:
+        payload: dict[str, float | str | None] = {
+            "edge_mode": str(self.edge_mode),
+            "delta": float(self.delta_abs),
+            "delta_frac": float(self.delta_frac),
+            "stability_eta_deg": float(self.stability_eta_deg),
+            "fpr": float(self.fpr),
+        }
+        if self.power is not None:
+            payload["power"] = float(self.power)
+        else:
+            payload["power"] = None
+        return payload
+
+
+@dataclass(frozen=True)
 class CalibrationResult:
     config: CalibrationConfig
     thresholds: Mapping[str, ThresholdEntry]
     alpha: float
     delta_abs: float
     generated_at: datetime
+    grid: Sequence[GridStat]
 
     def to_json(self) -> dict[str, object]:
         return {
@@ -85,6 +113,7 @@ class CalibrationResult:
             "thresholds": {
                 str(mode): entry.to_dict() for mode, entry in self.thresholds.items()
             },
+            "grid": [stat.to_dict() for stat in self.grid],
         }
 
 
@@ -141,6 +170,24 @@ def _evaluate_detection(
     return bool(detections)
 
 
+def _trial_worker(
+    args: tuple[int, int, CalibrationConfig, str, float, float, float]
+) -> int:
+    idx, seed_val, cfg, edge_mode, delta_frac, stability_eta, spike_strength = args
+    rng = np.random.default_rng(int(seed_val))
+    y, groups = _simulate_panel(cfg, rng, spike_strength=spike_strength)
+    fired = _evaluate_detection(
+        cfg,
+        y,
+        groups,
+        edge_mode=edge_mode,
+        delta_frac=delta_frac,
+        stability_eta=stability_eta,
+        seed=int(seed_val) + idx,
+    )
+    return 1 if fired else 0
+
+
 def _estimate_rate(
     config: CalibrationConfig,
     *,
@@ -150,26 +197,24 @@ def _estimate_rate(
     seeds: Iterable[int],
     spike_strength: float,
 ) -> float:
-    triggered = 0
-    total = 0
-    for idx, seed in enumerate(seeds):
-        rng = np.random.default_rng(int(seed))
-        y, groups = _simulate_panel(config, rng, spike_strength=spike_strength)
-        fired = _evaluate_detection(
-            config,
-            y,
-            groups,
-            edge_mode=edge_mode,
-            delta_frac=delta_frac,
-            stability_eta=stability_eta,
-            seed=int(seed) + idx,
-        )
-        total += 1
-        if fired:
-            triggered += 1
-    if total == 0:
+    seed_list = [int(seed) for seed in seeds]
+    if not seed_list:
         return 0.0
-    return float(triggered) / float(total)
+
+    trials = [
+        (idx, seed_val, config, edge_mode, delta_frac, stability_eta, spike_strength)
+        for idx, seed_val in enumerate(seed_list)
+    ]
+
+    workers = max(1, int(config.workers)) if config.workers else 1
+    if workers > 1:
+        with ProcessPoolExecutor(max_workers=workers) as executor:
+            triggered = sum(executor.map(_trial_worker, trials))
+    else:
+        triggered = sum(_trial_worker(trial) for trial in trials)
+
+    total = float(len(seed_list))
+    return float(triggered) / total if total > 0 else 0.0
 
 
 def _select_entry(
@@ -200,6 +245,7 @@ def calibrate_thresholds(config: CalibrationConfig) -> CalibrationResult:
     )
 
     thresholds: dict[str, ThresholdEntry] = {}
+    grid_stats: list[GridStat] = []
     for mode in config.edge_modes:
         candidates: list[tuple[float, float, float, float | None]] = []
         for stability_eta in config.stability_grid:
@@ -223,6 +269,16 @@ def calibrate_thresholds(config: CalibrationConfig) -> CalibrationResult:
                         spike_strength=config.spike_strength,
                     )
                 candidates.append((float(delta_frac), float(stability_eta), fpr, power))
+                grid_stats.append(
+                    GridStat(
+                        edge_mode=str(mode),
+                        delta_abs=float(config.delta_abs),
+                        delta_frac=float(delta_frac),
+                        stability_eta_deg=float(stability_eta),
+                        fpr=float(fpr),
+                        power=float(power) if power is not None else None,
+                    )
+                )
         best_delta, best_stability, best_fpr, best_power = _select_entry(candidates, config.alpha)
         thresholds[str(mode)] = ThresholdEntry(
             delta_frac=best_delta,
@@ -239,6 +295,7 @@ def calibrate_thresholds(config: CalibrationConfig) -> CalibrationResult:
         alpha=config.alpha,
         delta_abs=config.delta_abs,
         generated_at=datetime.now(timezone.utc),
+        grid=tuple(grid_stats),
     )
 
 

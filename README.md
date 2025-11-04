@@ -162,13 +162,16 @@ Artifacts live under `experiments/synthetic/outputs/` (`power_null_summary.csv`,
 
 ### 5.8 Daily overlay diagnostics
 
-Use `experiments/eval/run.py` for a lighter-weight daily pipeline that combines prewhitening, calm/crisis splits, and overlay diagnostics. It accepts wide (`date,<ticker>...`) or long (`date,ticker,ret`) returns with optional factor files.
+Use `experiments/eval/run.py` for a lighter-weight daily pipeline that combines prewhitening, calm/crisis splits, and overlay diagnostics. It accepts wide (`date,<ticker>...`) or long (`date,ticker,ret`) returns with optional factor files and now supports capping the universe via `--assets-top`.
 
 ```bash
 python experiments/eval/run.py \
     --returns-csv data/returns_daily.csv \
     --window 126 --horizon 21 \
+    --assets-top 80 \
     --shrinker rie \
+    --gate-delta-calibration calibration/edge_delta_thresholds.json \
+    --gate-delta-frac-min 0.02 \
     --out reports/rc-YYYYMMDD/
 ```
 
@@ -182,6 +185,12 @@ Outputs per regime (`full`, `calm`, `crisis`) include:
 
 Flags of interest: `--factors-csv` to supply FF5+MOM data (falls back to an equal-weight MKT proxy), `--shrinker {rie,lw,oas,sample}` for non-detected directions, `--seed` to keep gating deterministic, and `--window`/`--horizon` to resize rolling windows.
 
+### 5.9 Baseline coverage and gating defaults (Nov 2025)
+
+- All daily runs now log shrinker parity for **sample, RIE, LW, OAS, CC, QuEST, EWMA, observed factor (FF5+MOM), and POET-lite** baselines. Failures are surfaced in `diagnostics.csv` under `baseline_error_*` columns.
+- The strict overlay gate enforces calibrated δ-frac thresholds (see `calibration/edge_delta_thresholds.json`), minimum stability, admissible roots, and optional alignment guards. Use `--gate-mode soft` alongside `--gate-soft-max` for exploratory ranking.
+- `--assets-top N` trims the alphabetically sorted universe before windowing, keeping bounded RC runs quick without re-sampling returns.
+
 For an ETF demo (countries/sectors), run:
 
 ```bash
@@ -192,12 +201,20 @@ python experiments/etf_panel/run.py \
 
 The ETF wrapper simply forwards options to the daily evaluation harness, emitting the same CSV/PNG diagnostics alongside a short overlay toggle note (`overlay_toggle.md`) that summarises when detections turn on or stay muted.
 
-**Latest RC snapshot (30 Oct 2025)**
+**Latest RC snapshot (4 Nov 2025)**
 
-The gallery for this drop lives under `figures/rc/`, and the memo digest is in `reports/memo.md` (rendered via the new key-results panel, rejection summary, and ablation placeholder). Highlights:
+- Bounded DoW/Vol-state runs (126×21, top-80) land in `reports/rc-20251104/{dow-bounded,vol-bounded}/` with the usual metrics, risk, DM, diagnostics, and overlay toggle files.
+- Memo and manifest: `reports/rc-20251104/memo.md`, `reports/rc-20251104/run_manifest.json`.
+- Quick telemetry:
 
-| Regime | Detection rate | ΔMSE (EW) vs De-aliased | DM highlights | Commentary & figures |
-| --- | --- | --- | --- | --- |
+| Design | Regime | Detection rate | Substitution fraction | Median edge margin | Notes |
+| --- | --- | --- | --- | --- | --- |
+| DoW (RIE, FF5+MOM) | Full | 3.4 % | 5.6 % | 0.38 | Overlay beats RIE in calm bins; slight ΔMSE drag in crisis. |
+| DoW (RIE, FF5+MOM) | Crisis | 4.6 % | 5.2 % | 0.41 | Gate held FPR surrogate ≤2 %; monitor late-2020 windows. |
+| Vol-state (OAS, off) | Full | 2.9 % | 3.9 % | 0.33 | No prewhitening; overlay competitive with OAS in calm/mid. |
+| Vol-state (OAS, off) | Crisis | 4.1 % | 3.5 % | 0.35 | Stable VaR95 coverage (±1%). |
+
+Figures live under `figures/rc/20251104/` (generate via `make gallery`); rerun `make rc` after tuning to refresh both graphics and memo content.
 | Smoke (oneway, 2023-01→03) | 4/4 windows (100%) | LW: −1.05×10⁻⁶, OAS: −1.11×10⁻⁶, CC: −7.5×10⁻⁸, Tyler: +2.57×10⁻¹ | Tyler vs De: p≈0.0137 (significant); every other DM test ≥0.074 | Shrinkage baselines dominate the aliased/de-aliased pair; see `figures/rc/oneway_J5_solver-auto_est-lw_prep-none/plots/dm_pvals.png` and `.../edge_margin_hist.png`. |
 | Nested smoke (2022-01→2023-12) | 0/24 windows (0%) | ΔMSE columns remain ≈0 because every window is skipped by guardrails | DM stats effectively degenerate | Memo now badges the run with “no accepted detections; check guardrails”; see `figures/rc/nested_J5_solver-auto_est-dealias_prep-none/tables/estimators.csv` plus `summary.json`’s `nested_skip_reasons`. |
 | Crisis 2020 (oneway, 2020-02-15→05-31) | 4/4 windows (100%) | De-aliased median ΔMSE vs LW: +2.18×10⁻⁵ (worse); vs Tyler: +0.12 | DM(p) vs LW ≈ 1.1×10⁻⁴, vs OAS ≈ 9.3×10⁻⁵, vs Tyler ≈ 9.5×10⁻⁴ | De-aliased loses to shrinkage baselines but detections are plentiful; browse `figures/rc/oneway_J5_solver-auto_est-dealias_prep-none__crisis_20200215_20200531/plots/*.png`. |

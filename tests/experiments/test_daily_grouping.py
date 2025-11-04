@@ -105,6 +105,8 @@ def test_daily_cli_forwards_defaults(tmp_path: Path, monkeypatch: pytest.MonkeyP
     assert "--out" in forwarded
     out_path = Path(forwarded[forwarded.index("--out") + 1])
     assert out_path.parts[-3:] == ("reports", "rc-20251103", "dow")
+    assert "--prewhiten" in forwarded
+    assert forwarded[forwarded.index("--prewhiten") + 1] == "ff5mom"
 
 
 def test_daily_cli_group_alias(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

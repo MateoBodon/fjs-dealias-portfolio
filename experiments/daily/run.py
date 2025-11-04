@@ -90,6 +90,8 @@ def main(argv: Sequence[str] | None = None) -> None:
         forwarded.extend(["--shrinker", args.shrinker])
     if args.prewhiten and not _detect_forward_override(extra, "--prewhiten"):
         forwarded.extend(["--prewhiten", args.prewhiten])
+    elif design.prewhiten and not _detect_forward_override(extra, "--prewhiten"):
+        forwarded.extend(["--prewhiten", design.prewhiten])
 
     out_dir = args.out
     if out_dir is None and not _detect_forward_override(extra, "--out"):

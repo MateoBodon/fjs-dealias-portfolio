@@ -15,6 +15,7 @@ class DailyDesign:
     edge_mode: str
     group_min_count: int
     group_min_replicates: int
+    prewhiten: str
 
 
 DAILY_DESIGNS: dict[str, DailyDesign] = {
@@ -25,6 +26,7 @@ DAILY_DESIGNS: dict[str, DailyDesign] = {
         edge_mode="tyler",
         group_min_count=5,
         group_min_replicates=3,
+        prewhiten="ff5mom",
     ),
     "vol": DailyDesign(
         name="vol",
@@ -33,5 +35,6 @@ DAILY_DESIGNS: dict[str, DailyDesign] = {
         edge_mode="huber",
         group_min_count=3,
         group_min_replicates=4,
+        prewhiten="ff5mom",
     ),
 }

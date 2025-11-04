@@ -5,7 +5,7 @@ import random
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from concurrent.futures import ThreadPoolExecutor
 
@@ -26,7 +26,16 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from baselines import load_observed_factors, prewhiten_returns
+from baselines.covariance import (
+    cc_covariance as baseline_cc_covariance,
+    ewma_covariance as baseline_ewma_covariance,
+    lw_covariance as baseline_lw_covariance,
+    oas_covariance as baseline_oas_covariance,
+    quest_covariance as baseline_quest_covariance,
+    rie_covariance,
+)
 from baselines.factors import PrewhitenResult
+from evaluation.factor import observed_factor_covariance, poet_lite_covariance
 from evaluation.dm import dm_test
 from evaluation.evaluate import alignment_diagnostics
 from fjs.overlay import OverlayConfig, apply_overlay, detect_spikes
@@ -496,7 +505,7 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
         "--shrinker",
         type=str,
         default=None,
-        choices=["rie", "lw", "oas", "sample", "quest", "ewma"],
+        choices=["rie", "lw", "oas", "cc", "sample", "quest", "ewma"],
         help="Baseline shrinker for non-detected directions.",
     )
     parser.add_argument("--seed", type=int, default=None, help="Deterministic seed for gating utilities.")
@@ -1234,11 +1243,61 @@ def run_evaluation(
 
         overlay_cov = apply_overlay(sample_cov, detections, observations=fit_matrix, config=overlay_cfg)
         baseline_cov = apply_overlay(sample_cov, [], observations=fit_matrix, config=overlay_cfg)
-        covariances = {
-            "overlay": overlay_cov,
-            "baseline": baseline_cov,
-            "sample": sample_cov,
+        covariances: dict[str, np.ndarray] = {
+            "overlay": np.asarray(overlay_cov, dtype=np.float64),
+            "baseline": np.asarray(baseline_cov, dtype=np.float64),
+            "sample": np.asarray(sample_cov, dtype=np.float64),
+            "scm": np.asarray(sample_cov, dtype=np.float64),
         }
+        baseline_errors: dict[str, str] = {}
+
+        sample_count = int(fit_matrix.shape[0])
+
+        def _add_covariance(name: str, builder: Callable[[], np.ndarray]) -> None:
+            try:
+                matrix = np.asarray(builder(), dtype=np.float64)
+                if matrix.shape != sample_cov.shape:
+                    raise ValueError(f"unexpected covariance shape {matrix.shape} (expected {sample_cov.shape})")
+                covariances[name] = 0.5 * (matrix + matrix.T)
+            except Exception as exc:  # pragma: no cover - propagated to diagnostics
+                baseline_errors[name] = str(exc)
+
+        _add_covariance("rie", lambda: rie_covariance(sample_cov, sample_count=sample_count))
+        _add_covariance("lw", lambda: baseline_lw_covariance(fit_matrix))
+        _add_covariance("oas", lambda: baseline_oas_covariance(fit_matrix))
+        _add_covariance("cc", lambda: baseline_cc_covariance(fit_matrix))
+        _add_covariance("quest", lambda: baseline_quest_covariance(sample_cov, sample_count=sample_count))
+        _add_covariance(
+            "ewma",
+            lambda: baseline_ewma_covariance(
+                fit_matrix,
+                halflife=float(config.ewma_halflife),
+            ),
+        )
+
+        def _factor_cov_builder() -> np.ndarray:
+            factors_df = getattr(whitening, "factors", pd.DataFrame())
+            if not isinstance(factors_df, pd.DataFrame) or factors_df.empty:
+                raise ValueError("missing factor returns")
+            aligned_index = factors_df.index.intersection(fit.index)
+            factor_window = factors_df.loc[aligned_index].dropna(axis=0, how="any")
+            if factor_window.shape[0] <= 1:
+                raise ValueError("insufficient factor observations for window")
+            returns_window = fit.loc[factor_window.index].astype(np.float64)
+            factor_window = factor_window.astype(np.float64)
+            return observed_factor_covariance(returns_window, factor_window, add_intercept=True)
+
+        _add_covariance("factor", _factor_cov_builder)
+
+        def _poet_cov_builder() -> np.ndarray:
+            window = fit.dropna(axis=0, how="any")
+            if window.shape[0] <= 1:
+                raise ValueError("insufficient observations for POET")
+            max_factors = int(min(10, max(window.shape[1] - 1, 1)))
+            poet_result = poet_lite_covariance(window, max_factors=max_factors)
+            return poet_result.covariance
+
+        _add_covariance("poet", _poet_cov_builder)
 
         hold_matrix = hold.to_numpy(dtype=np.float64)
         eq_weights = np.full(p_assets, 1.0 / p_assets, dtype=np.float64)
@@ -1351,6 +1410,8 @@ def run_evaluation(
             "group_observations": group_observations,
             "vol_state_label": hold_vol_state,
         }
+        for name, message in baseline_errors.items():
+            diag_record[f"baseline_error_{name}"] = message
         return metrics_block, diag_record
 
     window_records: list[dict[str, object]] = []

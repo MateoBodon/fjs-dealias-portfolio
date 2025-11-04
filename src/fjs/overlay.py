@@ -7,7 +7,7 @@ from typing import Iterable, Mapping, Sequence
 import numpy as np
 from numpy.typing import NDArray
 
-from baselines.covariance import ewma_covariance, quest_covariance, rie_covariance
+from baselines.covariance import cc_covariance as baseline_cc_covariance, ewma_covariance, quest_covariance, rie_covariance
 from finance.ledoit import lw_cov
 from finance.shrinkage import oas_covariance
 from fjs.dealias import Detection, dealias_search
@@ -63,6 +63,10 @@ def _baseline_covariance(
         if observations is None:
             raise ValueError("observations required for OAS shrinkage.")
         return np.asarray(oas_covariance(observations), dtype=np.float64)
+    if shrinker == "cc":
+        if observations is None:
+            raise ValueError("observations required for constant-correlation shrinkage.")
+        return np.asarray(baseline_cc_covariance(observations), dtype=np.float64)
     if shrinker == "sample":
         sigma = np.asarray(sample_covariance, dtype=np.float64)
         return np.asarray(0.5 * (sigma + sigma.T), dtype=np.float64)

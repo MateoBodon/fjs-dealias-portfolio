@@ -59,6 +59,22 @@ def test_run_evaluation_emits_artifacts(tmp_path_factory: pytest.TempPathFactory
         "delta_mse_ci_lower",
         "delta_mse_ci_upper",
     }.issubset(metrics_df.columns)
+    estimators = set(metrics_df["estimator"].unique())
+    expected_estimators = {
+        "overlay",
+        "baseline",
+        "sample",
+        "scm",
+        "rie",
+        "lw",
+        "oas",
+        "cc",
+        "quest",
+        "ewma",
+        "factor",
+        "poet",
+    }
+    assert expected_estimators <= estimators
 
     full_risk = outputs.risk["full"]
     assert full_risk.exists()

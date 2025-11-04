@@ -6,7 +6,13 @@ import pathlib
 import numpy as np
 import pytest
 
-from baselines.covariance import ewma_covariance, quest_covariance
+from baselines.covariance import (
+    cc_covariance,
+    ewma_covariance,
+    lw_covariance,
+    oas_covariance,
+    quest_covariance,
+)
 from fjs.dealias import Detection
 from fjs.overlay import OverlayConfig, apply_overlay, detect_spikes
 
@@ -117,6 +123,36 @@ def test_apply_overlay_with_quest_shrinker_matches_baseline() -> None:
     config = OverlayConfig(shrinker="quest", require_isolated=False, q_max=1)
     result = apply_overlay(sample_cov, [], observations=observations, config=config)
     baseline = quest_covariance(sample_cov, sample_count=observations.shape[0])
+    assert np.allclose(result, baseline, atol=1e-8)
+
+
+def test_apply_overlay_with_lw_shrinker_matches_baseline() -> None:
+    rng = np.random.default_rng(73)
+    observations = rng.normal(scale=0.35, size=(90, 6))
+    sample_cov = np.cov(observations, rowvar=False, ddof=1)
+    config = OverlayConfig(shrinker="lw", require_isolated=False, q_max=1)
+    result = apply_overlay(sample_cov, [], observations=observations, config=config)
+    baseline = lw_covariance(observations)
+    assert np.allclose(result, baseline, atol=1e-8)
+
+
+def test_apply_overlay_with_oas_shrinker_matches_baseline() -> None:
+    rng = np.random.default_rng(81)
+    observations = rng.normal(scale=0.3, size=(85, 5))
+    sample_cov = np.cov(observations, rowvar=False, ddof=1)
+    config = OverlayConfig(shrinker="oas", require_isolated=False, q_max=1)
+    result = apply_overlay(sample_cov, [], observations=observations, config=config)
+    baseline = oas_covariance(observations)
+    assert np.allclose(result, baseline, atol=1e-8)
+
+
+def test_apply_overlay_with_cc_shrinker_matches_baseline() -> None:
+    rng = np.random.default_rng(91)
+    observations = rng.normal(scale=0.25, size=(75, 4))
+    sample_cov = np.cov(observations, rowvar=False, ddof=1)
+    config = OverlayConfig(shrinker="cc", require_isolated=False, q_max=1)
+    result = apply_overlay(sample_cov, [], observations=observations, config=config)
+    baseline = cc_covariance(observations)
     assert np.allclose(result, baseline, atol=1e-8)
 
 

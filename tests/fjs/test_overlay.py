@@ -234,6 +234,27 @@ def test_detect_spikes_soft_gate_selects_top_score(monkeypatch: pytest.MonkeyPat
     assert kept[0]["mu_hat"] == pytest.approx(2.2)
 
 
+def test_detect_spikes_rejects_non_admissible_root(monkeypatch: pytest.MonkeyPatch) -> None:
+    det = _make_detection(
+        2.7,
+        np.array([1.0, 0.0, 0.0]),
+        edge_margin=0.35,
+        stability=0.4,
+        alignment=0.95,
+    )
+    det["admissible_root"] = False
+
+    monkeypatch.setattr("fjs.overlay.dealias_search", lambda *args, **kwargs: [det])
+    cfg = OverlayConfig(gate_mode="strict", min_edge_margin=0.1, q_max=3)
+    obs = np.ones((10, 3))
+    groups = np.repeat(np.arange(5), 2)
+    stats: dict = {}
+    kept = detect_spikes(obs, groups, config=cfg, stats=stats)
+    assert kept == []
+    assert stats["gating"]["rejected"] == 1
+    assert stats["gating"]["accepted"] == 0
+
+
 def test_detect_spikes_uses_calibrated_delta(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> None:
     det = _make_detection(
         3.0,

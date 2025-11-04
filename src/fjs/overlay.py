@@ -131,6 +131,9 @@ def _gate_detections(
     alignment_min = cfg.gate_alignment_min if cfg.gate_alignment_min is not None else 0.0
 
     for det in detections:
+        if not bool(det.get("admissible_root", True)):
+            rejected.append(det)
+            continue
         edge_margin = float(det.get("edge_margin", float("-inf")))
         if edge_margin < cfg.min_edge_margin:
             rejected.append(det)

@@ -28,13 +28,29 @@ def _detect_forward_override(argv: Sequence[str], flag: str) -> bool:
 def parse_args(argv: Sequence[str] | None = None) -> tuple[argparse.Namespace, list[str]]:
     parser = argparse.ArgumentParser("Daily replicated RC runner", add_help=True)
     parser.add_argument("--returns-csv", type=Path, required=True, help="Daily returns CSV (wide or long format).")
-    parser.add_argument("--design", choices=sorted(DAILY_DESIGNS.keys()), required=True, help="Replicate design to run.")
+    parser.add_argument(
+        "--design",
+        choices=sorted(DAILY_DESIGNS.keys()),
+        required=False,
+        help="Replicate design to run (alias for --group).",
+    )
+    parser.add_argument(
+        "--group",
+        choices=sorted(DAILY_DESIGNS.keys()),
+        required=False,
+        help="Replicate design alias maintained for backwards compatibility.",
+    )
     parser.add_argument("--out", type=Path, default=None, help="Optional explicit output directory.")
     parser.add_argument("--factors-csv", type=Path, default=None, help="Optional factor CSV for prewhitening.")
     parser.add_argument("--window", type=int, default=None, help="Optional window override (days).")
     parser.add_argument("--horizon", type=int, default=None, help="Optional horizon override (days).")
     parser.add_argument("--shrinker", type=str, default=None, help="Baseline shrinker override for overlay baseline.")
     parser.add_argument("--rc-date", type=str, default=None, help="RC date stamp (defaults to today if omitted).")
+    parser.add_argument(
+        "--smoke",
+        action="store_true",
+        help="Enable smoke-mode defaults (caller is responsible for providing truncated input window).",
+    )
     parser.add_argument(
         "--prewhiten",
         type=str,
@@ -54,7 +70,13 @@ def _default_out(design: str, rc_date: str | None) -> Path:
 
 def main(argv: Sequence[str] | None = None) -> None:
     args, extra = parse_args(argv)
-    design = DAILY_DESIGNS[args.design]
+    if args.design and args.group and args.design != args.group:
+        raise SystemExit("--design and --group must match when both provided.")
+
+    selected_design = args.design or args.group
+    if selected_design is None:
+        raise SystemExit("One of --design or --group must be provided.")
+    design = DAILY_DESIGNS[selected_design]
 
     forwarded: list[str] = ["--returns-csv", str(args.returns_csv)]
 

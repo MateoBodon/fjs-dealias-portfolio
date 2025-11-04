@@ -107,6 +107,48 @@ def test_daily_cli_forwards_defaults(tmp_path: Path, monkeypatch: pytest.MonkeyP
     assert out_path.parts[-3:] == ("reports", "rc-20251103", "dow")
 
 
+def test_daily_cli_group_alias(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    returns_csv = tmp_path / "returns.csv"
+    frame = _make_returns_frame("2024-05-01", 30)
+    frame.reset_index().rename(columns={"index": "date"}).to_csv(returns_csv, index=False)
+
+    captured: dict[str, list[str]] = {}
+
+    def fake_eval_main(args: list[str]) -> None:
+        captured["args"] = args
+
+    monkeypatch.setattr("experiments.daily.run.eval_main", fake_eval_main)
+
+    daily_main([
+        "--returns-csv",
+        str(returns_csv),
+        "--group",
+        "vol",
+        "--rc-date",
+        "20251103",
+    ])
+
+    forwarded = captured["args"]
+    assert "--group-design" in forwarded
+    assert forwarded[forwarded.index("--group-design") + 1] == "vol"
+
+
+def test_daily_cli_group_conflict(tmp_path: Path) -> None:
+    returns_csv = tmp_path / "returns.csv"
+    frame = _make_returns_frame("2024-06-01", 30)
+    frame.reset_index().rename(columns={"index": "date"}).to_csv(returns_csv, index=False)
+
+    with pytest.raises(SystemExit):
+        daily_main([
+            "--returns-csv",
+            str(returns_csv),
+            "--design",
+            "dow",
+            "--group",
+            "vol",
+        ])
+
+
 def test_daily_cli_forwards_prewhiten(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     returns_csv = tmp_path / "returns.csv"
     frame = _make_returns_frame("2024-04-01", 30)

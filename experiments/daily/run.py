@@ -35,6 +35,13 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[argparse.Namespace, l
     parser.add_argument("--horizon", type=int, default=None, help="Optional horizon override (days).")
     parser.add_argument("--shrinker", type=str, default=None, help="Baseline shrinker override for overlay baseline.")
     parser.add_argument("--rc-date", type=str, default=None, help="RC date stamp (defaults to today if omitted).")
+    parser.add_argument(
+        "--prewhiten",
+        type=str,
+        choices=["off", "ff5", "ff5mom"],
+        default=None,
+        help="Observed-factor prewhitening mode passed through to evaluation.",
+    )
     args, extra = parser.parse_known_args(argv)
     return args, list(extra)
 
@@ -59,6 +66,8 @@ def main(argv: Sequence[str] | None = None) -> None:
         forwarded.extend(["--horizon", str(args.horizon)])
     if args.shrinker and not _detect_forward_override(extra, "--shrinker"):
         forwarded.extend(["--shrinker", args.shrinker])
+    if args.prewhiten and not _detect_forward_override(extra, "--prewhiten"):
+        forwarded.extend(["--prewhiten", args.prewhiten])
 
     out_dir = args.out
     if out_dir is None and not _detect_forward_override(extra, "--out"):

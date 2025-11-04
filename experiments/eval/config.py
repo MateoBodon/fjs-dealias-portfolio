@@ -72,7 +72,7 @@ DEFAULTS: dict[str, Any] = {
     "angle_min_cos": None,
     "alignment_top_p": 3,
     "cs_drop_top_frac": None,
-    "prewhiten": True,
+    "prewhiten": "ff5mom",
     "calm_window_sample": None,
     "crisis_window_top_k": None,
     "group_design": "week",
@@ -147,10 +147,17 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
     alignment_top_p = int(alignment_top_p_raw) if alignment_top_p_raw is not None else DEFAULTS["alignment_top_p"]
 
     pre_raw = merged.get("prewhiten", DEFAULTS["prewhiten"])
-    if pre_raw is None:
-        prewhiten = bool(DEFAULTS["prewhiten"])
+    if isinstance(pre_raw, bool):
+        prewhiten_mode = "ff5mom" if pre_raw else "off"
+    elif pre_raw is None:
+        prewhiten_mode = str(DEFAULTS["prewhiten"]).lower()
     else:
-        prewhiten = bool(pre_raw)
+        prewhiten_mode = str(pre_raw).lower()
+    valid_pre_modes = {"off", "ff5", "ff5mom"}
+    if prewhiten_mode not in valid_pre_modes:
+        raise ValueError(
+            "prewhiten must be one of {'off', 'ff5', 'ff5mom'}"
+        )
 
     group_design_val = str(merged.get("group_design", DEFAULTS["group_design"]) or DEFAULTS["group_design"])
     group_min_count_val = int(
@@ -198,7 +205,7 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         angle_min_cos=float(merged["angle_min_cos"]) if merged.get("angle_min_cos") is not None else None,
         alignment_top_p=alignment_top_p,
         cs_drop_top_frac=float(merged["cs_drop_top_frac"]) if merged.get("cs_drop_top_frac") is not None else None,
-        prewhiten=prewhiten,
+        prewhiten=prewhiten_mode,
         calm_window_sample=int(merged["calm_window_sample"])
         if merged.get("calm_window_sample") is not None
         else None,
@@ -240,7 +247,7 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         "angle_min_cos": config.angle_min_cos,
         "alignment_top_p": config.alignment_top_p,
         "cs_drop_top_frac": config.cs_drop_top_frac,
-        "prewhiten": prewhiten,
+        "prewhiten": prewhiten_mode,
         "calm_window_sample": config.calm_window_sample,
         "crisis_window_top_k": config.crisis_window_top_k,
         "group_design": config.group_design,

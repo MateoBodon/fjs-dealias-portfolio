@@ -124,13 +124,25 @@ class EvalConfig:
     angle_min_cos: float | None = None
     alignment_top_p: int = 3
     cs_drop_top_frac: float | None = None
-    prewhiten: bool = True
+    prewhiten: str = "ff5mom"
     calm_window_sample: int | None = None
     crisis_window_top_k: int | None = None
     group_design: str = "week"
     group_min_count: int = 5
     group_min_replicates: int = 3
     ewma_halflife: float = 30.0
+
+
+@dataclass(slots=True, frozen=True)
+class PrewhitenTelemetry:
+    mode_requested: str
+    mode_effective: str
+    factor_columns: tuple[str, ...]
+    beta_abs_mean: float
+    beta_abs_std: float
+    beta_abs_median: float
+    r2_mean: float
+    r2_median: float
 
 
 @dataclass(slots=True, frozen=True)
@@ -157,6 +169,17 @@ _VOL_LABELS = {
     0: "calm",
     1: "mid",
     2: "crisis",
+}
+
+_FACTOR_SETS: dict[str, tuple[str, ...]] = {
+    "ff5mom": ("MKT", "SMB", "HML", "RMW", "CMA", "MOM"),
+    "ff5": ("MKT", "SMB", "HML", "RMW", "CMA"),
+    "mkt": ("MKT",),
+}
+
+_FACTOR_FALLBACKS: dict[str, tuple[str, ...]] = {
+    "ff5mom": ("ff5mom", "ff5", "mkt"),
+    "ff5": ("ff5", "mkt"),
 }
 
 
@@ -186,6 +209,100 @@ def _vol_state_label(value: float, calm_cut: float, crisis_cut: float) -> str:
     if value >= crisis_cut:
         return "crisis"
     return "mid"
+
+
+def _identity_prewhiten_result(
+    returns: pd.DataFrame,
+    factor_cols: Sequence[str] | None = None,
+) -> PrewhitenResult:
+    columns = list(factor_cols or [])
+    assets = list(returns.columns)
+    betas = pd.DataFrame(
+        np.zeros((len(assets), len(columns)), dtype=np.float64),
+        index=assets,
+        columns=columns,
+    )
+    intercept = pd.Series(np.zeros(len(assets), dtype=np.float64), index=assets, name="intercept")
+    r_squared = pd.Series(np.zeros(len(assets), dtype=np.float64), index=assets, name="r_squared")
+    fitted = pd.DataFrame(
+        np.zeros_like(returns.to_numpy(dtype=np.float64, copy=True)),
+        index=returns.index,
+        columns=assets,
+    )
+    factor_frame = pd.DataFrame(
+        np.zeros((returns.shape[0], len(columns)), dtype=np.float64),
+        index=returns.index,
+        columns=columns,
+    )
+    return PrewhitenResult(
+        residuals=returns.copy(),
+        betas=betas,
+        intercept=intercept,
+        r_squared=r_squared,
+        fitted=fitted,
+        factors=factor_frame,
+    )
+
+
+def _select_prewhiten_factors(
+    factors: pd.DataFrame | None,
+    requested: str,
+) -> tuple[str, pd.DataFrame | None]:
+    if factors is None or factors.empty:
+        return "off", None
+    requested_key = requested.lower()
+    if requested_key == "off":
+        return "off", None
+    candidate_modes = _FACTOR_FALLBACKS.get(requested_key, ())
+    for mode in candidate_modes:
+        required = _FACTOR_SETS.get(mode, ())
+        if all(col in factors.columns for col in required):
+            subset = factors.loc[:, list(required)].copy()
+            return mode, subset
+    if "MKT" in factors.columns:
+        return "mkt", factors.loc[:, ["MKT"]].copy()
+    return "off", None
+
+
+def _beta_abs_stats(betas: pd.DataFrame) -> tuple[float, float, float]:
+    if betas.empty:
+        return 0.0, 0.0, 0.0
+    numeric = betas.select_dtypes(include=["number"])
+    if numeric.empty:
+        return 0.0, 0.0, 0.0
+    values = np.abs(numeric.to_numpy(dtype=np.float64, copy=True))
+    values = values[np.isfinite(values)]
+    if values.size == 0:
+        return 0.0, 0.0, 0.0
+    mean = float(np.mean(values))
+    std = float(np.std(values, ddof=0))
+    median = float(np.median(values))
+    return mean, std, median
+
+
+def _compute_prewhiten_telemetry(
+    whitening: PrewhitenResult,
+    *,
+    requested_mode: str,
+    effective_mode: str,
+) -> PrewhitenTelemetry:
+    r2_series = whitening.r_squared if not whitening.r_squared.empty else pd.Series(dtype=np.float64)
+    r2_vals = r2_series.to_numpy(dtype=np.float64, copy=True) if not r2_series.empty else np.array([], dtype=np.float64)
+    r2_vals = r2_vals[np.isfinite(r2_vals)] if r2_vals.size else r2_vals
+    r2_mean = float(np.mean(r2_vals)) if r2_vals.size else 0.0
+    r2_median = float(np.median(r2_vals)) if r2_vals.size else 0.0
+    beta_mean, beta_std, beta_median = _beta_abs_stats(whitening.betas)
+    factor_columns = tuple(whitening.betas.columns.tolist())
+    return PrewhitenTelemetry(
+        mode_requested=requested_mode,
+        mode_effective=effective_mode,
+        factor_columns=factor_columns,
+        beta_abs_mean=beta_mean,
+        beta_abs_std=beta_std,
+        beta_abs_median=beta_median,
+        r2_mean=r2_mean,
+        r2_median=r2_median,
+    )
 
 
 def _serialise_config(config: EvalConfig) -> dict[str, Any]:
@@ -506,10 +623,11 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
         help="Disable reason-code annotation in diagnostics.",
     )
     parser.add_argument(
-        "--no-prewhiten",
-        dest="prewhiten",
-        action="store_false",
-        help="Skip factor prewhitening (use raw returns).",
+        "--prewhiten",
+        type=str,
+        choices=["off", "ff5", "ff5mom"],
+        default=None,
+        help="Observed-factor prewhitening mode (default sourced from config layers).",
     )
     parser.add_argument(
         "--group-design",
@@ -549,20 +667,27 @@ def _compute_vol_proxy(returns: pd.DataFrame, span: int = 21) -> pd.Series:
     return proxy.dropna()
 
 
-def _write_prewhiten_diagnostics(out_dir: Path, whitening: PrewhitenResult) -> None:
-    if whitening.residuals.empty:
-        return
+def _write_prewhiten_diagnostics(
+    out_dir: Path,
+    whitening: PrewhitenResult,
+    telemetry: PrewhitenTelemetry,
+) -> None:
     diag_path = out_dir / "prewhiten_diagnostics.csv"
     summary_path = out_dir / "prewhiten_summary.json"
     betas = whitening.betas.copy()
     betas["intercept"] = whitening.intercept
     betas["r_squared"] = whitening.r_squared
     betas.to_csv(diag_path)
-    r2_series = whitening.r_squared
     summary = {
-        "asset_count": int(r2_series.shape[0]),
-        "mean_r_squared": float(r2_series.mean()),
-        "median_r_squared": float(r2_series.median()),
+        "asset_count": int(whitening.r_squared.shape[0]) if not whitening.r_squared.empty else 0,
+        "mean_r_squared": telemetry.r2_mean,
+        "median_r_squared": telemetry.r2_median,
+        "mode_requested": telemetry.mode_requested,
+        "mode_effective": telemetry.mode_effective,
+        "beta_abs_mean": telemetry.beta_abs_mean,
+        "beta_abs_std": telemetry.beta_abs_std,
+        "beta_abs_median": telemetry.beta_abs_median,
+        "factor_columns": list(telemetry.factor_columns),
     }
     summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
 
@@ -577,6 +702,9 @@ def _write_overlay_toggle(path: Path, summary: pd.DataFrame) -> None:
             ("isolation_share", "Isolation Share"),
             ("alignment_cos_mean", "Alignment Cos"),
             ("prewhiten_r2_mean", "Prewhiten R²"),
+            ("prewhiten_beta_abs_mean", "|β| Mean"),
+            ("residual_energy_mean", "Residual Energy"),
+            ("acceptance_delta", "Acceptance Δ"),
         ]
         header = "| Regime | " + " | ".join(title for _, title in columns) + " |"
         separator = "|" + " --- |" * (len(columns) + 1)
@@ -734,7 +862,7 @@ def _window_regime(
     return "full"
 
 
-def _prepare_returns(config: EvalConfig) -> tuple[DailyPanel, pd.DataFrame, PrewhitenResult]:
+def _prepare_returns(config: EvalConfig) -> tuple[DailyPanel, pd.DataFrame, PrewhitenResult, PrewhitenTelemetry]:
     loader_cfg = DailyLoaderConfig(min_history=config.window + config.horizon + 10)
     panel = load_daily_panel(config.returns_csv, config=loader_cfg)
     returns = panel.returns
@@ -745,52 +873,47 @@ def _prepare_returns(config: EvalConfig) -> tuple[DailyPanel, pd.DataFrame, Prew
     if returns.shape[0] < config.window + config.horizon + 5:
         raise ValueError("Not enough observations for requested window and horizon.")
 
-    if config.factors_csv is not None:
-        factors = load_observed_factors(path=config.factors_csv)
-    else:
+    requested_mode = str(config.prewhiten or "off").lower()
+    if requested_mode not in {"off", "ff5", "ff5mom"}:
+        requested_mode = "off"
+
+    factors_source: pd.DataFrame | None = None
+    if requested_mode != "off":
+        if config.factors_csv is not None:
+            try:
+                factors_source = load_observed_factors(path=config.factors_csv)
+            except FileNotFoundError:
+                factors_source = None
+        if factors_source is None:
+            try:
+                factors_source = load_observed_factors(path=None, returns=returns)
+            except FileNotFoundError:
+                try:
+                    factors_source = load_observed_factors(returns=returns)
+                except Exception:  # pragma: no cover - defensive fallback
+                    factors_source = None
+
+    effective_mode, factor_subset = _select_prewhiten_factors(factors_source, requested_mode)
+
+    if effective_mode != "off" and factor_subset is not None:
         try:
-            factors = load_observed_factors(path=None, returns=returns)
-        except FileNotFoundError:
-            factors = load_observed_factors(returns=returns)
-    if not config.prewhiten:
-        residuals = returns.copy()
-        betas = pd.DataFrame(
-            np.zeros((residuals.shape[1], factors.shape[1] if hasattr(factors, "shape") else 0)),
-            index=residuals.columns,
-        )
-        intercept = pd.Series(np.zeros(residuals.shape[1]), index=residuals.columns, name="intercept")
-        r2 = pd.Series(np.zeros(residuals.shape[1]), index=residuals.columns, name="r_squared")
-        whitening = PrewhitenResult(
-            residuals=residuals,
-            betas=betas,
-            intercept=intercept,
-            r_squared=r2,
-            fitted=pd.DataFrame(np.zeros_like(residuals.to_numpy()), index=residuals.index, columns=residuals.columns),
-            factors=pd.DataFrame(index=residuals.index, data=np.zeros((residuals.shape[0], 0))),
-        )
-    else:
-        try:
-            whitening = prewhiten_returns(returns, factors)
-            residuals = whitening.residuals
+            whitening = prewhiten_returns(returns, factor_subset)
+            if whitening.residuals.empty:
+                whitening = _identity_prewhiten_result(returns)
+                effective_mode = "off"
         except ValueError:
-            residuals = returns.copy()
-            betas = pd.DataFrame(
-                np.zeros((residuals.shape[1], factors.shape[1] if hasattr(factors, "shape") else 0)),
-                index=residuals.columns,
-            )
-            intercept = pd.Series(np.zeros(residuals.shape[1]), index=residuals.columns, name="intercept")
-            r2 = pd.Series(np.zeros(residuals.shape[1]), index=residuals.columns, name="r_squared")
-            whitening = PrewhitenResult(
-                residuals=residuals,
-                betas=betas,
-                intercept=intercept,
-                r_squared=r2,
-                fitted=pd.DataFrame(
-                    np.zeros_like(residuals.to_numpy()), index=residuals.index, columns=residuals.columns
-                ),
-                factors=pd.DataFrame(index=residuals.index, data=np.zeros((residuals.shape[0], 0))),
-            )
-    return panel, returns, whitening
+            whitening = _identity_prewhiten_result(returns)
+            effective_mode = "off"
+    else:
+        whitening = _identity_prewhiten_result(returns)
+        effective_mode = "off"
+
+    telemetry = _compute_prewhiten_telemetry(
+        whitening,
+        requested_mode=requested_mode,
+        effective_mode=effective_mode,
+    )
+    return panel, returns, whitening, telemetry
 
 
 def run_evaluation(
@@ -798,7 +921,7 @@ def run_evaluation(
     *,
     resolved_config: Mapping[str, Any] | None = None,
 ) -> EvalOutputs:
-    panel, returns, whitening = _prepare_returns(config)
+    panel, returns, whitening, prewhiten_meta = _prepare_returns(config)
     random.seed(config.seed)
     np.random.seed(config.seed)
     residuals = whitening.residuals
@@ -812,9 +935,16 @@ def run_evaluation(
         dir_path.mkdir(parents=True, exist_ok=True)
     resolved_payload = dict(resolved_config) if resolved_config is not None else _serialise_config(config)
     resolved_path = out_dir / "resolved_config.json"
-    _write_prewhiten_diagnostics(out_dir, whitening)
-    prewhiten_r2_mean = float(whitening.r_squared.mean()) if not whitening.r_squared.empty else float("nan")
-    resolved_payload["prewhiten_r2_mean"] = prewhiten_r2_mean
+    _write_prewhiten_diagnostics(out_dir, whitening, prewhiten_meta)
+    prewhiten_r2_mean = prewhiten_meta.r2_mean
+    resolved_payload["prewhiten_r2_mean"] = prewhiten_meta.r2_mean
+    resolved_payload["prewhiten_r2_median"] = prewhiten_meta.r2_median
+    resolved_payload["prewhiten_mode_requested"] = prewhiten_meta.mode_requested
+    resolved_payload["prewhiten_mode_effective"] = prewhiten_meta.mode_effective
+    resolved_payload["prewhiten_factor_columns"] = list(prewhiten_meta.factor_columns)
+    resolved_payload["prewhiten_beta_abs_mean"] = prewhiten_meta.beta_abs_mean
+    resolved_payload["prewhiten_beta_abs_std"] = prewhiten_meta.beta_abs_std
+    resolved_payload["prewhiten_beta_abs_median"] = prewhiten_meta.beta_abs_median
     resolved_path.write_text(json.dumps(resolved_payload, indent=2, sort_keys=True))
     resolved_path_str = str(resolved_path)
 
@@ -859,6 +989,9 @@ def run_evaluation(
 
         hold_vol_state = _vol_state_label(vol_signal_value, calm_cut, crisis_cut)
 
+        prewhiten_factor_count = len(prewhiten_meta.factor_columns)
+        prewhiten_factors_str = ",".join(prewhiten_meta.factor_columns)
+
         try:
             fit_balanced, group_labels = _build_grouped_window(
                 fit,
@@ -889,6 +1022,16 @@ def run_evaluation(
                 "group_count": 0,
                 "group_replicates": 0,
                 "prewhiten_r2_mean": prewhiten_r2_mean,
+                "prewhiten_r2_median": prewhiten_meta.r2_median,
+                "prewhiten_mode_requested": prewhiten_meta.mode_requested,
+                "prewhiten_mode_effective": prewhiten_meta.mode_effective,
+                "prewhiten_factor_count": prewhiten_factor_count,
+                "prewhiten_beta_abs_mean": prewhiten_meta.beta_abs_mean,
+                "prewhiten_beta_abs_std": prewhiten_meta.beta_abs_std,
+                "prewhiten_beta_abs_median": prewhiten_meta.beta_abs_median,
+                "prewhiten_factors": prewhiten_factors_str,
+                "residual_energy_mean": 0.0,
+                "acceptance_delta": 0.0,
                 "group_label_counts": "",
                 "group_observations": 0,
                 "vol_state_label": hold_vol_state,
@@ -920,6 +1063,7 @@ def run_evaluation(
 
         alignment_cos_values: list[float] = []
         alignment_angle_values: list[float] = []
+        raw_detection_count = len(detections)
         if detections:
             filtered: list[dict[str, object]] = []
             threshold = float(config.angle_min_cos) if config.angle_min_cos is not None else None
@@ -959,6 +1103,14 @@ def run_evaluation(
         else:
             alignment_cos_values = []
             alignment_angle_values = []
+
+        energy_values = [
+            float(det.get("target_energy", det.get("lambda_hat", 0.0)) or 0.0)
+            for det in detections
+        ]
+        energy_values = [val for val in energy_values if np.isfinite(val)]
+        residual_energy_mean = float(np.mean(energy_values)) if energy_values else 0.0
+        acceptance_delta = float(max(0, raw_detection_count - len(detections)))
 
         overlay_cov = apply_overlay(sample_cov, detections, observations=fit_matrix, config=overlay_cfg)
         baseline_cov = apply_overlay(sample_cov, [], observations=fit_matrix, config=overlay_cfg)
@@ -1047,6 +1199,16 @@ def run_evaluation(
             "group_count": group_count,
             "group_replicates": replicates_per_group,
             "prewhiten_r2_mean": prewhiten_r2_mean,
+            "prewhiten_r2_median": prewhiten_meta.r2_median,
+            "prewhiten_mode_requested": prewhiten_meta.mode_requested,
+            "prewhiten_mode_effective": prewhiten_meta.mode_effective,
+            "prewhiten_factor_count": prewhiten_factor_count,
+            "prewhiten_beta_abs_mean": prewhiten_meta.beta_abs_mean,
+            "prewhiten_beta_abs_std": prewhiten_meta.beta_abs_std,
+            "prewhiten_beta_abs_median": prewhiten_meta.beta_abs_median,
+            "prewhiten_factors": prewhiten_factors_str,
+            "residual_energy_mean": residual_energy_mean,
+            "acceptance_delta": acceptance_delta,
             "group_label_counts": group_label_counts,
             "group_observations": group_observations,
             "vol_state_label": hold_vol_state,
@@ -1085,6 +1247,27 @@ def run_evaluation(
         diagnostics_df["group_observations"] = np.nan
     if "vol_state_label" not in diagnostics_df.columns:
         diagnostics_df["vol_state_label"] = ""
+    if "prewhiten_mode_requested" not in diagnostics_df.columns:
+        diagnostics_df["prewhiten_mode_requested"] = prewhiten_meta.mode_requested if diagnostics_records else ""
+    if "prewhiten_mode_effective" not in diagnostics_df.columns:
+        diagnostics_df["prewhiten_mode_effective"] = prewhiten_meta.mode_effective if diagnostics_records else ""
+    if "prewhiten_factor_count" not in diagnostics_df.columns:
+        diagnostics_df["prewhiten_factor_count"] = np.nan
+    if "prewhiten_beta_abs_mean" not in diagnostics_df.columns:
+        diagnostics_df["prewhiten_beta_abs_mean"] = np.nan
+    if "prewhiten_beta_abs_std" not in diagnostics_df.columns:
+        diagnostics_df["prewhiten_beta_abs_std"] = np.nan
+    if "prewhiten_beta_abs_median" not in diagnostics_df.columns:
+        diagnostics_df["prewhiten_beta_abs_median"] = np.nan
+    default_factor_str = ",".join(prewhiten_meta.factor_columns)
+    if "prewhiten_factors" not in diagnostics_df.columns:
+        diagnostics_df["prewhiten_factors"] = default_factor_str if diagnostics_records else ""
+    if "prewhiten_r2_median" not in diagnostics_df.columns:
+        diagnostics_df["prewhiten_r2_median"] = np.nan
+    if "residual_energy_mean" not in diagnostics_df.columns:
+        diagnostics_df["residual_energy_mean"] = np.nan
+    if "acceptance_delta" not in diagnostics_df.columns:
+        diagnostics_df["acceptance_delta"] = np.nan
     metrics_df, diagnostics_df = _limit_windows_by_regime(
         metrics_df,
         diagnostics_df,
@@ -1114,6 +1297,16 @@ def run_evaluation(
         "group_count",
         "group_replicates",
         "prewhiten_r2_mean",
+        "prewhiten_r2_median",
+        "prewhiten_mode_requested",
+        "prewhiten_mode_effective",
+        "prewhiten_factor_count",
+        "prewhiten_beta_abs_mean",
+        "prewhiten_beta_abs_std",
+        "prewhiten_beta_abs_median",
+        "prewhiten_factors",
+        "residual_energy_mean",
+        "acceptance_delta",
         "group_label_counts",
         "group_observations",
         "vol_state_label",
@@ -1123,7 +1316,13 @@ def run_evaluation(
     else:
         for column in expected_diag_columns:
             if column not in diagnostics_df.columns:
-                if column in {"group_label_counts", "vol_state_label"}:
+                if column in {
+                    "group_label_counts",
+                    "vol_state_label",
+                    "prewhiten_mode_requested",
+                    "prewhiten_mode_effective",
+                    "prewhiten_factors",
+                }:
                     diagnostics_df[column] = ""
                 else:
                     diagnostics_df[column] = np.nan
@@ -1243,6 +1442,13 @@ def run_evaluation(
         "group_count": ("group_count", "mean"),
         "group_replicates": ("group_replicates", "mean"),
         "prewhiten_r2_mean": ("prewhiten_r2_mean", "mean"),
+        "prewhiten_r2_median": ("prewhiten_r2_median", "mean"),
+        "prewhiten_factor_count": ("prewhiten_factor_count", "mean"),
+        "prewhiten_beta_abs_mean": ("prewhiten_beta_abs_mean", "mean"),
+        "prewhiten_beta_abs_std": ("prewhiten_beta_abs_std", "mean"),
+        "prewhiten_beta_abs_median": ("prewhiten_beta_abs_median", "mean"),
+        "residual_energy_mean": ("residual_energy_mean", "mean"),
+        "acceptance_delta": ("acceptance_delta", "mean"),
         "group_observations": ("group_observations", "mean"),
     }
     available_spec = {
@@ -1271,9 +1477,19 @@ def run_evaluation(
         diagnostics_summary["group_count"] = np.nan
         diagnostics_summary["group_replicates"] = np.nan
         diagnostics_summary["prewhiten_r2_mean"] = np.nan
+        diagnostics_summary["prewhiten_r2_median"] = np.nan
+        diagnostics_summary["prewhiten_factor_count"] = np.nan
+        diagnostics_summary["prewhiten_beta_abs_mean"] = np.nan
+        diagnostics_summary["prewhiten_beta_abs_std"] = np.nan
+        diagnostics_summary["prewhiten_beta_abs_median"] = np.nan
+        diagnostics_summary["residual_energy_mean"] = np.nan
+        diagnostics_summary["acceptance_delta"] = np.nan
         diagnostics_summary["group_observations"] = np.nan
         diagnostics_summary["group_label_counts"] = ""
         diagnostics_summary["vol_state_label"] = ""
+        diagnostics_summary["prewhiten_mode_requested"] = ""
+        diagnostics_summary["prewhiten_mode_effective"] = ""
+        diagnostics_summary["prewhiten_factors"] = ""
     else:
         reason_summary = (
             diagnostics_df.groupby("regime")["reason_code"]
@@ -1315,6 +1531,33 @@ def run_evaluation(
             diagnostics_summary = diagnostics_summary.merge(vol_state_summary, on="regime", how="left")
         else:
             diagnostics_summary["vol_state_label"] = ""
+        if "prewhiten_mode_requested" in diagnostics_df.columns:
+            req_summary = (
+                diagnostics_df.groupby("regime")["prewhiten_mode_requested"]
+                .agg(_mode_string)
+                .reset_index()
+            )
+            diagnostics_summary = diagnostics_summary.merge(req_summary, on="regime", how="left")
+        else:
+            diagnostics_summary["prewhiten_mode_requested"] = ""
+        if "prewhiten_mode_effective" in diagnostics_df.columns:
+            eff_summary = (
+                diagnostics_df.groupby("regime")["prewhiten_mode_effective"]
+                .agg(_mode_string)
+                .reset_index()
+            )
+            diagnostics_summary = diagnostics_summary.merge(eff_summary, on="regime", how="left")
+        else:
+            diagnostics_summary["prewhiten_mode_effective"] = ""
+        if "prewhiten_factors" in diagnostics_df.columns:
+            factors_summary = (
+                diagnostics_df.groupby("regime")["prewhiten_factors"]
+                .agg(_mode_string)
+                .reset_index()
+            )
+            diagnostics_summary = diagnostics_summary.merge(factors_summary, on="regime", how="left")
+        else:
+            diagnostics_summary["prewhiten_factors"] = ""
 
     overlay_toggle_path = out_dir / "overlay_toggle.md"
     _write_overlay_toggle(overlay_toggle_path, diagnostics_summary)

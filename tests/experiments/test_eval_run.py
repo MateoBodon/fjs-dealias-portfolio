@@ -47,6 +47,7 @@ def test_run_evaluation_emits_artifacts(tmp_path_factory: pytest.TempPathFactory
     assert resolved_path.exists()
     resolved_payload = json.loads(resolved_path.read_text(encoding="utf-8"))
     assert resolved_payload["returns_csv"].endswith("returns.csv")
+    assert resolved_payload["prewhiten_mode_effective"]
 
     full_metrics = outputs.metrics["full"]
     assert full_metrics.exists()
@@ -83,6 +84,16 @@ def test_run_evaluation_emits_artifacts(tmp_path_factory: pytest.TempPathFactory
         "group_count",
         "group_replicates",
         "prewhiten_r2_mean",
+        "prewhiten_r2_median",
+        "prewhiten_mode_requested",
+        "prewhiten_mode_effective",
+        "prewhiten_factor_count",
+        "prewhiten_beta_abs_mean",
+        "prewhiten_beta_abs_std",
+        "prewhiten_beta_abs_median",
+        "prewhiten_factors",
+        "residual_energy_mean",
+        "acceptance_delta",
         "group_label_counts",
         "group_observations",
         "vol_state_label",
@@ -97,6 +108,9 @@ def test_run_evaluation_emits_artifacts(tmp_path_factory: pytest.TempPathFactory
         assert diag_df["vol_signal"].notna().any()
         assert diag_df["group_label_counts"].notna().all()
         assert diag_df["vol_state_label"].notna().all()
+        assert diag_df["prewhiten_mode_effective"].notna().all()
+        assert diag_df["prewhiten_beta_abs_mean"].notna().all()
+        assert diag_df["residual_energy_mean"].notna().all()
 
     detail_diag = outputs.diagnostics_detail["full"]
     assert detail_diag.exists()
@@ -107,6 +121,31 @@ def test_run_evaluation_emits_artifacts(tmp_path_factory: pytest.TempPathFactory
     assert prewhiten_diag.exists()
     assert prewhiten_summary.exists()
     assert overlay_toggle.exists()
+    summary_payload = json.loads(prewhiten_summary.read_text(encoding="utf-8"))
+    assert summary_payload["mode_effective"] in {"ff5mom", "ff5", "mkt", "off"}
+    assert "beta_abs_mean" in summary_payload
+
+
+def test_run_evaluation_prewhiten_off(tmp_path_factory: pytest.TempPathFactory) -> None:
+    returns_csv = _make_returns_csv(tmp_path_factory)
+    out_dir = tmp_path_factory.mktemp("outputs_off")
+    config = EvalConfig(
+        returns_csv=Path(returns_csv),
+        factors_csv=None,
+        window=20,
+        horizon=5,
+        out_dir=Path(out_dir),
+        shrinker="rie",
+        seed=321,
+        prewhiten="off",
+    )
+    outputs = run_evaluation(config)
+    summary_payload = json.loads((Path(out_dir) / "prewhiten_summary.json").read_text(encoding="utf-8"))
+    assert summary_payload["mode_effective"] == "off"
+    diag_df = pd.read_csv(outputs.diagnostics["full"])
+    assert not diag_df.empty
+    assert (diag_df["prewhiten_mode_effective"] == "off").all()
+    assert np.isclose(diag_df["prewhiten_r2_mean"], 0.0).all()
 
 
 def test_run_evaluation_vol_design_logs_state(tmp_path_factory: pytest.TempPathFactory) -> None:
@@ -141,6 +180,7 @@ def test_run_evaluation_vol_design_logs_state(tmp_path_factory: pytest.TempPathF
     assert non_empty["group_label_counts"].str.contains("mid:").any()
     assert non_empty["group_label_counts"].str.contains("crisis:").any()
     assert set(non_empty["vol_state_label"].unique()) <= {"calm", "mid", "crisis", "unknown"}
+    assert non_empty["prewhiten_mode_effective"].notna().all()
 
 
 def test_resolve_eval_config_precedence(tmp_path_factory: pytest.TempPathFactory) -> None:
@@ -213,6 +253,20 @@ def test_resolve_eval_config_precedence(tmp_path_factory: pytest.TempPathFactory
     assert resolved.resolved["mv_gamma"] == pytest.approx(0.0015)
     assert resolved.resolved["mv_tau"] == pytest.approx(0.03)
     assert resolved.resolved["bootstrap_samples"] == 0
+    assert config.prewhiten == "ff5mom"
+    assert resolved.resolved["prewhiten"] == "ff5mom"
+
+
+def test_resolve_eval_config_prewhiten_cli(tmp_path_factory: pytest.TempPathFactory) -> None:
+    returns_path = Path(_make_returns_csv(tmp_path_factory))
+    cli_args = {
+        "returns_csv": returns_path,
+        "factors_csv": None,
+        "prewhiten": "off",
+    }
+    resolved = resolve_eval_config(cli_args)
+    assert resolved.config.prewhiten == "off"
+    assert resolved.resolved["prewhiten"] == "off"
 
 
 def test_min_variance_weights_turnover_penalty() -> None:

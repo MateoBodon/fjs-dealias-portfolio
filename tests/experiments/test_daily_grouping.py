@@ -107,6 +107,34 @@ def test_daily_cli_forwards_defaults(tmp_path: Path, monkeypatch: pytest.MonkeyP
     assert out_path.parts[-3:] == ("reports", "rc-20251103", "dow")
 
 
+def test_daily_cli_forwards_prewhiten(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    returns_csv = tmp_path / "returns.csv"
+    frame = _make_returns_frame("2024-04-01", 30)
+    frame.reset_index().rename(columns={"index": "date"}).to_csv(returns_csv, index=False)
+
+    captured: dict[str, list[str]] = {}
+
+    def fake_eval_main(args: list[str]) -> None:
+        captured["args"] = args
+
+    monkeypatch.setattr("experiments.daily.run.eval_main", fake_eval_main)
+
+    daily_main([
+        "--returns-csv",
+        str(returns_csv),
+        "--design",
+        "vol",
+        "--rc-date",
+        "20251103",
+        "--prewhiten",
+        "off",
+    ])
+
+    forwarded = captured["args"]
+    assert "--prewhiten" in forwarded
+    assert forwarded[forwarded.index("--prewhiten") + 1] == "off"
+
+
 def test_group_by_day_of_week_three_year_slice() -> None:
     frame = _make_returns_frame("2019-01-01", 3 * 252)
     trimmed, labels = group_by_day_of_week(frame, min_weeks=10)

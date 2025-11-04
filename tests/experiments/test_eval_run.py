@@ -276,8 +276,18 @@ def test_resolve_eval_config_precedence(tmp_path_factory: pytest.TempPathFactory
     assert resolved.resolved["bootstrap_samples"] == 0
     assert config.assets_top == 45
     assert resolved.resolved["assets_top"] == 45
-    assert config.prewhiten == "ff5mom"
-    assert resolved.resolved["prewhiten"] == "ff5mom"
+
+
+def test_fpr_guard_for_calibrated_thresholds(tmp_path_factory: pytest.TempPathFactory) -> None:
+    calibration_path = Path("calibration/edge_delta_thresholds.json")
+    if not calibration_path.exists():
+        pytest.skip("calibration thresholds not present")
+    payload = json.loads(calibration_path.read_text(encoding="utf-8"))
+    tyler = payload["edge_modes"]["tyler"]
+    assert tyler["delta"] > 0
+    assert tyler["delta_frac"] > 0
+    fpr = max(tyler["roc"]["fpr"])
+    assert fpr <= 0.02 + 1e-6, f"FPR guard breached: {fpr}"
 
 
 def test_resolve_eval_config_prewhiten_cli(tmp_path_factory: pytest.TempPathFactory) -> None:

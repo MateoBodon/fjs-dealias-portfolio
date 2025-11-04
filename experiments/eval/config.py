@@ -79,6 +79,14 @@ DEFAULTS: dict[str, Any] = {
     "group_min_count": 5,
     "group_min_replicates": 3,
     "ewma_halflife": 30.0,
+    "gate_mode": "strict",
+    "gate_soft_max": None,
+    "gate_delta_calibration": None,
+    "gate_delta_frac_min": None,
+    "gate_delta_frac_max": None,
+    "gate_stability_min": 0.3,
+    "gate_alignment_min": None,
+    "gate_accept_nonisolated": False,
 }
 
 
@@ -171,6 +179,27 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         else DEFAULTS["group_min_replicates"]
     )
     ewma_halflife_val = float(merged.get("ewma_halflife", DEFAULTS["ewma_halflife"]))
+    gate_mode_val = str(merged.get("gate_mode", DEFAULTS["gate_mode"]))
+    gate_soft_max_val = (
+        int(merged["gate_soft_max"]) if merged.get("gate_soft_max") is not None else None
+    )
+    gate_delta_calibration_raw = merged.get("gate_delta_calibration")
+    gate_delta_calibration_val = (
+        Path(gate_delta_calibration_raw) if gate_delta_calibration_raw else None
+    )
+    gate_delta_frac_min_val = (
+        float(merged["gate_delta_frac_min"]) if merged.get("gate_delta_frac_min") is not None else None
+    )
+    gate_delta_frac_max_val = (
+        float(merged["gate_delta_frac_max"]) if merged.get("gate_delta_frac_max") is not None else None
+    )
+    gate_stability_min_val = (
+        float(merged["gate_stability_min"]) if merged.get("gate_stability_min") is not None else float(DEFAULTS["gate_stability_min"])
+    )
+    gate_alignment_min_val = (
+        float(merged["gate_alignment_min"]) if merged.get("gate_alignment_min") is not None else None
+    )
+    gate_accept_nonisolated_val = bool(merged.get("gate_accept_nonisolated", DEFAULTS["gate_accept_nonisolated"]))
 
     config = EvalConfig(
         returns_csv=Path(returns_csv),
@@ -216,6 +245,14 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         group_min_count=group_min_count_val,
         group_min_replicates=group_min_replicates_val,
         ewma_halflife=ewma_halflife_val,
+        gate_mode=gate_mode_val,
+        gate_soft_max=gate_soft_max_val,
+        gate_delta_calibration=gate_delta_calibration_val,
+        gate_delta_frac_min=gate_delta_frac_min_val,
+        gate_delta_frac_max=gate_delta_frac_max_val,
+        gate_stability_min=gate_stability_min_val,
+        gate_alignment_min=gate_alignment_min_val,
+        gate_accept_nonisolated=gate_accept_nonisolated_val,
     )
 
     resolved = {

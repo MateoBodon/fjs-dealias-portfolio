@@ -131,6 +131,14 @@ class EvalConfig:
     group_min_count: int = 5
     group_min_replicates: int = 3
     ewma_halflife: float = 30.0
+    gate_mode: str = "strict"
+    gate_soft_max: int | None = None
+    gate_delta_calibration: Path | None = None
+    gate_delta_frac_min: float | None = None
+    gate_delta_frac_max: float | None = None
+    gate_stability_min: float | None = None
+    gate_alignment_min: float | None = None
+    gate_accept_nonisolated: bool = False
 
 
 @dataclass(slots=True, frozen=True)
@@ -342,6 +350,14 @@ def _serialise_config(config: EvalConfig) -> dict[str, Any]:
         "group_min_count": config.group_min_count,
         "group_min_replicates": config.group_min_replicates,
         "ewma_halflife": config.ewma_halflife,
+        "gate_mode": config.gate_mode,
+        "gate_soft_max": config.gate_soft_max,
+        "gate_delta_calibration": str(config.gate_delta_calibration) if config.gate_delta_calibration else None,
+        "gate_delta_frac_min": config.gate_delta_frac_min,
+        "gate_delta_frac_max": config.gate_delta_frac_max,
+        "gate_stability_min": config.gate_stability_min,
+        "gate_alignment_min": config.gate_alignment_min,
+        "gate_accept_nonisolated": config.gate_accept_nonisolated,
     }
 
 
@@ -590,6 +606,62 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
         help="Permit non-isolated detections to substitute eigenvalues.",
     )
     parser.add_argument(
+        "--gate-mode",
+        dest="gate_mode",
+        type=str,
+        choices=["strict", "soft"],
+        default=None,
+        help="Overlay gating mode (strict enforces calibrated thresholds; soft ranks by score).",
+    )
+    parser.add_argument(
+        "--gate-soft-max",
+        dest="gate_soft_max",
+        type=int,
+        default=None,
+        help="Maximum detections retained under soft gate (defaults to q_max).",
+    )
+    parser.add_argument(
+        "--gate-delta-calibration",
+        dest="gate_delta_calibration",
+        type=Path,
+        default=None,
+        help="Optional path to calibrated delta_frac lookup JSON.",
+    )
+    parser.add_argument(
+        "--gate-delta-frac-min",
+        dest="gate_delta_frac_min",
+        type=float,
+        default=None,
+        help="Minimum delta_frac required after calibration (strict gate).",
+    )
+    parser.add_argument(
+        "--gate-delta-frac-max",
+        dest="gate_delta_frac_max",
+        type=float,
+        default=None,
+        help="Maximum delta_frac allowed after calibration (strict gate).",
+    )
+    parser.add_argument(
+        "--gate-stability-min",
+        dest="gate_stability_min",
+        type=float,
+        default=None,
+        help="Minimum stability margin required for strict gate (defaults to stability_eta_deg).",
+    )
+    parser.add_argument(
+        "--gate-alignment-min",
+        dest="gate_alignment_min",
+        type=float,
+        default=None,
+        help="Minimum alignment cosine required for strict gate.",
+    )
+    parser.add_argument(
+        "--gate-accept-nonisolated",
+        dest="gate_accept_nonisolated",
+        action="store_true",
+        help="Allow non-isolated detections to pass strict gate.",
+    )
+    parser.add_argument(
         "--mv-gamma",
         dest="mv_gamma",
         type=float,
@@ -705,6 +777,8 @@ def _write_overlay_toggle(path: Path, summary: pd.DataFrame) -> None:
             ("prewhiten_beta_abs_mean", "|β| Mean"),
             ("residual_energy_mean", "Residual Energy"),
             ("acceptance_delta", "Acceptance Δ"),
+            ("substitution_fraction", "Substitution"),
+            ("gating_delta_frac", "Δ_frac"),
         ]
         header = "| Regime | " + " | ".join(title for _, title in columns) + " |"
         separator = "|" + " --- |" * (len(columns) + 1)
@@ -958,6 +1032,16 @@ def run_evaluation(
         require_isolated=bool(config.require_isolated),
         cs_drop_top_frac=config.cs_drop_top_frac,
         ewma_halflife=float(config.ewma_halflife),
+        gate_mode=str(config.gate_mode) if config.gate_mode else "strict",
+        gate_soft_max=config.gate_soft_max,
+        gate_delta_calibration=str(config.gate_delta_calibration)
+        if config.gate_delta_calibration
+        else None,
+        gate_delta_frac_min=config.gate_delta_frac_min,
+        gate_delta_frac_max=config.gate_delta_frac_max,
+        gate_stability_min=config.gate_stability_min,
+        gate_alignment_min=config.gate_alignment_min,
+        gate_accept_nonisolated=bool(config.gate_accept_nonisolated),
     )
 
     mv_gamma = float(config.mv_gamma)
@@ -1053,17 +1137,26 @@ def run_evaluation(
         if group_count < int(config.group_min_count):
             detections: list[dict[str, object]] = []
             reason = DiagnosticReason.INSUFFICIENT_GROUPS
+            gating_info: dict[str, object] = {}
         else:
             try:
-                detections = detect_spikes(fit_matrix, group_labels, config=overlay_cfg)
+                detect_stats: dict[str, object] = {}
+                detections = detect_spikes(
+                    fit_matrix,
+                    group_labels,
+                    config=overlay_cfg,
+                    stats=detect_stats,
+                )
+                gating_info = detect_stats.get("gating", {}) if isinstance(detect_stats, dict) else {}
                 reason = DiagnosticReason.ACCEPTED if detections else DiagnosticReason.NO_DETECTIONS
             except Exception:
                 detections = []
                 reason = DiagnosticReason.DETECTION_ERROR
+                gating_info = {}
 
         alignment_cos_values: list[float] = []
         alignment_angle_values: list[float] = []
-        raw_detection_count = len(detections)
+        raw_detection_count = int(gating_info.get("initial", len(detections)))
         if detections:
             filtered: list[dict[str, object]] = []
             threshold = float(config.angle_min_cos) if config.angle_min_cos is not None else None
@@ -1180,14 +1273,32 @@ def run_evaluation(
         alignment_angle_mean = float(np.mean(alignment_angle_values)) if alignment_angle_values else float("nan")
 
         reason_value = reason.value if config.reason_codes else ""
+        gating_mode = str(gating_info.get("mode", overlay_cfg.gate_mode or "strict"))
+        gating_initial = int(gating_info.get("initial", raw_detection_count))
+        gating_accepted = int(gating_info.get("accepted", len(detections)))
+        gating_rejected = int(gating_info.get("rejected", gating_initial - gating_accepted))
+        gating_soft_cap = gating_info.get("soft_cap")
+        gating_delta_frac = gating_info.get("delta_frac_used")
+        substitution_fraction = (
+            len(detections) / float(p_assets) if p_assets else 0.0
+        )
         diag_record = {
             "window_id": start,
+            "window_start": hold_start.isoformat(),
             "regime": regime,
             "detections": len(detections),
             "detection_rate": len(detections) / float(p_assets) if p_assets else 0.0,
             "edge_margin_mean": float(np.mean(edge_margins)) if edge_margins else 0.0,
             "stability_margin_mean": float(np.mean(stability)) if stability else 0.0,
             "isolation_share": float(np.mean(isolation)) if isolation else 0.0,
+            "raw_detection_count": raw_detection_count,
+            "substitution_fraction": substitution_fraction,
+            "gating_mode": gating_mode,
+            "gating_initial": gating_initial,
+            "gating_accepted": gating_accepted,
+            "gating_rejected": gating_rejected,
+            "gating_soft_cap": int(gating_soft_cap) if gating_soft_cap is not None else np.nan,
+            "gating_delta_frac": float(gating_delta_frac) if gating_delta_frac is not None else np.nan,
             "reason_code": reason_value,
             "resolved_config_path": resolved_path_str,
             "calm_threshold": float(calm_cut),
@@ -1247,6 +1358,24 @@ def run_evaluation(
         diagnostics_df["group_observations"] = np.nan
     if "vol_state_label" not in diagnostics_df.columns:
         diagnostics_df["vol_state_label"] = ""
+    if "window_start" not in diagnostics_df.columns:
+        diagnostics_df["window_start"] = ""
+    if "raw_detection_count" not in diagnostics_df.columns:
+        diagnostics_df["raw_detection_count"] = 0
+    if "substitution_fraction" not in diagnostics_df.columns:
+        diagnostics_df["substitution_fraction"] = 0.0
+    if "gating_mode" not in diagnostics_df.columns:
+        diagnostics_df["gating_mode"] = ""
+    if "gating_initial" not in diagnostics_df.columns:
+        diagnostics_df["gating_initial"] = 0
+    if "gating_accepted" not in diagnostics_df.columns:
+        diagnostics_df["gating_accepted"] = 0
+    if "gating_rejected" not in diagnostics_df.columns:
+        diagnostics_df["gating_rejected"] = 0
+    if "gating_soft_cap" not in diagnostics_df.columns:
+        diagnostics_df["gating_soft_cap"] = np.nan
+    if "gating_delta_frac" not in diagnostics_df.columns:
+        diagnostics_df["gating_delta_frac"] = np.nan
     if "prewhiten_mode_requested" not in diagnostics_df.columns:
         diagnostics_df["prewhiten_mode_requested"] = prewhiten_meta.mode_requested if diagnostics_records else ""
     if "prewhiten_mode_effective" not in diagnostics_df.columns:
@@ -1280,6 +1409,7 @@ def run_evaluation(
     bootstrap_bands: dict[tuple[str, str], tuple[float, float]] = {}
     expected_diag_columns = [
         "window_id",
+        "window_start",
         "regime",
         "detections",
         "detection_rate",
@@ -1288,6 +1418,14 @@ def run_evaluation(
         "isolation_share",
         "alignment_cos_mean",
         "alignment_angle_mean",
+        "raw_detection_count",
+        "substitution_fraction",
+        "gating_mode",
+        "gating_initial",
+        "gating_accepted",
+        "gating_rejected",
+        "gating_soft_cap",
+        "gating_delta_frac",
         "reason_code",
         "resolved_config_path",
         "calm_threshold",
@@ -1327,6 +1465,19 @@ def run_evaluation(
                 else:
                     diagnostics_df[column] = np.nan
         diagnostics_df = diagnostics_df[expected_diag_columns]
+
+    regime_columns = [
+        "window_id",
+        "window_start",
+        "regime",
+        "vol_signal",
+        "calm_threshold",
+        "crisis_threshold",
+        "vol_state_label",
+    ]
+    regime_df = diagnostics_df[regime_columns].copy() if not diagnostics_df.empty else pd.DataFrame(columns=regime_columns)
+    regime_path = out_dir / "regime.csv"
+    regime_df.to_csv(regime_path, index=False)
 
     outputs_metrics: dict[str, Path] = {}
     outputs_risk: dict[str, Path] = {}
@@ -1436,6 +1587,13 @@ def run_evaluation(
         "isolation_share": ("isolation_share", "mean"),
         "alignment_cos_mean": ("alignment_cos_mean", "mean"),
         "alignment_angle_mean": ("alignment_angle_mean", "mean"),
+        "raw_detection_count": ("raw_detection_count", "mean"),
+        "substitution_fraction": ("substitution_fraction", "mean"),
+        "gating_initial": ("gating_initial", "mean"),
+        "gating_accepted": ("gating_accepted", "mean"),
+        "gating_rejected": ("gating_rejected", "mean"),
+        "gating_soft_cap": ("gating_soft_cap", "mean"),
+        "gating_delta_frac": ("gating_delta_frac", "mean"),
         "calm_threshold": ("calm_threshold", "mean"),
         "crisis_threshold": ("crisis_threshold", "mean"),
         "vol_signal": ("vol_signal", "mean"),
@@ -1473,6 +1631,13 @@ def run_evaluation(
         diagnostics_summary["vol_signal"] = np.nan
         diagnostics_summary["alignment_cos_mean"] = np.nan
         diagnostics_summary["alignment_angle_mean"] = np.nan
+        diagnostics_summary["raw_detection_count"] = np.nan
+        diagnostics_summary["substitution_fraction"] = np.nan
+        diagnostics_summary["gating_initial"] = np.nan
+        diagnostics_summary["gating_accepted"] = np.nan
+        diagnostics_summary["gating_rejected"] = np.nan
+        diagnostics_summary["gating_soft_cap"] = np.nan
+        diagnostics_summary["gating_delta_frac"] = np.nan
         diagnostics_summary["group_design"] = ""
         diagnostics_summary["group_count"] = np.nan
         diagnostics_summary["group_replicates"] = np.nan
@@ -1490,6 +1655,7 @@ def run_evaluation(
         diagnostics_summary["prewhiten_mode_requested"] = ""
         diagnostics_summary["prewhiten_mode_effective"] = ""
         diagnostics_summary["prewhiten_factors"] = ""
+        diagnostics_summary["gating_mode"] = ""
     else:
         reason_summary = (
             diagnostics_df.groupby("regime")["reason_code"]
@@ -1513,6 +1679,10 @@ def run_evaluation(
         diagnostics_summary = diagnostics_summary.merge(reason_summary, on="regime", how="left")
         diagnostics_summary = diagnostics_summary.merge(path_summary, on="regime", how="left")
         diagnostics_summary = diagnostics_summary.merge(design_summary, on="regime", how="left")
+        gating_mode_summary = (
+            diagnostics_df.groupby("regime")["gating_mode"].agg(_mode_string).reset_index()
+        )
+        diagnostics_summary = diagnostics_summary.merge(gating_mode_summary, on="regime", how="left")
         if "group_label_counts" in diagnostics_df.columns:
             label_counts_summary = (
                 diagnostics_df.groupby("regime")["group_label_counts"]

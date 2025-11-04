@@ -1,5 +1,5 @@
 # RUNBOOK — Next RC Reproduction
-_Last updated: 2025-11-03_
+_Last updated: 2025-11-04_
 
 ## 0. Environment
 ```bash
@@ -10,85 +10,90 @@ export PYTHONPATH=src
 ```
 
 ## 1. Daily Panels with Replicates
-Run the Day-of-Week (`dow`) and volatility-state (`vol`) replicates using the daily harness.
+Launch the Day-of-Week (`dow`) and volatility-state (`vol`) smoke slices with calibrated gating and regime telemetry.
 ```bash
-python experiments/daily/run.py \
-    --returns-csv data/daily_returns.csv \
-    --design dow \
-    --window 126 --horizon 21 \
-    --shrinker rie \
-    --edge-mode tyler \
-    --out reports/rc-$(date +%Y%m%d)/dow
+# sequential (recommended)
+bash scripts/manual/run_daily_rc_smoke.sh
 
-python experiments/daily/run.py \
-    --returns-csv data/daily_returns.csv \
-    --design vol \
-    --window 126 --horizon 21 \
-    --shrinker rie \
-    --edge-mode huber \
-    --out reports/rc-$(date +%Y%m%d)/vol
+# optional: run both slices in parallel
+PARALLEL=1 bash scripts/manual/run_daily_rc_smoke.sh
+
+# monitor progress
+tail -f reports/rc-$(date +%Y%m%d)/dow-rc-smoke/regime.csv
+tail -f reports/rc-$(date +%Y%m%d)/vol-rc-smoke/regime.csv
 ```
-Both commands write `metrics.csv`, `risk.csv`, `dm.csv`, `diagnostics.csv`, and `delta_mse.png` for full/calm/crisis windows plus `overlay_toggle.md`.
+Outputs land in `reports/rc-$(date +%Y%m%d)/{dow,vol}-rc-smoke/` with `full/`, `calm/`, `crisis/` folders (`metrics.csv`, `risk.csv`, `dm.csv`, `diagnostics.csv`, `diagnostics_detail.csv`, `delta_mse.png`) plus `overlay_toggle.md`, `regime.csv`, `prewhiten_*`, and enriched gating telemetry.
 
 ## 2. Overlay Baseline Comparisons
-Re-run with EWMA and QuEST shrinkage while toggling observed-factor prewhitening.
-```bash
-python experiments/daily/run.py \
-    --returns-csv data/daily_returns.csv \
-    --design dow \
-    --shrinker quest \
-    --prewhiten ff5_mom \
-    --out reports/rc-$(date +%Y%m%d)/dow_quest
-
-python experiments/daily/run.py \
-    --returns-csv data/daily_returns.csv \
-    --design vol \
-    --shrinker ewma \
-    --ewma-halflife 30 \
-    --overlay-off \
-    --out reports/rc-$(date +%Y%m%d)/vol_ewma
-```
+Repeat `scripts/manual/run_daily_rc_smoke.sh` with desired overrides:
+- `SHRINKER=quest`, `PREWHITEN=ff5mom` for RIE/QuEST comparisons.
+- `SHRINKER=ewma`, `PREWHITEN=off`, `GATE_MODE=strict|soft` to sweep gating knobs.
+Document the exact command variants that ship in the bundle.
 
 ## 3. Calibration Sweep
-Synthetic null/power calibration at matched dimensionality.
+Generate calibrated δ_frac lookups for p∈{100,200}, n=252, then merge.
 ```bash
-python experiments/synthetic/calibrate_thresholds.py \
-    --p 120 --n 180 \
-    --fpr-target 0.015 \
-    --sims 2000 \
-    --out calibration/thresholds.json
+# ~4 min on M3 Pro
+PYTHONPATH=src:. python experiments/synthetic/calibrate_thresholds.py \
+  --workers 8 \
+  --p-assets 100 \
+  --n-groups 252 \
+  --trials-null 60 --trials-alt 60 \
+  --delta-abs-grid 0.5 \
+  --delta-frac-grid 0.015 0.02 \
+  --stability-grid 0.35 \
+  --out reports/rc-$(date +%Y%m%d)/calibration/thresholds_p100.json
+
+# second slice (p=200)
+PYTHONPATH=src:. python experiments/synthetic/calibrate_thresholds.py \
+  --workers 10 \
+  --p-assets 200 \
+  --n-groups 252 \
+  --trials-null 60 --trials-alt 60 \
+  --delta-abs-grid 0.5 \
+  --delta-frac-grid 0.015 0.02 \
+  --stability-grid 0.35 \
+  --out reports/rc-$(date +%Y%m%d)/calibration/thresholds_p200.json
+
+
+# merge + ROC
+python scripts/manual/merge_calibration_thresholds.py \
+  --inputs \
+  reports/rc-$(date +%Y%m%d)/calibration/thresholds_p100.json \
+  reports/rc-$(date +%Y%m%d)/calibration/thresholds_p200.json \
+  --out reports/rc-$(date +%Y%m%d)/calibration/thresholds.json
 ```
-Inspect the report: `python tools/show_thresholds.py calibration/thresholds.json`.
+Artifacts: combined `thresholds.json` + `roc.png` with FPR/Power scatter.
 
 ## 4. Crisis/Calm Evaluation Bundle
-Aggregate replicates and baselines into a single RC drop.
 ```bash
 python tools/collect_rc.py \
-    --rc-date $(date +%Y%m%d) \
-    --runs reports/rc-$(date +%Y%m%d)/dow reports/rc-$(date +%Y%m%d)/vol \
-    --include reports/rc-$(date +%Y%m%d)/dow_quest reports/rc-$(date +%Y%m%d)/vol_ewma \
-    --overlay calibration/thresholds.json
+  --rc-date $(date +%Y%m%d) \
+  --runs \
+    reports/rc-$(date +%Y%m%d)/dow-rc-smoke \
+    reports/rc-$(date +%Y%m%d)/vol-rc-smoke \
+  --overlay reports/rc-$(date +%Y%m%d)/calibration/thresholds.json
 ```
-Outputs live under `reports/rc-$(date +%Y%m%d)/` with `memo.md`, `gallery/`, `overlay_toggle.md`, and telemetry CSVs.
+Outputs: `memo.md`, `overlay_toggle.md`, gallery assets, `regime.csv`, and telemetry CSVs in `reports/rc-$(date +%Y%m%d)/`.
 
 ## 5. ETF Alt-Panel Demo
 ```bash
 python experiments/etf_panel/run.py \
-    --returns-csv data/etf_returns.csv \
-    --window 126 --horizon 21 \
-    --shrinker rie \
-    --out reports/etf-rc/
+  --returns-csv data/etf_returns.csv \
+  --window 126 --horizon 21 \
+  --shrinker rie \
+  --out reports/etf-rc/
 ```
 
 ## 6. Testing & Smoke Targets
 ```bash
-pytest tests/baselines/test_prewhiten.py \
-       tests/baselines/test_rie.py \
-       tests/baselines/test_ewma.py \
-       tests/fjs/test_overlay.py \
-       tests/experiments/test_eval_run.py \
-       tests/experiments/test_daily_run.py \
-       tests/synthetic/test_calibration.py
+pytest \
+  tests/baselines/test_covariance.py \
+  tests/baselines/test_load_factors.py \
+  tests/fjs/test_overlay.py \
+  tests/experiments/test_eval_run.py \
+  tests/experiments/test_daily_grouping.py \
+  tests/synthetic/test_calibration.py
 
 make smoke-daily
 ```

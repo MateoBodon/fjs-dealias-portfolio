@@ -148,6 +148,24 @@ def test_run_evaluation_prewhiten_off(tmp_path_factory: pytest.TempPathFactory) 
     assert np.isclose(diag_df["prewhiten_r2_mean"], 0.0).all()
 
 
+def test_run_evaluation_respects_assets_top(tmp_path_factory: pytest.TempPathFactory) -> None:
+    returns_csv = _make_returns_csv(tmp_path_factory)
+    out_dir = tmp_path_factory.mktemp("outputs_capped")
+    config = EvalConfig(
+        returns_csv=Path(returns_csv),
+        factors_csv=None,
+        window=20,
+        horizon=5,
+        out_dir=Path(out_dir),
+        shrinker="rie",
+        seed=4321,
+        assets_top=3,
+    )
+    outputs = run_evaluation(config)
+    summary_payload = json.loads((Path(out_dir) / "prewhiten_summary.json").read_text(encoding="utf-8"))
+    assert summary_payload["asset_count"] == 3
+    resolved_payload = json.loads((Path(out_dir) / "resolved_config.json").read_text(encoding="utf-8"))
+    assert resolved_payload["assets_top"] == 3
 def test_run_evaluation_vol_design_logs_state(tmp_path_factory: pytest.TempPathFactory) -> None:
     tmp_dir = tmp_path_factory.mktemp("vol_design")
     dates = pd.date_range("2024-02-01", periods=90, freq="B")
@@ -196,20 +214,22 @@ def test_resolve_eval_config_precedence(tmp_path_factory: pytest.TempPathFactory
         "overlay_a_grid": 72,
         "mv_gamma": 0.002,
         "mv_tau": 0.05,
+        "assets_top": 120,
     }
     thresholds_path.write_text(json.dumps(thresholds_payload), encoding="utf-8")
 
     yaml_path = tmp_dir / "config.yaml"
     yaml_path.write_text(
         "\n".join(
-            [
-                "window: 35",
-                "shrinker: lw",
-                "seed: 555",
-                "calm_quantile: 0.2",
-                "overlay_a_grid: 120",
-                "mv_gamma: 0.0015",
-            ]
+        [
+            "window: 35",
+            "shrinker: lw",
+            "seed: 555",
+            "calm_quantile: 0.2",
+            "assets_top: 90",
+            "overlay_a_grid: 120",
+            "mv_gamma: 0.0015",
+        ]
         ),
         encoding="utf-8",
     )
@@ -233,6 +253,7 @@ def test_resolve_eval_config_precedence(tmp_path_factory: pytest.TempPathFactory
         "workers": None,
         "reason_codes": True,
         "mv_tau": 0.03,
+        "assets_top": 45,
     }
 
     resolved = resolve_eval_config(cli_args)
@@ -253,6 +274,8 @@ def test_resolve_eval_config_precedence(tmp_path_factory: pytest.TempPathFactory
     assert resolved.resolved["mv_gamma"] == pytest.approx(0.0015)
     assert resolved.resolved["mv_tau"] == pytest.approx(0.03)
     assert resolved.resolved["bootstrap_samples"] == 0
+    assert config.assets_top == 45
+    assert resolved.resolved["assets_top"] == 45
     assert config.prewhiten == "ff5mom"
     assert resolved.resolved["prewhiten"] == "ff5mom"
 

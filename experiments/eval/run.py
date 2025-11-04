@@ -48,6 +48,7 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for minimal environme
         winsor_upper: float = 0.995
         min_history: int = 252
         forward_fill: bool = False
+        assets_top: int | None = None
 
     @dataclass(slots=True, frozen=True)
     class DailyPanel:
@@ -83,6 +84,12 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for minimal environme
         if cfg.forward_fill:
             wide = wide.ffill()
         wide = wide.dropna(axis=0, how="all")
+        if cfg.assets_top is not None:
+            if cfg.assets_top <= 0:
+                raise ValueError("assets_top must be positive when provided.")
+            ordered_columns = sorted(wide.columns)
+            capped = ordered_columns[: int(cfg.assets_top)]
+            wide = wide.loc[:, capped]
         if wide.shape[0] < cfg.min_history:
             raise ValueError("Insufficient history for requested window.")
         meta = {
@@ -101,6 +108,7 @@ class EvalConfig:
     window: int = 126
     horizon: int = 21
     out_dir: Path = Path("reports/eval-latest")
+    assets_top: int | None = None
     start: str | None = None
     end: str | None = None
     shrinker: str = "rie"
@@ -320,6 +328,7 @@ def _serialise_config(config: EvalConfig) -> dict[str, Any]:
         "window": config.window,
         "horizon": config.horizon,
         "out_dir": str(config.out_dir),
+        "assets_top": config.assets_top,
         "start": config.start,
         "end": config.end,
         "shrinker": config.shrinker,
@@ -476,6 +485,13 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
     parser.add_argument("--start", type=str, default=None, help="Optional start date (YYYY-MM-DD).")
     parser.add_argument("--end", type=str, default=None, help="Optional end date (YYYY-MM-DD).")
     parser.add_argument("--out", type=Path, default=None, help="Output directory.")
+    parser.add_argument(
+        "--assets-top",
+        dest="assets_top",
+        type=int,
+        default=None,
+        help="Optional cap on the number of assets (keeps first N tickers alphabetically).",
+    )
     parser.add_argument(
         "--shrinker",
         type=str,
@@ -937,9 +953,20 @@ def _window_regime(
 
 
 def _prepare_returns(config: EvalConfig) -> tuple[DailyPanel, pd.DataFrame, PrewhitenResult, PrewhitenTelemetry]:
-    loader_cfg = DailyLoaderConfig(min_history=config.window + config.horizon + 10)
+    loader_kwargs: dict[str, Any] = {"min_history": config.window + config.horizon + 10}
+    if config.assets_top is not None:
+        loader_kwargs["assets_top"] = int(config.assets_top)
+    try:
+        loader_cfg = DailyLoaderConfig(**loader_kwargs)
+    except TypeError:
+        loader_kwargs.pop("assets_top", None)
+        loader_cfg = DailyLoaderConfig(**loader_kwargs)
     panel = load_daily_panel(config.returns_csv, config=loader_cfg)
     returns = panel.returns
+    if config.assets_top is not None and returns.shape[1] > int(config.assets_top):
+        ordered_columns = sorted(returns.columns)
+        capped = ordered_columns[: int(config.assets_top)]
+        returns = returns.loc[:, capped]
     if config.start:
         returns = returns.loc[returns.index >= pd.to_datetime(config.start)]
     if config.end:

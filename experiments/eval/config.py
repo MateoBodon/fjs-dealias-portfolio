@@ -56,6 +56,7 @@ DEFAULTS: dict[str, Any] = {
     "shrinker": "rie",
     "seed": 0,
     "out_dir": "reports/eval-latest",
+    "assets_top": None,
     "calm_quantile": 0.25,
     "crisis_quantile": 0.75,
     "vol_ewma_span": 21,
@@ -201,12 +202,19 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
     )
     gate_accept_nonisolated_val = bool(merged.get("gate_accept_nonisolated", DEFAULTS["gate_accept_nonisolated"]))
 
+    assets_top_raw = merged.get("assets_top", DEFAULTS["assets_top"])
+    assets_top_val = (
+        int(assets_top_raw) if assets_top_raw is not None and str(assets_top_raw).strip() != "" else None
+    )
+    merged["assets_top"] = assets_top_val
+
     config = EvalConfig(
         returns_csv=Path(returns_csv),
         factors_csv=Path(factors_csv) if factors_csv else None,
         window=int(merged.get("window", DEFAULTS["window"])),
         horizon=int(merged.get("horizon", DEFAULTS["horizon"])),
         out_dir=Path(out_dir) if out_dir else Path(DEFAULTS["out_dir"]),
+        assets_top=assets_top_val,
         start=merged.get("start"),
         end=merged.get("end"),
         shrinker=str(merged.get("shrinker", DEFAULTS["shrinker"])),
@@ -291,6 +299,7 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         "group_min_count": config.group_min_count,
         "group_min_replicates": config.group_min_replicates,
         "ewma_halflife": config.ewma_halflife,
+        "assets_top": assets_top_val,
     }
 
     return ResolveResult(config=config, resolved=resolved)

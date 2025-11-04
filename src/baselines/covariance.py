@@ -3,7 +3,15 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import NDArray
 
+from finance.ledoit import lw_cov
+from finance.shrinkage import cc_covariance as _cc_covariance
+from finance.shrinkage import oas_covariance as _oas_covariance
+
 __all__ = [
+    "sample_covariance",
+    "lw_covariance",
+    "oas_covariance",
+    "cc_covariance",
     "ewma_covariance",
     "quest_covariance",
     "rie_covariance",
@@ -12,6 +20,37 @@ __all__ = [
 
 def _symmetrize(matrix: NDArray[np.float64]) -> NDArray[np.float64]:
     return np.asarray(0.5 * (matrix + matrix.T), dtype=np.float64)
+
+
+def sample_covariance(observations: NDArray[np.float64]) -> NDArray[np.float64]:
+    """Sample covariance with Bessel correction."""
+
+    data = np.asarray(observations, dtype=np.float64)
+    if data.ndim != 2:
+        raise ValueError("observations must be two-dimensional (samples × assets).")
+    if data.shape[0] <= 1:
+        raise ValueError("At least two observations required for sample covariance.")
+    centred = data - data.mean(axis=0, keepdims=True)
+    cov = (centred.T @ centred) / float(data.shape[0] - 1)
+    return _symmetrize(cov)
+
+
+def lw_covariance(observations: NDArray[np.float64]) -> NDArray[np.float64]:
+    """Ledoit–Wolf shrinkage covariance estimator."""
+
+    return _symmetrize(np.asarray(lw_cov(np.asarray(observations, dtype=np.float64)), dtype=np.float64))
+
+
+def oas_covariance(observations: NDArray[np.float64]) -> NDArray[np.float64]:
+    """Oracle Approximating Shrinkage (OAS) estimator."""
+
+    return _symmetrize(_oas_covariance(np.asarray(observations, dtype=np.float64)))
+
+
+def cc_covariance(observations: NDArray[np.float64]) -> NDArray[np.float64]:
+    """Ledoit–Wolf constant-correlation shrinkage estimator."""
+
+    return _symmetrize(_cc_covariance(np.asarray(observations, dtype=np.float64)))
 
 
 def rie_covariance(

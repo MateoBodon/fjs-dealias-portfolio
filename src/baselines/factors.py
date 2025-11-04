@@ -37,6 +37,8 @@ _COLUMN_ALIASES: dict[str, str] = {
     "RiskFree": "RF",
 }
 
+_FACTOR_CACHE: dict[Path, pd.DataFrame] = {}
+
 
 @dataclass(frozen=True)
 class PrewhitenResult:
@@ -72,15 +74,18 @@ def _detect_percentage_scale(frame: pd.DataFrame) -> bool:
 def _load_candidate(path: Path) -> pd.DataFrame | None:
     if not path.exists():
         return None
+    cached = _FACTOR_CACHE.get(path.resolve())
+    if cached is not None:
+        return cached.copy()
     frame = pd.read_csv(path)
     if frame.empty:
         return None
     columns_lower = [c.lower() for c in frame.columns]
     if "date" in columns_lower:
         date_col = frame.columns[columns_lower.index("date")]
-        index = pd.to_datetime(frame.pop(date_col))
+        index = pd.DatetimeIndex(pd.to_datetime(frame.pop(date_col)), name="date")
     else:
-        index = pd.to_datetime(frame.iloc[:, 0])
+        index = pd.DatetimeIndex(pd.to_datetime(frame.iloc[:, 0]), name="date")
         frame = frame.iloc[:, 1:]
     frame = _normalise_columns(frame)
     frame.index = index.tz_localize(None)
@@ -93,6 +98,7 @@ def _load_candidate(path: Path) -> pd.DataFrame | None:
     numeric = numeric.astype(np.float64)
     numeric.index = numeric.index.tz_localize(None)
     numeric = numeric.loc[~numeric.index.duplicated(keep="last")]
+    _FACTOR_CACHE[path.resolve()] = numeric.copy()
     return numeric
 
 

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+import pathlib
+
 import numpy as np
 import pytest
 
@@ -8,16 +11,25 @@ from fjs.dealias import Detection
 from fjs.overlay import OverlayConfig, apply_overlay, detect_spikes
 
 
-def _make_detection(mu: float, vec: np.ndarray, edge_margin: float = 0.2) -> Detection:
+def _make_detection(
+    mu: float,
+    vec: np.ndarray,
+    *,
+    edge_margin: float = 0.2,
+    stability: float = 0.3,
+    target_energy: float | None = None,
+    alignment: float = 1.0,
+    pre_outlier: int | None = 1,
+) -> Detection:
     vec = np.asarray(vec, dtype=np.float64)
     unit = vec / np.linalg.norm(vec)
-    return Detection(
+    det: Detection = Detection(
         mu_hat=float(mu),
         lambda_hat=float(mu),
         a=[1.0, 0.0],
         components=[float(mu), 0.0],
         eigvec=unit,
-        stability_margin=0.1,
+        stability_margin=float(stability),
         edge_margin=float(edge_margin),
         buffer_margin=0.1,
         t_values=None,
@@ -36,10 +48,13 @@ def _make_detection(mu: float, vec: np.ndarray, edge_margin: float = 0.2) -> Det
         target_energy=None,
         target_index=0,
         off_component_ratio=0.0,
-        pre_outlier_count=0,
+        pre_outlier_count=pre_outlier,
         edge_mode="tyler",
         edge_scale=1.0,
     )
+    det["target_energy"] = float(target_energy) if target_energy is not None else None
+    det["alignment_cos"] = float(alignment)
+    return det
 
 
 def test_apply_overlay_substitutes_detected_eigenvalues() -> None:
@@ -103,3 +118,169 @@ def test_apply_overlay_with_quest_shrinker_matches_baseline() -> None:
     result = apply_overlay(sample_cov, [], observations=observations, config=config)
     baseline = quest_covariance(sample_cov, sample_count=observations.shape[0])
     assert np.allclose(result, baseline, atol=1e-8)
+
+
+def test_detect_spikes_strict_gate_filters(monkeypatch: pytest.MonkeyPatch) -> None:
+    det_bad = _make_detection(
+        3.0,
+        np.array([1.0, 0.0, 0.0]),
+        edge_margin=0.25,
+        stability=0.05,
+        alignment=0.8,
+        pre_outlier=1,
+    )
+    det_good = _make_detection(
+        2.5,
+        np.array([0.0, 1.0, 0.0]),
+        edge_margin=0.4,
+        stability=0.4,
+        alignment=0.95,
+        pre_outlier=1,
+    )
+
+    def fake_search(*args, **kwargs):
+        return [det_bad, det_good]
+
+    monkeypatch.setattr("fjs.overlay.dealias_search", fake_search)
+    cfg = OverlayConfig(
+        gate_mode="strict",
+        gate_stability_min=0.2,
+        gate_alignment_min=0.9,
+        min_edge_margin=0.2,
+        q_max=5,
+    )
+    obs = np.ones((10, 3))
+    groups = np.repeat(np.arange(5), 2)
+    stats: dict = {}
+    kept = detect_spikes(obs, groups, config=cfg, stats=stats)
+    assert len(kept) == 1
+    assert kept[0]["mu_hat"] == pytest.approx(2.5)
+    assert stats["gating"]["accepted"] == 1
+    assert stats["gating"]["rejected"] == 1
+    assert stats["gating"]["delta_frac_used"] is None
+
+
+def test_detect_spikes_soft_gate_selects_top_score(monkeypatch: pytest.MonkeyPatch) -> None:
+    det_low = _make_detection(
+        2.0,
+        np.array([1.0, 0.0, 0.0]),
+        edge_margin=0.3,
+        stability=0.2,
+        target_energy=0.4,
+        alignment=0.95,
+        pre_outlier=1,
+    )
+    det_high = _make_detection(
+        2.2,
+        np.array([0.0, 1.0, 0.0]),
+        edge_margin=0.35,
+        stability=0.5,
+        target_energy=1.5,
+        alignment=0.98,
+        pre_outlier=1,
+    )
+
+    def fake_search(*args, **kwargs):
+        return [det_low, det_high]
+
+    monkeypatch.setattr("fjs.overlay.dealias_search", fake_search)
+    cfg = OverlayConfig(
+        gate_mode="soft",
+        gate_soft_max=1,
+        min_edge_margin=0.2,
+        gate_accept_nonisolated=True,
+        q_max=3,
+    )
+    obs = np.ones((12, 3))
+    groups = np.repeat(np.arange(6), 2)
+    kept = detect_spikes(obs, groups, config=cfg)
+    assert len(kept) == 1
+    assert kept[0]["mu_hat"] == pytest.approx(2.2)
+
+
+def test_detect_spikes_uses_calibrated_delta(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    det = _make_detection(
+        3.0,
+        np.array([1.0, 0.0, 0.0]),
+        edge_margin=0.5,
+        stability=0.6,
+        alignment=0.97,
+        pre_outlier=1,
+    )
+
+    def fake_search(*args, **kwargs):
+        return [det]
+
+    monkeypatch.setattr("fjs.overlay.dealias_search", fake_search)
+
+    calib_path = tmp_path / "thresholds.json"
+    payload = {
+        "thresholds": {
+            "tyler": {
+                "3x5": {
+                    "delta_frac": 0.03,
+                }
+            }
+        }
+    }
+    calib_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    cfg = OverlayConfig(
+        gate_mode="strict",
+        gate_delta_calibration=str(calib_path),
+        gate_delta_frac_min=0.02,
+        gate_delta_frac_max=0.04,
+        min_edge_margin=0.2,
+        q_max=2,
+    )
+    obs = np.ones((10, 3))
+    groups = np.repeat(np.arange(5), 2)
+    stats: dict = {}
+    kept = detect_spikes(obs, groups, config=cfg, stats=stats)
+    assert kept
+    assert kept[0]["delta_frac"] == pytest.approx(0.03)
+    assert stats["gating"]["delta_frac_used"] == pytest.approx(0.03)
+
+
+def test_detect_spikes_rejects_when_calibrated_delta_below_min(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    det = _make_detection(
+        2.8,
+        np.array([1.0, 0.0, 0.0]),
+        edge_margin=0.4,
+        stability=0.4,
+        alignment=0.95,
+        pre_outlier=1,
+    )
+
+    def fake_search(*args, **kwargs):
+        return [det]
+
+    monkeypatch.setattr("fjs.overlay.dealias_search", fake_search)
+
+    calib_path = tmp_path / "thresholds.json"
+    payload = {
+        "thresholds": {
+            "tyler": {
+                "3x4": {
+                    "delta_frac": 0.015,
+                }
+            }
+        }
+    }
+    calib_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    cfg = OverlayConfig(
+        gate_mode="strict",
+        gate_delta_calibration=str(calib_path),
+        gate_delta_frac_min=0.02,
+        min_edge_margin=0.2,
+        q_max=2,
+    )
+    obs = np.ones((8, 3))
+    groups = np.repeat(np.arange(4), 2)
+    stats: dict = {}
+    kept = detect_spikes(obs, groups, config=cfg, stats=stats)
+    assert kept == []
+    assert stats["gating"]["accepted"] == 0
+    assert stats["gating"]["rejected"] == 1
+    assert stats["gating"]["delta_frac_used"] == pytest.approx(0.015)

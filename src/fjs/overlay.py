@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
-from typing import Iterable, Sequence
+from typing import Iterable, Mapping, Sequence
 
 import numpy as np
 from numpy.typing import NDArray
@@ -10,6 +11,7 @@ from baselines.covariance import ewma_covariance, quest_covariance, rie_covarian
 from finance.ledoit import lw_cov
 from finance.shrinkage import oas_covariance
 from fjs.dealias import Detection, dealias_search
+from fjs.gating import lookup_calibrated_delta, select_top_k
 
 __all__ = [
     "OverlayConfig",
@@ -36,6 +38,14 @@ class OverlayConfig:
     edge_mode: str = "tyler"
     seed: int = 0
     cs_drop_top_frac: float | None = None
+    gate_mode: str = "strict"
+    gate_soft_max: int | None = None
+    gate_delta_calibration: str | None = None
+    gate_delta_frac_min: float | None = None
+    gate_delta_frac_max: float | None = None
+    gate_stability_min: float | None = None
+    gate_alignment_min: float | None = None
+    gate_accept_nonisolated: bool = False
 
 
 def _baseline_covariance(
@@ -77,6 +87,91 @@ def _baseline_covariance(
     )
 
 
+def _resolve_delta_frac(
+    cfg: OverlayConfig,
+    observations: NDArray[np.float64],
+    groups: Sequence[int],
+) -> float | None:
+    if cfg.delta_frac is not None:
+        return float(cfg.delta_frac)
+    if cfg.gate_delta_calibration:
+        p = int(observations.shape[1]) if observations.size else 0
+        q = int(len(np.unique(groups)))
+        calibrated = lookup_calibrated_delta(
+            cfg.edge_mode,
+            p,
+            q,
+            calibration_path=cfg.gate_delta_calibration,
+        )
+        return calibrated
+    return None
+
+
+def _gate_detections(
+    detections: list[Detection],
+    cfg: OverlayConfig,
+    soft_cap: int | None,
+    delta_frac_used: float | None,
+) -> tuple[list[Detection], list[Detection]]:
+    if not detections:
+        return [], []
+
+    mode = (cfg.gate_mode or "strict").lower()
+
+    base: list[Detection] = []
+    accepted: list[Detection] = []
+    rejected: list[Detection] = []
+    delta_frac_min = cfg.gate_delta_frac_min
+    delta_frac_max = cfg.gate_delta_frac_max
+    stability_min = cfg.gate_stability_min if cfg.gate_stability_min is not None else cfg.stability_eta_deg
+    alignment_min = cfg.gate_alignment_min if cfg.gate_alignment_min is not None else 0.0
+
+    for det in detections:
+        edge_margin = float(det.get("edge_margin", float("-inf")))
+        if edge_margin < cfg.min_edge_margin:
+            rejected.append(det)
+            continue
+        pre_count = det.get("pre_outlier_count")
+        if (
+            pre_count is not None
+            and not cfg.gate_accept_nonisolated
+            and int(pre_count) != 1
+        ):
+            rejected.append(det)
+            continue
+        base.append(det)
+
+    if mode == "soft":
+        limit = soft_cap if soft_cap is not None else cfg.q_max
+        selected, discarded = select_top_k(base, int(limit) if limit is not None else len(base))
+        rejected.extend(discarded)
+        return selected, rejected
+
+    for det in base:
+        stability = float(det.get("stability_margin", 0.0))
+        alignment = float(det.get("alignment_cos", 1.0))
+        delta_used = det.get("delta_frac")
+        if delta_used is None or (isinstance(delta_used, float) and math.isnan(delta_used)):
+            delta_used = delta_frac_used
+        delta_used = float(delta_used) if delta_used is not None else float("nan")
+
+        if stability < stability_min:
+            rejected.append(det)
+            continue
+        if alignment < alignment_min:
+            rejected.append(det)
+            continue
+        if delta_frac_min is not None and np.isfinite(delta_used) and delta_used < float(delta_frac_min):
+            rejected.append(det)
+            continue
+        if delta_frac_max is not None and np.isfinite(delta_used) and delta_used > float(delta_frac_max):
+            rejected.append(det)
+            continue
+        accepted.append(det)
+
+    return accepted, rejected
+
+
 def detect_spikes(
     observations: NDArray[np.float64],
     groups: Sequence[int],
@@ -86,12 +181,19 @@ def detect_spikes(
 ) -> list[Detection]:
     cfg = config or OverlayConfig()
     _ = np.random.default_rng(cfg.seed)  # ensure deterministic rng initialisation
+    resolved_delta_frac = _resolve_delta_frac(cfg, observations, groups)
+    delta_for_search = (
+        float(resolved_delta_frac)
+        if resolved_delta_frac is not None
+        else float(cfg.delta_frac) if cfg.delta_frac is not None else None
+    )
+
     detections = dealias_search(
         np.asarray(observations, dtype=np.float64),
         np.asarray(groups, dtype=np.intp),
         target_r=0,
         delta=float(cfg.delta),
-        delta_frac=float(cfg.delta_frac) if cfg.delta_frac is not None else None,
+        delta_frac=delta_for_search,
         eps=float(cfg.eps),
         stability_eta_deg=float(cfg.stability_eta_deg),
         a_grid=int(cfg.a_grid),
@@ -101,22 +203,33 @@ def detect_spikes(
         cs_drop_top_frac=cfg.cs_drop_top_frac,
         stats=stats,
     )
-    filtered: list[Detection] = []
-    for det in detections:
-        margin = det.get("edge_margin")
-        if margin is None:
-            continue
-        if float(margin) < float(cfg.min_edge_margin):
-            continue
-        filtered.append(det)
+    if resolved_delta_frac is not None:
+        for det in detections:
+            det["delta_frac"] = resolved_delta_frac
 
-    filtered.sort(key=lambda det: float(det.get("edge_margin") or det["mu_hat"]), reverse=True)
-    limit_q = cfg.q_max if cfg.q_max is not None else len(filtered)
-    limit_m = cfg.max_detections if cfg.max_detections is not None else len(filtered)
+    soft_cap = cfg.gate_soft_max if (cfg.gate_mode or "strict").lower() == "soft" else None
+    kept, rejected = _gate_detections(detections, cfg, soft_cap, resolved_delta_frac)
+
+    kept.sort(key=lambda det: float(det.get("edge_margin") or det["mu_hat"]), reverse=True)
+    limit_q = cfg.q_max if cfg.q_max is not None else len(kept)
+    limit_m = cfg.max_detections if cfg.max_detections is not None else len(kept)
     cap = min(limit_q, limit_m)
-    if filtered and cap < len(filtered):
-        filtered = filtered[: int(cap)]
-    return filtered
+    if kept and cap < len(kept):
+        kept = kept[: int(cap)]
+
+    if stats is not None:
+        gating_info = stats.setdefault("gating", {})
+        gating_info.update(
+            {
+                "mode": (cfg.gate_mode or "strict"),
+                "initial": len(detections),
+                "accepted": len(kept),
+                "rejected": len(rejected),
+                "soft_cap": int(soft_cap) if soft_cap is not None else None,
+                "delta_frac_used": resolved_delta_frac,
+            }
+        )
+    return kept
 
 
 def apply_overlay(

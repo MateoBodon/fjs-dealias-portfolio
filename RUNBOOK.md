@@ -9,6 +9,12 @@ pip install -e .
 export PYTHONPATH=src
 ```
 
+### Data Hygiene
+- **WRDS snapshot.** `data/wrds/returns_daily.parquet` covers 2016-01-01 → 2024-12-31 (CRSP DSF; share codes 10/11; exchanges 1/2/3; price ≥ \$1; volume ≥ 0) with DoW/volatility labels in `data/wrds/labels.parquet`.
+- **Winsorization.** Daily returns are symmetrically winsorized at `q = 0.005` (0.5%) per ticker before evaluation; flags propagate via `preprocess_flags["winsorize"] = "0.005"`.
+- **Robust edge defaults.** Unless overridden, detection uses Tyler edge estimates with MP margin + calibrated δ_frac table and isolates enforced (`gate_mode=strict`, `require_isolated=True`).
+- **Universe freeze.** `data/meta/universe_2016_2024.json` records `{permno,ticker,first_date,last_date}` for all kept securities; evaluation slices must reference this manifest.
+
 ## 1. Daily Panels with Replicates
 Launch the Day-of-Week (`dow`) and volatility-state (`vol`) smoke slices with calibrated gating and regime telemetry.
 ```bash

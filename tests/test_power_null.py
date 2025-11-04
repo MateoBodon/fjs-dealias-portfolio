@@ -86,6 +86,31 @@ def test_calibrate_delta_thresholds_returns_lookup() -> None:
     assert 0.0 <= entry["delta_frac"] <= 0.02
 
 
+def test_calibrate_delta_thresholds_multi_panel_fpr_cap() -> None:
+    config = DEFAULT_CONFIG.copy()
+    config.update({
+        "n_assets": 6,
+        "n_groups": 3,
+        "replicates": 3,
+        "trials_null": 20,
+        "delta_frac": 0.0,
+    })
+    rng = np.random.default_rng(404)
+    calibration = calibrate_delta_thresholds(
+        config=config,
+        edge_modes=["scm"],
+        trials_null=int(config["trials_null"]),
+        alpha=0.02,
+        rng=rng,
+        delta_grid=[0.1],
+        panel_specs=[(6, 3, 3)],
+    )
+    scm_thresholds = calibration["thresholds"].get("scm", {})
+    key, entry = next(iter(scm_thresholds.items()))
+    assert key == "6x9"
+    assert entry["fpr"] <= 0.02 + 1e-9
+
+
 def test_calibration_cache_roundtrip(tmp_path: Path) -> None:
     cache_path = tmp_path / "edge_delta_thresholds.json"
     config = DEFAULT_CONFIG.copy()

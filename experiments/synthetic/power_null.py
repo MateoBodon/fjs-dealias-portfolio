@@ -46,7 +46,7 @@ DEFAULT_CONFIG = {
     "a_grid": 120,
     "cs_drop_top_frac": 0.05,
     "cs_sensitivity_frac": 0.0,
-    "trials_null": 200,
+    "trials_null": 400,
     "trials_power": 150,
     "spike_grid": [2.0, 3.5, 5.0, 6.5],
     "two_spike": False,
@@ -92,6 +92,18 @@ def _normalise_for_meta(value: object) -> object:
     return value
 
 
+def _normalise_panel_specs(panel_specs: Sequence[tuple[int, int, int]] | None) -> list[str]:
+    if not panel_specs:
+        return []
+    formatted: list[str] = []
+    for spec in panel_specs:
+        if len(spec) != 3:
+            raise ValueError("Panel spec tuples must have exactly three entries (p, groups, replicates).")
+        p_dim, groups, replicates = spec
+        formatted.append(f"{int(p_dim)}x{int(groups)}x{int(replicates)}")
+    return sorted(formatted)
+
+
 def calibration_cache_meta(
     *,
     config: Mapping[str, object],
@@ -99,6 +111,7 @@ def calibration_cache_meta(
     alpha: float,
     trials_null: int,
     delta_grid: Sequence[float],
+    panel_specs: Sequence[tuple[int, int, int]] | None = None,
 ) -> dict[str, object]:
     normalised_config = _normalise_for_meta(dict(config))
     config_json = json.dumps(normalised_config, sort_keys=True, separators=(",", ":"))
@@ -110,6 +123,7 @@ def calibration_cache_meta(
         "alpha": float(alpha),
         "trials_null": int(trials_null),
         "delta_grid": [float(val) for val in delta_grid],
+        "panel_specs": _normalise_panel_specs(panel_specs),
     }
 
 
@@ -362,6 +376,7 @@ def calibrate_delta_thresholds(
     alpha: float,
     rng: np.random.Generator,
     delta_grid: Sequence[float] | None = None,
+    panel_specs: Sequence[tuple[int, int, int]] | None = None,
 ) -> dict[str, object]:
     """Estimate minimal delta_frac values achieving target null FPR for each (p, T)."""
 
@@ -374,32 +389,60 @@ def calibrate_delta_thresholds(
     gating_label = "default"
     gating_cfg = GATING_SETTINGS.get(gating_label, {})
 
+    specs: list[tuple[int, int, int]] = []
+    if panel_specs:
+        for spec in panel_specs:
+            if len(spec) != 3:
+                raise ValueError("Panel specs must contain (n_assets, n_groups, replicates).")
+            specs.append((int(spec[0]), int(spec[1]), int(spec[2])))
+    else:
+        specs.append(
+            (
+                int(config["n_assets"]),
+                int(config["n_groups"]),
+                int(config["replicates"]),
+            )
+        )
+
     detection_counts: dict[tuple[str, int, int], dict[float, int]] = {}
     trial_counts: dict[tuple[str, int, int], int] = defaultdict(int)
 
-    for _ in range(trials_null):
-        y, groups = _simulate_null(config, rng=rng)
-        p_dim = int(y.shape[1]) if y.ndim == 2 else 0
-        t_len = int(y.shape[0])
-        if p_dim <= 0 or t_len <= 0:
+    for spec_idx, (p_dim_cfg, groups_cfg, replicates_cfg) in enumerate(specs):
+        spec_config = dict(config)
+        spec_config.update(
+            {
+                "n_assets": int(p_dim_cfg),
+                "n_groups": int(groups_cfg),
+                "replicates": int(replicates_cfg),
+            }
+        )
+        # ensure replicates positive
+        if int(spec_config["n_assets"]) <= 0 or int(spec_config["n_groups"]) <= 0 or int(spec_config["replicates"]) <= 0:
             continue
-        for mode in modes:
-            key = (mode, p_dim, t_len)
-            trial_counts[key] += 1
-            count_map = detection_counts.setdefault(
-                key, {delta_val: 0 for delta_val in grid_values}
-            )
-            for delta_val in grid_values:
-                detections = _detections_for_mode(
-                    y,
-                    groups,
-                    edge_mode=mode,
-                    gating=gating_cfg,
-                    config=config,
-                    delta_frac_override=delta_val,
+        spec_rng = np.random.default_rng(rng.integers(2**63 - 1))
+        for _ in range(trials_null):
+            y, groups = _simulate_null(spec_config, rng=spec_rng)
+            p_dim = int(y.shape[1]) if y.ndim == 2 else 0
+            t_len = int(y.shape[0])
+            if p_dim <= 0 or t_len <= 0:
+                continue
+            for mode in modes:
+                key = (mode, p_dim, t_len)
+                trial_counts[key] += 1
+                count_map = detection_counts.setdefault(
+                    key, {delta_val: 0 for delta_val in grid_values}
                 )
-                if detections:
-                    count_map[delta_val] = count_map.get(delta_val, 0) + 1
+                for delta_val in grid_values:
+                    detections = _detections_for_mode(
+                        y,
+                        groups,
+                        edge_mode=mode,
+                        gating=gating_cfg,
+                        config=spec_config,
+                        delta_frac_override=delta_val,
+                    )
+                    if detections:
+                        count_map[delta_val] = count_map.get(delta_val, 0) + 1
 
     threshold_payload: dict[str, dict[str, dict[str, float]]] = defaultdict(dict)
     for key, counts in detection_counts.items():
@@ -431,6 +474,7 @@ def calibrate_delta_thresholds(
         "gating": gating_label,
         "delta_grid": [float(val) for val in grid_values],
         "generated_at": datetime.now(timezone.utc).isoformat(),
+        "panel_specs": _normalise_panel_specs(specs),
         "thresholds": {mode: dict(entries) for mode, entries in threshold_payload.items()},
     }
 
@@ -552,6 +596,37 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Force calibration recomputation even when cache appears up to date.",
     )
+    parser.add_argument(
+        "--n-assets",
+        type=int,
+        default=None,
+        help="Override number of assets for simulation panels.",
+    )
+    parser.add_argument(
+        "--n-groups",
+        type=int,
+        default=None,
+        help="Override number of groups for simulation panels.",
+    )
+    parser.add_argument(
+        "--replicates",
+        type=int,
+        default=None,
+        help="Override replicate count per group for simulation panels.",
+    )
+    parser.add_argument(
+        "--panel-spec",
+        action="append",
+        default=None,
+        help="Panel spec as 'assets:groups:replicates'. Repeat to calibrate multiple regimes.",
+    )
+    parser.add_argument(
+        "--delta-grid",
+        type=float,
+        nargs="+",
+        default=None,
+        help="Override delta_frac grid for calibration (list of floats).",
+    )
     return parser.parse_args()
 
 
@@ -566,6 +641,29 @@ def main() -> None:
         config["spike_grid"] = [float(x) for x in args.spike_grid]
     if args.output_dir is not None:
         config["output_dir"] = args.output_dir
+    if args.n_assets is not None:
+        config["n_assets"] = max(1, int(args.n_assets))
+    if args.n_groups is not None:
+        config["n_groups"] = max(1, int(args.n_groups))
+    if args.replicates is not None:
+        config["replicates"] = max(1, int(args.replicates))
+
+    panel_specs: list[tuple[int, int, int]] = []
+    if args.panel_spec:
+        for spec_str in args.panel_spec:
+            parts = [part.strip() for part in str(spec_str).split(":") if part.strip()]
+            if len(parts) != 3:
+                raise ValueError(f"Invalid panel spec '{spec_str}'. Expected format assets:groups:replicates.")
+            try:
+                assets_val = max(1, int(parts[0]))
+                groups_val = max(1, int(parts[1]))
+                reps_val = max(1, int(parts[2]))
+            except ValueError as exc:  # pragma: no cover - defensive guard
+                raise ValueError(f"Panel spec '{spec_str}' must contain integers.") from exc
+            panel_specs.append((assets_val, groups_val, reps_val))
+        # Use the first spec for summary simulations to keep behaviour deterministic.
+        first_assets, first_groups, first_reps = panel_specs[0]
+        config.update({"n_assets": first_assets, "n_groups": first_groups, "replicates": first_reps})
 
     output_dir = Path(str(config["output_dir"])).expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -605,13 +703,14 @@ def main() -> None:
         out_path = (
             Path(args.out).expanduser() if args.out is not None else PROJECT_ROOT / "calibration" / "edge_delta_thresholds.json"
         )
-        grid_values = _resolve_delta_grid(None)
+        grid_values = _resolve_delta_grid(args.delta_grid)
         initial_meta = calibration_cache_meta(
             config=config,
             edge_modes=edge_modes,
             alpha=float(args.alpha),
             trials_null=int(config["trials_null"]),
             delta_grid=grid_values,
+            panel_specs=panel_specs or None,
         )
         dependencies = [
             Path(__file__).resolve(),
@@ -629,7 +728,8 @@ def main() -> None:
                 trials_null=int(config["trials_null"]),
                 alpha=float(args.alpha),
                 rng=cal_rng,
-                delta_grid=None,
+                delta_grid=args.delta_grid,
+                panel_specs=panel_specs or None,
             )
             if calibration:
                 actual_grid = [float(val) for val in calibration.get("delta_grid", grid_values)]
@@ -639,6 +739,7 @@ def main() -> None:
                     alpha=float(args.alpha),
                     trials_null=int(config["trials_null"]),
                     delta_grid=actual_grid,
+                    panel_specs=panel_specs or None,
                 )
                 write_calibration_cache(out_path, calibration, write_meta)
                 print(f"Calibrated delta thresholds written to {out_path}")

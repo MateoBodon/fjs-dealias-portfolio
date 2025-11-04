@@ -1,39 +1,70 @@
 {
-  "alpha": 0.01,
-  "trials_null": 80,
+  "alpha": 0.02,
+  "trials_null": 160,
   "edge_modes": [
-    "scm",
-    "tyler"
+    "tyler",
+    "huber"
   ],
   "gating": "default",
   "delta_grid": [
     0.0,
-    0.005,
     0.01,
     0.015,
     0.02,
     0.025,
-    0.03,
-    0.04,
-    0.05,
-    0.075,
-    0.1
+    0.03
   ],
-  "generated_at": "2025-10-31T04:58:05.203015+00:00",
+  "generated_at": "2025-11-04T01:58:57.991066+00:00",
+  "panel_specs": [
+    "80x3x23",
+    "80x5x24"
+  ],
   "thresholds": {
-    "scm": {
-      "40x180": {
+    "tyler": {
+      "80x120": {
         "delta_frac": 0.0,
         "fpr": 0.0,
-        "trials": 80
+        "trials": 160
+      },
+      "80x69": {
+        "delta_frac": 0.0,
+        "fpr": 0.0,
+        "trials": 160
       }
     },
-    "tyler": {
-      "40x180": {
+    "huber": {
+      "80x120": {
         "delta_frac": 0.0,
         "fpr": 0.0,
-        "trials": 80
+        "trials": 160
+      },
+      "80x69": {
+        "delta_frac": 0.0,
+        "fpr": 0.0,
+        "trials": 160
       }
     }
+  },
+  "_meta": {
+    "schema": 1,
+    "config_hash": "68cf31b0699a60e7429af74489ae5a34768092b8",
+    "edge_modes": [
+      "huber",
+      "tyler"
+    ],
+    "alpha": 0.02,
+    "trials_null": 160,
+    "delta_grid": [
+      0.0,
+      0.01,
+      0.015,
+      0.02,
+      0.025,
+      0.03
+    ],
+    "panel_specs": [
+      "80x3x23",
+      "80x5x24"
+    ]
   }
 }

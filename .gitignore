@@ -29,6 +29,7 @@ reports/rc-/
 !reports/rc-*/
 reports/rc-*/**
 !reports/rc-*/memo.md
+!reports/rc-*/run_manifest.json
 
 # Publish fast synthetic figure previews in README
 !figures/synthetic_fast/

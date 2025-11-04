@@ -38,6 +38,9 @@ reports/rc-*/**
 # Local data drops
 data/*.csv
 data/*.parquet
+data/**/*.parquet
+data/**/*.parquet.xz
+!data/**/*.parquet.xz.part*
 
 # Local secrets (example committed separately)
 .env

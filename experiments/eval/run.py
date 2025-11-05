@@ -1163,6 +1163,101 @@ def run_evaluation(
             }
             return [], diag_record
 
+        fit_balanced = fit_balanced.replace([np.inf, -np.inf], np.nan)
+        non_null_columns = fit_balanced.columns[~fit_balanced.isna().any(axis=0)]
+        if non_null_columns.size != fit_balanced.shape[1]:
+            fit_balanced = fit_balanced.loc[:, non_null_columns]
+        fit_balanced = fit_balanced.dropna(axis=0, how="any")
+        if fit_balanced.empty or fit_balanced.shape[1] == 0:
+            reason_value = DiagnosticReason.DETECTION_ERROR.value if config.reason_codes else ""
+            diag_record = {
+                "regime": regime,
+                "detections": 0,
+                "detection_rate": 0.0,
+                "edge_margin_mean": 0.0,
+                "stability_margin_mean": 0.0,
+                "isolation_share": 0.0,
+                "alignment_cos_mean": 0.0,
+                "alignment_angle_mean": 0.0,
+                "raw_detection_count": 0,
+                "substitution_fraction": 0.0,
+                "gating_mode": str(config.gate_mode or "strict"),
+                "gating_initial": 0,
+                "gating_accepted": 0,
+                "gating_rejected": 0,
+                "gating_soft_cap": overlay_cfg.gate_soft_max,
+                "gating_delta_frac": overlay_cfg.gate_delta_frac_min,
+                "reason_code": reason_value,
+                "resolved_config_path": resolved_path_str,
+                "calm_threshold": float(calm_cut),
+                "crisis_threshold": float(crisis_cut),
+                "vol_signal": float(vol_signal_value),
+                "group_design": design,
+                "group_count": 0,
+                "group_replicates": 0,
+                "prewhiten_r2_mean": prewhiten_meta.r2_mean,
+                "prewhiten_r2_median": prewhiten_meta.r2_median,
+                "prewhiten_mode_requested": prewhiten_meta.mode_requested,
+                "prewhiten_mode_effective": prewhiten_meta.mode_effective,
+                "prewhiten_factor_count": len(prewhiten_meta.factor_columns),
+                "prewhiten_beta_abs_mean": prewhiten_meta.beta_abs_mean,
+                "prewhiten_beta_abs_std": prewhiten_meta.beta_abs_std,
+                "prewhiten_beta_abs_median": prewhiten_meta.beta_abs_median,
+                "prewhiten_factors": ",".join(prewhiten_meta.factor_columns),
+                "residual_energy_mean": 0.0,
+                "acceptance_delta": 0.0,
+                "group_label_counts": "",
+                "group_observations": 0,
+                "vol_state_label": hold_vol_state,
+            }
+            return [], diag_record
+
+        hold = hold.loc[:, fit_balanced.columns]
+        hold = hold.replace([np.inf, -np.inf], np.nan).dropna(axis=0, how="any")
+        if hold.empty:
+            reason_value = DiagnosticReason.HOLDOUT_EMPTY.value if config.reason_codes else ""
+            diag_record = {
+                "regime": regime,
+                "detections": 0,
+                "detection_rate": 0.0,
+                "edge_margin_mean": 0.0,
+                "stability_margin_mean": 0.0,
+                "isolation_share": 0.0,
+                "alignment_cos_mean": 0.0,
+                "alignment_angle_mean": 0.0,
+                "raw_detection_count": 0,
+                "substitution_fraction": 0.0,
+                "gating_mode": str(config.gate_mode or "strict"),
+                "gating_initial": 0,
+                "gating_accepted": 0,
+                "gating_rejected": 0,
+                "gating_soft_cap": overlay_cfg.gate_soft_max,
+                "gating_delta_frac": overlay_cfg.gate_delta_frac_min,
+                "reason_code": reason_value,
+                "resolved_config_path": resolved_path_str,
+                "calm_threshold": float(calm_cut),
+                "crisis_threshold": float(crisis_cut),
+                "vol_signal": float(vol_signal_value),
+                "group_design": design,
+                "group_count": 0,
+                "group_replicates": 0,
+                "prewhiten_r2_mean": prewhiten_meta.r2_mean,
+                "prewhiten_r2_median": prewhiten_meta.r2_median,
+                "prewhiten_mode_requested": prewhiten_meta.mode_requested,
+                "prewhiten_mode_effective": prewhiten_meta.mode_effective,
+                "prewhiten_factor_count": len(prewhiten_meta.factor_columns),
+                "prewhiten_beta_abs_mean": prewhiten_meta.beta_abs_mean,
+                "prewhiten_beta_abs_std": prewhiten_meta.beta_abs_std,
+                "prewhiten_beta_abs_median": prewhiten_meta.beta_abs_median,
+                "prewhiten_factors": ",".join(prewhiten_meta.factor_columns),
+                "residual_energy_mean": 0.0,
+                "acceptance_delta": 0.0,
+                "group_label_counts": "",
+                "group_observations": 0,
+                "vol_state_label": hold_vol_state,
+            }
+            return [], diag_record
+
         asset_key = tuple(str(col) for col in fit_balanced.columns)
         fit_matrix = fit_balanced.to_numpy(dtype=np.float64)
         p_assets = fit_matrix.shape[1]
@@ -1190,6 +1285,24 @@ def run_evaluation(
                 )
                 gating_info = detect_stats.get("gating", {}) if isinstance(detect_stats, dict) else {}
                 reason = DiagnosticReason.ACCEPTED if detections else DiagnosticReason.NO_DETECTIONS
+            except np.linalg.LinAlgError:
+                jitter_scale = max(float(np.nanstd(fit_matrix)) * 1e-6, 1e-8)
+                rng_jitter = np.random.default_rng(config.seed + start + 101)
+                perturbed = fit_matrix + rng_jitter.normal(scale=jitter_scale, size=fit_matrix.shape)
+                detect_stats = {}
+                try:
+                    detections = detect_spikes(
+                        perturbed,
+                        group_labels,
+                        config=overlay_cfg,
+                        stats=detect_stats,
+                    )
+                    gating_info = detect_stats.get("gating", {}) if isinstance(detect_stats, dict) else {}
+                    reason = DiagnosticReason.ACCEPTED if detections else DiagnosticReason.NO_DETECTIONS
+                except Exception:
+                    detections = []
+                    reason = DiagnosticReason.DETECTION_ERROR
+                    gating_info = {}
             except Exception:
                 detections = []
                 reason = DiagnosticReason.DETECTION_ERROR

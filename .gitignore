@@ -30,6 +30,8 @@ reports/rc-/
 reports/rc-*/**
 !reports/rc-*/memo.md
 !reports/rc-*/run_manifest.json
+!reports/rc-*/regime.csv
+!reports/rc-*/overlay_toggle.md
 
 # Publish fast synthetic figure previews in README
 !figures/synthetic_fast/

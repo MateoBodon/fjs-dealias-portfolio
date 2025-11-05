@@ -10,7 +10,9 @@ import pytest
 from experiments.eval.config import resolve_eval_config
 from experiments.eval.diagnostics import DiagnosticReason
 from experiments.eval.run import (
+    DailyLoaderConfig,
     EvalConfig,
+    load_daily_panel,
     run_evaluation,
     _aligned_dm_stat,
     _min_variance_weights,
@@ -332,6 +334,23 @@ def test_resolve_eval_config_shrinkers(tmp_path_factory: pytest.TempPathFactory,
     resolved = resolve_eval_config(cli_args)
     assert resolved.config.shrinker == shrinker
     assert resolved.resolved["shrinker"] == shrinker
+
+
+def test_load_daily_panel_from_parquet(tmp_path_factory: pytest.TempPathFactory) -> None:
+    dates = pd.date_range("2024-01-02", periods=40, freq="B")
+    rng = np.random.default_rng(7)
+    rows = []
+    tickers = ["A", "B", "C"]
+    for date in dates:
+        for ticker in tickers:
+            rows.append({"date": date, "ticker": ticker, "ret": float(rng.normal(scale=0.01))})
+    frame = pd.DataFrame(rows)
+    path = Path(tmp_path_factory.mktemp("parquet")) / "returns.parquet"
+    frame.to_parquet(path, index=False)
+
+    panel = load_daily_panel(path, config=DailyLoaderConfig(min_history=20))
+    assert panel.returns.shape[0] >= 20
+    assert set(panel.returns.columns) == set(tickers)
 
 
 def test_min_variance_weights_turnover_penalty() -> None:

@@ -71,7 +71,11 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for minimal environme
         config: DailyLoaderConfig | None = None,
     ) -> DailyPanel:
         cfg = config or DailyLoaderConfig()
-        frame = pd.read_csv(source)
+        path = Path(source)
+        if path.suffix.lower() in {".parquet", ".parq"}:
+            frame = pd.read_parquet(path)
+        else:
+            frame = pd.read_csv(path)
         if {"date", "ticker", "ret"}.issubset(frame.columns):
             frame["date"] = pd.to_datetime(frame["date"])
             frame = frame.dropna(subset=["date", "ticker", "ret"])

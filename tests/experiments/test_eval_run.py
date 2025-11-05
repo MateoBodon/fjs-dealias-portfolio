@@ -322,6 +322,18 @@ def test_resolve_eval_config_prewhiten_cli(tmp_path_factory: pytest.TempPathFact
     assert resolved.resolved["prewhiten"] == "off"
 
 
+@pytest.mark.parametrize("shrinker", ["rie", "lw", "oas", "cc", "quest", "ewma", "factor", "poet"])
+def test_resolve_eval_config_shrinkers(tmp_path_factory: pytest.TempPathFactory, shrinker: str) -> None:
+    returns_path = Path(_make_returns_csv(tmp_path_factory))
+    cli_args = {
+        "returns_csv": returns_path,
+        "shrinker": shrinker,
+    }
+    resolved = resolve_eval_config(cli_args)
+    assert resolved.config.shrinker == shrinker
+    assert resolved.resolved["shrinker"] == shrinker
+
+
 def test_min_variance_weights_turnover_penalty() -> None:
     sigma = np.array(
         [

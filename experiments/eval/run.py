@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import random
 import json
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Sequence
@@ -505,7 +506,7 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
         "--shrinker",
         type=str,
         default=None,
-        choices=["rie", "lw", "oas", "cc", "sample", "quest", "ewma"],
+        choices=["rie", "lw", "oas", "cc", "sample", "quest", "ewma", "factor", "poet"],
         help="Baseline shrinker for non-detected directions.",
     )
     parser.add_argument("--seed", type=int, default=None, help="Deterministic seed for gating utilities.")
@@ -1816,6 +1817,37 @@ def run_evaluation(
             diagnostics_summary = diagnostics_summary.merge(factors_summary, on="regime", how="left")
         else:
             diagnostics_summary["prewhiten_factors"] = ""
+
+    def _fmt_scalar(value: object) -> str:
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            return "nan"
+        if not math.isfinite(numeric):
+            return "nan"
+        return f"{numeric:.3f}"
+
+    full_row = diagnostics_summary[diagnostics_summary["regime"] == "full"]
+    if not full_row.empty:
+        row = full_row.iloc[0]
+        residual_energy = row.get("residual_energy_mean", float("nan"))
+        acceptance_delta = row.get("acceptance_delta", float("nan"))
+        detection_rate = row.get("detection_rate", float("nan"))
+    else:
+        residual_energy = float("nan")
+        acceptance_delta = float("nan")
+        detection_rate = float("nan")
+
+    print(
+        "[diagnostics] prewhiten=%s r2_mean=%s residual_energy=%s acceptance_delta=%s detection_rate=%s"
+        % (
+            prewhiten_meta.mode_effective,
+            _fmt_scalar(prewhiten_r2_mean),
+            _fmt_scalar(residual_energy),
+            _fmt_scalar(acceptance_delta),
+            _fmt_scalar(detection_rate),
+        )
+    )
 
     overlay_toggle_path = out_dir / "overlay_toggle.md"
     _write_overlay_toggle(overlay_toggle_path, diagnostics_summary)

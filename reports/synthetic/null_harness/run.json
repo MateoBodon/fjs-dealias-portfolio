@@ -1,0 +1,23 @@
+{
+  "generated_at": "2025-11-05T21:49:51.062148+00:00",
+  "git_sha": "2d235955ce62f5c448dd6cbec7fd929325f73543",
+  "duration_seconds": 1.4999780654907227,
+  "artifacts": {
+    "scores": "reports/synthetic/null_harness/null_scores.parquet",
+    "fpr_curve": "reports/synthetic/null_harness/null_fpr_curve.csv",
+    "figure": "reports/figures/roc_null.png"
+  },
+  "config": {
+    "n_assets": 40,
+    "n_groups": 60,
+    "replicates": 3,
+    "noise_variance": 1.0,
+    "signal_to_noise": 0.35,
+    "edge_modes": [
+      "scm",
+      "tyler"
+    ],
+    "trials": 400,
+    "seed": 0
+  }
+}

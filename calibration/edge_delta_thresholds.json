@@ -142,6 +142,15 @@
             "seed": 5
           }
         }
+      },
+      "80x36": {
+        "delta": 0.35,
+        "delta_frac": 0.0,
+        "stability_eta_deg": 0.3,
+        "fpr": 0.0,
+        "power": 1.0,
+        "trials_null": 40,
+        "trials_alt": 40
       }
     }
   },

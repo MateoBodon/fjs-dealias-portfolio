@@ -34,24 +34,13 @@ jobs:
         run: make test-fast
 
       - name: Smoke runner
-        run: |
-          PYTHONPATH=src python experiments/equity_panel/run.py \
-            --config experiments/equity_panel/config.smoke.yaml \
-            --no-progress \
-            --workers 2 \
-            --assets-top 80 \
-            --stride-windows 4 \
-            --resume \
-            --cache-dir .cache \
-            --precompute-panel \
-            --drop-partial-weeks \
-            --estimator oas
+        run: make run:equity_smoke
 
-      - name: Build gallery
-        run: python tools/build_gallery.py --config experiments/equity_panel/config.gallery.yaml
+      - name: Acceptance sweep
+        run: make sweep:acceptance HARNESS_TRIALS=200
 
       - name: Build memo
-        run: python tools/build_memo.py --config experiments/equity_panel/config.gallery.yaml
+        run: make memo
 
       - name: Summarize
         run: python tools/summarize_run.py experiments/equity_panel/outputs_smoke
@@ -63,3 +52,5 @@ jobs:
           path: |
             figures
             reports/memo.md
+            reports/figures/roc_*.png
+            calibration_defaults.json

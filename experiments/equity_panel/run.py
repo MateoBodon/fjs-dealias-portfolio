@@ -41,7 +41,7 @@ from finance.eval import (
 )
 from finance.io import load_prices_csv, to_daily_returns, load_returns_csv
 from finance.portfolio import apply_turnover_cost, minvar_ridge_box, turnover
-from finance.portfolios import equal_weight, minimum_variance
+from finance.portfolios import equal_weight
 from finance.robust import huberize, winsorize
 from finance.returns import balance_weeks
 from fjs.balanced import mean_squares
@@ -101,9 +101,10 @@ DEFAULT_CONFIG = {
     "oneway_a_solver": "auto",
     "estimator": "dealias",
     "factor_csv": None,
-    "minvar_ridge": 1e-3,
-    "minvar_box": [0.0, 0.05],
-    "turnover_cost_bps": 0.0,
+    "minvar_ridge": 1e-4,
+    "minvar_box": [0.0, 0.1],
+    "turnover_cost_bps": 5.0,
+    "minvar_condition_cap": 1e9,
     "edge_mode": "scm",
     "edge_huber_c": 1.5,
     "gating": {
@@ -120,7 +121,7 @@ def _parse_box_bounds(bounds: Any) -> tuple[float, float]:
     """Normalise min-variance box bounds into a (lo, hi) tuple."""
 
     if bounds is None:
-        return (0.0, 0.05)
+        return (0.0, 0.1)
     if isinstance(bounds, str):
         parts = [item.strip() for item in bounds.split(",") if item.strip()]
     elif isinstance(bounds, Iterable):
@@ -1112,9 +1113,10 @@ def _run_single_period(
     a_grid: int = 120,
     energy_min_abs: float | None = None,
     factor_returns: pd.DataFrame | None = None,
-    minvar_ridge: float = 1e-3,
-    minvar_box: tuple[float, float] = (0.0, 0.05),
-    turnover_cost_bps: float = 0.0,
+    minvar_ridge: float = 1e-4,
+    minvar_box: tuple[float, float] = (0.0, 0.1),
+    turnover_cost_bps: float = 5.0,
+    minvar_condition_cap: float = 1e9,
     preprocess_flags: Mapping[str, str] | None = None,
     gating: Mapping[str, Any] | None = None,
     alignment_top_p: int = 3,
@@ -1183,6 +1185,11 @@ def _run_single_period(
     p_assets = len(tickers)
     equal_weights = equal_weight(p_assets)
 
+    minvar_lo_bound = float(minvar_box[0])
+    minvar_hi_bound = float(minvar_box[1])
+    box_bounds = (minvar_lo_bound, minvar_hi_bound)
+    solver_stats: dict[str, dict[str, Any]] = defaultdict(dict)
+
     cov_weekly = np.cov(
         weekly_balanced.to_numpy(dtype=np.float64), rowvar=False, ddof=1
     )
@@ -1221,16 +1228,26 @@ def _run_single_period(
             return np.array([], dtype=np.float64)
         return np.full(n, 1.0 / float(n), dtype=np.float64)
 
+    minvar_label_box = "Min-Variance (box)"
+    minvar_label_long = "Min-Variance (long-only)"
+
     def _min_var_weights(covariance: np.ndarray) -> np.ndarray:
-        result = min_variance_box(covariance, lb=-0.02, ub=0.02)
-        return np.asarray(result.weights, dtype=np.float64)
+        weights, info = minvar_ridge_box(
+            covariance,
+            box=box_bounds,
+            ridge=float(minvar_ridge),
+        )
+        solver_stats[minvar_label_box] = info
+        return np.asarray(weights, dtype=np.float64)
 
     def _min_var_longonly_weights(covariance: np.ndarray) -> np.ndarray:
-        try:
-            result = minimum_variance(covariance, allow_short=False)
-            return np.asarray(result.weights, dtype=np.float64)
-        except ImportError:
-            raise
+        weights, info = minvar_ridge_box(
+            covariance,
+            box=box_bounds,
+            ridge=float(minvar_ridge),
+        )
+        solver_stats[minvar_label_long] = info
+        return np.asarray(weights, dtype=np.float64)
 
     strategies: dict[str, dict[str, Any]] = {
         "Equal Weight": {
@@ -1238,12 +1255,12 @@ def _run_single_period(
             "get_weights": _equal_weight_weights,
             "available": True,
         },
-        "Min-Variance (box)": {
+        minvar_label_box: {
             "prefix": "mv",
             "get_weights": _min_var_weights,
             "available": True,
         },
-        "Min-Variance (long-only)": {
+        minvar_label_long: {
             "prefix": "mvlo",
             "get_weights": _min_var_longonly_weights,
             "available": True,
@@ -1460,6 +1477,7 @@ def _run_single_period(
 
         edge_scale_val = 1.0
         edge_scm_val = float("nan")
+        edge_tyler_val = float("nan")
         edge_selected_val = float("nan")
         n_fit_samples = int(y_fit_daily.shape[0])
         p_dim = int(y_fit_daily.shape[1]) if y_fit_daily.ndim == 2 else 0
@@ -1469,26 +1487,32 @@ def _run_single_period(
                 scatter_scm = 0.5 * (scatter_scm + scatter_scm.T)
                 edge_scm_val = edge_from_scatter(scatter_scm, p_dim, n_fit_samples)
             except Exception:
+                scatter_scm = None
                 edge_scm_val = float("nan")
+            try:
+                scatter_tyler = tyler_scatter(y_fit_daily)
+                scatter_tyler = 0.5 * (scatter_tyler + scatter_tyler.T)
+                edge_tyler_val = edge_from_scatter(
+                    scatter_tyler,
+                    p_dim,
+                    n_fit_samples,
+                )
+            except Exception:
+                scatter_tyler = None
+                edge_tyler_val = float("nan")
             if edge_mode_cfg == "tyler":
-                try:
-                    scatter_tyler = tyler_scatter(y_fit_daily)
-                    edge_selected_val = edge_from_scatter(
-                        scatter_tyler,
-                        p_dim,
-                        n_fit_samples,
-                    )
-                except Exception:
-                    edge_selected_val = float("nan")
+                edge_selected_val = edge_tyler_val
             elif edge_mode_cfg == "huber":
                 try:
                     scatter_huber = huber_scatter(y_fit_daily, edge_huber_c_val)
+                    scatter_huber = 0.5 * (scatter_huber + scatter_huber.T)
                     edge_selected_val = edge_from_scatter(
                         scatter_huber,
                         p_dim,
                         n_fit_samples,
                     )
                 except Exception:
+                    scatter_huber = None
                     edge_selected_val = float("nan")
             else:
                 edge_selected_val = edge_scm_val
@@ -1503,6 +1527,16 @@ def _run_single_period(
                     edge_scale_val = 1.0
             else:
                 edge_scale_val = 1.0
+        edge_band_min = float("nan")
+        edge_band_max = float("nan")
+        edge_candidates = [
+            float(val)
+            for val in (edge_scm_val, edge_tyler_val, edge_selected_val)
+            if np.isfinite(val) and val > 0.0
+        ]
+        if edge_candidates:
+            edge_band_min = float(min(edge_candidates))
+            edge_band_max = float(max(edge_candidates))
 
         edge_scale_used = edge_scale_val
         if not np.isfinite(edge_scale_used) or edge_scale_used <= 0.0:
@@ -1614,6 +1648,7 @@ def _run_single_period(
                         if not isinstance(det, dict):
                             continue
                         lambda_val = det.get("lambda_hat")
+                        mu_val = det.get("mu_hat")
                         score_val = det.get("target_energy", 0.0)
                         try:
                             energy_val = float(det.get("target_energy", 0.0))
@@ -1623,6 +1658,18 @@ def _run_single_period(
                             stability_val = float(det.get("stability_margin", 0.0))
                         except (TypeError, ValueError):
                             stability_val = 0.0
+                        try:
+                            mu_float = float(mu_val)
+                        except (TypeError, ValueError):
+                            mu_float = float("nan")
+                        try:
+                            delta_frac_val = float(det.get("delta_frac", float("nan")))
+                        except (TypeError, ValueError):
+                            delta_frac_val = float("nan")
+                        try:
+                            leak_val = float(det.get("off_component_ratio", float("nan")))
+                        except (TypeError, ValueError):
+                            leak_val = float("nan")
                         if not np.isfinite(energy_val):
                             energy_val = 0.0
                         if not np.isfinite(stability_val):
@@ -1635,7 +1682,13 @@ def _run_single_period(
                                     if isinstance(lambda_val, (float, int, np.floating, np.integer))
                                     else float("nan")
                                 ),
+                                "mu_hat": float(mu_float),
+                                "stability_margin": float(stability_val),
+                                "target_energy": float(energy_val),
+                                "off_component_ratio": float(leak_val),
+                                "delta_frac": float(delta_frac_val),
                                 "score": float(score_val),
+                                "accepted": False,
                             }
                         )
                     gating_discard_log.append(
@@ -1747,9 +1800,13 @@ def _run_single_period(
             "isolated_spikes": int(isolated_count_raw),
             "gate_discarded_count": len(gate_discard_detail),
             "edge_mode": edge_mode_cfg,
+            "gating_mode": gating_mode_value,
             "edge_scale": float(edge_scale_used),
             "edge_scm": float(edge_scm_val),
+            "edge_tyler": float(edge_tyler_val),
             "edge_selected": float(edge_selected_val),
+            "edge_band_min": float(edge_band_min),
+            "edge_band_max": float(edge_band_max),
             "delta_frac_used": float(delta_frac_used_value),
             "delta_frac_config": (
                 float(delta_frac_config) if delta_frac_config is not None else float("nan")
@@ -1759,6 +1816,12 @@ def _run_single_period(
             ),
             "p_dim": int(p_dim),
             "n_fit_samples": int(n_fit_samples),
+            "stability_eta_deg": float(stability_eta),
+            "off_component_cap": (
+                float(off_component_leak_cap)
+                if off_component_leak_cap is not None
+                else float("nan")
+            ),
         }
         if gate_discard_detail:
             window_record["gate_discarded"] = json.dumps(gate_discard_detail)
@@ -1766,6 +1829,11 @@ def _run_single_period(
             prefix = strategy_meta["prefix"]
             window_record[f"{prefix}_turnover"] = float("nan")
             window_record[f"{prefix}_turnover_cost"] = float("nan")
+            window_record[f"{prefix}_mv_cond_penalized"] = float("nan")
+            window_record[f"{prefix}_mv_cond_original"] = float("nan")
+            window_record[f"{prefix}_mv_iterations"] = float("nan")
+            window_record[f"{prefix}_mv_converged"] = False
+            window_record[f"{prefix}_mv_condition_flag"] = False
 
         # Log top detection (by lambda_hat) for diagnostics/time series
         if detections:
@@ -1794,6 +1862,10 @@ def _run_single_period(
                         "z_plus": _safe_num(det.get("z_plus")),
                         "edge_margin": _safe_num(det.get("edge_margin")),
                         "buffer_margin": _safe_num(det.get("buffer_margin")),
+                        "target_energy": _safe_num(det.get("target_energy")),
+                        "stability_margin": _safe_num(det.get("stability_margin")),
+                        "off_component_ratio": _safe_num(det.get("off_component_ratio")),
+                        "delta_frac": _safe_num(det.get("delta_frac")),
                         "t_values": [float(val) for val in t_vals],
                         "admissible_root": bool(det.get("admissible_root", False)),
                         "a": [float(val) for val in det.get("a", [])],
@@ -1801,6 +1873,7 @@ def _run_single_period(
                             float(val) for val in (det.get("components") or [])
                         ],
                         "solver_used": det.get("solver_used"),
+                        "accepted": True,
                     }
                 )
             window_record["detections_detail"] = json.dumps(detail_payload)
@@ -1944,8 +2017,27 @@ def _run_single_period(
             if not np.isclose(weight_sum, 1.0):
                 weights = weights / weight_sum
 
-            strategy_success[strategy_label] = True
             prefix = cfg["prefix"]
+            solver_info = solver_stats.get(strategy_label)
+            if solver_info:
+                cond_pen = float(solver_info.get("cond_penalized", float("nan")))
+                cond_orig = float(solver_info.get("cond_original", float("nan")))
+                window_record[f"{prefix}_mv_cond_penalized"] = cond_pen
+                window_record[f"{prefix}_mv_cond_original"] = cond_orig
+                window_record[f"{prefix}_mv_iterations"] = float(solver_info.get("iterations", float("nan")))
+                window_record[f"{prefix}_mv_converged"] = bool(solver_info.get("converged", False))
+                condition_flag = (
+                    not bool(solver_info.get("converged", False))
+                    or (np.isfinite(cond_pen) and cond_pen > float(minvar_condition_cap))
+                )
+                window_record[f"{prefix}_mv_condition_flag"] = bool(condition_flag)
+                solver_stats[strategy_label] = {}
+                if condition_flag:
+                    continue
+            else:
+                window_record[f"{prefix}_mv_condition_flag"] = False
+
+            strategy_success[strategy_label] = True
             strategy_windows[strategy_label].append(window_idx)
             weights_history[strategy_label].append(weights.copy())
 
@@ -2354,9 +2446,18 @@ def _run_single_period(
                 "gate_discarded_count",
                 "gate_discarded",
                 "edge_mode",
+                "gating_mode",
                 "edge_scale",
                 "edge_scm",
+                "edge_tyler",
                 "edge_selected",
+                "edge_band_min",
+                "edge_band_max",
+                "delta_frac_used",
+                "delta_frac_config",
+                "delta_frac_calibrated",
+                "stability_eta_deg",
+                "off_component_cap",
                 "top_lambda_hat",
                 "top_mu_hat",
                 "top_a0",
@@ -2732,6 +2833,7 @@ def run_experiment(
     minvar_ridge_override: float | None = None,
     minvar_box_override: str | None = None,
     turnover_cost_override: float | None = None,
+    minvar_condition_cap_override: float | None = None,
     edge_mode_override: str | None = None,
     edge_huber_c_override: float | None = None,
     gating_mode_override: str | None = None,
@@ -2785,6 +2887,8 @@ def run_experiment(
         config["minvar_box"] = minvar_box_override
     if turnover_cost_override is not None:
         config["turnover_cost_bps"] = float(turnover_cost_override)
+    if minvar_condition_cap_override is not None:
+        config["minvar_condition_cap"] = float(minvar_condition_cap_override)
     if edge_mode_override is not None:
         config["edge_mode"] = str(edge_mode_override)
     if edge_huber_c_override is not None:
@@ -2821,14 +2925,18 @@ def run_experiment(
     config["oneway_a_solver"] = solver_value
     minvar_lo, minvar_hi = _parse_box_bounds(config.get("minvar_box"))
     config["minvar_box"] = [float(minvar_lo), float(minvar_hi)]
-    minvar_ridge_val = float(config.get("minvar_ridge", 1e-3))
+    minvar_ridge_val = float(config.get("minvar_ridge", 1e-4))
     if minvar_ridge_val < 0.0:
         raise ValueError("minvar_ridge must be non-negative.")
     config["minvar_ridge"] = minvar_ridge_val
-    turnover_cost_bps = float(config.get("turnover_cost_bps", 0.0))
+    turnover_cost_bps = float(config.get("turnover_cost_bps", 5.0))
     if turnover_cost_bps < 0.0:
         raise ValueError("turnover_cost_bps must be non-negative.")
     config["turnover_cost_bps"] = turnover_cost_bps
+    condition_cap_val = float(config.get("minvar_condition_cap", 1e9))
+    if condition_cap_val <= 0.0:
+        raise ValueError("minvar_condition_cap must be positive.")
+    config["minvar_condition_cap"] = condition_cap_val
     winsorize_q_cfg = config.get("winsorize_q")
     huber_c_cfg = config.get("huber_c")
     if winsorize_q_cfg is not None and huber_c_cfg is not None:
@@ -3036,6 +3144,7 @@ def run_experiment(
                 minvar_ridge=minvar_ridge_val,
                 minvar_box=(float(minvar_lo), float(minvar_hi)),
                 turnover_cost_bps=turnover_cost_bps,
+                minvar_condition_cap=condition_cap_val,
                 preprocess_flags=preprocess_flags,
                 gating=cast(Mapping[str, Any] | None, config.get("gating")),
                 alignment_top_p=alignment_top_p_cfg,
@@ -3166,7 +3275,13 @@ def main() -> None:
         "--minvar-box",
         type=str,
         default=None,
-        help="Per-asset weight bounds for min-var as 'lo,hi' (default 0,0.05).",
+        help="Per-asset weight bounds for min-var as 'lo,hi' (default 0,0.1).",
+    )
+    parser.add_argument(
+        "--minvar-condition-cap",
+        type=float,
+        default=None,
+        help="Maximum acceptable condition number for the penalised covariance (default 1e9).",
     )
     parser.add_argument(
         "--turnover-cost",
@@ -3365,6 +3480,7 @@ def main() -> None:
         minvar_ridge_override=args.minvar_ridge,
         minvar_box_override=args.minvar_box,
         turnover_cost_override=args.turnover_cost,
+        minvar_condition_cap_override=args.minvar_condition_cap,
         edge_mode_override=args.edge_mode,
         edge_huber_c_override=args.edge_huber_c,
         gating_mode_override=args.gating_mode,

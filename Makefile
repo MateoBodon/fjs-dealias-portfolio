@@ -1,8 +1,13 @@
 .PHONY: setup fmt lint test run-synth run-equity
 
+HARNESS_TRIALS ?= 400
+
 setup:
 	pip install --upgrade pip
 	pip install -e '.[dev]'
+
+.PHONY: env
+env: setup
 
 fmt:
 	black src experiments tests
@@ -102,6 +107,29 @@ run-synth:
 
 run-equity:
 	python experiments/equity_panel/run.py
+
+.PHONY: run\:equity_smoke
+run\:equity_smoke:
+	PYTHONPATH=src python experiments/equity_panel/run.py \
+		--config experiments/equity_panel/config.smoke.yaml \
+		--gating-mode fixed \
+		--minvar-ridge 0.0001 \
+		--minvar-box 0.0,0.1 \
+		--minvar-condition-cap 1000000000 \
+		--turnover-cost 5
+
+.PHONY: sweep\:acceptance
+sweep\:acceptance:
+	PYTHONPATH=src python experiments/synthetic/null.py \
+		--trials $(HARNESS_TRIALS) \
+		--out reports/synthetic/null_harness \
+		--figures-out reports/figures
+	PYTHONPATH=src python experiments/synthetic/power.py \
+		--trials $(HARNESS_TRIALS) \
+		--null-scores reports/synthetic/null_harness/null_scores.parquet \
+		--out reports/synthetic/power_harness \
+		--figures-out reports/figures \
+		--defaults-path calibration_defaults.json
 
 .PHONY: run-equity-crisis
 run-equity-crisis:

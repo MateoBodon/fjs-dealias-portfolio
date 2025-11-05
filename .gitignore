@@ -33,6 +33,16 @@ reports/rc-*/**
 !reports/rc-*/regime.csv
 !reports/rc-*/overlay_toggle.md
 
+# Synthetic acceptance artefacts retained for calibration defaults
+!reports/figures/
+!reports/figures/roc_null.png
+!reports/figures/roc_power.png
+!reports/synthetic/
+!reports/synthetic/**/*
+!reports/memo.md
+!reports/memo_*.md
+scripts/secrets/
+
 # Publish fast synthetic figure previews in README
 !figures/synthetic_fast/
 !figures/synthetic_fast/*.png

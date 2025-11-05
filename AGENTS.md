@@ -1,38 +1,30 @@
-# AGENTS.md — fjs-dealias-portfolio
-_Last updated: 2025-11-02_
+# AGENTS.md — Roles & Runbooks
 
-## Sprint Focus
-- Daily evaluation with replicated groups, observed-factor prewhitening, and overlay diagnostics.
-- ΔMSE/VaR/ES reporting split by calm/crisis regimes plus detection telemetry (edge margin, isolation share, stability).
-- ETF alt-panel demo reusing the daily harness; refreshed RC artefacts under `reports/rc-20251103/` including an overlay toggle note.
+## Agent roster
 
-## Core Commands
-- Prewhiten + evaluate daily panel:
-  ```bash
-  python experiments/eval/run.py \
-      --returns-csv <returns.csv> \
-      --window 126 --horizon 21 \
-      --shrinker rie \
-      --out reports/rc-YYYYMMDD/
-  ```
-  Adds `metrics.csv`, `risk.csv`, `dm.csv`, `diagnostics.csv`, and `delta_mse.png` per regime (full/calm/crisis).
-- ETF demo (countries/sectors):
-  ```bash
-  python experiments/etf_panel/run.py \
-      --returns-csv data/etf_returns.csv \
-      --out reports/etf-rc/
-  ```
-- Unit tests:
-  ```bash
-  pytest tests/baselines/test_prewhiten.py tests/fjs/test_overlay.py tests/experiments/test_eval_run.py
-  ```
+- **Orchestrator**: splits work, sequences tasks, ensures DoD is met.  
+- **DataEngineer**: WRDS ingest, balancing, manifests, S3 sync, reproducibility.  
+- **Statistician**: MP edges, de‑alias acceptance, null/power calibration, defaults.  
+- **PortfolioAnalyst**: EW/MV pipelines, coverage, DM tests, constraints/turnover.  
+- **Evaluator**: experiment matrix, regime bucketing, artifact dashboards, memo.  
+- **ReleaseManager**: CI, Makefile, tagging, CHANGELOG, PROGRESS.md.
 
-## Implementation Notes
-- `src/baselines/factors.py` supplies `load_observed_factors` with FF5+MOM lookup and MKT proxy fallback plus `prewhiten_returns` returning residuals, betas, intercepts, and R².
-- `src/fjs/overlay.py` defines `OverlayConfig`, `detect_spikes`, and `apply_overlay`; only accepted detections swap eigenvalues, every other direction shrinks via `shrinker` (default RIE). Deterministic gating uses `seed` and fixed `a_grid`.
-- `experiments/eval/run.py` pulls daily returns via `load_daily_panel` (with fallback for wide CSVs), runs prewhitening, rolls calm/crisis splits from an EWMA vol proxy, and writes diagnostics/plots. Overlay toggle commentary lives in `reports/<run>/overlay_toggle.md`.
-- `experiments/etf_panel/run.py` is a thin CLI wrapper around the daily evaluation defaults.
+## Shared constraints
 
-## RC Refresh
-- Sample RC artefacts generated with the new harness live in `reports/rc-20251103/` (full/calm/crisis CSVs + `overlay_toggle.md`).
-- Memo/gallery targets (`make rc`, `make gallery`) remain under `experiments/equity_panel`; run after updating detection tables to propagate overlay notes into the memo.
+- Never commit secrets; use manifests & hashes; attach `run.json` to each artifact set.  
+- Prefer overlay; avoid full spectrum replacement; justify threshold choices with ROC.
+
+## Standard operating procedure (per task)
+
+1) Create an issue with scope, inputs, expected outputs, acceptance tests.  
+2) Branch `feat/<ticket>`; implement with tests.  
+3) Run `make test` + relevant run target; capture artifacts (CSV/PNG/JSON).  
+4) Update `PROGRESS.md` with SHA, config, dataset digest, key tables/figures.  
+5) PR with artifacts attached; merge on green CI.
+
+## Commit conventions
+
+`feat(dealias): overlay acceptance with ε/η gates`  
+`fix(portfolio): add ridge & box constraints to MV`  
+`docs(memo): add ROC figure and default thresholds`  
+`chore(ci): upload smoke artifacts`  

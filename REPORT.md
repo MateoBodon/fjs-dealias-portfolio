@@ -37,7 +37,7 @@
 ## 2025-11-02T07:46Z
 - **Step**: Marked heavy synthetic tests as slow with CI default `-m "not slow"`, added synthetic calibration caching with `_meta`+mtime guard plus `--force`, and introduced optional evaluation `--workers` using thread pooling.
 - **Decisions**: Normalised config hashes via `calibration_cache_meta`, reused cached JSON when dependencies unchanged, and ensured parallel windows reuse sequential logic for identical outputs.
-- **Checks**: `pytest tests/test_power_null.py -q -m slow`, `pytest tests/experiments/test_eval_run.py -q`.
+- **Checks**: `pytest tests/synthetic/test_harness_utils.py -q`, `pytest tests/experiments/test_eval_run.py -q`.
 - **Next Actions**: Enhance turnover-aware MV, DM effective sample reporting, and add optional bootstrap scaffolding.
 
 ## 2025-11-02T08:18Z
@@ -77,3 +77,10 @@
 - **Outputs**: `experiments/equity_panel/outputs/` (dow smoke artifacts including edge_diag_window*.csv, spectrum plots, config_resolved.yaml).
 - **Checks**: `pytest -q`.
 - **Next Actions**: Switch to `feat/daily-groups-volstate`, add realized-vol grouping with tests, and rerun the daily smoke.
+
+## 2025-11-05T21:55Z
+- **Step**: Added synthetic ROC harness (`null.py`/`power.py`), enriched detection summaries with edge bands + MV solver telemetry, and locked MV defaults (ridge=1e-4, box [0,0.1], 5bps turnover) with CI/make plumbing.
+- **Decisions**: Emit `roc_null.png`/`roc_power.png` + `calibration_defaults.json`, record `edge_tyler`, `edge_band_min/max`, gating/mv condition flags per window, and expose make targets (`env`, `run:equity_smoke`, `sweep:acceptance`) used by the smoke workflow.
+- **Checks**: `make sweep:acceptance`, `make run:equity_smoke`, `make memo`, `make test`.
+- **Next Actions**: Tidy README sections on calibration sweep, monitor CI smoke runtime, and iterate on acceptance thresholds as WRDS data shifts.
+

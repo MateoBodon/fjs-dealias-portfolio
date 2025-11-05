@@ -65,3 +65,30 @@ def test_turnover_and_turnover_cost_application() -> None:
     expected_cost = turnover(new, weights[2]) * (25 / 10000.0)
     assert abs(costs[2] - expected_cost) <= 1e-12
     assert np.all(adjusted <= var_series + 1e-12)
+
+
+def test_minvar_ridge_box_enforces_narrow_box() -> None:
+    rng = np.random.default_rng(42)
+    data = rng.standard_normal(size=(200, 12))
+    sigma = np.cov(data, rowvar=False, ddof=1)
+
+    weights, info = minvar_ridge_box(sigma, box=(0.0, 0.1), ridge=1e-4)
+
+    assert info["converged"] is True
+    assert np.all(weights >= -1e-9)
+    assert np.all(weights <= 0.1 + 1e-9)
+    assert info["cond_penalized"] >= 1.0
+    assert info["cond_original"] >= 1.0
+
+
+def test_minvar_ridge_box_handles_near_singular_covariance() -> None:
+    sigma = np.ones((12, 12), dtype=np.float64)
+    sigma += 1e-6 * np.eye(12)
+
+    weights, info = minvar_ridge_box(sigma, box=(0.0, 0.1), ridge=1e-4)
+
+    assert info["converged"] is True
+    assert np.isfinite(info["cond_penalized"])
+    assert info["cond_penalized"] < 1e8
+    assert np.all(weights >= -1e-9)
+    assert np.allclose(weights.sum(), 1.0, atol=1e-8)

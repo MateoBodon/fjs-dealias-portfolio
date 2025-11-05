@@ -172,59 +172,57 @@ Both estimators appear in `metrics_summary.csv`, the aggregate tables, and the m
 
 ### 5.7 Synthetic null/power harness
 
-`experiments/synthetic/power_null.py` sweeps the detector under both the MP null and planted-spike power designs. It reports false-positive rates across edge/gating settings and plots power curves with ΔMSE/QLIKE deltas versus Ledoit–Wolf:
+Run the null/power ROC harness to calibrate overlay gating:
 
 ```bash
-PYTHONPATH=src python experiments/synthetic/power_null.py --edge-modes scm tyler --trials-null 300 --trials-power 200
+make sweep:acceptance HARNESS_TRIALS=400
+```
+
+The target executes both `experiments/synthetic/null.py` and `experiments/synthetic/power.py`, persisting:
+
+- score tables in `reports/synthetic/null_harness/` and `reports/synthetic/power_harness/`,
+- ROC figures `reports/figures/roc_null.png` and `reports/figures/roc_power.png`,
+- default thresholds + energy floor in `calibration_defaults.json`.
+
+To tweak parameters manually:
+
+```bash
+PYTHONPATH=src python experiments/synthetic/null.py \
+  --trials 600 --edge-modes scm tyler \
+  --out reports/synthetic/null_harness --figures-out reports/figures
+
+PYTHONPATH=src python experiments/synthetic/power.py \
+  --trials 600 --mu-values 4 6 8 \
+  --null-scores reports/synthetic/null_harness/null_scores.parquet \
+  --out reports/synthetic/power_harness \
+  --figures-out reports/figures \
+  --defaults-path calibration_defaults.json
 ```
 
 ---
 
 ## 6. Calibration & Threshold Artefacts
 
-### 6.1 One-shot sweep (replicate-aware)
+### 6.1 Default acceptance profile
 
-Use the helper script (lives at `scripts/run_calibration.sh`) to regenerate the edge/δ thresholds keyed by `(edge_mode, G, replicates_bin, p_bin)`:
+`calibration_defaults.json` (written by the sweep above) captures the working overlay configuration:
 
-```bash
-./scripts/run_calibration.sh               # auto-detects CPU count
-./scripts/run_calibration.sh 32            # override worker count
-```
+- `parameters`: `{delta, delta_frac, eps, stability_eta_deg, energy_floor, edge_mode}`
+- `selection`: best-performing edge mode/energy floor with per-μ power and realised FPR
+- `config`: simulation dimensions and seed for reproducibility
 
-The script exports `PYTHONPATH=src`, pins BLAS threads to 1, and streams progress (`[i/N] edge=…`). Outputs:
+Reference this file from evaluation runs with `--gate-delta-calibration calibration_defaults.json`; the runner records the applied values in `detection_summary.csv` (`edge_*`, `delta_frac_used`, stability/leakage metrics).
 
-- `calibration/edge_delta_thresholds.json` – primary lookup consumed by overlay gates.
-- `calibration/roc.png` – optional ROC scatter (requires matplotlib and `plt` availability).
+### 6.2 Replicate-aware sweeps (optional)
 
-To customise the sweep, call the underlying CLI directly:
+The legacy replicate-aware sweep (`experiments/synthetic/calibrate_thresholds.py`) remains available when you need fine-grained delta/stability lookups per `(edge_mode, G, replicates_bin, p_bin)`. The helper script still works:
 
 ```bash
-PYTHONPATH=src OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 \
-python3 experiments/synthetic/calibrate_thresholds.py \
-  --p-assets 64 80 96 \
-  --n-groups 36 \
-  --replicates 14 20 \
-  --alpha 0.015 \
-  --delta-abs-grid 0.35 0.5 \
-  --trials-null 40 --trials-alt 40 \
-  --edge-modes scm tyler \
-  --replicate-bins 12-16 17-22 \
-  --asset-bins 64-96 \
-  --q-max 2 \
-  --workers $(sysctl -n hw.ncpu) \
-  --verbose \
-  --out calibration/edge_delta_thresholds.json
+./scripts/run_calibration.sh          # auto-detects CPU count
+./scripts/run_calibration.sh 32       # override worker count
 ```
 
-### 6.2 Tracking progress (long sweeps)
-
-- `--dry-run` prints the planned grid, estimated trials, and heuristic runtime without launching simulations.
-- `--verbose` (enabled by the script) logs each sweep cell on start, making it safe to work on other tasks while it churns.
-- For offloading to AWS Batch / cloud compute, build and push the project container to ECR, mount WRDS snapshots from S3, and execute the same command inside the job definition (see “Calibrations on AWS Batch” in `AGENTS.md`).
-
-Once the sweep completes, commit the regenerated JSON so downstream WRDS runs use the refreshed thresholds.
-
-Artifacts live under `experiments/synthetic/outputs/` (`power_null_summary.csv`, `fpr_heatmap.png`, `power_curves.png`).
+or call the CLI directly (same flags as before). Commit updated JSON artefacts so WRDS jobs and smoke runs pick up the refreshed defaults.
 
 ### 5.8 Daily overlay diagnostics
 

@@ -50,7 +50,7 @@ def minvar_ridge_box(
     Sigma: NDArray[np.float64],
     *,
     box: tuple[float, float] = (0.0, 1.0),
-    ridge: float = 1e-3,
+    ridge: float = 1e-4,
     sum_to_one: bool = True,
     max_iter: int = 3000,
     tol: float = 1e-7,
@@ -70,12 +70,20 @@ def minvar_ridge_box(
         raise ValueError("ridge must be non-negative.")
 
     cov = _symmetrize(cov)
+    try:
+        cond_original = float(np.linalg.cond(cov))
+    except np.linalg.LinAlgError:
+        cond_original = float("inf")
     penalized = cov + ridge * np.eye(n_assets)
     eigvals = np.linalg.eigvalsh(penalized)
     if eigvals.min() < _PSD_TOL:
         raise ValueError("Penalised covariance must be positive definite.")
     lipschitz = float(eigvals.max())
     step = 1.0 / lipschitz
+    try:
+        cond_penalized = float(np.linalg.cond(penalized))
+    except np.linalg.LinAlgError:
+        cond_penalized = float("inf")
 
     if sum_to_one:
         initial_guess = np.full(n_assets, 1.0 / n_assets, dtype=np.float64)
@@ -104,6 +112,8 @@ def minvar_ridge_box(
         "converged": converged,
         "ridge": float(ridge),
         "weight_sum": float(w.sum()),
+        "cond_penalized": cond_penalized,
+        "cond_original": cond_original,
     }
     return w, info
 

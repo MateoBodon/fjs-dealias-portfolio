@@ -79,6 +79,10 @@ DEFAULTS: dict[str, Any] = {
     "group_design": "week",
     "group_min_count": 5,
     "group_min_replicates": 3,
+    "min_reps_dow": 20,
+    "min_reps_vol": 15,
+    "max_missing_asset": 0.05,
+    "max_missing_group_row": 0.0,
     "ewma_halflife": 30.0,
     "gate_mode": "strict",
     "gate_soft_max": None,
@@ -179,6 +183,28 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         if merged.get("group_min_replicates") is not None
         else DEFAULTS["group_min_replicates"]
     )
+    min_reps_dow_val = max(
+        0,
+        int(
+            merged.get("min_reps_dow", DEFAULTS["min_reps_dow"])
+            if merged.get("min_reps_dow") is not None
+            else DEFAULTS["min_reps_dow"]
+        ),
+    )
+    min_reps_vol_val = max(
+        0,
+        int(
+            merged.get("min_reps_vol", DEFAULTS["min_reps_vol"])
+            if merged.get("min_reps_vol") is not None
+            else DEFAULTS["min_reps_vol"]
+        ),
+    )
+    max_missing_asset_raw = float(merged.get("max_missing_asset", DEFAULTS["max_missing_asset"]))
+    max_missing_asset_val = float(min(1.0, max(0.0, max_missing_asset_raw)))
+    max_missing_group_row_raw = float(
+        merged.get("max_missing_group_row", DEFAULTS["max_missing_group_row"])
+    )
+    max_missing_group_row_val = float(min(1.0, max(0.0, max_missing_group_row_raw)))
     ewma_halflife_val = float(merged.get("ewma_halflife", DEFAULTS["ewma_halflife"]))
     gate_mode_val = str(merged.get("gate_mode", DEFAULTS["gate_mode"]))
     gate_soft_max_val = (
@@ -252,6 +278,10 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         group_design=group_design_val,
         group_min_count=group_min_count_val,
         group_min_replicates=group_min_replicates_val,
+        min_reps_dow=min_reps_dow_val,
+        min_reps_vol=min_reps_vol_val,
+        max_missing_asset=max_missing_asset_val,
+        max_missing_group_row=max_missing_group_row_val,
         ewma_halflife=ewma_halflife_val,
         gate_mode=gate_mode_val,
         gate_soft_max=gate_soft_max_val,
@@ -298,6 +328,10 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         "group_design": config.group_design,
         "group_min_count": config.group_min_count,
         "group_min_replicates": config.group_min_replicates,
+        "min_reps_dow": config.min_reps_dow,
+        "min_reps_vol": config.min_reps_vol,
+        "max_missing_asset": config.max_missing_asset,
+        "max_missing_group_row": config.max_missing_group_row,
         "ewma_halflife": config.ewma_halflife,
         "assets_top": assets_top_val,
     }

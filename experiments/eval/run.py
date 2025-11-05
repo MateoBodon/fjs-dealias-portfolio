@@ -36,6 +36,8 @@ from baselines.covariance import (
     rie_covariance,
 )
 from baselines.factors import PrewhitenResult
+from eval.balance import build_balanced_window
+from eval.clean import apply_nan_policy
 from evaluation.factor import observed_factor_covariance, poet_lite_covariance
 from evaluation.dm import dm_test
 from evaluation.evaluate import alignment_diagnostics
@@ -152,6 +154,10 @@ class EvalConfig:
     group_design: str = "week"
     group_min_count: int = 5
     group_min_replicates: int = 3
+    min_reps_dow: int = 20
+    min_reps_vol: int = 15
+    max_missing_asset: float = 0.05
+    max_missing_group_row: float = 0.0
     ewma_halflife: float = 30.0
     gate_mode: str = "strict"
     gate_soft_max: int | None = None
@@ -753,6 +759,34 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
         default=None,
         help="Minimum replicates per group for balancing.",
     )
+    parser.add_argument(
+        "--min-reps-dow",
+        dest="min_reps_dow",
+        type=int,
+        default=None,
+        help="Minimum replicates retained for Day-of-Week windows after balancing.",
+    )
+    parser.add_argument(
+        "--min-reps-vol",
+        dest="min_reps_vol",
+        type=int,
+        default=None,
+        help="Minimum replicates retained for volatility-state windows after balancing.",
+    )
+    parser.add_argument(
+        "--max-missing-asset",
+        dest="max_missing_asset",
+        type=float,
+        default=None,
+        help="Maximum missing fraction allowed per asset inside a detection window.",
+    )
+    parser.add_argument(
+        "--max-missing-group-row",
+        dest="max_missing_group_row",
+        type=float,
+        default=None,
+        help="Maximum missing fraction allowed per replicate row before dropping.",
+    )
     args = parser.parse_args(argv)
     resolved = resolve_eval_config(vars(args))
     config = resolved.config
@@ -824,6 +858,15 @@ def _write_overlay_toggle(path: Path, summary: pd.DataFrame) -> None:
             rows.append(f"| {row['regime']} | " + " | ".join(values) + " |")
         content = rows
     path.write_text("\n".join(content) + "\n", encoding="utf-8")
+
+
+def _required_replicates(design: str, config: EvalConfig) -> int:
+    design_key = (design or "").lower()
+    if design_key == "dow":
+        return max(0, int(config.min_reps_dow))
+    if design_key == "vol":
+        return max(0, int(config.min_reps_vol))
+    return max(0, int(config.group_min_replicates))
 
 
 def _build_grouped_window(
@@ -1118,7 +1161,7 @@ def run_evaluation(
         prewhiten_factors_str = ",".join(prewhiten_meta.factor_columns)
 
         try:
-            fit_balanced, group_labels = _build_grouped_window(
+            fit_grouped, group_labels = _build_grouped_window(
                 fit,
                 config=config,
                 calm_threshold=calm_cut,
@@ -1161,15 +1204,80 @@ def run_evaluation(
                 "group_observations": 0,
                 "vol_state_label": hold_vol_state,
             }
+            diag_record.update(
+                {
+                    "balance_reason": "grouping_error",
+                    "balance_reps_per_group": "",
+                    "balance_assets_dropped_pct": float("nan"),
+                    "balance_days_dropped_pct": float("nan"),
+                    "balance_target_reps": 0,
+                }
+            )
             return [], diag_record
 
-        fit_balanced = fit_balanced.replace([np.inf, -np.inf], np.nan)
-        non_null_columns = fit_balanced.columns[~fit_balanced.isna().any(axis=0)]
-        if non_null_columns.size != fit_balanced.shape[1]:
-            fit_balanced = fit_balanced.loc[:, non_null_columns]
-        fit_balanced = fit_balanced.dropna(axis=0, how="any")
-        if fit_balanced.empty or fit_balanced.shape[1] == 0:
-            reason_value = DiagnosticReason.DETECTION_ERROR.value if config.reason_codes else ""
+        fit_grouped = fit_grouped.replace([np.inf, -np.inf], np.nan)
+        grouped_rows_original = int(fit_grouped.shape[0])
+        grouped_assets_original = int(fit_grouped.shape[1])
+
+        nan_result = apply_nan_policy(
+            fit_grouped,
+            group_labels,
+            max_missing_asset=float(config.max_missing_asset),
+            max_missing_group_row=float(config.max_missing_group_row),
+        )
+        fit_clean = nan_result.frame.replace([np.inf, -np.inf], np.nan)
+        group_labels_clean = nan_result.labels
+
+        balance_result = build_balanced_window(
+            fit_clean,
+            group_labels_clean,
+            min_replicates=_required_replicates(design, config),
+        )
+        fit_balanced = balance_result.frame.replace([np.inf, -np.inf], np.nan)
+        group_labels = balance_result.labels
+        balance_reason = balance_result.reason
+        balance_target_reps = int(balance_result.telemetry.target_replicates)
+
+        if fit_balanced.isna().any().any():
+            valid_mask = fit_balanced.notna().all(axis=1)
+            if not bool(valid_mask.all()):
+                keep_positions = np.where(valid_mask.to_numpy(dtype=bool))[0]
+                fit_balanced = fit_balanced.iloc[keep_positions]
+                group_labels = group_labels[keep_positions]
+
+        final_rows = int(fit_balanced.shape[0])
+        final_assets = int(fit_balanced.shape[1])
+
+        assets_drop_pct = (
+            100.0 * max(0, grouped_assets_original - final_assets) / grouped_assets_original
+            if grouped_assets_original > 0
+            else 0.0
+        )
+        days_drop_pct = (
+            100.0 * max(0, grouped_rows_original - final_rows) / grouped_rows_original
+            if grouped_rows_original > 0
+            else 0.0
+        )
+
+        if group_labels.size > 0:
+            balance_counts_str, counts_map = _format_group_label_counts(group_labels, design)
+        else:
+            balance_counts_str, counts_map = ("", {})
+        if counts_map:
+            balance_target_reps = int(min(counts_map.values()))
+        else:
+            balance_target_reps = 0
+
+        balance_diag_fields = {
+            "balance_reason": balance_reason,
+            "balance_reps_per_group": balance_counts_str,
+            "balance_assets_dropped_pct": assets_drop_pct,
+            "balance_days_dropped_pct": days_drop_pct,
+            "balance_target_reps": balance_target_reps,
+        }
+
+        if final_rows == 0 or final_assets == 0 or group_labels.size == 0:
+            reason_value = DiagnosticReason.BALANCE_FAILURE.value if config.reason_codes else ""
             diag_record = {
                 "regime": regime,
                 "detections": 0,
@@ -1206,10 +1314,56 @@ def run_evaluation(
                 "prewhiten_factors": ",".join(prewhiten_meta.factor_columns),
                 "residual_energy_mean": 0.0,
                 "acceptance_delta": 0.0,
-                "group_label_counts": "",
+                "group_label_counts": balance_counts_str,
                 "group_observations": 0,
                 "vol_state_label": hold_vol_state,
             }
+            diag_record.update(balance_diag_fields)
+            return [], diag_record
+
+        if balance_reason in {"insufficient_reps", "empty_after_balance"}:
+            reason_value = DiagnosticReason.BALANCE_FAILURE.value if config.reason_codes else ""
+            diag_record = {
+                "regime": regime,
+                "detections": 0,
+                "detection_rate": 0.0,
+                "edge_margin_mean": 0.0,
+                "stability_margin_mean": 0.0,
+                "isolation_share": 0.0,
+                "alignment_cos_mean": 0.0,
+                "alignment_angle_mean": 0.0,
+                "raw_detection_count": 0,
+                "substitution_fraction": 0.0,
+                "gating_mode": str(config.gate_mode or "strict"),
+                "gating_initial": 0,
+                "gating_accepted": 0,
+                "gating_rejected": 0,
+                "gating_soft_cap": overlay_cfg.gate_soft_max,
+                "gating_delta_frac": overlay_cfg.gate_delta_frac_min,
+                "reason_code": reason_value,
+                "resolved_config_path": resolved_path_str,
+                "calm_threshold": float(calm_cut),
+                "crisis_threshold": float(crisis_cut),
+                "vol_signal": float(vol_signal_value),
+                "group_design": design,
+                "group_count": len(counts_map),
+                "group_replicates": balance_target_reps,
+                "prewhiten_r2_mean": prewhiten_meta.r2_mean,
+                "prewhiten_r2_median": prewhiten_meta.r2_median,
+                "prewhiten_mode_requested": prewhiten_meta.mode_requested,
+                "prewhiten_mode_effective": prewhiten_meta.mode_effective,
+                "prewhiten_factor_count": len(prewhiten_meta.factor_columns),
+                "prewhiten_beta_abs_mean": prewhiten_meta.beta_abs_mean,
+                "prewhiten_beta_abs_std": prewhiten_meta.beta_abs_std,
+                "prewhiten_beta_abs_median": prewhiten_meta.beta_abs_median,
+                "prewhiten_factors": ",".join(prewhiten_meta.factor_columns),
+                "residual_energy_mean": 0.0,
+                "acceptance_delta": 0.0,
+                "group_label_counts": balance_counts_str,
+                "group_observations": int(sum(counts_map.values())),
+                "vol_state_label": hold_vol_state,
+            }
+            diag_record.update(balance_diag_fields)
             return [], diag_record
 
         hold = hold.loc[:, fit_balanced.columns]
@@ -1239,8 +1393,8 @@ def run_evaluation(
                 "crisis_threshold": float(crisis_cut),
                 "vol_signal": float(vol_signal_value),
                 "group_design": design,
-                "group_count": 0,
-                "group_replicates": 0,
+                "group_count": len(counts_map),
+                "group_replicates": balance_target_reps,
                 "prewhiten_r2_mean": prewhiten_meta.r2_mean,
                 "prewhiten_r2_median": prewhiten_meta.r2_median,
                 "prewhiten_mode_requested": prewhiten_meta.mode_requested,
@@ -1252,10 +1406,11 @@ def run_evaluation(
                 "prewhiten_factors": ",".join(prewhiten_meta.factor_columns),
                 "residual_energy_mean": 0.0,
                 "acceptance_delta": 0.0,
-                "group_label_counts": "",
-                "group_observations": 0,
+                "group_label_counts": balance_counts_str,
+                "group_observations": int(sum(counts_map.values())),
                 "vol_state_label": hold_vol_state,
             }
+            diag_record.update(balance_diag_fields)
             return [], diag_record
 
         asset_key = tuple(str(col) for col in fit_balanced.columns)
@@ -1266,7 +1421,7 @@ def run_evaluation(
         group_count = int(group_ids.size)
         replicates_per_group = int(group_counts.min()) if group_counts.size else 0
 
-        group_label_counts, counts_map = _format_group_label_counts(group_labels, design)
+        group_label_counts = balance_counts_str
         group_observations = int(sum(counts_map.values()))
 
         reason = DiagnosticReason.NO_DETECTIONS
@@ -1528,6 +1683,7 @@ def run_evaluation(
             "group_observations": group_observations,
             "vol_state_label": hold_vol_state,
         }
+        diag_record.update(balance_diag_fields)
         for name, message in baseline_errors.items():
             diag_record[f"baseline_error_{name}"] = message
         return metrics_block, diag_record

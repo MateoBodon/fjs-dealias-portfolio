@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PART_PREFIX="$ROOT/data/wrds/returns_daily.parquet.xz.part"
 OUT_XZ="$ROOT/data/wrds/returns_daily.parquet.xz"
 OUT_PARQUET="$ROOT/data/wrds/returns_daily.parquet"

@@ -1833,19 +1833,28 @@ def run_evaluation(
         residual_energy = row.get("residual_energy_mean", float("nan"))
         acceptance_delta = row.get("acceptance_delta", float("nan"))
         detection_rate = row.get("detection_rate", float("nan"))
+        edge_margin = row.get("edge_margin_mean", float("nan"))
+        alignment_cos = row.get("alignment_cos_mean", float("nan"))
+        substitution_frac = row.get("substitution_fraction", float("nan"))
     else:
         residual_energy = float("nan")
         acceptance_delta = float("nan")
         detection_rate = float("nan")
+        edge_margin = float("nan")
+        alignment_cos = float("nan")
+        substitution_frac = float("nan")
 
     print(
-        "[diagnostics] prewhiten=%s r2_mean=%s residual_energy=%s acceptance_delta=%s detection_rate=%s"
+        "[diagnostics] prewhiten=%s r2_mean=%s residual_energy=%s acceptance_delta=%s detection_rate=%s edge_margin=%s alignment=%s substitution=%s"
         % (
             prewhiten_meta.mode_effective,
             _fmt_scalar(prewhiten_r2_mean),
             _fmt_scalar(residual_energy),
             _fmt_scalar(acceptance_delta),
             _fmt_scalar(detection_rate),
+            _fmt_scalar(edge_margin),
+            _fmt_scalar(alignment_cos),
+            _fmt_scalar(substitution_frac),
         )
     )
 

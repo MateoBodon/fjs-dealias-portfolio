@@ -41,8 +41,18 @@ def test_edge_delta_thresholds_real_run() -> None:
     assert path.exists(), "calibration/edge_delta_thresholds.json missing; run Step 3 calibration."
     payload = json.loads(path.read_text(encoding="utf-8"))
     thresholds = payload.get("thresholds", {})
-    tyler = thresholds.get("tyler", {})
-    key = "80x36"
-    assert key in tyler, f"expected tyler threshold for {key}"
-    fpr = float(tyler[key]["fpr"])
-    assert fpr <= 0.02, f"tyler FPR too high ({fpr:.3f})"
+    tyler = thresholds.get("tyler")
+    assert isinstance(tyler, dict), "tyler thresholds missing"
+    g36 = tyler.get("G36")
+    assert isinstance(g36, dict), "expected G36 bucket"
+
+    # Replicate bins 12-16 and 17-22 should exist with the 64-96 asset band.
+    for r_label in ("12-16", "17-22"):
+        r_bucket = g36.get(r_label)
+        assert isinstance(r_bucket, dict), f"replicate bin {r_label} missing"
+        entry = r_bucket.get("64-96")
+        assert isinstance(entry, dict), f"asset bin 64-96 missing for {r_label}"
+        fpr = float(entry["fpr"])
+        assert fpr <= 0.02, f"tyler FPR too high for {r_label} ({fpr:.3f})"
+        assert entry["replicates_bin"] == r_label
+        assert entry["p_bin"] == "64-96"

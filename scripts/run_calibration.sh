@@ -7,6 +7,7 @@ cd "$(dirname "$0")/.."
 export PYTHONPATH="src"
 export OMP_NUM_THREADS="1"
 export MKL_NUM_THREADS="1"
+export MPLBACKEND="Agg"
 
 CPUS=${1:-$(sysctl -n hw.ncpu 2>/dev/null || nproc)}
 

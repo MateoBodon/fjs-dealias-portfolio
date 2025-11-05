@@ -4,7 +4,7 @@ import argparse
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Sequence
+from typing import Sequence, Tuple
 
 try:  # pragma: no cover - plotting optional
     import matplotlib.pyplot as plt
@@ -42,7 +42,13 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         default=[252],
         help="Replicate group counts (default: 252).",
     )
-    parser.add_argument("--replicates", type=int, default=3, help="Replicates per group.")
+    parser.add_argument(
+        "--replicates",
+        type=int,
+        nargs="+",
+        default=[3],
+        help="Replicates per group (space separated list).",
+    )
     parser.add_argument("--alpha", type=float, default=0.02, help="Target false positive rate.")
     parser.add_argument("--trials-null", type=int, default=60, help="Number of null simulations per cell.")
     parser.add_argument("--trials-alt", type=int, default=60, help="Number of power simulations per cell.")
@@ -80,12 +86,67 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=0, help="Base random seed for reproducibility.")
     parser.add_argument("--workers", type=int, default=None, help="Optional worker threads for simulation loop.")
     parser.add_argument(
+        "--replicate-bins",
+        type=str,
+        nargs="*",
+        default=None,
+        help="Optional replicate bins formatted as label:min-max or min-max (inclusive).",
+    )
+    parser.add_argument(
+        "--asset-bins",
+        type=str,
+        nargs="*",
+        default=None,
+        help="Optional asset bins formatted as label:min-max or min-max (inclusive).",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print planned sweep metadata and exit without running calibration.",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Log progress for each calibration job.",
+    )
+    parser.add_argument(
         "--out",
         type=Path,
-        default=Path("calibration/thresholds.json"),
-        help="Output JSON path (default: calibration/thresholds.json).",
+        default=Path("calibration/edge_delta_thresholds.json"),
+        help="Output JSON path (default: calibration/edge_delta_thresholds.json).",
     )
     return parser.parse_args(argv)
+
+
+def _parse_bins(specs: Sequence[str] | None, *, prefix: str) -> list[tuple[str, float, float]]:
+    if not specs:
+        return []
+    bins: list[tuple[str, float, float]] = []
+    for raw in specs:
+        if ":" in raw:
+            label, range_part = raw.split(":", 1)
+        else:
+            label, range_part = raw, raw
+        if "-" not in range_part:
+            raise argparse.ArgumentTypeError(
+                f"Invalid {prefix} bin '{raw}'; expected 'min-max' or 'label:min-max'."
+            )
+        start_str, end_str = range_part.split("-", 1)
+        try:
+            start_val = float(start_str)
+            end_val = float(end_str)
+        except ValueError as exc:
+            raise argparse.ArgumentTypeError(str(exc))
+        low, high = sorted((start_val, end_val))
+        bins.append((label.strip(), float(low), float(high)))
+    return bins
+
+
+def _assign_bin(value: float, bins: Sequence[tuple[str, float, float]], *, default_prefix: str) -> tuple[str, Tuple[float, float] | None]:
+    for label, low, high in bins:
+        if low <= value <= high:
+            return label, (low, high)
+    return f"{default_prefix}{int(round(value))}", None
 
 
 def _maybe_plot(entries: list[dict[str, float | int | str | None]], alpha: float, path: Path) -> Path | None:
@@ -142,81 +203,127 @@ def main(argv: Sequence[str] | None = None) -> Path:
     delta_frac_grid = _parse_float_list(args.delta_frac_grid) or list(defaults.delta_frac_grid)
     stability_grid = _parse_float_list(args.stability_grid) or list(defaults.stability_grid)
 
+    replicate_bins = _parse_bins(args.replicate_bins, prefix="replicate")
+    asset_bins = _parse_bins(args.asset_bins, prefix="asset")
+
+    replicate_values = [int(val) for val in args.replicates]
+    if not replicate_values:
+        replicate_values = [int(defaults.replicates)]
+
     out_path = args.out.expanduser().resolve()
+    planned_jobs: list[dict[str, object]] = []
+
+    for p_assets in args.p_assets:
+        for n_groups in args.n_groups:
+            for replicates in replicate_values:
+                for delta_abs in args.delta_abs_grid:
+                    planned_jobs.append(
+                        {
+                            "p_assets": int(p_assets),
+                            "n_groups": int(n_groups),
+                            "replicates": int(replicates),
+                            "delta_abs": float(delta_abs),
+                        }
+                    )
+
+    if args.dry_run:
+        total_cells = len(planned_jobs) * len(args.edge_modes)
+        total_trials = total_cells * (int(args.trials_null) + int(args.trials_alt))
+        approx_seconds = total_trials * max(replicate_values or [defaults.replicates]) * 0.003
+        print("[dry-run] synthetic calibration plan")
+        print(f"  output: {out_path}")
+        print(f"  jobs: {len(planned_jobs)} sweep cells, {len(args.edge_modes)} edge modes")
+        print(f"  total trials (null+alt): {total_trials}")
+        print(f"  replicates values: {sorted(set(replicate_values))}")
+        print(f"  bins (replicates): {replicate_bins if replicate_bins else 'none'}")
+        print(f"  bins (assets): {asset_bins if asset_bins else 'none'}")
+        print(f"  est runtime ≈ {approx_seconds/60:.1f} minutes (heuristic)")
+        return out_path
+
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     entries: list[dict[str, float | int | str | None]] = []
     grid_records: list[dict[str, float | int | str | None]] = []
-    combo_candidates: dict[tuple[int, int, str], list[dict[str, float | int | str | None]]] = {}
+    combo_candidates: dict[tuple[int, int, int, str], list[dict[str, float | int | str | None]]] = {}
 
     seed_cursor = int(args.seed)
-    for p_assets in args.p_assets:
-        for n_groups in args.n_groups:
-            for delta_abs in args.delta_abs_grid:
-                config = CalibrationConfig(
-                    p_assets=int(p_assets),
-                    n_groups=int(n_groups),
-                    replicates=int(args.replicates),
-                    alpha=float(args.alpha),
-                    trials_null=int(args.trials_null),
-                    trials_alt=int(args.trials_alt),
-                    delta_abs=float(delta_abs),
-                    eps=float(args.eps),
-                    delta_frac_grid=tuple(float(val) for val in delta_frac_grid),
-                    stability_grid=tuple(float(val) for val in stability_grid),
-                    spike_strength=float(args.spike_strength),
-                    edge_modes=tuple(str(mode) for mode in args.edge_modes),
-                    q_max=int(args.q_max),
-                    seed=seed_cursor,
-                    workers=int(args.workers) if args.workers is not None else None,
+    total_jobs = len(planned_jobs) * len(args.edge_modes)
+    job_counter = 0
+    for job in planned_jobs:
+        p_assets = int(job["p_assets"])
+        n_groups = int(job["n_groups"])
+        replicates = int(job["replicates"])
+        delta_abs = float(job["delta_abs"])
+        for edge_mode in args.edge_modes:
+            job_counter += 1
+            if args.verbose:
+                print(
+                    f"[{job_counter}/{total_jobs}] edge={edge_mode} p={p_assets} G={n_groups} r={replicates} δ={delta_abs:.3f}",
+                    flush=True,
                 )
-                seed_cursor += 1
-                result = calibrate_thresholds(config)
-
-                for edge_mode, entry in result.thresholds.items():
-                    entries.append(
-                        {
-                            "p_assets": config.p_assets,
-                            "n_groups": config.n_groups,
-                            "replicates": config.replicates,
-                            "edge_mode": edge_mode,
-                            "delta": float(config.delta_abs),
-                            "delta_frac": float(entry.delta_frac),
-                            "stability_eta_deg": float(entry.stability_eta_deg),
-                            "fpr": float(entry.fpr),
-                            "power": float(entry.power) if entry.power is not None else None,
-                            "trials_null": int(entry.trials_null),
-                            "trials_alt": int(entry.trials_alt),
-                            "seed": config.seed,
-                        }
-                    )
-                    key = (config.p_assets, config.n_groups, str(edge_mode).lower())
-                    combo_candidates.setdefault(key, []).append(
-                        {
-                            "delta": float(config.delta_abs),
-                            "delta_frac": float(entry.delta_frac),
-                            "stability_eta_deg": float(entry.stability_eta_deg),
-                            "fpr": float(entry.fpr),
-                            "power": float(entry.power) if entry.power is not None else None,
-                            "trials_null": int(entry.trials_null),
-                            "trials_alt": int(entry.trials_alt),
-                            "replicates": config.replicates,
-                            "seed": config.seed,
-                        }
-                    )
-                for stat in result.grid:
-                    record = stat.to_dict()
-                    record.update(
-                        {
-                            "p_assets": config.p_assets,
-                            "n_groups": config.n_groups,
-                            "replicates": config.replicates,
-                        }
-                    )
-                    grid_records.append(record)
-
-    thresholds_map: dict[str, dict[str, dict[str, float | int | None]]] = {}
-    for (p_assets, n_groups, edge_mode), candidates in combo_candidates.items():
+            config = CalibrationConfig(
+                p_assets=int(p_assets),
+                n_groups=int(n_groups),
+                replicates=int(replicates),
+                alpha=float(args.alpha),
+                trials_null=int(args.trials_null),
+                trials_alt=int(args.trials_alt),
+                delta_abs=float(delta_abs),
+                eps=float(args.eps),
+                delta_frac_grid=tuple(float(val) for val in delta_frac_grid),
+                stability_grid=tuple(float(val) for val in stability_grid),
+                spike_strength=float(args.spike_strength),
+                edge_modes=(str(edge_mode),),
+                q_max=int(args.q_max),
+                seed=seed_cursor,
+                workers=int(args.workers) if args.workers is not None else None,
+            )
+            seed_cursor += 1
+            result = calibrate_thresholds(config)
+            entry = result.thresholds[str(edge_mode)]
+            entries.append(
+                {
+                    "p_assets": config.p_assets,
+                    "n_groups": config.n_groups,
+                    "replicates": config.replicates,
+                    "edge_mode": edge_mode,
+                    "delta": float(config.delta_abs),
+                    "delta_frac": float(entry.delta_frac),
+                    "stability_eta_deg": float(entry.stability_eta_deg),
+                    "fpr": float(entry.fpr),
+                    "power": float(entry.power) if entry.power is not None else None,
+                    "trials_null": int(entry.trials_null),
+                    "trials_alt": int(entry.trials_alt),
+                    "seed": config.seed,
+                }
+            )
+            key = (config.p_assets, config.n_groups, config.replicates, str(edge_mode).lower())
+            combo_candidates.setdefault(key, []).append(
+                {
+                    "delta": float(config.delta_abs),
+                    "delta_frac": float(entry.delta_frac),
+                    "stability_eta_deg": float(entry.stability_eta_deg),
+                    "fpr": float(entry.fpr),
+                    "power": float(entry.power) if entry.power is not None else None,
+                    "trials_null": int(entry.trials_null),
+                    "trials_alt": int(entry.trials_alt),
+                    "replicates": config.replicates,
+                    "seed": config.seed,
+                }
+            )
+            for stat in result.grid:
+                record = stat.to_dict()
+                record.update(
+                    {
+                        "p_assets": config.p_assets,
+                        "n_groups": config.n_groups,
+                        "replicates": config.replicates,
+                        "edge_mode": str(edge_mode),
+                    }
+                )
+                grid_records.append(record)
+    thresholds_map: dict[str, dict[str, dict[str, dict[str, dict[str, float | int | None]]]]] = {}
+    for (p_assets, n_groups, replicates, edge_mode), candidates in combo_candidates.items():
         feasible = [cand for cand in candidates if cand["fpr"] <= float(args.alpha) + 1e-12]
         if feasible:
             feasible.sort(
@@ -230,8 +337,12 @@ def main(argv: Sequence[str] | None = None) -> Path:
             chosen = min(candidates, key=lambda item: float(item["fpr"]))
 
         mode_map = thresholds_map.setdefault(edge_mode, {})
-        size_key = f"{p_assets}x{n_groups}"
-        mode_map[size_key] = {
+        g_key = f"G{n_groups}"
+        g_bucket = mode_map.setdefault(g_key, {})
+        r_label, r_bounds = _assign_bin(replicates, replicate_bins, default_prefix="r")
+        r_bucket = g_bucket.setdefault(r_label, {})
+        p_label, p_bounds = _assign_bin(p_assets, asset_bins, default_prefix="p")
+        payload = {
             "delta": float(chosen["delta"]),
             "delta_frac": float(chosen["delta_frac"]),
             "stability_eta_deg": float(chosen["stability_eta_deg"]),
@@ -240,15 +351,29 @@ def main(argv: Sequence[str] | None = None) -> Path:
             "trials_null": int(chosen["trials_null"]),
             "trials_alt": int(chosen["trials_alt"]),
             "replicates": int(chosen["replicates"]),
+            "replicates_bin": r_label,
+            "replicates_bin_bounds": r_bounds,
+            "p_assets": int(p_assets),
+            "p_bin": p_label,
+            "p_bin_bounds": p_bounds,
+            "n_groups": int(n_groups),
             "seed": int(chosen["seed"]),
         }
+        existing = r_bucket.get(p_label)
+        if existing is None or payload["fpr"] < existing.get("fpr", float("inf")) - 1e-6:
+            r_bucket[p_label] = payload
+
+    replicate_bins_meta = {
+        label: {"min": low, "max": high} for label, low, high in replicate_bins
+    }
+    asset_bins_meta = {label: {"min": low, "max": high} for label, low, high in asset_bins}
 
     payload = {
         "alpha": float(args.alpha),
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "trials_null": int(args.trials_null),
         "trials_alt": int(args.trials_alt),
-        "replicates": int(args.replicates),
+        "replicates": replicate_values,
         "p_grid": [int(val) for val in args.p_assets],
         "n_grid": [int(val) for val in args.n_groups],
         "delta_grid": [float(val) for val in args.delta_abs_grid],
@@ -259,6 +384,8 @@ def main(argv: Sequence[str] | None = None) -> Path:
         "thresholds": thresholds_map,
         "entries": entries,
         "grid": grid_records,
+        "replicate_bins": replicate_bins_meta,
+        "asset_bins": asset_bins_meta,
     }
 
     out_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")

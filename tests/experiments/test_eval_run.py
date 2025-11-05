@@ -299,10 +299,14 @@ def test_fpr_guard_for_calibrated_thresholds(tmp_path_factory: pytest.TempPathFa
     if not calibration_path.exists():
         pytest.skip("calibration thresholds not present")
     payload = json.loads(calibration_path.read_text(encoding="utf-8"))
-    tyler = payload["edge_modes"]["tyler"]
-    assert tyler["delta"] > 0
-    assert tyler["delta_frac"] > 0
-    fpr = max(tyler["roc"]["fpr"])
+    thresholds = payload.get("thresholds", {})
+    tyler = thresholds.get("tyler", {})
+    assert tyler, "expected tyler thresholds in calibration payload"
+    if "80x36" in tyler:
+        entry = tyler["80x36"]
+    else:
+        entry = next(iter(tyler.values()))
+    fpr = float(entry.get("fpr", 1.0))
     assert fpr <= 0.02 + 1e-6, f"FPR guard breached: {fpr}"
 
 

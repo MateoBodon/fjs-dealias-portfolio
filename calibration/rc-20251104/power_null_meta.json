@@ -1,0 +1,32 @@
+{
+  "config": {
+    "n_assets": 80,
+    "n_groups": 25,
+    "replicates": 5,
+    "noise_variance": 1.0,
+    "signal_to_noise": 0.35,
+    "delta": 0.05,
+    "delta_frac": 0.02,
+    "eps": 0.03,
+    "stability_eta_deg": 0.4,
+    "a_grid": 16,
+    "cs_drop_top_frac": 0.05,
+    "cs_sensitivity_frac": 0.0,
+    "trials_null": 60,
+    "trials_power": 30,
+    "spike_grid": [
+      2.0,
+      3.5,
+      5.0,
+      6.5
+    ],
+    "two_spike": false,
+    "output_dir": "calibration/rc-20251104"
+  },
+  "edge_modes": [
+    "scm",
+    "tyler"
+  ],
+  "two_spike": false,
+  "design": "oneway"
+}

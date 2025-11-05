@@ -34,3 +34,15 @@ def test_calibrate_thresholds_controls_fpr(tmp_path: Path) -> None:
     entry = payload["thresholds"]["scm"]
     assert entry["delta_frac"] >= 0.0
     assert "grid" in payload
+
+
+def test_edge_delta_thresholds_real_run() -> None:
+    path = Path("calibration/edge_delta_thresholds.json")
+    assert path.exists(), "calibration/edge_delta_thresholds.json missing; run Step 3 calibration."
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    thresholds = payload.get("thresholds", {})
+    tyler = thresholds.get("tyler", {})
+    key = "80x36"
+    assert key in tyler, f"expected tyler threshold for {key}"
+    fpr = float(tyler[key]["fpr"])
+    assert fpr <= 0.02, f"tyler FPR too high ({fpr:.3f})"

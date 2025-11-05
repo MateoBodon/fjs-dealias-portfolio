@@ -298,6 +298,7 @@ def run_trials(
     *,
     config: Mapping[str, object],
     edge_modes: Iterable[str],
+    gating_labels: Sequence[str],
     trials_null: int,
     trials_power: int,
     spike_grid: Iterable[float],
@@ -305,8 +306,6 @@ def run_trials(
     rng: np.random.Generator,
 ) -> list[TrialResult]:
     results: list[TrialResult] = []
-    gating_labels = list(GATING_SETTINGS.keys())
-
     for _ in range(trials_null):
         y, groups = _simulate_null(config, rng=rng)
         for gating_label in gating_labels:
@@ -575,6 +574,12 @@ def parse_args() -> argparse.Namespace:
         help="Directory to store summary and plots (default experiments/synthetic/outputs).",
     )
     parser.add_argument(
+        "--a-grid",
+        type=int,
+        default=None,
+        help="Override search grid density for dealias scans (default 120).",
+    )
+    parser.add_argument(
         "--calibrate-delta",
         action="store_true",
         help="Calibrate delta_frac thresholds under the null.",
@@ -584,6 +589,12 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=0.01,
         help="Target false-positive rate when calibrating delta_frac on the null (default 0.01).",
+    )
+    parser.add_argument(
+        "--gating-modes",
+        nargs="+",
+        default=None,
+        help="Subset of gating modes to evaluate (default: all).",
     )
     parser.add_argument(
         "--out",
@@ -641,6 +652,8 @@ def main() -> None:
         config["spike_grid"] = [float(x) for x in args.spike_grid]
     if args.output_dir is not None:
         config["output_dir"] = args.output_dir
+    if args.a_grid is not None:
+        config["a_grid"] = max(1, int(args.a_grid))
     if args.n_assets is not None:
         config["n_assets"] = max(1, int(args.n_assets))
     if args.n_groups is not None:
@@ -675,9 +688,18 @@ def main() -> None:
         if mode not in valid_modes:
             raise ValueError(f"Unsupported edge mode '{mode}'. Valid options: {sorted(valid_modes)}")
 
+    if args.gating_modes:
+        gating_labels = [mode.lower() for mode in args.gating_modes]
+        invalid = [mode for mode in gating_labels if mode not in GATING_SETTINGS]
+        if invalid:
+            raise ValueError(f"Unsupported gating mode(s): {', '.join(sorted(invalid))}")
+    else:
+        gating_labels = list(GATING_SETTINGS.keys())
+
     results = run_trials(
         config=config,
         edge_modes=edge_modes,
+        gating_labels=gating_labels,
         trials_null=int(config["trials_null"]),
         trials_power=int(config["trials_power"]),
         spike_grid=[float(x) for x in config["spike_grid"]],

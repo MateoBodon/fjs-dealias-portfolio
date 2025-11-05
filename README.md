@@ -35,6 +35,15 @@ Optional data: `experiments/equity_panel/config*.yaml` expect `data/returns_dail
 
 ---
 
+## Cloud compute runner (AWS EC2)
+
+- **Resources.** Region `us-east-1`, instance `i-075b6e3853fe2349e` (`ec2-3-236-225-54.compute-1.amazonaws.com`), SSH user `ubuntu`, key `~/.ssh/mateo-us-east-1-ec2-2025`, bucket `fjs-artifacts-mab-prod`, IAM role `EC2AdminRole`.
+- **Environment.** Micromamba lives under `~/.local/share/mamba`; the `fjs` env (Python 3.11) already includes NumPy, SciPy, pandas, pyarrow, scikit-learn, boto3, s3fs, dask, ray, tqdm, click, etc. Thread caps (`OMP/MKL/OPENBLAS/NUMEXPR=1`) are exported via `~/.bashrc`, and the repo is cloned at `~/fjs-dealias-portfolio`.
+- **Usage.** Configure the local AWS CLI profile `fjs-prod`, confirm the SSH key permissions (`chmod 400 ~/.ssh/mateo-us-east-1-ec2-2025`), then connect with `ssh -i ~/.ssh/mateo-us-east-1-ec2-2025 ubuntu@ec2-3-236-225-54.compute-1.amazonaws.com`. Run jobs with `micromamba run -n fjs python experiments/eval/run.py ...` (or activate the env) and push artefacts to `s3://fjs-artifacts-mab-prod/reports/`.
+- **Documentation.** Step-by-step cloud procedures—preflight checks, S3 hardening (AES256 + lifecycle), smoke testing, and report uploads—are captured in `docs/CLOUD.md`. The bucket also stores dated setup summaries (`docs/fjs-cloud-setup-pre-YYYY-MM-DD.md`, `docs/fjs-ec2-setup-YYYY-MM-DD.md`) for auditing.
+
+---
+
 ## 2. Data & Reproducibility
 
 - **Daily input.** `experiments/equity_panel/run.py` looks for `data/returns_daily.csv` with columns `date,ticker,ret`. The repository ships a compact sample (Sharadar US equities through 2024-12-31) so smoke tests work offline.

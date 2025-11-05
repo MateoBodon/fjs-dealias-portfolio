@@ -9,6 +9,8 @@ pip install -e .
 export PYTHONPATH=src
 ```
 
+> Need to burst to the EC2 runner? Follow `docs/CLOUD.md` for the SSH, micromamba, and S3 workflow already provisioned on `i-075b6e3853fe2349e`.
+
 ### Data Hygiene
 - **WRDS snapshot.** `data/wrds/returns_daily.parquet` covers 2016-01-01 → 2024-12-31 (CRSP DSF; share codes 10/11; exchanges 1/2/3; price ≥ \$1; volume ≥ 0) with DoW/volatility labels in `data/wrds/labels.parquet`.
 - **Winsorization.** Daily returns are symmetrically winsorized at `q = 0.005` (0.5%) per ticker before evaluation; flags propagate via `preprocess_flags["winsorize"] = "0.005"`.

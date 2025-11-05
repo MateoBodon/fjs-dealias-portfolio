@@ -4,6 +4,17 @@ Robust variance forecasting over balanced equity panels, with tooling to explore
 
 ---
 
+## Current Status — 2025-11-05
+
+- **Balanced windows & NaN hygiene**: daily evaluation now enforces replicate balancing and missing-data caps with per-window telemetry (logs written alongside diagnostics).
+- **Calibration**: replicate-aware synthetic sweep added; run via `scripts/run_calibration.sh` (writes `calibration/edge_delta_thresholds.json`). Latest long-form sweep is in-progress on external compute; prior artefacts remain under `calibration/`.
+- **Latest RC artefacts**: refreshed reports live in `reports/rc-20251103/` (full/calm/crisis CSVs, `overlay_toggle.md`). Memo/run manifest for the upcoming RC will be generated after Steps 5–6.
+- **Next milestones**: (1) integrate WRDS FF5+UMD factor loader (`src/io/wrds_factors.py`) and expose `--prewhiten` path in the runners, (2) tighten MP-edge bracketing & overlay stability gates, (3) produce bounded WRDS RC + memo. Track the sprint focus in `AGENTS.md`.
+
+Data footprint (local): WRDS snapshots under `data/wrds/*.parquet` (preferred source), sample RC outputs under `reports/rc-20251103/`. Figures are generated on demand into `figures/` (gitignored).
+
+---
+
 ## 1. Prerequisites & installation
 
 | Requirement | Notes |
@@ -157,6 +168,52 @@ Both estimators appear in `metrics_summary.csv`, the aggregate tables, and the m
 ```bash
 PYTHONPATH=src python experiments/synthetic/power_null.py --edge-modes scm tyler --trials-null 300 --trials-power 200
 ```
+
+---
+
+## 6. Calibration & Threshold Artefacts
+
+### 6.1 One-shot sweep (replicate-aware)
+
+Use the helper script (lives at `scripts/run_calibration.sh`) to regenerate the edge/δ thresholds keyed by `(edge_mode, G, replicates_bin, p_bin)`:
+
+```bash
+./scripts/run_calibration.sh               # auto-detects CPU count
+./scripts/run_calibration.sh 32            # override worker count
+```
+
+The script exports `PYTHONPATH=src`, pins BLAS threads to 1, and streams progress (`[i/N] edge=…`). Outputs:
+
+- `calibration/edge_delta_thresholds.json` – primary lookup consumed by overlay gates.
+- `calibration/roc.png` – optional ROC scatter (requires matplotlib and `plt` availability).
+
+To customise the sweep, call the underlying CLI directly:
+
+```bash
+PYTHONPATH=src OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 \
+python3 experiments/synthetic/calibrate_thresholds.py \
+  --p-assets 64 80 96 \
+  --n-groups 36 \
+  --replicates 14 20 \
+  --alpha 0.015 \
+  --delta-abs-grid 0.35 0.5 \
+  --trials-null 40 --trials-alt 40 \
+  --edge-modes scm tyler \
+  --replicate-bins 12-16 17-22 \
+  --asset-bins 64-96 \
+  --q-max 2 \
+  --workers $(sysctl -n hw.ncpu) \
+  --verbose \
+  --out calibration/edge_delta_thresholds.json
+```
+
+### 6.2 Tracking progress (long sweeps)
+
+- `--dry-run` prints the planned grid, estimated trials, and heuristic runtime without launching simulations.
+- `--verbose` (enabled by the script) logs each sweep cell on start, making it safe to work on other tasks while it churns.
+- For offloading to AWS Batch / cloud compute, build and push the project container to ECR, mount WRDS snapshots from S3, and execute the same command inside the job definition (see “Calibrations on AWS Batch” in `AGENTS.md`).
+
+Once the sweep completes, commit the regenerated JSON so downstream WRDS runs use the refreshed thresholds.
 
 Artifacts live under `experiments/synthetic/outputs/` (`power_null_summary.csv`, `fpr_heatmap.png`, `power_curves.png`).
 

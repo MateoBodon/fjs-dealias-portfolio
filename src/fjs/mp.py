@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import hashlib
+import os
+from collections import OrderedDict
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 import warnings
 
 import numpy as np
@@ -10,6 +14,61 @@ from numpy.typing import NDArray
 # ruff: noqa: N803
 
 ArrayLike = Sequence[float] | NDArray[np.float64]
+
+_MP_CACHE_MAX = 512
+_MP_CACHE_DIR_ENV = os.environ.get("MP_EDGE_CACHE_DIR")
+_MP_CACHE_DIR = Path(_MP_CACHE_DIR_ENV).expanduser() if _MP_CACHE_DIR_ENV else None
+if _MP_CACHE_DIR:
+    _MP_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+_MP_CACHE: OrderedDict[str, float] = OrderedDict()
+
+
+def _cache_get(key: str) -> float | None:
+    if key in _MP_CACHE:
+        value = _MP_CACHE.pop(key)
+        _MP_CACHE[key] = value
+        return value
+    if _MP_CACHE_DIR:
+        cache_file = _MP_CACHE_DIR / f"{key}.npz"
+        if cache_file.exists():
+            try:
+                payload = np.load(cache_file)
+                value = float(payload["value"])
+                _cache_set(key, value)
+                return value
+            except Exception:
+                try:
+                    cache_file.unlink()
+                except OSError:
+                    pass
+    return None
+
+
+def _cache_set(key: str, value: float) -> None:
+    if key in _MP_CACHE:
+        _MP_CACHE.pop(key)
+    _MP_CACHE[key] = float(value)
+    if len(_MP_CACHE) > _MP_CACHE_MAX:
+        _MP_CACHE.popitem(last=False)
+    if _MP_CACHE_DIR:
+        cache_file = _MP_CACHE_DIR / f"{key}.npz"
+        try:
+            np.savez_compressed(cache_file, value=float(value))
+        except Exception:
+            pass
+
+
+def _hash_arrays(*arrays: ArrayLike | None) -> str:
+    hasher = hashlib.sha1()
+    for arr in arrays:
+        if arr is None:
+            hasher.update(b"none")
+            continue
+        arr_np = np.ascontiguousarray(np.asarray(arr, dtype=np.float64))
+        hasher.update(str(arr_np.shape).encode("utf-8"))
+        hasher.update(arr_np.tobytes())
+    return hasher.hexdigest()
 
 
 @dataclass(frozen=True)
@@ -489,6 +548,22 @@ def mp_edge(  # noqa: N803
     """
     a_arr, c_arr, d_arr, n_float = _prepare_inputs(a, C, d, N)
     cs_arr = _prepare_cs(Cs, a_arr)
+    cache_key = f"mp_edge:{_hash_arrays(a_arr, c_arr, d_arr, np.asarray([n_float]), cs_arr)}"
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        return cached
+    value = _mp_edge_impl(a_arr, c_arr, d_arr, n_float, cs_arr)
+    _cache_set(cache_key, value)
+    return value
+
+
+def _mp_edge_impl(
+    a_arr: np.ndarray,
+    c_arr: np.ndarray,
+    d_arr: np.ndarray,
+    n_float: float,
+    cs_arr: np.ndarray,
+) -> float:
     denom_weights = cs_arr if np.any(np.abs(cs_arr) > 0.0) else c_arr
     k_vals = _k_values(a_arr, denom_weights, d_arr, n_float)
     numerators = c_arr * a_arr + cs_arr
@@ -559,10 +634,27 @@ def admissible_m_from_lambda(  # noqa: N803
     Recover the admissible real root of z(m) = λ with positive slope.
     """
     a_arr, c_arr, d_arr, n_float = _prepare_inputs(a, C, d, N)
+    cs_arr = _prepare_cs(Cs, a_arr)
     lam_val = float(lam)
     if not np.isfinite(lam_val):
         raise ValueError("λ must be a finite scalar.")
-    cs_arr = _prepare_cs(Cs, a_arr)
+    cache_key = f"admiss:{_hash_arrays(a_arr, c_arr, d_arr, np.asarray([n_float, lam_val]), cs_arr)}"
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        return cached
+    value = _admissible_m_from_lambda_impl(lam_val, a_arr, c_arr, d_arr, n_float, cs_arr)
+    _cache_set(cache_key, value)
+    return value
+
+
+def _admissible_m_from_lambda_impl(
+    lam_val: float,
+    a_arr: np.ndarray,
+    c_arr: np.ndarray,
+    d_arr: np.ndarray,
+    n_float: float,
+    cs_arr: np.ndarray,
+) -> float:
     denom_weights = cs_arr if np.any(np.abs(cs_arr) > 0.0) else c_arr
     k_vals = _k_values(a_arr, denom_weights, d_arr, n_float)
     numerators = c_arr * a_arr + cs_arr

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -9,7 +8,8 @@ from typing import Iterable, Mapping, Sequence
 
 import numpy as np
 
-from fjs.overlay import OverlayConfig, detect_spikes
+from fjs.balanced import mean_squares
+from synthetic.threshold_eval import evaluate_threshold_grid
 
 __all__ = [
     "CalibrationConfig",
@@ -140,83 +140,6 @@ def _simulate_panel(
     return noise.astype(np.float64), groups
 
 
-def _evaluate_detection(
-    config: CalibrationConfig,
-    y: np.ndarray,
-    groups: np.ndarray,
-    *,
-    edge_mode: str,
-    delta_frac: float,
-    stability_eta: float,
-    seed: int,
-) -> bool:
-    overlay_cfg = OverlayConfig(
-        shrinker="rie",
-        delta=config.delta_abs,
-        delta_frac=delta_frac,
-        eps=config.eps,
-        stability_eta_deg=stability_eta,
-        q_max=config.q_max,
-        max_detections=config.q_max,
-        edge_mode=edge_mode,
-        seed=seed,
-        require_isolated=True,
-        a_grid=120,
-    )
-    try:
-        detections = detect_spikes(y, groups, config=overlay_cfg)
-    except Exception:
-        return True
-    return bool(detections)
-
-
-def _trial_worker(
-    args: tuple[int, int, CalibrationConfig, str, float, float, float]
-) -> int:
-    idx, seed_val, cfg, edge_mode, delta_frac, stability_eta, spike_strength = args
-    rng = np.random.default_rng(int(seed_val))
-    y, groups = _simulate_panel(cfg, rng, spike_strength=spike_strength)
-    fired = _evaluate_detection(
-        cfg,
-        y,
-        groups,
-        edge_mode=edge_mode,
-        delta_frac=delta_frac,
-        stability_eta=stability_eta,
-        seed=int(seed_val) + idx,
-    )
-    return 1 if fired else 0
-
-
-def _estimate_rate(
-    config: CalibrationConfig,
-    *,
-    edge_mode: str,
-    delta_frac: float,
-    stability_eta: float,
-    seeds: Iterable[int],
-    spike_strength: float,
-) -> float:
-    seed_list = [int(seed) for seed in seeds]
-    if not seed_list:
-        return 0.0
-
-    trials = [
-        (idx, seed_val, config, edge_mode, delta_frac, stability_eta, spike_strength)
-        for idx, seed_val in enumerate(seed_list)
-    ]
-
-    workers = max(1, int(config.workers)) if config.workers else 1
-    if workers > 1:
-        with ProcessPoolExecutor(max_workers=workers) as executor:
-            triggered = sum(executor.map(_trial_worker, trials))
-    else:
-        triggered = sum(_trial_worker(trial) for trial in trials)
-
-    total = float(len(seed_list))
-    return float(triggered) / total if total > 0 else 0.0
-
-
 def _select_entry(
     candidates: Sequence[tuple[float, float, float, float | None]],
     alpha: float,
@@ -244,41 +167,81 @@ def calibrate_thresholds(config: CalibrationConfig) -> CalibrationResult:
         else np.array([], dtype=np.int64)
     )
 
-    thresholds: dict[str, ThresholdEntry] = {}
+    edge_modes = [str(mode) for mode in config.edge_modes]
+    delta_frac_values = np.asarray(list(config.delta_frac_grid), dtype=np.float64)
+    stability_values = np.asarray(list(config.stability_grid), dtype=np.float64)
+
+    null_counts = {
+        mode: np.zeros((delta_frac_values.size, stability_values.size), dtype=np.int64)
+        for mode in edge_modes
+    }
+    alt_counts = {
+        mode: np.zeros((delta_frac_values.size, stability_values.size), dtype=np.int64)
+        for mode in edge_modes
+    }
+
+    def _accumulate(seed_list: np.ndarray, spike_strength: float, target: dict[str, np.ndarray]) -> None:
+        for seed in seed_list:
+            trial_rng = np.random.default_rng(int(seed))
+            observations, groups = _simulate_panel(
+                config,
+                trial_rng,
+                spike_strength=spike_strength,
+            )
+            stats = mean_squares(observations, groups)
+            evaluations = evaluate_threshold_grid(
+                observations,
+                groups,
+                delta_abs=float(config.delta_abs),
+                eps=float(config.eps),
+                edge_modes=edge_modes,
+                delta_frac_values=delta_frac_values,
+                stability_values=stability_values,
+                q_max=int(config.q_max or 1),
+                a_grid=120,
+                require_isolated=True,
+                alignment_min=0.0,
+                stats=stats,
+            )
+            for mode in edge_modes:
+                target[mode] += evaluations[mode].astype(np.int64)
+
+    if null_seeds.size:
+        _accumulate(null_seeds, 0.0, null_counts)
+    if alt_seeds.size:
+        _accumulate(alt_seeds, float(config.spike_strength), alt_counts)
+
     grid_stats: list[GridStat] = []
-    for mode in config.edge_modes:
+    thresholds: dict[str, ThresholdEntry] = {}
+
+    for mode in edge_modes:
         candidates: list[tuple[float, float, float, float | None]] = []
-        for stability_eta in config.stability_grid:
-            for delta_frac in config.delta_frac_grid:
-                fpr = _estimate_rate(
-                    config,
-                    edge_mode=mode,
-                    delta_frac=float(delta_frac),
-                    stability_eta=float(stability_eta),
-                    seeds=null_seeds,
-                    spike_strength=0.0,
+        fpr_matrix = null_counts[mode].astype(np.float64) / max(1, int(config.trials_null))
+        power_matrix = (
+            alt_counts[mode].astype(np.float64) / max(1, int(config.trials_alt))
+            if config.trials_alt > 0
+            else np.zeros_like(fpr_matrix)
+        )
+        for stability_idx, stability_eta in enumerate(stability_values):
+            for delta_idx, delta_frac in enumerate(delta_frac_values):
+                fpr = float(fpr_matrix[delta_idx, stability_idx])
+                power = (
+                    float(power_matrix[delta_idx, stability_idx])
+                    if config.trials_alt > 0
+                    else None
                 )
-                power = None
-                if config.trials_alt > 0:
-                    power = _estimate_rate(
-                        config,
-                        edge_mode=mode,
-                        delta_frac=float(delta_frac),
-                        stability_eta=float(stability_eta),
-                        seeds=alt_seeds,
-                        spike_strength=config.spike_strength,
-                    )
-                candidates.append((float(delta_frac), float(stability_eta), fpr, power))
                 grid_stats.append(
                     GridStat(
                         edge_mode=str(mode),
                         delta_abs=float(config.delta_abs),
                         delta_frac=float(delta_frac),
                         stability_eta_deg=float(stability_eta),
-                        fpr=float(fpr),
-                        power=float(power) if power is not None else None,
+                        fpr=fpr,
+                        power=power,
                     )
                 )
+                candidates.append((float(delta_frac), float(stability_eta), fpr, power))
+
         best_delta, best_stability, best_fpr, best_power = _select_entry(candidates, config.alpha)
         thresholds[str(mode)] = ThresholdEntry(
             delta_frac=best_delta,

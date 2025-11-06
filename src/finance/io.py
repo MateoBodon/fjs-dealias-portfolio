@@ -6,6 +6,8 @@ from typing import cast
 import numpy as np
 import pandas as pd
 
+from data.registry import DatasetRegistryError, assert_registered_dataset
+
 REQUIRED_PRICE_COLUMNS = {"date", "ticker", "price_close"}
 REQUIRED_RET_COLUMNS = {"date", "ticker", "ret"}
 
@@ -103,6 +105,10 @@ def load_returns_csv(path: str | Path) -> pd.DataFrame:
     p = Path(path)
     if not p.exists():
         raise FileNotFoundError(f"Returns file not found: {p}")
+    try:
+        assert_registered_dataset(p)
+    except DatasetRegistryError as exc:
+        raise DatasetRegistryError(f"Returns dataset integrity failure: {exc}") from exc
     df = pd.read_csv(p)
     missing = REQUIRED_RET_COLUMNS - set(df.columns)
     if missing:

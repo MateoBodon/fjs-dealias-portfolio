@@ -1,0 +1,34 @@
+{
+  "generated_at": "2025-11-06T00:00:00Z",
+  "maintainer": "MateoBodon/fjs-dealias-portfolio",
+  "notes": "Hashes for WRDS-derived CRSP daily returns used by smoke and evaluation runs.",
+  "wrds_defaults": {
+    "library": "crsp",
+    "table": "dsf",
+    "share_codes": [10, 11],
+    "exchanges": [1, 2, 3],
+    "min_price": 1.0,
+    "min_volume": 0,
+    "start": "2010-01-01",
+    "end": "2024-12-31"
+  },
+  "datasets": {
+    "data/returns_daily.csv": {
+      "sha256": "96ac7dd318245cf1a8b434bb358a9344bf282992fc9fe66f0282023696563197",
+      "rows": 892529,
+      "columns": 300,
+      "start_date": "2010-01-05",
+      "end_date": "2024-12-31",
+      "wrds_source": "crsp.dsf",
+      "wrds_query_params": {
+        "start": "2010-01-01",
+        "end": "2024-12-31",
+        "exchanges": [1, 2, 3],
+        "share_codes": [10, 11],
+        "min_price": 1.0,
+        "min_volume": 0
+      },
+      "note": "CRSP daily returns ingested via src/io/crsp_daily.py with default filters; tickers aligned to WRDS canonical names."
+    }
+  }
+}

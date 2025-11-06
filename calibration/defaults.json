@@ -1,0 +1,84 @@
+{
+  "alpha": 0.02,
+  "generated_at": "2025-11-06T20:48:44.163101+00:00",
+  "thresholds_source": "/home/ubuntu/fjs-dealias-portfolio/calibration/edge_delta_thresholds.json",
+  "defaults": {
+    "scm": {
+      "G36": {
+        "r12-16": {
+          "p64-96": {
+            "delta": 0.35,
+            "delta_frac": 0.01,
+            "stability_eta_deg": 0.3,
+            "fpr": 0.0,
+            "replicates": 14,
+            "replicates_bin_bounds": [
+              12.0,
+              16.0
+            ],
+            "p_bin_bounds": [
+              64.0,
+              96.0
+            ]
+          }
+        },
+        "r17-22": {
+          "p64-96": {
+            "delta": 0.35,
+            "delta_frac": 0.01,
+            "stability_eta_deg": 0.3,
+            "fpr": 0.0,
+            "replicates": 20,
+            "replicates_bin_bounds": [
+              17.0,
+              22.0
+            ],
+            "p_bin_bounds": [
+              64.0,
+              96.0
+            ]
+          }
+        }
+      }
+    },
+    "tyler": {
+      "G36": {
+        "r12-16": {
+          "p64-96": {
+            "delta": 0.35,
+            "delta_frac": 0.01,
+            "stability_eta_deg": 0.3,
+            "fpr": 0.0,
+            "replicates": 14,
+            "replicates_bin_bounds": [
+              12.0,
+              16.0
+            ],
+            "p_bin_bounds": [
+              64.0,
+              96.0
+            ]
+          }
+        },
+        "r17-22": {
+          "p64-96": {
+            "delta": 0.35,
+            "delta_frac": 0.01,
+            "stability_eta_deg": 0.3,
+            "fpr": 0.0,
+            "replicates": 20,
+            "replicates_bin_bounds": [
+              17.0,
+              22.0
+            ],
+            "p_bin_bounds": [
+              64.0,
+              96.0
+            ]
+          }
+        }
+      }
+    }
+  },
+  "notes": "Lookup of (edge_mode, n_groups, replicates_bin, p_bin) to (delta, delta_frac, eta) filtered to FPR \u2264 alpha."
+}

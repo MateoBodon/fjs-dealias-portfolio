@@ -25,6 +25,7 @@ dependencies = [
     "tqdm",
     "pytest",
     "cvxpy",
+    "psutil",
 ]
 
 [project.optional-dependencies]

@@ -67,6 +67,19 @@ ABLA_GRID ?= experiments/ablate/ablation_matrix.yaml
 RC_CALM_WINDOW_SAMPLE ?=
 RC_CRISIS_WINDOW_TOPK ?=
 
+CALIB_P_ASSETS ?= 64 80 96
+CALIB_N_GROUPS ?= 36
+CALIB_REPLICATES ?= 14 20
+CALIB_REPLICATE_BINS ?= r12-16:12-16 r17-22:17-22
+CALIB_ASSET_BINS ?= p64-96:64-96
+CALIB_DELTA_ABS ?= 0.35 0.45 0.55 0.65
+CALIB_DELTA_FRAC ?= 0.01 0.015 0.02 0.025 0.03
+CALIB_STABILITY ?= 0.30 0.40 0.50 0.60
+CALIB_ALPHA ?= 0.02
+CALIB_TRIALS_NULL ?= 300
+CALIB_TRIALS_ALT ?= 200
+CALIB_WORKERS ?= $(shell python3 -c 'import os;print(os.cpu_count() or 8)')
+
 rc-data:
 	$(RC_PY) experiments/equity_panel/run.py --config experiments/equity_panel/config.smoke.yaml $(RC_FLAGS) --estimator dealias
 	$(RC_PY) experiments/equity_panel/run.py --config experiments/equity_panel/config.smoke.yaml $(RC_FLAGS) --estimator lw
@@ -102,6 +115,12 @@ rc-lite:
 	$(RC_PY) tools/build_gallery.py --config experiments/equity_panel/config.rc.yaml
 	$(RC_PY) tools/build_memo.py --config experiments/equity_panel/config.rc.yaml
 
+.PHONY: aws\:rc-lite aws\:rc aws\:sweep-calibration
+AWS_ARGS ?=
+
+aws\:%:
+	scripts/aws_run.sh $* $(AWS_ARGS)
+
 run-synth:
 	python experiments/synthetic_oneway/run.py
 
@@ -130,6 +149,29 @@ sweep\:acceptance:
 		--out reports/synthetic/power_harness \
 		--figures-out reports/figures \
 		--defaults-path calibration_defaults.json
+
+.PHONY: sweep-calibration
+sweep-calibration: sweep\:acceptance
+
+.PHONY: calibrate-thresholds
+calibrate-thresholds:
+	PYTHONPATH=src python experiments/synthetic/calibrate_thresholds.py \
+		--alpha $(CALIB_ALPHA) \
+		--p-assets $(CALIB_P_ASSETS) \
+		--n-groups $(CALIB_N_GROUPS) \
+		--replicates $(CALIB_REPLICATES) \
+		--replicate-bins $(CALIB_REPLICATE_BINS) \
+		--asset-bins $(CALIB_ASSET_BINS) \
+		--trials-null $(CALIB_TRIALS_NULL) \
+		--trials-alt $(CALIB_TRIALS_ALT) \
+		--delta-abs-grid $(CALIB_DELTA_ABS) \
+		--delta-frac-grid $(CALIB_DELTA_FRAC) \
+		--stability-grid $(CALIB_STABILITY) \
+		--edge-modes scm tyler \
+		--workers $(CALIB_WORKERS) \
+		--verbose \
+		--out calibration/edge_delta_thresholds.json \
+		--defaults-out calibration/defaults.json
 
 .PHONY: run-equity-crisis
 run-equity-crisis:

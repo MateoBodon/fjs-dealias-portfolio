@@ -11,6 +11,7 @@ from .panels import (
     save_balanced_panel,
     write_manifest,
 )
+from .registry import DatasetRegistryError, RegistryEntry, assert_registered_dataset, get_registry
 
 __all__ = [
     "BalancedPanel",
@@ -20,4 +21,8 @@ __all__ = [
     "load_balanced_panel",
     "save_balanced_panel",
     "write_manifest",
+    "DatasetRegistryError",
+    "RegistryEntry",
+    "assert_registered_dataset",
+    "get_registry",
 ]

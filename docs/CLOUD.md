@@ -4,6 +4,7 @@ _Last updated: 2025-11-05_
 ## Quick facts
 - Region: `us-east-1`
 - Instance: `i-075b6e3853fe2349e` (`ec2-3-236-225-54.compute-1.amazonaws.com`)
+- Recommended type for heavy calibrations: `c7a.32xlarge` (128 vCPUs, ample memory). Override with `INSTANCE_TYPE=c7a.32xlarge` when running `scripts/aws_provision.sh`.
 - SSH user / key: `ubuntu` with `~/.ssh/mateo-us-east-1-ec2-2025`
 - IAM role on instance: `EC2AdminRole`
 - Subnet: `subnet-0929c64978f562f59`
@@ -71,6 +72,7 @@ Notes:
 - Micromamba root: `~/.local/share/mamba`
 - Primary environment: `fjs` (Python 3.11) with NumPy, SciPy, pandas, pyarrow, scikit-learn, boto3, s3fs, dask, distributed, ray, tqdm, click, etc.
 - Thread caps (`OMP_NUM_THREADS`, `MKL_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `NUMEXPR_NUM_THREADS`) are pinned to 1 in `~/.bashrc`.
+- System telemetry tools (`sysstat`, `htop`) are installed automatically; per-run metrics are captured locally (see below).
 
 Common workflows:
 ```bash
@@ -109,6 +111,35 @@ python experiments/eval/run.py \
   --out reports/rc-$(date +%Y%m%d)/
 ```
 
+---
+
+## Automation helpers (local workstation)
+To remove manual SSH steps, the repository ships deterministic AWS wrappers:
+
+- `scripts/aws_provision.sh` — launches (or resumes) the tagged EC2 runner with OpenBLAS pinned to one thread, installs micromamba, and prepares the `fjs` environment. Export the required AWS variables (`AWS_PROFILE`, `AWS_REGION`, `KEY_NAME`, `SUBNET_ID`, `SECURITY_GROUP_IDS`) before running.
+- `scripts/aws_run.sh` — rsyncs the repo to the runner, executes a make target via `micromamba run`, writes `reports/runs/<run_id>/run.json` with hardware + BLAS metadata, and syncs `reports/` back under `reports/aws/<run_id>/` locally.
+- Makefile namespaces: `make aws:rc-lite`, `make aws:rc`, `make aws:sweep-calibration`. These call `scripts/aws_run.sh` and accept the same environment overrides (e.g. `KEY_PATH`, `INSTANCE_DNS`, `AWS_REPORTS_DIR`).
+
+Example local invocation:
+```bash
+export INSTANCE_DNS=ec2-3-236-225-54.compute-1.amazonaws.com
+export KEY_PATH="$HOME/.ssh/mateo-us-east-1-ec2-2025"
+CALIB_WORKERS=96 MONITOR_INTERVAL=5 make aws:rc-lite
+```
+
+Set `SKIP_INSTALL=1` to reuse the existing environment, or `SKIP_REPORT_SYNC=1` to leave artefacts on the runner only. The generated `reports/runs/<run_id>/run.json` mirrors the git SHA, target, timing, CPU/BLAS metadata, and dataset hashes for provenance.
+
+### Telemetry & progress tracking
+
+Every AWS run now streams structured telemetry via `tools/run_monitor.py`:
+
+- `reports/runs/<run_id>/metrics.jsonl` – 5s samples of host CPU%, process CPU%, RSS/USS memory, IO deltas, thread counts, and progress snapshots.
+- `reports/runs/<run_id>/metrics_summary.json` – aggregate statistics (avg/peak CPU, memory, IO totals) plus wall-clock start/end and exit status.
+- `reports/runs/<run_id>/progress.jsonl` – parsed progress events (e.g., `calibration_progress` with live ETA).
+- Console output includes `[monitor] … ETA` updates derived from progress payloads.
+
+Tune sampling with `MONITOR_INTERVAL` (seconds). For example, `MONITOR_INTERVAL=2 make aws:calibrate-thresholds` increases granularity. All metadata is embedded in the resulting `run.json` for quick inspection.
+
 Tips:
 - Include `OMP_NUM_THREADS=1` (already enforced globally) if launching multi-process workloads.
 - For heavier batches, consider staging inputs under `/data` and syncing outputs to S3 when finished.
@@ -139,4 +170,3 @@ Tips:
 - **Auditing:** The latest setup reports in S3 capture instance metadata, IAM role, installed packages, and smoke-test confirmations.
 
 Keep this document current when instances, buckets, or IAM roles change so future cloud runs remain reproducible.
-

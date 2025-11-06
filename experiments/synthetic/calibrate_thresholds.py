@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Sequence, Tuple
+from typing import Mapping, Sequence, Tuple
 
 try:  # pragma: no cover - plotting optional
     import matplotlib.pyplot as plt
@@ -50,28 +51,28 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="Replicates per group (space separated list).",
     )
     parser.add_argument("--alpha", type=float, default=0.02, help="Target false positive rate.")
-    parser.add_argument("--trials-null", type=int, default=60, help="Number of null simulations per cell.")
-    parser.add_argument("--trials-alt", type=int, default=60, help="Number of power simulations per cell.")
+    parser.add_argument("--trials-null", type=int, default=300, help="Number of null simulations per cell.")
+    parser.add_argument("--trials-alt", type=int, default=200, help="Number of power simulations per cell.")
     parser.add_argument(
         "--delta-abs-grid",
         type=float,
         nargs="+",
-        default=[0.35, 0.5, 0.65],
-        help="Absolute MP edge buffers δ to evaluate (default: 0.35 0.5 0.65).",
+        default=[0.35, 0.45, 0.55, 0.65],
+        help="Absolute MP edge buffers δ to evaluate (default: 0.35 0.45 0.55 0.65).",
     )
     parser.add_argument("--eps", type=float, default=0.02, help="Small eps buffer for MP edge.")
     parser.add_argument(
         "--delta-frac-grid",
         type=str,
         nargs="*",
-        default=None,
+        default=["0.01", "0.015", "0.02", "0.025", "0.03"],
         help="Optional override for delta_frac grid (space separated).",
     )
     parser.add_argument(
         "--stability-grid",
         type=str,
         nargs="*",
-        default=None,
+        default=["0.30", "0.40", "0.50", "0.60"],
         help="Optional override for stability eta grid (degrees).",
     )
     parser.add_argument("--spike-strength", type=float, default=4.0, help="Signal strength for power trials.")
@@ -114,6 +115,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         type=Path,
         default=Path("calibration/edge_delta_thresholds.json"),
         help="Output JSON path (default: calibration/edge_delta_thresholds.json).",
+    )
+    parser.add_argument(
+        "--defaults-out",
+        type=Path,
+        default=None,
+        help="Optional defaults lookup path (filters cells with fpr ≤ alpha).",
     )
     return parser.parse_args(argv)
 
@@ -197,6 +204,71 @@ def _maybe_plot(entries: list[dict[str, float | int | str | None]], alpha: float
     return plot_path
 
 
+def _build_defaults_payload(
+    thresholds_map: Mapping[str, Mapping[str, Mapping[str, Mapping[str, Mapping[str, object]]]]],
+    *,
+    alpha: float,
+    thresholds_path: Path,
+) -> dict[str, object]:
+    tol = max(1e-6, alpha * 0.01)
+    defaults: dict[str, dict[str, dict[str, dict[str, dict[str, object]]]]] = {}
+
+    for edge_mode, g_buckets in thresholds_map.items():
+        if not isinstance(g_buckets, Mapping):
+            continue
+        g_defaults: dict[str, dict[str, dict[str, dict[str, object]]]] = {}
+        for g_key, r_buckets in g_buckets.items():
+            if not isinstance(r_buckets, Mapping):
+                continue
+            r_defaults: dict[str, dict[str, dict[str, object]]] = {}
+            for r_label, p_buckets in r_buckets.items():
+                if not isinstance(p_buckets, Mapping):
+                    continue
+                p_defaults: dict[str, dict[str, object]] = {}
+                for p_label, payload_raw in p_buckets.items():
+                    if not isinstance(payload_raw, Mapping):
+                        continue
+                    fpr = float(payload_raw.get("fpr", 1.0))
+                    if fpr > alpha + tol:
+                        continue
+                    try:
+                        delta_val = float(payload_raw["delta"])
+                        delta_frac_val = float(payload_raw["delta_frac"])
+                        stability_val = float(payload_raw["stability_eta_deg"])
+                    except KeyError:
+                        continue
+                    entry: dict[str, object] = {
+                        "delta": delta_val,
+                        "delta_frac": delta_frac_val,
+                        "stability_eta_deg": stability_val,
+                        "fpr": fpr,
+                    }
+                    if "replicates" in payload_raw:
+                        try:
+                            entry["replicates"] = int(payload_raw["replicates"])  # type: ignore[arg-type]
+                        except Exception:
+                            pass
+                    if payload_raw.get("replicates_bin_bounds") is not None:
+                        entry["replicates_bin_bounds"] = list(payload_raw["replicates_bin_bounds"])  # type: ignore[list-item]
+                    if payload_raw.get("p_bin_bounds") is not None:
+                        entry["p_bin_bounds"] = list(payload_raw["p_bin_bounds"])  # type: ignore[list-item]
+                    p_defaults[p_label] = entry
+                if p_defaults:
+                    r_defaults[r_label] = p_defaults
+            if r_defaults:
+                g_defaults[g_key] = r_defaults
+        if g_defaults:
+            defaults[edge_mode] = g_defaults
+
+    return {
+        "alpha": float(alpha),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "thresholds_source": str(thresholds_path),
+        "defaults": defaults,
+        "notes": "Lookup of (edge_mode, n_groups, replicates_bin, p_bin) to (delta, delta_frac, eta) filtered to FPR ≤ alpha.",
+    }
+
+
 def main(argv: Sequence[str] | None = None) -> Path:
     args = parse_args(argv)
     defaults = CalibrationConfig()
@@ -248,6 +320,7 @@ def main(argv: Sequence[str] | None = None) -> Path:
 
     seed_cursor = int(args.seed)
     total_jobs = len(planned_jobs) * len(args.edge_modes)
+    progress_start = time.perf_counter()
     job_counter = 0
     for job in planned_jobs:
         p_assets = int(job["p_assets"])
@@ -322,6 +395,23 @@ def main(argv: Sequence[str] | None = None) -> Path:
                     }
                 )
                 grid_records.append(record)
+
+            elapsed = time.perf_counter() - progress_start
+            completed = job_counter
+            remaining_jobs = max(total_jobs - completed, 0)
+            avg_per_job = elapsed / max(completed, 1)
+            eta_seconds = avg_per_job * remaining_jobs
+            progress_event = {
+                "event": "calibration_progress",
+                "edge_mode": edge_mode,
+                "current": completed,
+                "total": total_jobs,
+                "jobs_completed": completed,
+                "jobs_total": total_jobs,
+                "elapsed_seconds": elapsed,
+                "eta_seconds": eta_seconds,
+            }
+            print(json.dumps(progress_event), flush=True)
     thresholds_map: dict[str, dict[str, dict[str, dict[str, dict[str, float | int | None]]]]] = {}
     for (p_assets, n_groups, replicates, edge_mode), candidates in combo_candidates.items():
         feasible = [cand for cand in candidates if cand["fpr"] <= float(args.alpha) + 1e-12]
@@ -391,6 +481,17 @@ def main(argv: Sequence[str] | None = None) -> Path:
     out_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     _maybe_plot(entries, float(args.alpha), out_path)
+
+    if args.defaults_out:
+        defaults_path = args.defaults_out.expanduser().resolve()
+        defaults_payload = _build_defaults_payload(
+            thresholds_map,
+            alpha=float(args.alpha),
+            thresholds_path=out_path,
+        )
+        defaults_path.parent.mkdir(parents=True, exist_ok=True)
+        defaults_path.write_text(json.dumps(defaults_payload, indent=2), encoding="utf-8")
+
     return out_path
 
 

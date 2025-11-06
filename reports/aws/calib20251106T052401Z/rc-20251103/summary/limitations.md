@@ -1,0 +1,5 @@
+- EW ΔMSE must not exceed baseline: value unavailable.
+- MV ΔMSE must not exceed baseline: value unavailable.
+- Detection coverage within target band: observed 0 vs threshold {'min': 0.01, 'max': 0.25}.
+- Average edge margin positive: observed 0 vs threshold {'min': 0.0}.
+- Alignment cosine above 0.9: value unavailable.

@@ -39,8 +39,10 @@ Optional data: `experiments/equity_panel/config*.yaml` expect `data/returns_dail
 
 - **Resources.** Region `us-east-1`, instance `i-075b6e3853fe2349e` (`ec2-3-236-225-54.compute-1.amazonaws.com`), SSH user `ubuntu`, key `~/.ssh/mateo-us-east-1-ec2-2025`, bucket `fjs-artifacts-mab-prod`, IAM role `EC2AdminRole`.
 - **Environment.** Micromamba lives under `~/.local/share/mamba`; the `fjs` env (Python 3.11) already includes NumPy, SciPy, pandas, pyarrow, scikit-learn, boto3, s3fs, dask, ray, tqdm, click, etc. Thread caps (`OMP/MKL/OPENBLAS/NUMEXPR=1`) are exported via `~/.bashrc`, and the repo is cloned at `~/fjs-dealias-portfolio`.
+- **Provisioning.** `scripts/aws_provision.sh` now defaults to `INSTANCE_TYPE=c7a.32xlarge`; override via environment variables if you need a lighter host. The script installs toolchains, pins BLAS threads to 1, and ensures micromamba + the `fjs` env are ready for rsync-driven jobs.
 - **Usage.** Configure the local AWS CLI profile `fjs-prod`, confirm the SSH key permissions (`chmod 400 ~/.ssh/mateo-us-east-1-ec2-2025`), then connect with `ssh -i ~/.ssh/mateo-us-east-1-ec2-2025 ubuntu@ec2-3-236-225-54.compute-1.amazonaws.com`. Run jobs with `micromamba run -n fjs python experiments/eval/run.py ...` (or activate the env) and push artefacts to `s3://fjs-artifacts-mab-prod/reports/`.
 - **Documentation.** Step-by-step cloud procedures—preflight checks, S3 hardening (AES256 + lifecycle), smoke testing, and report uploads—are captured in `docs/CLOUD.md`. The bucket also stores dated setup summaries (`docs/fjs-cloud-setup-pre-YYYY-MM-DD.md`, `docs/fjs-ec2-setup-YYYY-MM-DD.md`) for auditing.
+- **Telemetry.** AWS runs automatically wrap commands with `tools/run_monitor.py`, writing `metrics.jsonl` (resource samples), `metrics_summary.json` (avg/peak CPU/memory/IO, runtime), and `progress.jsonl` (parsed progress events + ETA). Tune sampling via `MONITOR_INTERVAL=<seconds>` when calling `make aws:<target>`.
 
 ---
 
@@ -59,6 +61,17 @@ Optional data: `experiments/equity_panel/config*.yaml` expect `data/returns_dail
   returns.to_csv("data/returns_daily.csv", index=False)
   PY
   ```
+
+- **WRDS registry & hashes.** All loaders validate WRDS panels against `data/registry.json`. After refreshing CRSP data via your ingest pipeline (see `src/io/crsp_daily.py` for the canonical WRDS query), update the registry and commit the new hash:
+
+  ```bash
+  python tools/update_registry.py \
+    --dataset data/returns_daily.csv \
+    --wrds-source crsp.dsf \
+    --note "CRSP daily returns refreshed from WRDS on $(date +%Y-%m-%d)"
+  ```
+
+  The command recomputes the SHA256, row counts, and date span before rewriting `data/registry.json`. `finance.io.load_returns_csv` aborts with a descriptive error if the on-disk file drifts from the recorded digest.
 
 - **Week alignment & timezone.** Balanced panels assume Monday–Friday business weeks in America/New_York. The default `--drop-partial-weeks` policy removes short weeks; switch to `--impute-partial-weeks` if your source includes holidays or alternative sessions.
 - **Run catalogues.** The latest tagged drops live in [`experiments/equity_panel/LATEST.md`](experiments/equity_panel/LATEST.md); browse local outputs with [`tools/list_runs.py`](tools/list_runs.py).

@@ -1,0 +1,7 @@
+rc_run,regime,portfolio,delta_mse_vs_baseline,delta_mse_ci_lower,delta_mse_ci_upper,delta_es_vs_baseline,var95_overlay,var95_baseline,es95_overlay,es95_baseline,realised_var_overlay,realised_var_baseline,realised_es_overlay,realised_es_baseline,dm_stat,dm_p_value,n_effective
+rc-20251103,full,ew,,,,,,,,,,,,,,,0.0
+rc-20251103,full,mv,,,,,,,,,,,,,,,0.0
+rc-20251103,calm,ew,,,,,,,,,,,,,,,0.0
+rc-20251103,calm,mv,,,,,,,,,,,,,,,0.0
+rc-20251103,crisis,ew,,,,,,,,,,,,,,,0.0
+rc-20251103,crisis,mv,,,,,,,,,,,,,,,0.0

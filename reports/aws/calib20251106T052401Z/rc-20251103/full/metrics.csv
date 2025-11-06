@@ -1,0 +1,7 @@
+regime,estimator,portfolio,mse_mean,es_mse_mean,var95,es95,realised_var,realised_es,violation_rate,count,baseline_mse,baseline_es_mse,delta_mse_vs_baseline,delta_es_vs_baseline,delta_mse_ci_lower,delta_mse_ci_upper
+full,baseline,ew,,,,,,,0.0,0,,,,,,
+full,baseline,mv,,,,,,,0.0,0,,,,,,
+full,overlay,ew,,,,,,,0.0,0,,,,,,
+full,overlay,mv,,,,,,,0.0,0,,,,,,
+full,sample,ew,,,,,,,0.0,0,,,,,,
+full,sample,mv,,,,,,,0.0,0,,,,,,

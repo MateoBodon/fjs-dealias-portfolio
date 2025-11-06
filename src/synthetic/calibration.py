@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -40,6 +41,7 @@ class CalibrationConfig:
     q_max: int = 2
     seed: int = 0
     workers: int | None = None
+    batch_size: int = 100
 
 
 @dataclass(frozen=True)
@@ -171,45 +173,22 @@ def calibrate_thresholds(config: CalibrationConfig) -> CalibrationResult:
     delta_frac_values = np.asarray(list(config.delta_frac_grid), dtype=np.float64)
     stability_values = np.asarray(list(config.stability_grid), dtype=np.float64)
 
-    null_counts = {
-        mode: np.zeros((delta_frac_values.size, stability_values.size), dtype=np.int64)
-        for mode in edge_modes
-    }
-    alt_counts = {
-        mode: np.zeros((delta_frac_values.size, stability_values.size), dtype=np.int64)
-        for mode in edge_modes
-    }
-
-    def _accumulate(seed_list: np.ndarray, spike_strength: float, target: dict[str, np.ndarray]) -> None:
-        for seed in seed_list:
-            trial_rng = np.random.default_rng(int(seed))
-            observations, groups = _simulate_panel(
-                config,
-                trial_rng,
-                spike_strength=spike_strength,
-            )
-            stats = mean_squares(observations, groups)
-            evaluations = evaluate_threshold_grid(
-                observations,
-                groups,
-                delta_abs=float(config.delta_abs),
-                eps=float(config.eps),
-                edge_modes=edge_modes,
-                delta_frac_values=delta_frac_values,
-                stability_values=stability_values,
-                q_max=int(config.q_max or 1),
-                a_grid=120,
-                require_isolated=True,
-                alignment_min=0.0,
-                stats=stats,
-            )
-            for mode in edge_modes:
-                target[mode] += evaluations[mode].astype(np.int64)
-
-    if null_seeds.size:
-        _accumulate(null_seeds, 0.0, null_counts)
-    if alt_seeds.size:
-        _accumulate(alt_seeds, float(config.spike_strength), alt_counts)
+    null_counts = _run_seed_batches(
+        config=config,
+        seeds=null_seeds,
+        spike_strength=0.0,
+        edge_modes=edge_modes,
+        delta_frac_values=delta_frac_values,
+        stability_values=stability_values,
+    )
+    alt_counts = _run_seed_batches(
+        config=config,
+        seeds=alt_seeds,
+        spike_strength=float(config.spike_strength),
+        edge_modes=edge_modes,
+        delta_frac_values=delta_frac_values,
+        stability_values=stability_values,
+    )
 
     grid_stats: list[GridStat] = []
     thresholds: dict[str, ThresholdEntry] = {}
@@ -268,3 +247,90 @@ def write_thresholds(result: CalibrationResult, path: str | Path) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return output_path
+
+
+def _run_seed_batches(
+    *,
+    config: CalibrationConfig,
+    seeds: np.ndarray,
+    spike_strength: float,
+    edge_modes: Sequence[str],
+    delta_frac_values: np.ndarray,
+    stability_values: np.ndarray,
+) -> dict[str, np.ndarray]:
+    counts = {
+        mode: np.zeros((delta_frac_values.size, stability_values.size), dtype=np.int64)
+        for mode in edge_modes
+    }
+    if seeds.size == 0:
+        return counts
+
+    batch_size = max(1, int(config.batch_size))
+    worker_payloads: list[tuple[CalibrationConfig, np.ndarray, float, np.ndarray, np.ndarray, tuple[str, ...]]] = []
+
+    for start in range(0, seeds.size, batch_size):
+        batch = np.array(seeds[start : start + batch_size], dtype=np.int64)
+        worker_payloads.append(
+            (
+                config,
+                batch,
+                float(spike_strength),
+                delta_frac_values,
+                stability_values,
+                tuple(edge_modes),
+            )
+        )
+
+    max_workers = max(1, config.workers or 1)
+    if len(worker_payloads) == 1 or max_workers == 1:
+        for payload in worker_payloads:
+            batch_counts = _seed_batch_worker(payload)
+            for mode in edge_modes:
+                counts[mode] += batch_counts[mode]
+        return counts
+
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        for batch_counts in executor.map(_seed_batch_worker, worker_payloads):
+            for mode in edge_modes:
+                counts[mode] += batch_counts[mode]
+    return counts
+
+
+def _seed_batch_worker(
+    payload: tuple[CalibrationConfig, np.ndarray, float, np.ndarray, np.ndarray, tuple[str, ...]]
+) -> dict[str, np.ndarray]:
+    config, seeds, spike_strength, delta_frac_values, stability_values, edge_modes = payload
+    delta_arr = np.asarray(delta_frac_values, dtype=np.float64)
+    stability_arr = np.asarray(stability_values, dtype=np.float64)
+    counts = {
+        mode: np.zeros((delta_arr.size, stability_arr.size), dtype=np.int64)
+        for mode in edge_modes
+    }
+    if seeds.size == 0:
+        return counts
+
+    for seed in seeds:
+        rng = np.random.default_rng(int(seed))
+        observations, groups = _simulate_panel(
+            config,
+            rng,
+            spike_strength=spike_strength,
+        )
+        stats = mean_squares(observations, groups)
+        evaluations = evaluate_threshold_grid(
+            observations,
+            groups,
+            delta_abs=float(config.delta_abs),
+            eps=float(config.eps),
+            edge_modes=edge_modes,
+            delta_frac_values=delta_arr,
+            stability_values=stability_arr,
+            q_max=int(config.q_max or 1),
+            a_grid=120,
+            require_isolated=True,
+            alignment_min=0.0,
+            stats=stats,
+        )
+        for mode in edge_modes:
+            counts[str(mode)] += evaluations[str(mode)].astype(np.int64)
+    return counts

@@ -87,6 +87,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=0, help="Base random seed for reproducibility.")
     parser.add_argument("--workers", type=int, default=None, help="Optional worker threads for simulation loop.")
     parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=100,
+        help="Trials simulated per worker batch (default: 100).",
+    )
+    parser.add_argument(
         "--replicate-bins",
         type=str,
         nargs="*",
@@ -350,6 +356,7 @@ def main(argv: Sequence[str] | None = None) -> Path:
                 q_max=int(args.q_max),
                 seed=seed_cursor,
                 workers=int(args.workers) if args.workers is not None else None,
+                batch_size=int(args.batch_size),
             )
             seed_cursor += 1
             result = calibrate_thresholds(config)
@@ -471,6 +478,7 @@ def main(argv: Sequence[str] | None = None) -> Path:
         "stability_grid": [float(val) for val in stability_grid],
         "edge_modes": [str(mode) for mode in args.edge_modes],
         "workers": int(args.workers) if args.workers is not None else None,
+        "batch_size": int(args.batch_size),
         "thresholds": thresholds_map,
         "entries": entries,
         "grid": grid_records,

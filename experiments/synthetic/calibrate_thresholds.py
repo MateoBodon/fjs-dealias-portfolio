@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -91,6 +92,17 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         type=int,
         default=100,
         help="Trials simulated per worker batch (default: 100).",
+    )
+    parser.add_argument(
+        "--run-id",
+        type=str,
+        default=None,
+        help="Optional checkpoint identifier (defaults to timestamp).",
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume from existing checkpoint directory for the provided run id.",
     )
     parser.add_argument(
         "--replicate-bins",
@@ -210,6 +222,147 @@ def _maybe_plot(entries: list[dict[str, float | int | str | None]], alpha: float
     return plot_path
 
 
+def _cell_identifier(p_assets: int, n_groups: int, replicates: int, delta_abs: float, edge_mode: str) -> str:
+    delta_token = int(round(delta_abs * 1_000))
+    return f"p{p_assets}_g{n_groups}_r{replicates}_d{delta_token}_{edge_mode}"
+
+
+def _build_cell_records(
+    config: CalibrationConfig,
+    result: CalibrationResult,
+    edge_mode: str,
+) -> tuple[list[dict[str, float | int | str | None]], list[dict[str, float | int | str | None]]]:
+    cell_entries: list[dict[str, float | int | str | None]] = []
+    cell_grid: list[dict[str, float | int | str | None]] = []
+    for stat in result.grid:
+        record = stat.to_dict()
+        record.update(
+            {
+                "p_assets": config.p_assets,
+                "n_groups": config.n_groups,
+                "replicates": config.replicates,
+                "edge_mode": edge_mode,
+            }
+        )
+        cell_grid.append(record)
+        cell_entries.append(
+            {
+                "p_assets": config.p_assets,
+                "n_groups": config.n_groups,
+                "replicates": config.replicates,
+                "edge_mode": edge_mode,
+                "delta": float(stat.delta_abs),
+                "delta_frac": float(stat.delta_frac),
+                "stability_eta_deg": float(stat.stability_eta_deg),
+                "fpr": float(stat.fpr),
+                "power": float(stat.power) if stat.power is not None else None,
+                "trials_null": int(config.trials_null),
+                "trials_alt": int(config.trials_alt),
+                "seed": int(config.seed),
+            }
+        )
+    return cell_entries, cell_grid
+
+
+def _write_cell_payload(path: Path, payload: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    tmp_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    os.replace(tmp_path, path)
+
+
+def _load_cell_payloads(cells_dir: Path) -> list[dict[str, object]]:
+    payloads: list[dict[str, object]] = []
+    if not cells_dir.exists():
+        return payloads
+    for cell_path in sorted(cells_dir.glob("*.json")):
+        try:
+            payloads.append(json.loads(cell_path.read_text(encoding="utf-8")))
+        except json.JSONDecodeError:
+            continue
+    return payloads
+
+
+def _collect_cell_records(
+    cell_payloads: Sequence[Mapping[str, object]],
+) -> tuple[list[dict[str, float | int | str | None]], list[dict[str, float | int | str | None]]]:
+    entries: list[dict[str, float | int | str | None]] = []
+    grid_records: list[dict[str, float | int | str | None]] = []
+    for payload in cell_payloads:
+        entries.extend(payload.get("entries", []))  # type: ignore[arg-type]
+        grid_records.extend(payload.get("grid", []))  # type: ignore[arg-type]
+    return entries, grid_records
+
+
+def _build_threshold_map(
+    entries: Sequence[Mapping[str, object]],
+    replicate_bins: Sequence[tuple[str, float, float]],
+    asset_bins: Sequence[tuple[str, float, float]],
+    alpha: float,
+) -> tuple[
+    dict[str, dict[str, dict[str, dict[str, dict[str, float | int | None]]]]],
+    dict[str, dict[str, float]],
+    dict[str, dict[str, float]],
+]:
+    thresholds_map: dict[str, dict[str, dict[str, dict[str, dict[str, float | int | None]]]]] = {}
+    combo_candidates: dict[tuple[int, int, int, str], list[Mapping[str, object]]] = {}
+    for entry in entries:
+        key = (
+            int(entry["p_assets"]),
+            int(entry["n_groups"]),
+            int(entry["replicates"]),
+            str(entry["edge_mode"]).lower(),
+        )
+        combo_candidates.setdefault(key, []).append(entry)
+
+    for (p_assets, n_groups, replicates, edge_mode), candidates in combo_candidates.items():
+        feasible = [cand for cand in candidates if float(cand["fpr"]) <= float(alpha) + 1e-12]
+        if feasible:
+            feasible.sort(
+                key=lambda item: (
+                    float(item["delta_frac"]),
+                    float(item["stability_eta_deg"]),
+                    -float(item["power"]) if item["power"] is not None else 0.0,
+                )
+            )
+            chosen = feasible[0]
+        else:
+            chosen = min(candidates, key=lambda item: float(item["fpr"]))
+
+        mode_map = thresholds_map.setdefault(edge_mode, {})
+        g_key = f"G{n_groups}"
+        g_bucket = mode_map.setdefault(g_key, {})
+        r_label, r_bounds = _assign_bin(replicates, replicate_bins, default_prefix="r")
+        r_bucket = g_bucket.setdefault(r_label, {})
+        p_label, p_bounds = _assign_bin(p_assets, asset_bins, default_prefix="p")
+        payload = {
+            "delta": float(chosen["delta"]),
+            "delta_frac": float(chosen["delta_frac"]),
+            "stability_eta_deg": float(chosen["stability_eta_deg"]),
+            "fpr": float(chosen["fpr"]),
+            "power": float(chosen["power"]) if chosen["power"] is not None else None,
+            "trials_null": int(chosen["trials_null"]),
+            "trials_alt": int(chosen["trials_alt"]),
+            "replicates": int(chosen["replicates"]),
+            "replicates_bin": r_label,
+            "replicates_bin_bounds": r_bounds,
+            "p_assets": int(p_assets),
+            "p_bin": p_label,
+            "p_bin_bounds": p_bounds,
+            "n_groups": int(n_groups),
+            "seed": int(chosen["seed"]),
+        }
+        existing = r_bucket.get(p_label)
+        if existing is None or payload["fpr"] < existing.get("fpr", float("inf")) - 1e-6:
+            r_bucket[p_label] = payload
+
+    replicate_bins_meta = {
+        label: {"min": float(low), "max": float(high)} for label, low, high in replicate_bins
+    }
+    asset_bins_meta = {label: {"min": float(low), "max": float(high)} for label, low, high in asset_bins}
+    return thresholds_map, replicate_bins_meta, asset_bins_meta
+
+
 def _build_defaults_payload(
     thresholds_map: Mapping[str, Mapping[str, Mapping[str, Mapping[str, Mapping[str, object]]]]],
     *,
@@ -281,6 +434,20 @@ def main(argv: Sequence[str] | None = None) -> Path:
     delta_frac_grid = _parse_float_list(args.delta_frac_grid) or list(defaults.delta_frac_grid)
     stability_grid = _parse_float_list(args.stability_grid) or list(defaults.stability_grid)
 
+    if args.resume and not args.run_id:
+        raise ValueError("--resume requires --run-id.")
+
+    run_id = args.run_id or datetime.utcnow().strftime("calib-%Y%m%dT%H%M%SZ")
+    run_root = Path("reports/synthetic/calib") / run_id
+    cells_dir = run_root / "cells"
+    if args.resume:
+        if not cells_dir.exists():
+            raise FileNotFoundError(f"Checkpoint directory not found: {cells_dir}")
+    else:
+        if run_root.exists():
+            raise FileExistsError(f"Run directory already exists: {run_root}")
+        cells_dir.mkdir(parents=True, exist_ok=True)
+
     replicate_bins = _parse_bins(args.replicate_bins, prefix="replicate")
     asset_bins = _parse_bins(args.asset_bins, prefix="asset")
 
@@ -320,10 +487,6 @@ def main(argv: Sequence[str] | None = None) -> Path:
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    entries: list[dict[str, float | int | str | None]] = []
-    grid_records: list[dict[str, float | int | str | None]] = []
-    combo_candidates: dict[tuple[int, int, int, str], list[dict[str, float | int | str | None]]] = {}
-
     seed_cursor = int(args.seed)
     total_jobs = len(planned_jobs) * len(args.edge_modes)
     progress_start = time.perf_counter()
@@ -340,6 +503,8 @@ def main(argv: Sequence[str] | None = None) -> Path:
                     f"[{job_counter}/{total_jobs}] edge={edge_mode} p={p_assets} G={n_groups} r={replicates} δ={delta_abs:.3f}",
                     flush=True,
                 )
+            cell_id = _cell_identifier(p_assets, n_groups, replicates, delta_abs, str(edge_mode))
+            cell_path = cells_dir / f"{cell_id}.json"
             config = CalibrationConfig(
                 p_assets=int(p_assets),
                 n_groups=int(n_groups),
@@ -359,49 +524,26 @@ def main(argv: Sequence[str] | None = None) -> Path:
                 batch_size=int(args.batch_size),
             )
             seed_cursor += 1
-            result = calibrate_thresholds(config)
-            entry = result.thresholds[str(edge_mode)]
-            entries.append(
-                {
-                    "p_assets": config.p_assets,
-                    "n_groups": config.n_groups,
-                    "replicates": config.replicates,
-                    "edge_mode": edge_mode,
-                    "delta": float(config.delta_abs),
-                    "delta_frac": float(entry.delta_frac),
-                    "stability_eta_deg": float(entry.stability_eta_deg),
-                    "fpr": float(entry.fpr),
-                    "power": float(entry.power) if entry.power is not None else None,
-                    "trials_null": int(entry.trials_null),
-                    "trials_alt": int(entry.trials_alt),
-                    "seed": config.seed,
-                }
-            )
-            key = (config.p_assets, config.n_groups, config.replicates, str(edge_mode).lower())
-            combo_candidates.setdefault(key, []).append(
-                {
-                    "delta": float(config.delta_abs),
-                    "delta_frac": float(entry.delta_frac),
-                    "stability_eta_deg": float(entry.stability_eta_deg),
-                    "fpr": float(entry.fpr),
-                    "power": float(entry.power) if entry.power is not None else None,
-                    "trials_null": int(entry.trials_null),
-                    "trials_alt": int(entry.trials_alt),
-                    "replicates": config.replicates,
-                    "seed": config.seed,
-                }
-            )
-            for stat in result.grid:
-                record = stat.to_dict()
-                record.update(
-                    {
-                        "p_assets": config.p_assets,
-                        "n_groups": config.n_groups,
-                        "replicates": config.replicates,
+            already_done = args.resume and cell_path.exists()
+            if not already_done:
+                result = calibrate_thresholds(config)
+                cell_entries, cell_grid = _build_cell_records(config, result, str(edge_mode))
+                cell_payload = {
+                    "cell_id": cell_id,
+                    "config": {
+                        "p_assets": p_assets,
+                        "n_groups": n_groups,
+                        "replicates": replicates,
+                        "delta_abs": float(delta_abs),
                         "edge_mode": str(edge_mode),
-                    }
-                )
-                grid_records.append(record)
+                        "seed": config.seed,
+                    },
+                    "entries": cell_entries,
+                    "grid": cell_grid,
+                }
+                _write_cell_payload(cell_path, cell_payload)
+            elif args.verbose:
+                print(f"[resume] skipping completed cell {cell_id}", flush=True)
 
             elapsed = time.perf_counter() - progress_start
             completed = job_counter
@@ -419,57 +561,26 @@ def main(argv: Sequence[str] | None = None) -> Path:
                 "eta_seconds": eta_seconds,
             }
             print(json.dumps(progress_event), flush=True)
-    thresholds_map: dict[str, dict[str, dict[str, dict[str, dict[str, float | int | None]]]]] = {}
-    for (p_assets, n_groups, replicates, edge_mode), candidates in combo_candidates.items():
-        feasible = [cand for cand in candidates if cand["fpr"] <= float(args.alpha) + 1e-12]
-        if feasible:
-            feasible.sort(
-                key=lambda item: (
-                    float(item["delta"]),
-                    -float(item["power"]) if item["power"] is not None else 0.0,
-                )
-            )
-            chosen = feasible[0]
-        else:
-            chosen = min(candidates, key=lambda item: float(item["fpr"]))
 
-        mode_map = thresholds_map.setdefault(edge_mode, {})
-        g_key = f"G{n_groups}"
-        g_bucket = mode_map.setdefault(g_key, {})
-        r_label, r_bounds = _assign_bin(replicates, replicate_bins, default_prefix="r")
-        r_bucket = g_bucket.setdefault(r_label, {})
-        p_label, p_bounds = _assign_bin(p_assets, asset_bins, default_prefix="p")
-        payload = {
-            "delta": float(chosen["delta"]),
-            "delta_frac": float(chosen["delta_frac"]),
-            "stability_eta_deg": float(chosen["stability_eta_deg"]),
-            "fpr": float(chosen["fpr"]),
-            "power": float(chosen["power"]) if chosen["power"] is not None else None,
-            "trials_null": int(chosen["trials_null"]),
-            "trials_alt": int(chosen["trials_alt"]),
-            "replicates": int(chosen["replicates"]),
-            "replicates_bin": r_label,
-            "replicates_bin_bounds": r_bounds,
-            "p_assets": int(p_assets),
-            "p_bin": p_label,
-            "p_bin_bounds": p_bounds,
-            "n_groups": int(n_groups),
-            "seed": int(chosen["seed"]),
-        }
-        existing = r_bucket.get(p_label)
-        if existing is None or payload["fpr"] < existing.get("fpr", float("inf")) - 1e-6:
-            r_bucket[p_label] = payload
+    cell_payloads = _load_cell_payloads(cells_dir)
+    if not cell_payloads:
+        raise RuntimeError(f"No cell payloads found under {cells_dir}")
+    entries, grid_records = _collect_cell_records(cell_payloads)
 
-    replicate_bins_meta = {
-        label: {"min": low, "max": high} for label, low, high in replicate_bins
-    }
-    asset_bins_meta = {label: {"min": low, "max": high} for label, low, high in asset_bins}
+    thresholds_map, replicate_bins_meta, asset_bins_meta = _build_threshold_map(
+        entries,
+        replicate_bins,
+        asset_bins,
+        float(args.alpha),
+    )
 
     payload = {
         "alpha": float(args.alpha),
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "trials_null": int(args.trials_null),
         "trials_alt": int(args.trials_alt),
+        "run_id": run_id,
+        "cells_dir": str(cells_dir),
         "replicates": replicate_values,
         "p_grid": [int(val) for val in args.p_assets],
         "n_grid": [int(val) for val in args.n_groups],

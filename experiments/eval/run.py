@@ -50,6 +50,7 @@ from experiments.daily.grouping import (
 )
 from experiments.eval.config import resolve_eval_config
 from experiments.eval.diagnostics import DiagnosticReason
+from meta import runtime
 
 try:
     from data.loader import DailyLoaderConfig, DailyPanel, load_daily_panel
@@ -533,6 +534,13 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
         help="Optional JSON thresholds file applied after defaults and before YAML config.",
     )
     parser.add_argument(
+        "--exec-mode",
+        type=str,
+        choices=["deterministic", "throughput"],
+        default="deterministic",
+        help="Execution profile controlling BLAS threads (default: deterministic).",
+    )
+    parser.add_argument(
         "--echo-config",
         action="store_true",
         help="Print the resolved configuration dictionary before running evaluation.",
@@ -790,6 +798,7 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
     args = parser.parse_args(argv)
     resolved = resolve_eval_config(vars(args))
     config = resolved.config
+    resolved.resolved["exec_mode"] = args.exec_mode
     if config.echo_config or args.echo_config:
         print(json.dumps(resolved.resolved, indent=2, sort_keys=True))
     return config, resolved.resolved
@@ -2211,6 +2220,9 @@ def run_evaluation(
 
 def main(argv: Sequence[str] | None = None) -> None:
     config, resolved = parse_args(argv)
+    exec_mode = resolved.get("exec_mode", "deterministic")
+    exec_settings = runtime.configure_exec_mode(exec_mode)
+    resolved["exec_mode"] = exec_settings.mode
     run_evaluation(config, resolved_config=resolved)
 
 

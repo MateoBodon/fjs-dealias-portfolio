@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
@@ -7,6 +9,8 @@ from numpy.testing import assert_allclose
 from fjs.mp import (
     MarchenkoPasturModel,
     admissible_m_from_lambda,
+    configure_mp_cache,
+    clear_mp_cache,
     marchenko_pastur_edges,
     marchenko_pastur_pdf,
     mp_edge,
@@ -139,3 +143,17 @@ def test_marchenko_pastur_pdf_is_stub() -> None:
     grid = np.linspace(0.0, 1.0, 5)
     with pytest.raises(NotImplementedError):
         marchenko_pastur_pdf(model, grid)
+
+
+def test_mp_edge_cache_parity(tmp_path: Path, micro_mp_params: dict[str, object]) -> None:
+    configure_mp_cache(None)
+    clear_mp_cache()
+    params = micro_mp_params
+    baseline = mp_edge(params["a"], params["C"], params["d"], params["N"])
+    cache_dir = tmp_path / "mp_cache"
+    configure_mp_cache(cache_dir)
+    clear_mp_cache()
+    cached = mp_edge(params["a"], params["C"], params["d"], params["N"])
+    assert_allclose(baseline, cached)
+    clear_mp_cache()
+    configure_mp_cache(None)

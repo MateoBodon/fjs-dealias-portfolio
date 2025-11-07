@@ -19,7 +19,7 @@ from .portfolios import (
     minimum_variance,
     optimize_portfolio,
 )
-from .portfolio import apply_turnover_cost, minvar_ridge_box, turnover
+from .portfolio import MinVarMemo, apply_turnover_cost, minvar_ridge_box, turnover
 from .robust import huberize, tyler_shrink_covariance, winsorize
 from .shrinkage import cc_covariance, oas_covariance
 from .returns import balance_weeks, compute_log_returns, weekly_panel
@@ -42,6 +42,7 @@ __all__ = [
     "oas_covariance",
     "cc_covariance",
     "minvar_ridge_box",
+    "MinVarMemo",
     "turnover",
     "apply_turnover_cost",
     "winsorize",

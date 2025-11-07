@@ -3,7 +3,7 @@ _Last updated: 2025-11-05_
 
 ## Quick facts
 - Region: `us-east-1`
-- Instance: `i-075b6e3853fe2349e` (`ec2-3-236-225-54.compute-1.amazonaws.com`)
+- Instance: `i-075b6e3853fe2349e` (public DNS rotates; fetch with `aws ec2 describe-instances ...` before each run)
 - Recommended type for heavy calibrations: `c7a.32xlarge` (128 vCPUs, ample memory). Override with `INSTANCE_TYPE=c7a.32xlarge` when running `scripts/aws_provision.sh`.
 - SSH user / key: `ubuntu` with `~/.ssh/mateo-us-east-1-ec2-2025`
 - IAM role on instance: `EC2AdminRole`
@@ -122,7 +122,10 @@ To remove manual SSH steps, the repository ships deterministic AWS wrappers:
 
 Example local invocation:
 ```bash
-export INSTANCE_DNS=ec2-3-236-225-54.compute-1.amazonaws.com
+INSTANCE_DNS="$(aws --profile fjs-prod --region us-east-1 \
+  ec2 describe-instances --instance-ids i-075b6e3853fe2349e \
+  --query 'Reservations[0].Instances[0].PublicDnsName' --output text)"
+export INSTANCE_DNS
 export KEY_PATH="$HOME/.ssh/mateo-us-east-1-ec2-2025"
 CALIB_WORKERS=96 MONITOR_INTERVAL=5 make aws:rc-lite
 ```

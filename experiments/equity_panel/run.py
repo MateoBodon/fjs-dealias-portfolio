@@ -40,7 +40,7 @@ from finance.eval import (
     variance_forecast_from_components,
 )
 from finance.io import load_prices_csv, to_daily_returns, load_returns_csv
-from finance.portfolio import apply_turnover_cost, minvar_ridge_box, turnover
+from finance.portfolio import MinVarMemo, apply_turnover_cost, minvar_ridge_box, turnover
 from finance.portfolios import equal_weight
 from finance.robust import huberize, winsorize
 from finance.returns import balance_weeks
@@ -58,6 +58,7 @@ from plotting import (
     e4_plot_var_coverage,
 )
 from meta.cache import load_window, save_window, window_key
+from meta import runtime
 from meta.run_meta import code_signature, write_run_meta
 from evaluation import check_dealiased_applied
 from evaluation.evaluate import (
@@ -1222,6 +1223,8 @@ def _run_single_period(
     except Exception:
         pass
 
+    minvar_memo = MinVarMemo()
+
     def _equal_weight_weights(covariance: np.ndarray) -> np.ndarray:
         n = int(covariance.shape[0])
         if n <= 0:
@@ -1236,6 +1239,7 @@ def _run_single_period(
             covariance,
             box=box_bounds,
             ridge=float(minvar_ridge),
+            cache=minvar_memo,
         )
         solver_stats[minvar_label_box] = info
         return np.asarray(weights, dtype=np.float64)
@@ -1245,6 +1249,7 @@ def _run_single_period(
             covariance,
             box=box_bounds,
             ridge=float(minvar_ridge),
+            cache=minvar_memo,
         )
         solver_stats[minvar_label_long] = info
         return np.asarray(weights, dtype=np.float64)
@@ -2838,6 +2843,7 @@ def run_experiment(
     edge_huber_c_override: float | None = None,
     gating_mode_override: str | None = None,
     gating_calibration_override: str | None = None,
+    exec_mode: str | None = None,
 ) -> None:
     """Execute the rolling equity forecasting experiment."""
 
@@ -2893,6 +2899,8 @@ def run_experiment(
         config["edge_mode"] = str(edge_mode_override)
     if edge_huber_c_override is not None:
         config["edge_huber_c"] = float(edge_huber_c_override)
+    if exec_mode is not None:
+        config["exec_mode"] = str(exec_mode)
     gating_cfg_overrides = dict(config.get("gating", {}) or {})
     if gating_mode_override is not None:
         gating_cfg_overrides["mode"] = str(gating_mode_override)
@@ -3171,6 +3179,7 @@ def run_experiment(
                     label=label_with_suffix,
                     crisis_label=str(crisis_tag) if crisis_tag else None,
                     edge_mode=edge_mode_value,
+                    exec_mode=config.get("exec_mode"),
                 )
             except Exception:
                 # Best effort; do not fail the entire run
@@ -3258,6 +3267,13 @@ def main() -> None:
         choices=["fixed", "calibrated"],
         default=None,
         help="Gating mode override (fixed or calibrated).",
+    )
+    parser.add_argument(
+        "--exec-mode",
+        type=str,
+        choices=["deterministic", "throughput"],
+        default="deterministic",
+        help="Execution profile controlling BLAS threads (default: deterministic).",
     )
     parser.add_argument(
         "--gating-calibration",
@@ -3449,6 +3465,7 @@ def main() -> None:
         help="Impute missing business days within a week before balancing.",
     )
     args = parser.parse_args()
+    exec_settings = runtime.configure_exec_mode(args.exec_mode)
 
     run_experiment(
         args.config,
@@ -3485,6 +3502,7 @@ def main() -> None:
         edge_huber_c_override=args.edge_huber_c,
         gating_mode_override=args.gating_mode,
         gating_calibration_override=args.gating_calibration,
+        exec_mode=exec_settings.mode,
     )
 
 

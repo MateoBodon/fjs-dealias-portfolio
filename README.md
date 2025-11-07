@@ -43,6 +43,8 @@ Optional data: `experiments/equity_panel/config*.yaml` expect `data/returns_dail
 - **Usage.** Configure the local AWS CLI profile `fjs-prod`, confirm the SSH key permissions (`chmod 400 ~/.ssh/mateo-us-east-1-ec2-2025`), then connect with `ssh -i ~/.ssh/mateo-us-east-1-ec2-2025 ubuntu@ec2-3-236-225-54.compute-1.amazonaws.com`. Run jobs with `micromamba run -n fjs python experiments/eval/run.py ...` (or activate the env) and push artefacts to `s3://fjs-artifacts-mab-prod/reports/`.
 - **Documentation.** Step-by-step cloud procedures—preflight checks, S3 hardening (AES256 + lifecycle), smoke testing, and report uploads—are captured in `docs/CLOUD.md`. The bucket also stores dated setup summaries (`docs/fjs-cloud-setup-pre-YYYY-MM-DD.md`, `docs/fjs-ec2-setup-YYYY-MM-DD.md`) for auditing.
 - **Telemetry.** AWS runs automatically wrap commands with `tools/run_monitor.py`, writing `metrics.jsonl` (resource samples), `metrics_summary.json` (avg/peak CPU/memory/IO, runtime), and `progress.jsonl` (parsed progress events + ETA). Tune sampling via `MONITOR_INTERVAL=<seconds>` when calling `make aws:<target>`.
+- **Instance families.** Set `INSTANCE_FAMILY={c7a|c7i|auto}` before running `scripts/aws_provision.sh`. In `auto` mode the script inspects the latest `reports/aws/bench/*.json` artefacts (see `scripts/bench_linalg.py` below) and chooses the faster family, falling back to `c7a` when no benchmarks are present. Override the size with `INSTANCE_SIZE=16xlarge` (defaults to `32xlarge`).
+- **Benchmarks.** `scripts/bench_linalg.py` times 100× `numpy.linalg.eigh` at `p∈{100,200,300}` with the configured thread cap, writing metadata to `reports/aws/bench/<timestamp>/bench.json`. Run it locally via `make bench-linalg` or remotely with `make aws:bench-linalg` before switching instance families.
 
 ---
 
@@ -211,6 +213,16 @@ PYTHONPATH=src python experiments/synthetic/power.py \
   --figures-out reports/figures \
   --defaults-path calibration_defaults.json
 ```
+
+- `experiments/synthetic/calibrate_thresholds.py` now understands `--run-id`, `--resume`, and `--exec-mode {deterministic,throughput}`. Each cell persists to `reports/synthetic/calib/<RUN_ID>/cells/<cell>.json`, and every run writes `reports/synthetic/calib/<RUN_ID>/run.json` with git SHA, instance metadata, thread caps, and the chosen execution mode.
+- Shard large sweeps with `tools/shard_grid.py --shards 4 --out manifest.jsonl ...`, then pass `--shard-manifest manifest.jsonl --shard-id k` (or set `SHARD_MANIFEST`/`SHARD_ID` when calling `make calibrate-thresholds`/`make aws:calibrate-thresholds`). Once all shards finish, consolidate via `tools/reduce_calibration.py --run-id <RUN_ID>` to regenerate `calibration/edge_delta_thresholds.json`, `calibration/defaults.json`, and ROC plots.
+- The MP-edge routines now expose a configurable on-disk cache (default `.cache/mp_edges`). Override with `--mp-cache-dir /tmp/mp_cache` or disable via `--mp-cache-dir none` when comparing fresh runs.
+
+### 5.8 Deterministic vs Throughput exec modes
+
+- Every heavy runner (`experiments/synthetic/calibrate_thresholds.py`, `experiments/equity_panel/run.py`, and `experiments/eval/run.py`) accepts `--exec-mode {deterministic,throughput}`. Deterministic mode caps BLAS/OpenMP threads at 1 and uses the full worker count for reproducibility. Throughput mode allows 2–4 threads per worker (auto-selected based on `os.cpu_count()`) and scales the worker pool down accordingly.
+- When dispatching via `scripts/aws_run.sh`, set `EXEC_MODE=throughput make aws:calibrate-thresholds ...` (or leave unset for deterministic). The wrapper exports the thread caps, records the mode inside `reports/runs/<RUN_ID>/run.json`, and forwards `EXEC_MODE` to the Make target so it can drive Python-side logic.
+- Local `make calibrate-thresholds` calls honour `EXEC_MODE` as well. Combine with `MP_CACHE_DIR=...` or `RUN_ID=...` to keep the CLI invocations hermetic.
 
 ---
 

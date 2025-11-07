@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from finance.portfolio import apply_turnover_cost, minvar_ridge_box, turnover
+from finance.portfolio import MinVarMemo, apply_turnover_cost, minvar_ridge_box, turnover
 
 pytestmark = pytest.mark.unit
 
@@ -92,3 +92,17 @@ def test_minvar_ridge_box_handles_near_singular_covariance() -> None:
     assert info["cond_penalized"] < 1e8
     assert np.all(weights >= -1e-9)
     assert np.allclose(weights.sum(), 1.0, atol=1e-8)
+
+
+def test_minvar_memoization_matches_plain_solver() -> None:
+    rng = np.random.default_rng(7)
+    data = rng.standard_normal(size=(120, 8))
+    sigma = np.cov(data, rowvar=False, ddof=1)
+    memo = MinVarMemo()
+
+    weights_cached, info_cached = minvar_ridge_box(sigma, ridge=1e-3, cache=memo)
+    weights_plain, info_plain = minvar_ridge_box(sigma.copy(), ridge=1e-3)
+
+    assert np.allclose(weights_cached, weights_plain, atol=1e-9)
+    assert info_cached["objective"] == pytest.approx(info_plain["objective"])
+    assert info_cached["converged"] == info_plain["converged"]

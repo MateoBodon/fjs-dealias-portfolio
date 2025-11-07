@@ -24,6 +24,25 @@ if _MP_CACHE_DIR:
 _MP_CACHE: OrderedDict[str, float] = OrderedDict()
 
 
+def configure_mp_cache(directory: str | Path | None) -> Path | None:
+    """Configure the on-disk MP edge cache directory at runtime."""
+
+    global _MP_CACHE_DIR
+    if directory is None or str(directory).strip().lower() in {"", "none", "off"}:
+        _MP_CACHE_DIR = None
+        return None
+    path = Path(directory).expanduser()
+    path.mkdir(parents=True, exist_ok=True)
+    _MP_CACHE_DIR = path
+    return _MP_CACHE_DIR
+
+
+def clear_mp_cache() -> None:
+    """Clear the in-memory MP edge cache."""
+
+    _MP_CACHE.clear()
+
+
 def _cache_get(key: str) -> float | None:
     if key in _MP_CACHE:
         value = _MP_CACHE.pop(key)

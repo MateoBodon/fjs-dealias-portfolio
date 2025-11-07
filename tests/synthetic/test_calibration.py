@@ -3,6 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
+from experiments.synthetic import calibrate_thresholds as calib_cli
 from synthetic.calibration import CalibrationConfig, calibrate_thresholds, write_thresholds
 
 
@@ -56,3 +59,65 @@ def test_edge_delta_thresholds_real_run() -> None:
         assert fpr <= 0.02, f"tyler FPR too high for {r_label} ({fpr:.3f})"
         assert entry["replicates_bin"] == r_label
         assert entry["p_bin"] == "64-96"
+
+
+def test_calibration_deterministic_small_grid() -> None:
+    config = CalibrationConfig(
+        p_assets=4,
+        n_groups=8,
+        replicates=2,
+        alpha=0.05,
+        trials_null=12,
+        trials_alt=0,
+        delta_abs=0.3,
+        delta_frac_grid=(0.01, 0.02),
+        stability_grid=(0.3,),
+        edge_modes=("scm",),
+        seed=123,
+    )
+    first = calibrate_thresholds(config)
+    second = calibrate_thresholds(config)
+    assert set(first.thresholds) == set(second.thresholds)
+    for mode in first.thresholds:
+        assert first.thresholds[mode].to_dict() == second.thresholds[mode].to_dict()
+
+
+def test_calibration_resume_equivalence(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    workdir = tmp_path / "calib"
+    workdir.mkdir()
+    monkeypatch.chdir(workdir)
+    out_path = workdir / "calibration.json"
+    defaults_path = workdir / "defaults.json"
+    args = [
+        "--p-assets",
+        "6",
+        "--n-groups",
+        "6",
+        "--replicates",
+        "2",
+        "--delta-abs-grid",
+        "0.3",
+        "--edge-modes",
+        "scm",
+        "--trials-null",
+        "6",
+        "--trials-alt",
+        "0",
+        "--workers",
+        "1",
+        "--batch-size",
+        "2",
+        "--alpha",
+        "0.1",
+        "--run-id",
+        "resume-test",
+        "--out",
+        str(out_path),
+        "--defaults-out",
+        str(defaults_path),
+    ]
+    calib_cli.main(args)
+    first_payload = json.loads(out_path.read_text(encoding="utf-8"))
+    calib_cli.main(args + ["--resume"])
+    second_payload = json.loads(out_path.read_text(encoding="utf-8"))
+    assert first_payload == second_payload

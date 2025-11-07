@@ -82,6 +82,7 @@ def test_write_run_meta_creates_file_with_expected_fields(tmp_path: Path) -> Non
     assert data["code_signature"] == "deadbeef"
     assert data["estimator"] is None
     assert data["edge_mode"] is None
+    assert data["exec_mode"] is None
     assert data["crisis_label"] is None
     assert data["detections_total"] == 3
     assert data["L"] == 2

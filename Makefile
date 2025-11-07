@@ -79,6 +79,9 @@ CALIB_ALPHA ?= 0.02
 CALIB_TRIALS_NULL ?= 300
 CALIB_TRIALS_ALT ?= 200
 CALIB_WORKERS ?= $(shell python3 -c 'import os;print(os.cpu_count() or 8)')
+CALIB_BATCH_SIZE ?= 100
+MP_CACHE_DIR ?= .cache/mp_edges
+EXEC_MODE ?= deterministic
 
 rc-data:
 	$(RC_PY) experiments/equity_panel/run.py --config experiments/equity_panel/config.smoke.yaml $(RC_FLAGS) --estimator dealias
@@ -169,6 +172,12 @@ calibrate-thresholds:
 		--stability-grid $(CALIB_STABILITY) \
 		--edge-modes scm tyler \
 		--workers $(CALIB_WORKERS) \
+		--batch-size $(CALIB_BATCH_SIZE) \
+		$(if $(RUN_ID),--run-id $(RUN_ID),) \
+		$(if $(SHARD_MANIFEST),--shard-manifest $(SHARD_MANIFEST),) \
+		$(if $(SHARD_ID),--shard-id $(SHARD_ID),) \
+		--exec-mode $(EXEC_MODE) \
+		--mp-cache-dir $(MP_CACHE_DIR) \
 		--verbose \
 		--out calibration/edge_delta_thresholds.json \
 		--defaults-out calibration/defaults.json
@@ -184,3 +193,7 @@ run-equity-crisis:
 figures: ## regenerate all figures (synthetic + equity)
 	python experiments/synthetic_oneway/run.py
 	python experiments/equity_panel/run.py
+
+.PHONY: bench-linalg
+bench-linalg:
+	python scripts/bench_linalg.py

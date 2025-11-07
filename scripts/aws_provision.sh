@@ -13,13 +13,16 @@
 #   SECURITY_GROUP_IDS – Space-separated list of SG IDs
 # Optional environment variables (defaults shown):
 #   RUNNER_NAME="fjs-dealias-runner"
-#   INSTANCE_TYPE="c7i.2xlarge"
+#   INSTANCE_TYPE="" (auto-derived from INSTANCE_FAMILY when empty)
 #   AMI_ID (Ubuntu 22.04 LTS)  – auto-resolved if empty
 #   IAM_INSTANCE_PROFILE="EC2AdminRole"
 #   VOLUME_SIZE_GB=200
 #   TAG_ENVIRONMENT="research"
 #   TAG_OWNER="$USER"
 #   START_SHELL=0  – if set to 1, SSH into the instance after provisioning.
+#   INSTANCE_FAMILY="c7a"
+#   INSTANCE_SIZE="32xlarge"
+#   BENCH_DIR="$REPO_ROOT/reports/aws/bench"
 #
 # Example:
 #   AWS_PROFILE=fjs-prod AWS_REGION=us-east-1 \
@@ -49,12 +52,84 @@ require_env "SUBNET_ID"
 require_env "SECURITY_GROUP_IDS"
 
 RUNNER_NAME="${RUNNER_NAME:-fjs-dealias-runner}"
-INSTANCE_TYPE="${INSTANCE_TYPE:-c7a.32xlarge}"
+INSTANCE_TYPE="${INSTANCE_TYPE:-}"
 IAM_INSTANCE_PROFILE="${IAM_INSTANCE_PROFILE:-EC2AdminRole}"
 VOLUME_SIZE_GB="${VOLUME_SIZE_GB:-200}"
 TAG_ENVIRONMENT="${TAG_ENVIRONMENT:-research}"
 TAG_OWNER="${TAG_OWNER:-$USER}"
 START_SHELL="${START_SHELL:-0}"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+INSTANCE_FAMILY="${INSTANCE_FAMILY:-c7a}"
+INSTANCE_SIZE="${INSTANCE_SIZE:-32xlarge}"
+BENCH_DIR="${BENCH_DIR:-$REPO_ROOT/reports/aws/bench}"
+
+if [[ "${INSTANCE_FAMILY}" == "auto" ]]; then
+  BEST_FAMILY="$(python3 - <<'PY'
+import json
+import os
+import glob
+
+bench_dir = os.environ.get("BENCH_DIR")
+if not bench_dir or not os.path.isdir(bench_dir):
+    print("")
+    raise SystemExit
+
+def _score(entry):
+    values = entry.get("results") or []
+    return float(sum(item.get("mean_seconds", 0.0) for item in values))
+
+records: dict[str, tuple[str, float]] = {}
+paths = glob.glob(os.path.join(bench_dir, "**", "bench.json"), recursive=True)
+for path in paths:
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+    except Exception:
+        continue
+    fam = payload.get("instance_family")
+    if not fam:
+        inst = payload.get("instance_type", "")
+        fam = inst.split(".")[0] if inst else ""
+    fam = (fam or "").strip()
+    if fam not in {"c7a", "c7i"}:
+        continue
+    timestamp = payload.get("generated_at") or ""
+    score = _score(payload)
+    prev = records.get(fam)
+    if prev is None or timestamp > prev[0]:
+        records[fam] = (timestamp, score)
+
+best_family = ""
+best_score = None
+for fam, (_, score) in records.items():
+    if best_score is None or score < best_score:
+        best_score = score
+        best_family = fam
+
+print(best_family)
+PY
+)"
+  if [[ -z "$BEST_FAMILY" ]]; then
+    echo "warning: no benchmark data found in $BENCH_DIR; defaulting to c7a" >&2
+    INSTANCE_FAMILY="c7a"
+  else
+    INSTANCE_FAMILY="$BEST_FAMILY"
+  fi
+fi
+
+if [[ -z "${INSTANCE_TYPE}" ]]; then
+  case "$INSTANCE_FAMILY" in
+    c7a|c7i)
+      INSTANCE_TYPE="${INSTANCE_FAMILY}.${INSTANCE_SIZE}"
+      ;;
+    *)
+      echo "error: unsupported INSTANCE_FAMILY '$INSTANCE_FAMILY'" >&2
+      exit 1
+      ;;
+  esac
+fi
+
+echo "Using instance family ${INSTANCE_FAMILY} (type ${INSTANCE_TYPE})"
 
 trim() {
   local value="$1"

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+
 import numpy as np
 from numpy.typing import NDArray
 
@@ -46,6 +48,36 @@ def _project_box_sum(
     return clip_with_shift(lambda_mid)
 
 
+class MinVarMemo:
+    """Cache penalised covariance factorizations per window."""
+
+    __slots__ = ("_digest", "_ridge", "_penalized")
+
+    def __init__(self) -> None:
+        self._digest: str | None = None
+        self._ridge: float | None = None
+        self._penalized: NDArray[np.float64] | None = None
+
+    def _matrix_digest(self, matrix: NDArray[np.float64]) -> str:
+        view = np.ascontiguousarray(matrix, dtype=np.float64)
+        return hashlib.sha1(view.tobytes()).hexdigest()
+
+    def prepare(self, covariance: NDArray[np.float64], ridge: float) -> NDArray[np.float64]:
+        digest = self._matrix_digest(covariance)
+        if (
+            self._penalized is not None
+            and self._digest == digest
+            and self._ridge is not None
+            and abs(self._ridge - ridge) <= 0.0
+        ):
+            return self._penalized
+        penalized = covariance + float(ridge) * np.eye(covariance.shape[0], dtype=np.float64)
+        self._digest = digest
+        self._ridge = float(ridge)
+        self._penalized = penalized
+        return penalized
+
+
 def minvar_ridge_box(
     Sigma: NDArray[np.float64],
     *,
@@ -54,6 +86,7 @@ def minvar_ridge_box(
     sum_to_one: bool = True,
     max_iter: int = 3000,
     tol: float = 1e-7,
+    cache: MinVarMemo | None = None,
 ) -> tuple[NDArray[np.float64], dict[str, float | int | bool]]:
     """Projected-gradient minimum-variance solver with ridge and box bounds."""
 
@@ -74,7 +107,10 @@ def minvar_ridge_box(
         cond_original = float(np.linalg.cond(cov))
     except np.linalg.LinAlgError:
         cond_original = float("inf")
-    penalized = cov + ridge * np.eye(n_assets)
+    if cache is not None:
+        penalized = cache.prepare(cov, ridge)
+    else:
+        penalized = cov + ridge * np.eye(n_assets)
     eigvals = np.linalg.eigvalsh(penalized)
     if eigvals.min() < _PSD_TOL:
         raise ValueError("Penalised covariance must be positive definite.")

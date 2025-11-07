@@ -3,17 +3,27 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import platform
 import time
+import urllib.error
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Mapping, Sequence, Tuple
+from typing import Iterable, Mapping, Sequence, Tuple
 
 try:  # pragma: no cover - plotting optional
     import matplotlib.pyplot as plt
 except Exception:  # pragma: no cover - matplotlib optional
     plt = None  # type: ignore[assignment]
 
+from experiments.synthetic.harness_utils import write_run_metadata
+from meta import runtime
 from synthetic.calibration import CalibrationConfig, calibrate_thresholds
+
+try:
+    from fjs import mp as mp_utils
+except ImportError:  # pragma: no cover - defensive fallback
+    mp_utils = None  # type: ignore[assignment]
 
 
 def _parse_float_list(values: Sequence[str] | None) -> list[float] | None:
@@ -140,7 +150,56 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         default=None,
         help="Optional defaults lookup path (filters cells with fpr ≤ alpha).",
     )
+    parser.add_argument(
+        "--exec-mode",
+        type=str,
+        choices=["deterministic", "throughput"],
+        default="deterministic",
+        help="Execution mode: deterministic (threads=1) or throughput (threads≈4).",
+    )
+    parser.add_argument(
+        "--shard-manifest",
+        type=Path,
+        default=None,
+        help="Optional manifest from tools/shard_grid.py to restrict cells per shard.",
+    )
+    parser.add_argument(
+        "--shard-id",
+        type=int,
+        default=None,
+        help="Shard index to execute (required when --shard-manifest is provided).",
+    )
+    parser.add_argument(
+        "--mp-cache-dir",
+        type=str,
+        default=".cache/mp_edges",
+        help="Directory for MP edge disk cache (set to 'none' to disable).",
+    )
     return parser.parse_args(argv)
+
+
+def build_planned_jobs(
+    p_assets_list: Sequence[int],
+    n_groups_list: Sequence[int],
+    replicates_list: Sequence[int],
+    delta_abs_grid: Sequence[float],
+) -> list[dict[str, object]]:
+    """Return the Cartesian product of sweep dimensions (excluding edge modes)."""
+
+    jobs: list[dict[str, object]] = []
+    for p_assets in p_assets_list:
+        for n_groups in n_groups_list:
+            for replicates in replicates_list or [1]:
+                for delta_abs in delta_abs_grid:
+                    jobs.append(
+                        {
+                            "p_assets": int(p_assets),
+                            "n_groups": int(n_groups),
+                            "replicates": int(replicates),
+                            "delta_abs": float(delta_abs),
+                        }
+                    )
+    return jobs
 
 
 def _parse_bins(specs: Sequence[str] | None, *, prefix: str) -> list[tuple[str, float, float]]:
@@ -225,6 +284,35 @@ def _maybe_plot(entries: list[dict[str, float | int | str | None]], alpha: float
 def _cell_identifier(p_assets: int, n_groups: int, replicates: int, delta_abs: float, edge_mode: str) -> str:
     delta_token = int(round(delta_abs * 1_000))
     return f"p{p_assets}_g{n_groups}_r{replicates}_d{delta_token}_{edge_mode}"
+
+def _load_shard_jobs(manifest_path: Path, shard_id: int) -> set[tuple[int, int, int, float]]:
+    entries: set[tuple[int, int, int, float]] = set()
+    if not manifest_path.exists():
+        raise FileNotFoundError(f"Shard manifest not found: {manifest_path}")
+    for raw_line in manifest_path.read_text(encoding="utf-8").splitlines():
+        raw_line = raw_line.strip()
+        if not raw_line:
+            continue
+        try:
+            payload = json.loads(raw_line)
+        except json.JSONDecodeError:
+            continue
+        if int(payload.get("shard", -1)) != int(shard_id):
+            continue
+        for job in payload.get("jobs", []):
+            try:
+                key = (
+                    int(job["p_assets"]),
+                    int(job["n_groups"]),
+                    int(job["replicates"]),
+                    float(job["delta_abs"]),
+                )
+                entries.add(key)
+            except (KeyError, TypeError, ValueError):
+                continue
+    if not entries:
+        raise ValueError(f"Shard {shard_id} not present in manifest {manifest_path}")
+    return entries
 
 
 def _build_cell_records(
@@ -437,6 +525,20 @@ def main(argv: Sequence[str] | None = None) -> Path:
     if args.resume and not args.run_id:
         raise ValueError("--resume requires --run-id.")
 
+    exec_settings = runtime.configure_exec_mode(args.exec_mode)
+    worker_count = runtime.effective_worker_count(exec_settings, args.workers, os.cpu_count())
+    mp_cache_dir: Path | None
+    mp_cache_arg = (args.mp_cache_dir or "").strip()
+    if mp_utils is not None:
+        if mp_cache_arg and mp_cache_arg.lower() not in {"none", "off"}:
+            mp_cache_dir = Path(mp_cache_arg).expanduser()
+            mp_utils.configure_mp_cache(mp_cache_dir)
+        else:
+            mp_cache_dir = None
+            mp_utils.configure_mp_cache(None)
+    else:
+        mp_cache_dir = None
+
     run_id = args.run_id or datetime.utcnow().strftime("calib-%Y%m%dT%H%M%SZ")
     run_root = Path("reports/synthetic/calib") / run_id
     cells_dir = run_root / "cells"
@@ -456,20 +558,24 @@ def main(argv: Sequence[str] | None = None) -> Path:
         replicate_values = [int(defaults.replicates)]
 
     out_path = args.out.expanduser().resolve()
-    planned_jobs: list[dict[str, object]] = []
-
-    for p_assets in args.p_assets:
-        for n_groups in args.n_groups:
-            for replicates in replicate_values:
-                for delta_abs in args.delta_abs_grid:
-                    planned_jobs.append(
-                        {
-                            "p_assets": int(p_assets),
-                            "n_groups": int(n_groups),
-                            "replicates": int(replicates),
-                            "delta_abs": float(delta_abs),
-                        }
-                    )
+    planned_jobs = build_planned_jobs(
+        [int(val) for val in args.p_assets],
+        [int(val) for val in args.n_groups],
+        replicate_values,
+        [float(val) for val in args.delta_abs_grid],
+    )
+    shard_jobs: set[tuple[int, int, int, float]] | None = None
+    if args.shard_manifest:
+        if args.shard_id is None:
+            raise ValueError("--shard-id is required when --shard-manifest is provided.")
+        shard_jobs = _load_shard_jobs(Path(args.shard_manifest), int(args.shard_id))
+        planned_jobs = [
+            job
+            for job in planned_jobs
+            if (job["p_assets"], job["n_groups"], job["replicates"], job["delta_abs"]) in shard_jobs
+        ]
+        if not planned_jobs:
+            raise ValueError(f"No jobs matched shard {args.shard_id} for manifest {args.shard_manifest}")
 
     if args.dry_run:
         total_cells = len(planned_jobs) * len(args.edge_modes)
@@ -477,11 +583,15 @@ def main(argv: Sequence[str] | None = None) -> Path:
         approx_seconds = total_trials * max(replicate_values or [defaults.replicates]) * 0.003
         print("[dry-run] synthetic calibration plan")
         print(f"  output: {out_path}")
+        print(f"  run id: {run_id}")
         print(f"  jobs: {len(planned_jobs)} sweep cells, {len(args.edge_modes)} edge modes")
+        if args.shard_manifest:
+            print(f"  shard: {args.shard_id} from {args.shard_manifest}")
         print(f"  total trials (null+alt): {total_trials}")
         print(f"  replicates values: {sorted(set(replicate_values))}")
         print(f"  bins (replicates): {replicate_bins if replicate_bins else 'none'}")
         print(f"  bins (assets): {asset_bins if asset_bins else 'none'}")
+        print(f"  exec mode: {exec_settings.mode} (workers={worker_count}, threads={exec_settings.blas_threads})")
         print(f"  est runtime ≈ {approx_seconds/60:.1f} minutes (heuristic)")
         return out_path
 
@@ -489,6 +599,7 @@ def main(argv: Sequence[str] | None = None) -> Path:
 
     seed_cursor = int(args.seed)
     total_jobs = len(planned_jobs) * len(args.edge_modes)
+    start_utc = datetime.now(timezone.utc)
     progress_start = time.perf_counter()
     job_counter = 0
     for job in planned_jobs:
@@ -502,7 +613,7 @@ def main(argv: Sequence[str] | None = None) -> Path:
                 print(
                     f"[{job_counter}/{total_jobs}] edge={edge_mode} p={p_assets} G={n_groups} r={replicates} δ={delta_abs:.3f}",
                     flush=True,
-                )
+            )
             cell_id = _cell_identifier(p_assets, n_groups, replicates, delta_abs, str(edge_mode))
             cell_path = cells_dir / f"{cell_id}.json"
             config = CalibrationConfig(
@@ -520,7 +631,7 @@ def main(argv: Sequence[str] | None = None) -> Path:
                 edge_modes=(str(edge_mode),),
                 q_max=int(args.q_max),
                 seed=seed_cursor,
-                workers=int(args.workers) if args.workers is not None else None,
+                workers=int(worker_count),
                 batch_size=int(args.batch_size),
             )
             seed_cursor += 1
@@ -594,8 +705,8 @@ def main(argv: Sequence[str] | None = None) -> Path:
         "entries": entries,
         "grid": grid_records,
         "replicate_bins": replicate_bins_meta,
-        "asset_bins": asset_bins_meta,
-    }
+            "asset_bins": asset_bins_meta,
+        }
 
     out_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
@@ -611,7 +722,81 @@ def main(argv: Sequence[str] | None = None) -> Path:
         defaults_path.parent.mkdir(parents=True, exist_ok=True)
         defaults_path.write_text(json.dumps(defaults_payload, indent=2), encoding="utf-8")
 
+    finish_time = datetime.now(timezone.utc)
+    duration = time.perf_counter() - progress_start
+    metadata = {
+        "run_id": run_id,
+        "exec_mode": exec_settings.mode,
+        "workers": int(worker_count),
+        "batch_size": int(args.batch_size),
+        "alpha": float(args.alpha),
+        "edge_modes": [str(mode) for mode in args.edge_modes],
+        "p_grid": [int(val) for val in args.p_assets],
+        "n_grid": [int(val) for val in args.n_groups],
+        "replicates": replicate_values,
+        "delta_grid": [float(val) for val in args.delta_abs_grid],
+        "delta_frac_grid": [float(val) for val in delta_frac_grid],
+        "stability_grid": [float(val) for val in stability_grid],
+        "trials_null": int(args.trials_null),
+        "trials_alt": int(args.trials_alt),
+        "shard_id": int(args.shard_id) if args.shard_id is not None else None,
+        "shard_manifest": str(args.shard_manifest) if args.shard_manifest else None,
+        "mp_cache_dir": str(mp_cache_dir) if mp_cache_dir else None,
+        "cells_dir": str(cells_dir),
+        "generated_at": finish_time.isoformat(),
+        "started_at": start_utc.isoformat(),
+        "duration_seconds": float(duration),
+        "jobs_planned": int(total_jobs),
+        "git_sha": _git_sha(),
+        "blas": _blas_info(),
+        "thread_caps": runtime.thread_caps_snapshot(),
+        "instance": _instance_metadata(),
+    }
+    write_run_metadata(run_root / "run.json", config=metadata, extra={})
+
     return out_path
+
+
+def _git_sha() -> str:
+    try:
+        import subprocess
+
+        return subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    except Exception:  # pragma: no cover - git optional
+        return "unknown"
+
+
+def _blas_info() -> dict[str, object]:
+    try:
+        import numpy as np  # type: ignore
+
+        for key in ("openblas_info", "blas_opt_info"):
+            info = np.__config__.get_info(key)
+            if info:
+                return {"library": key, "config": info}
+    except Exception:  # pragma: no cover - numpy always available in runtime
+        return {}
+    return {}
+
+
+def _instance_metadata() -> dict[str, object]:
+    meta: dict[str, object] = {
+        "hostname": platform.node(),
+        "platform": platform.platform(),
+    }
+    if "INSTANCE_TYPE" in os.environ:
+        meta["instance_type"] = os.environ["INSTANCE_TYPE"]
+    else:  # pragma: no cover - metadata service absent locally
+        try:
+            req = urllib.request.Request(
+                "http://169.254.169.254/latest/meta-data/instance-type",
+                method="GET",
+            )
+            with urllib.request.urlopen(req, timeout=0.25) as response:
+                meta["instance_type"] = response.read().decode("utf-8")
+        except Exception:
+            pass
+    return meta
 
 
 if __name__ == "__main__":  # pragma: no cover

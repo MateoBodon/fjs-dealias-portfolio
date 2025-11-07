@@ -34,6 +34,7 @@ class RunMeta:
     design: str | None
     nested_replicates: int | None
     edge_mode: str | None
+    exec_mode: str | None
     solver_used: list[str] | None
     label: str | None
     crisis_label: str | None
@@ -182,6 +183,7 @@ def write_run_meta(
     crisis_label: str | None = None,
     solver_used: Iterable[str] | None = None,
     edge_mode: str | None = None,
+    exec_mode: str | None = None,
 ) -> Path:
     """Create a run_meta.json artifact in ``output_dir``.
 
@@ -206,6 +208,8 @@ def write_run_meta(
         Optional iterable of solver identifiers observed during the run.
     estimator
         Covariance estimator name applied during evaluation, if any.
+    exec_mode
+        Execution profile tag ("deterministic" or "throughput"), if available.
 
     Returns
     -------
@@ -300,6 +304,7 @@ def write_run_meta(
         design=summary_design,
         nested_replicates=int(summary_nested) if summary_nested is not None else None,
         edge_mode=edge_mode_value,
+        exec_mode=str(exec_mode) if exec_mode is not None else None,
         solver_used=solver_candidates,
         label=str(summary_label) if summary_label is not None else None,
         crisis_label=str(summary_crisis) if summary_crisis is not None else None,

@@ -13,6 +13,7 @@ class DiagnosticReason(str, Enum):
     ALIGNMENT_REJECTED = "alignment_rejected"
     BASELINE_FAILURE = "baseline_failure"
     CONDITION_CAP = "condition_cap"
+    FACTOR_MISSING = "factor_missing"
 
     def __str__(self) -> str:  # pragma: no cover - invoked implicitly
         return self.value

@@ -1,0 +1,11 @@
+{
+  "asset_count": 80,
+  "mean_r_squared": 0.0,
+  "median_r_squared": 0.0,
+  "mode_requested": "off",
+  "mode_effective": "off",
+  "beta_abs_mean": 0.0,
+  "beta_abs_std": 0.0,
+  "beta_abs_median": 0.0,
+  "factor_columns": []
+}

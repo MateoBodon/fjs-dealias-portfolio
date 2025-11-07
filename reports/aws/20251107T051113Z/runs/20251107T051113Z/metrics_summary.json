@@ -1,0 +1,17 @@
+{
+  "samples": 5,
+  "cpu_process_avg": 0.0,
+  "cpu_process_peak": 0.0,
+  "memory_rss_avg_mb": 156.43203125,
+  "memory_rss_peak_mb": 262.38671875,
+  "memory_uss_avg_mb": 153.14609375,
+  "memory_uss_peak_mb": 256.67578125,
+  "io_read_total_mb": 0.0,
+  "io_write_total_mb": 0.01953125,
+  "command": "make rc-vol EDGE=tyler MODE=deterministic USE_FACTORS=1",
+  "start_utc": "2025-11-07T05:11:17.350316+00:00",
+  "end_utc": "2025-11-07T05:11:37.606936+00:00",
+  "duration_seconds": 20.256614685058594,
+  "return_code": 0,
+  "tag": ""
+}

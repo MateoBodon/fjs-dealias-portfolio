@@ -2,6 +2,13 @@
 Data utilities for building balanced panels.
 """
 
+from .factors import (
+    FactorRegistryEntry,
+    FactorRegistryError,
+    assert_registered_factor,
+    get_factor_registry,
+    load_registered_factors,
+)
 from .panels import (
     BalancedPanel,
     PanelManifest,
@@ -25,4 +32,9 @@ __all__ = [
     "RegistryEntry",
     "assert_registered_dataset",
     "get_registry",
+    "FactorRegistryEntry",
+    "FactorRegistryError",
+    "assert_registered_factor",
+    "get_factor_registry",
+    "load_registered_factors",
 ]

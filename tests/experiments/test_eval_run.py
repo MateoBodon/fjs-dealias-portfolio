@@ -42,6 +42,7 @@ def test_run_evaluation_emits_artifacts(tmp_path_factory: pytest.TempPathFactory
         out_dir=Path(out_dir),
         shrinker="rie",
         seed=123,
+        use_factor_prewhiten=False,
     )
     outputs = run_evaluation(config)
 
@@ -115,6 +116,8 @@ def test_run_evaluation_emits_artifacts(tmp_path_factory: pytest.TempPathFactory
         "group_label_counts",
         "group_observations",
         "vol_state_label",
+        "factor_present",
+        "changed_flag",
     }.issubset(diag_df.columns)
     if not diag_df.empty:
         reason_values = set(diag_df["reason_code"].dropna().unique())
@@ -133,6 +136,10 @@ def test_run_evaluation_emits_artifacts(tmp_path_factory: pytest.TempPathFactory
     detail_diag = outputs.diagnostics_detail["full"]
     assert detail_diag.exists()
     assert outputs.diagnostics_detail["all"].exists()
+    run_json = Path(out_dir) / "run.json"
+    assert run_json.exists()
+    run_payload = json.loads(run_json.read_text(encoding="utf-8"))
+    assert run_payload["config"]["use_factor_prewhiten"] is False
     prewhiten_diag = Path(out_dir) / "prewhiten_diagnostics.csv"
     prewhiten_summary = Path(out_dir) / "prewhiten_summary.json"
     overlay_toggle = Path(out_dir) / "overlay_toggle.md"
@@ -156,6 +163,7 @@ def test_run_evaluation_prewhiten_off(tmp_path_factory: pytest.TempPathFactory) 
         shrinker="rie",
         seed=321,
         prewhiten="off",
+        use_factor_prewhiten=False,
     )
     outputs = run_evaluation(config)
     summary_payload = json.loads((Path(out_dir) / "prewhiten_summary.json").read_text(encoding="utf-8"))
@@ -178,6 +186,7 @@ def test_run_evaluation_respects_assets_top(tmp_path_factory: pytest.TempPathFac
         shrinker="rie",
         seed=4321,
         assets_top=3,
+        use_factor_prewhiten=False,
     )
     outputs = run_evaluation(config)
     summary_payload = json.loads((Path(out_dir) / "prewhiten_summary.json").read_text(encoding="utf-8"))
@@ -206,6 +215,7 @@ def test_run_evaluation_vol_design_logs_state(tmp_path_factory: pytest.TempPathF
         group_min_count=3,
         group_min_replicates=2,
         vol_ewma_span=5,
+        use_factor_prewhiten=False,
     )
     outputs = run_evaluation(config)
     detail_path = outputs.diagnostics_detail["all"]
@@ -400,6 +410,7 @@ def test_vol_thresholds_use_training_data(tmp_path_factory: pytest.TempPathFacto
         shrinker="rie",
         seed=11,
         overlay_a_grid=80,
+        use_factor_prewhiten=False,
     )
     dates = pd.date_range("2024-01-01", periods=10, freq="B")
     series = pd.Series([0.1] * 5 + [5.0] * 5, index=dates)
@@ -424,6 +435,7 @@ def test_run_evaluation_is_reproducible(tmp_path_factory: pytest.TempPathFactory
         shrinker="rie",
         seed=321,
         overlay_a_grid=90,
+        use_factor_prewhiten=False,
     )
 
     cfg_one = EvalConfig(out_dir=Path(out_one), **base_kwargs)
@@ -480,6 +492,7 @@ def test_bootstrap_bands_populate_for_overlay(tmp_path_factory: pytest.TempPathF
         shrinker="rie",
         seed=432,
         bootstrap_samples=20,
+        use_factor_prewhiten=False,
     )
     outputs = run_evaluation(config)
     summary = pd.read_csv(outputs.metrics["full"])

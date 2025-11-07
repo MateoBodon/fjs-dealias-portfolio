@@ -146,7 +146,7 @@ RC_VOL_ASSETS ?= 80
 RC_DOW_SHRINKER ?= rie
 RC_VOL_SHRINKER ?= oas
 RC_DOW_PREWHITEN ?= ff5mom
-RC_VOL_PREWHITEN ?= off
+RC_VOL_PREWHITEN ?= ff5mom
 RC_VOL_GROUP_MIN ?= 3
 RC_VOL_GROUP_REPS ?= 10
 
@@ -164,6 +164,7 @@ rc-dow:
 		--edge-mode $(DOW_EDGE) \
 		--shrinker $(RC_DOW_SHRINKER) \
 		--prewhiten $(RC_DOW_PREWHITEN) \
+		$(if $(USE_FACTORS),--use-factor-prewhiten $(USE_FACTORS),) \
 		--gate-delta-calibration $(RC_GATE_CALIB) \
 		--gate-delta-frac-min $(RC_GATE_DELTA_FRAC) \
 		--require-isolated \
@@ -189,6 +190,7 @@ rc-vol:
 		--edge-mode $(VOL_EDGE) \
 		--shrinker $(RC_VOL_SHRINKER) \
 		--prewhiten $(RC_VOL_PREWHITEN) \
+		$(if $(USE_FACTORS),--use-factor-prewhiten $(USE_FACTORS),) \
 		--gate-delta-calibration $(RC_GATE_CALIB) \
 		--gate-delta-frac-min $(RC_GATE_DELTA_FRAC) \
 		--require-isolated \

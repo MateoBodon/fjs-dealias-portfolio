@@ -1,0 +1,48 @@
+{
+  "generated_at": "2025-11-06T05:24:21.938040+00:00",
+  "git_sha": "3c7e0bb2693b092e0b270ecaa3eda0da917a74b1",
+  "duration_seconds": 9.220548868179321,
+  "target_fpr": 0.02,
+  "mu_values": [
+    4.0,
+    6.0,
+    8.0
+  ],
+  "artifacts": {
+    "null_scores": "reports/synthetic/power_harness/null_scores.parquet",
+    "power_scores": "reports/synthetic/power_harness/power_scores.parquet",
+    "roc_table": "reports/synthetic/power_harness/roc_table.csv",
+    "roc_power_figure": "reports/figures/roc_power.png",
+    "defaults": "calibration_defaults.json"
+  },
+  "selection": {
+    "edge_mode": "scm",
+    "threshold": 0.10812935039659664,
+    "fpr": 0.02,
+    "average_power": 1.0,
+    "tpr_by_mu": {
+      "4.00": 1.0,
+      "6.00": 1.0,
+      "8.00": 1.0
+    }
+  },
+  "parameters": {
+    "delta": 0.5,
+    "delta_frac": 0.02,
+    "eps": 0.02,
+    "stability_eta_deg": 0.4
+  },
+  "config": {
+    "n_assets": 40,
+    "n_groups": 60,
+    "replicates": 3,
+    "noise_variance": 1.0,
+    "signal_to_noise": 0.35,
+    "edge_modes": [
+      "scm",
+      "tyler"
+    ],
+    "trials": 600,
+    "seed": 0
+  }
+}

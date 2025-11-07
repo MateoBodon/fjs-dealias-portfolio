@@ -78,6 +78,7 @@ DEFAULTS: dict[str, Any] = {
     "alignment_top_p": 3,
     "cs_drop_top_frac": None,
     "prewhiten": "ff5mom",
+    "use_factor_prewhiten": True,
     "calm_window_sample": None,
     "crisis_window_top_k": None,
     "group_design": "week",
@@ -175,6 +176,14 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         raise ValueError(
             "prewhiten must be one of {'off', 'ff5', 'ff5mom'}"
         )
+
+    use_factor_raw = merged.get("use_factor_prewhiten", DEFAULTS["use_factor_prewhiten"])
+    if isinstance(use_factor_raw, str):
+        use_factor_prewhiten = use_factor_raw.strip().lower() not in {"0", "false", "off"}
+    elif use_factor_raw is None:
+        use_factor_prewhiten = bool(DEFAULTS["use_factor_prewhiten"])
+    else:
+        use_factor_prewhiten = bool(use_factor_raw)
 
     group_design_val = str(merged.get("group_design", DEFAULTS["group_design"]) or DEFAULTS["group_design"])
     group_min_count_val = int(
@@ -290,6 +299,7 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         alignment_top_p=alignment_top_p,
         cs_drop_top_frac=float(merged["cs_drop_top_frac"]) if merged.get("cs_drop_top_frac") is not None else None,
         prewhiten=prewhiten_mode,
+        use_factor_prewhiten=use_factor_prewhiten,
         calm_window_sample=int(merged["calm_window_sample"])
         if merged.get("calm_window_sample") is not None
         else None,

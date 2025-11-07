@@ -1,0 +1,132 @@
+{
+  "config": {
+    "alignment_top_p": 3,
+    "angle_min_cos": null,
+    "assets_top": 60,
+    "bootstrap_samples": 0,
+    "calm_quantile": 0.2,
+    "calm_window_sample": null,
+    "config_path": "/home/ubuntu/fjs-dealias-portfolio/experiments/eval/config.yaml",
+    "crisis_quantile": 0.8,
+    "crisis_window_top_k": null,
+    "cs_drop_top_frac": null,
+    "echo_config": false,
+    "edge_mode": "scm",
+    "end": "2024-12-31",
+    "ewma_halflife": 30.0,
+    "exec_mode": "deterministic",
+    "factors_csv": null,
+    "factors_dataset": {
+      "end_date": "2025-08-29",
+      "key": "ff5mom",
+      "note": "Merged F-F Research Data 5 Factors 2x3 daily CSV with Momentum Factor daily CSV; values divided by 100.",
+      "path": "/home/ubuntu/fjs-dealias-portfolio/data/factors/ff5mom_daily.csv",
+      "sha256": "469d44ad0c5cac556c60c1f258e14245acfcc9f2901ad443f41b64309bf908ca",
+      "source": "ken_french.ff5_umd_daily",
+      "start_date": "2005-01-03"
+    },
+    "group_design": "dow",
+    "group_min_count": 5,
+    "group_min_replicates": 3,
+    "horizon": 21,
+    "max_missing_asset": 0.05,
+    "max_missing_group_row": 0.0,
+    "min_reps_dow": 20,
+    "min_reps_vol": 15,
+    "mv_box_hi": 0.1,
+    "mv_box_lo": 0.0,
+    "mv_condition_cap": 1000000.0,
+    "mv_gamma": 0.0001,
+    "mv_tau": 0.0,
+    "mv_turnover_bps": 5.0,
+    "out_dir": "reports/rc-20251107/dow-scm",
+    "overlay_a_grid": 120,
+    "overlay_seed": null,
+    "prewhiten": "ff5mom",
+    "prewhiten_beta_abs_mean": 0.33249463024156506,
+    "prewhiten_beta_abs_median": 0.14821752345823352,
+    "prewhiten_beta_abs_std": 0.556517555103388,
+    "prewhiten_factor_columns": [
+      "MKT",
+      "SMB",
+      "HML",
+      "RMW",
+      "CMA",
+      "MOM"
+    ],
+    "prewhiten_mode_effective": "ff5mom",
+    "prewhiten_mode_requested": "ff5mom",
+    "prewhiten_r2_mean": 0.39364506434494984,
+    "prewhiten_r2_median": 0.36607486060292505,
+    "q_max": 1,
+    "reason_codes": true,
+    "require_isolated": true,
+    "returns_csv": "data/returns_daily.csv",
+    "seed": 0,
+    "shrinker": "rie",
+    "start": "2018-01-01",
+    "thresholds_path": "/home/ubuntu/fjs-dealias-portfolio/experiments/eval/thresholds.json",
+    "use_factor_prewhiten": true,
+    "vol_ewma_span": 21,
+    "window": 126,
+    "workers": null
+  },
+  "execution": {
+    "mode": "deterministic",
+    "thread_caps": {
+      "BLIS_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1",
+      "NUMEXPR_NUM_THREADS": "1",
+      "OMP_NUM_THREADS": "1",
+      "OPENBLAS_NUM_THREADS": "1",
+      "VECLIB_MAXIMUM_THREADS": "1"
+    }
+  },
+  "factors": {
+    "end_date": "2025-08-29",
+    "key": "ff5mom",
+    "note": "Merged F-F Research Data 5 Factors 2x3 daily CSV with Momentum Factor daily CSV; values divided by 100.",
+    "path": "/home/ubuntu/fjs-dealias-portfolio/data/factors/ff5mom_daily.csv",
+    "sha256": "469d44ad0c5cac556c60c1f258e14245acfcc9f2901ad443f41b64309bf908ca",
+    "source": "ken_french.ff5_umd_daily",
+    "start_date": "2005-01-03"
+  },
+  "git_sha": "3c7e0bb2693b092e0b270ecaa3eda0da917a74b1",
+  "out_dir": "reports/rc-20251107/dow-scm",
+  "outputs": {
+    "diagnostics": {
+      "calm": "reports/rc-20251107/dow-scm/calm/diagnostics.csv",
+      "crisis": "reports/rc-20251107/dow-scm/crisis/diagnostics.csv",
+      "full": "reports/rc-20251107/dow-scm/full/diagnostics.csv"
+    },
+    "diagnostics_detail": {
+      "calm": "reports/rc-20251107/dow-scm/calm/diagnostics_detail.csv",
+      "crisis": "reports/rc-20251107/dow-scm/crisis/diagnostics_detail.csv",
+      "full": "reports/rc-20251107/dow-scm/full/diagnostics_detail.csv"
+    },
+    "dm": {
+      "calm": "reports/rc-20251107/dow-scm/calm/dm.csv",
+      "crisis": "reports/rc-20251107/dow-scm/crisis/dm.csv",
+      "full": "reports/rc-20251107/dow-scm/full/dm.csv"
+    },
+    "metrics": {
+      "calm": "reports/rc-20251107/dow-scm/calm/metrics.csv",
+      "crisis": "reports/rc-20251107/dow-scm/crisis/metrics.csv",
+      "full": "reports/rc-20251107/dow-scm/full/metrics.csv"
+    },
+    "overlay_toggle": "reports/rc-20251107/dow-scm/overlay_toggle.md",
+    "plots": {
+      "calm": "reports/rc-20251107/dow-scm/calm/delta_mse.png",
+      "crisis": "reports/rc-20251107/dow-scm/crisis/delta_mse.png",
+      "full": "reports/rc-20251107/dow-scm/full/delta_mse.png",
+      "hist_acceptance": "reports/rc-20251107/dow-scm/acceptance_hist_dow.png",
+      "hist_edge_margin": "reports/rc-20251107/dow-scm/edge_margin_hist_dow.png"
+    },
+    "risk": {
+      "calm": "reports/rc-20251107/dow-scm/calm/risk.csv",
+      "crisis": "reports/rc-20251107/dow-scm/crisis/risk.csv",
+      "full": "reports/rc-20251107/dow-scm/full/risk.csv"
+    }
+  },
+  "use_factor_prewhiten": true
+}

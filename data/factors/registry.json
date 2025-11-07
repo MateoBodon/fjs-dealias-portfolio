@@ -1,0 +1,35 @@
+{
+  "generated_at": "2025-11-07T00:00:00Z",
+  "maintainer": "MateoBodon/fjs-dealias-portfolio",
+  "notes": "Daily FF5+MOM factors (Ken French library, CRSP 202508 vintage). Values stored as decimal returns.",
+  "datasets": {
+    "ff5mom": {
+      "path": "data/factors/ff5mom_daily.csv",
+      "sha256": "469d44ad0c5cac556c60c1f258e14245acfcc9f2901ad443f41b64309bf908ca",
+      "columns": ["MKT", "SMB", "HML", "RMW", "CMA", "MOM", "RF"],
+      "frequency": "B",
+      "start_date": "2005-01-03",
+      "end_date": "2025-08-29",
+      "source": "ken_french.ff5_umd_daily",
+      "note": "Merged F-F Research Data 5 Factors 2x3 daily CSV with Momentum Factor daily CSV; values divided by 100."
+    },
+    "ff5": {
+      "path": "data/factors/ff5mom_daily.csv",
+      "sha256": "469d44ad0c5cac556c60c1f258e14245acfcc9f2901ad443f41b64309bf908ca",
+      "columns": ["MKT", "SMB", "HML", "RMW", "CMA", "RF"],
+      "frequency": "B",
+      "start_date": "2005-01-03",
+      "end_date": "2025-08-29",
+      "source": "ken_french.ff5_daily"
+    },
+    "mkt": {
+      "path": "data/factors/ff5mom_daily.csv",
+      "sha256": "469d44ad0c5cac556c60c1f258e14245acfcc9f2901ad443f41b64309bf908ca",
+      "columns": ["MKT", "RF"],
+      "frequency": "B",
+      "start_date": "2005-01-03",
+      "end_date": "2025-08-29",
+      "source": "ken_french.mkt_daily"
+    }
+  }
+}

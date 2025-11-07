@@ -219,42 +219,75 @@ def prewhiten_returns(
     if factors.empty:
         raise ValueError("factors DataFrame must contain observations.")
 
-    aligned_returns, aligned_factors = _align_returns_factors(
-        returns, factors, dropna=dropna
-    )
-    index = aligned_returns.index
-    X, factor_cols = _prepare_design_matrix(index, aligned_factors, add_intercept=add_intercept)
-    y = aligned_returns.to_numpy(dtype=np.float64, copy=True)
+    returns = returns.copy()
+    factors = factors.copy()
+    returns.index = pd.to_datetime(returns.index).tz_localize(None)
+    factors.index = pd.to_datetime(factors.index).tz_localize(None)
+    returns = returns.sort_index()
+    factors = factors.sort_index()
 
-    coeffs, _, _, _ = np.linalg.lstsq(X, y, rcond=None)
-    fitted = X @ coeffs
-    residuals = y - fitted
+    numeric_returns = returns.select_dtypes(include=["number"]).astype(np.float64)
+    numeric_factors = factors.select_dtypes(include=["number"]).astype(np.float64)
+    if numeric_factors.empty:
+        raise ValueError("factors contain no numeric columns.")
 
-    if add_intercept:
-        intercept = coeffs[0, :]
-        betas = coeffs[1:, :]
-    else:
-        intercept = np.zeros(y.shape[1], dtype=np.float64)
-        betas = coeffs
+    factor_cols = list(numeric_factors.columns)
+    aligned_factors = numeric_factors.reindex(numeric_returns.index)
+    factor_valid_mask = aligned_factors.notna().all(axis=1)
 
-    y_centered = y - np.mean(y, axis=0, keepdims=True)
-    with np.errstate(divide="ignore", invalid="ignore"):
-        ss_total = np.sum(y_centered**2, axis=0)
-        ss_res = np.sum(residuals**2, axis=0)
-        r_squared = 1.0 - ss_res / np.clip(ss_total, 1e-12, None)
-    r_squared = np.clip(r_squared, 0.0, 1.0)
+    assets = list(numeric_returns.columns)
+    residuals = numeric_returns.copy()
+    fitted = pd.DataFrame(np.nan, index=numeric_returns.index, columns=assets, dtype=np.float64)
+    betas = pd.DataFrame(0.0, index=assets, columns=factor_cols, dtype=np.float64)
+    intercept = pd.Series(0.0, index=assets, name="intercept", dtype=np.float64)
+    r_squared = pd.Series(0.0, index=assets, name="r_squared", dtype=np.float64)
 
-    residuals_df = pd.DataFrame(residuals, index=index, columns=aligned_returns.columns)
-    fitted_df = pd.DataFrame(fitted, index=index, columns=aligned_returns.columns)
-    betas_df = pd.DataFrame(betas.T, index=aligned_returns.columns, columns=factor_cols)
-    intercept_series = pd.Series(intercept, index=aligned_returns.columns, name="intercept")
-    r2_series = pd.Series(r_squared, index=aligned_returns.columns, name="r_squared")
+    min_obs = len(factor_cols) + (1 if add_intercept else 0)
+    for asset in assets:
+        series = numeric_returns[asset]
+        valid = series.notna()
+        if dropna:
+            valid &= factor_valid_mask
+        dates = series.index[valid]
+        if dates.size <= min_obs:
+            continue
+        X = aligned_factors.loc[dates, factor_cols].to_numpy(dtype=np.float64, copy=True)
+        if X.shape[0] <= min_obs:
+            continue
+        y = series.loc[dates].to_numpy(dtype=np.float64, copy=True)
+        if add_intercept:
+            intercept_col = np.ones((X.shape[0], 1), dtype=np.float64)
+            design = np.column_stack([intercept_col, X])
+        else:
+            design = X
+        coeffs, _, _, _ = np.linalg.lstsq(design, y, rcond=None)
+        if add_intercept:
+            asset_intercept = float(coeffs[0])
+            asset_betas = coeffs[1:]
+        else:
+            asset_intercept = 0.0
+            asset_betas = coeffs
+        fitted_vals = design @ coeffs
+        residual_vals = y - fitted_vals
+
+        residuals.loc[dates, asset] = residual_vals
+        fitted.loc[dates, asset] = fitted_vals
+        betas.loc[asset, :] = asset_betas
+        intercept.loc[asset] = asset_intercept
+
+        y_centered = y - np.mean(y)
+        ss_total = float(np.sum(y_centered**2))
+        ss_res = float(np.sum(residual_vals**2))
+        denom = ss_total if ss_total > 1e-12 else 1e-12
+        r_squared.loc[asset] = max(0.0, min(1.0, 1.0 - ss_res / denom))
+
+    factor_frame = aligned_factors.loc[numeric_returns.index]
 
     return PrewhitenResult(
-        residuals=residuals_df,
-        betas=betas_df,
-        intercept=intercept_series,
-        r_squared=r2_series,
-        fitted=fitted_df,
-        factors=aligned_factors.loc[index],
+        residuals=residuals,
+        betas=betas,
+        intercept=intercept,
+        r_squared=r_squared,
+        fitted=fitted,
+        factors=factor_frame,
     )

@@ -1,0 +1,85 @@
+Obtaining file:///home/ubuntu/fjs-dealias-portfolio
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Checking if build backend supports build_editable: started
+  Checking if build backend supports build_editable: finished with status 'done'
+  Getting requirements to build editable: started
+  Getting requirements to build editable: finished with status 'done'
+  Preparing editable metadata (pyproject.toml): started
+  Preparing editable metadata (pyproject.toml): finished with status 'done'
+Requirement already satisfied: numpy in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from fjs-dealias-portfolio==0.1.0) (2.3.4)
+Requirement already satisfied: scipy in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from fjs-dealias-portfolio==0.1.0) (1.16.3)
+Requirement already satisfied: pandas in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from fjs-dealias-portfolio==0.1.0) (2.2.3)
+Requirement already satisfied: matplotlib in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from fjs-dealias-portfolio==0.1.0) (3.10.7)
+Requirement already satisfied: scikit-learn in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from fjs-dealias-portfolio==0.1.0) (1.7.2)
+Requirement already satisfied: numba in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from fjs-dealias-portfolio==0.1.0) (0.62.1)
+Requirement already satisfied: nasdaq-data-link in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from fjs-dealias-portfolio==0.1.0) (1.0.4)
+Requirement already satisfied: wrds in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from fjs-dealias-portfolio==0.1.0) (3.4.0)
+Requirement already satisfied: pyyaml in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from fjs-dealias-portfolio==0.1.0) (6.0.3)
+Requirement already satisfied: tqdm in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from fjs-dealias-portfolio==0.1.0) (4.67.1)
+Requirement already satisfied: pytest in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from fjs-dealias-portfolio==0.1.0) (8.4.2)
+Requirement already satisfied: cvxpy in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from fjs-dealias-portfolio==0.1.0) (1.7.3)
+Requirement already satisfied: psutil in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from fjs-dealias-portfolio==0.1.0) (7.1.3)
+Requirement already satisfied: black in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from fjs-dealias-portfolio==0.1.0) (25.9.0)
+Requirement already satisfied: ruff in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from fjs-dealias-portfolio==0.1.0) (0.14.3)
+Requirement already satisfied: mypy in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from fjs-dealias-portfolio==0.1.0) (1.18.2)
+Requirement already satisfied: pytest-cov in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from fjs-dealias-portfolio==0.1.0) (7.0.0)
+Requirement already satisfied: pytest-xdist in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from fjs-dealias-portfolio==0.1.0) (3.8.0)
+Requirement already satisfied: pytest-sugar in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from fjs-dealias-portfolio==0.1.0) (1.1.1)
+Requirement already satisfied: pytest-timeout in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from fjs-dealias-portfolio==0.1.0) (2.4.0)
+Requirement already satisfied: click>=8.0.0 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from black->fjs-dealias-portfolio==0.1.0) (8.2.1)
+Requirement already satisfied: mypy-extensions>=0.4.3 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from black->fjs-dealias-portfolio==0.1.0) (1.1.0)
+Requirement already satisfied: packaging>=22.0 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from black->fjs-dealias-portfolio==0.1.0) (24.2)
+Requirement already satisfied: pathspec>=0.9.0 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from black->fjs-dealias-portfolio==0.1.0) (0.12.1)
+Requirement already satisfied: platformdirs>=2 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from black->fjs-dealias-portfolio==0.1.0) (4.5.0)
+Requirement already satisfied: pytokens>=0.1.10 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from black->fjs-dealias-portfolio==0.1.0) (0.3.0)
+Requirement already satisfied: osqp>=1.0.0 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from cvxpy->fjs-dealias-portfolio==0.1.0) (1.0.5)
+Requirement already satisfied: clarabel>=0.5.0 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from cvxpy->fjs-dealias-portfolio==0.1.0) (0.11.1)
+Requirement already satisfied: scs>=3.2.4.post1 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from cvxpy->fjs-dealias-portfolio==0.1.0) (3.2.9)
+Requirement already satisfied: cffi in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from clarabel>=0.5.0->cvxpy->fjs-dealias-portfolio==0.1.0) (2.0.0)
+Requirement already satisfied: jinja2 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from osqp>=1.0.0->cvxpy->fjs-dealias-portfolio==0.1.0) (3.1.6)
+Requirement already satisfied: setuptools in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from osqp>=1.0.0->cvxpy->fjs-dealias-portfolio==0.1.0) (80.9.0)
+Requirement already satisfied: joblib in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from osqp>=1.0.0->cvxpy->fjs-dealias-portfolio==0.1.0) (1.5.2)
+Requirement already satisfied: pycparser in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from cffi->clarabel>=0.5.0->cvxpy->fjs-dealias-portfolio==0.1.0) (2.23)
+Requirement already satisfied: MarkupSafe>=2.0 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from jinja2->osqp>=1.0.0->cvxpy->fjs-dealias-portfolio==0.1.0) (3.0.3)
+Requirement already satisfied: contourpy>=1.0.1 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from matplotlib->fjs-dealias-portfolio==0.1.0) (1.3.3)
+Requirement already satisfied: cycler>=0.10 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from matplotlib->fjs-dealias-portfolio==0.1.0) (0.12.1)
+Requirement already satisfied: fonttools>=4.22.0 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from matplotlib->fjs-dealias-portfolio==0.1.0) (4.60.1)
+Requirement already satisfied: kiwisolver>=1.3.1 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from matplotlib->fjs-dealias-portfolio==0.1.0) (1.4.9)
+Requirement already satisfied: pillow>=8 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from matplotlib->fjs-dealias-portfolio==0.1.0) (12.0.0)
+Requirement already satisfied: pyparsing>=3 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from matplotlib->fjs-dealias-portfolio==0.1.0) (3.2.5)
+Requirement already satisfied: python-dateutil>=2.7 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from matplotlib->fjs-dealias-portfolio==0.1.0) (2.9.0.post0)
+Requirement already satisfied: six>=1.5 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from python-dateutil>=2.7->matplotlib->fjs-dealias-portfolio==0.1.0) (1.17.0)
+Requirement already satisfied: typing_extensions>=4.6.0 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from mypy->fjs-dealias-portfolio==0.1.0) (4.15.0)
+Requirement already satisfied: requests>=2.7.0 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from nasdaq-data-link->fjs-dealias-portfolio==0.1.0) (2.32.5)
+Requirement already satisfied: inflection>=0.3.1 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from nasdaq-data-link->fjs-dealias-portfolio==0.1.0) (0.5.1)
+Requirement already satisfied: more-itertools in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from nasdaq-data-link->fjs-dealias-portfolio==0.1.0) (10.8.0)
+Requirement already satisfied: pytz>=2020.1 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from pandas->fjs-dealias-portfolio==0.1.0) (2025.2)
+Requirement already satisfied: tzdata>=2022.7 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from pandas->fjs-dealias-portfolio==0.1.0) (2025.2)
+Requirement already satisfied: charset_normalizer<4,>=2 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from requests>=2.7.0->nasdaq-data-link->fjs-dealias-portfolio==0.1.0) (3.4.4)
+Requirement already satisfied: idna<4,>=2.5 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from requests>=2.7.0->nasdaq-data-link->fjs-dealias-portfolio==0.1.0) (3.11)
+Requirement already satisfied: urllib3<3,>=1.21.1 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from requests>=2.7.0->nasdaq-data-link->fjs-dealias-portfolio==0.1.0) (2.5.0)
+Requirement already satisfied: certifi>=2017.4.17 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from requests>=2.7.0->nasdaq-data-link->fjs-dealias-portfolio==0.1.0) (2025.10.5)
+Requirement already satisfied: llvmlite<0.46,>=0.45.0dev0 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from numba->fjs-dealias-portfolio==0.1.0) (0.45.1)
+Requirement already satisfied: iniconfig>=1 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from pytest->fjs-dealias-portfolio==0.1.0) (2.3.0)
+Requirement already satisfied: pluggy<2,>=1.5 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from pytest->fjs-dealias-portfolio==0.1.0) (1.6.0)
+Requirement already satisfied: pygments>=2.7.2 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from pytest->fjs-dealias-portfolio==0.1.0) (2.19.2)
+Requirement already satisfied: coverage>=7.10.6 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from coverage[toml]>=7.10.6->pytest-cov->fjs-dealias-portfolio==0.1.0) (7.11.0)
+Requirement already satisfied: termcolor>=2.1.0 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from pytest-sugar->fjs-dealias-portfolio==0.1.0) (3.2.0)
+Requirement already satisfied: execnet>=2.1 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from pytest-xdist->fjs-dealias-portfolio==0.1.0) (2.1.1)
+Requirement already satisfied: threadpoolctl>=3.1.0 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from scikit-learn->fjs-dealias-portfolio==0.1.0) (3.6.0)
+Requirement already satisfied: psycopg2-binary<2.10,>=2.9 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from wrds->fjs-dealias-portfolio==0.1.0) (2.9.11)
+Requirement already satisfied: sqlalchemy<2.1,>=2 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from wrds->fjs-dealias-portfolio==0.1.0) (2.0.44)
+Requirement already satisfied: greenlet>=1 in /home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/site-packages (from sqlalchemy<2.1,>=2->wrds->fjs-dealias-portfolio==0.1.0) (3.2.4)
+Building wheels for collected packages: fjs-dealias-portfolio
+  Building editable for fjs-dealias-portfolio (pyproject.toml): started
+  Building editable for fjs-dealias-portfolio (pyproject.toml): finished with status 'done'
+  Created wheel for fjs-dealias-portfolio: filename=fjs_dealias_portfolio-0.1.0-0.editable-py3-none-any.whl size=15414 sha256=11a78e3a2287f69b7d6efebd12177f1479052c8d4da5f6f115f81508c7d9ae09
+  Stored in directory: /tmp/pip-ephem-wheel-cache-bk1foncv/wheels/14/f2/07/c8042bee7ec17928ab4de1f041013b98f6c22b7ac648d89b0f
+Successfully built fjs-dealias-portfolio
+Installing collected packages: fjs-dealias-portfolio
+  Attempting uninstall: fjs-dealias-portfolio
+    Found existing installation: fjs-dealias-portfolio 0.1.0
+    Uninstalling fjs-dealias-portfolio-0.1.0:
+      Successfully uninstalled fjs-dealias-portfolio-0.1.0
+Successfully installed fjs-dealias-portfolio-0.1.0

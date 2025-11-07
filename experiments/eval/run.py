@@ -4,6 +4,7 @@ import argparse
 import random
 import json
 import math
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Sequence
@@ -35,6 +36,7 @@ from baselines.covariance import (
     quest_covariance as baseline_quest_covariance,
     rie_covariance,
 )
+from data.factors import FactorRegistryEntry, FactorRegistryError, load_registered_factors
 from baselines.factors import PrewhitenResult
 from eval.balance import build_balanced_window
 from eval.clean import apply_nan_policy
@@ -155,6 +157,7 @@ class EvalConfig:
     alignment_top_p: int = 3
     cs_drop_top_frac: float | None = None
     prewhiten: str = "ff5mom"
+    use_factor_prewhiten: bool = True
     calm_window_sample: int | None = None
     crisis_window_top_k: int | None = None
     group_design: str = "week"
@@ -379,6 +382,7 @@ def _serialise_config(config: EvalConfig) -> dict[str, Any]:
         "alignment_top_p": config.alignment_top_p,
         "cs_drop_top_frac": config.cs_drop_top_frac,
         "prewhiten": config.prewhiten,
+        "use_factor_prewhiten": config.use_factor_prewhiten,
         "calm_window_sample": config.calm_window_sample,
         "crisis_window_top_k": config.crisis_window_top_k,
         "group_design": config.group_design,
@@ -394,6 +398,27 @@ def _serialise_config(config: EvalConfig) -> dict[str, Any]:
         "gate_alignment_min": config.gate_alignment_min,
         "gate_accept_nonisolated": config.gate_accept_nonisolated,
     }
+
+
+def _current_git_sha() -> str:
+    try:
+        output = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=PROJECT_ROOT,
+            stderr=subprocess.DEVNULL,
+        )
+        return output.decode("utf-8").strip()
+    except Exception:
+        return "unknown"
+
+
+def _write_run_metadata(path: Path, payload: Mapping[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def _paths_to_strings(path_map: Mapping[str, Path]) -> dict[str, str]:
+    return {key: str(value) for key, value in path_map.items()}
 
 
 def _mode_string(values: pd.Series) -> str:
@@ -444,6 +469,7 @@ def _aligned_dm_stat(
     *,
     column: str = "sq_error",
     comparator: str = "baseline",
+    valid_window_ids: set[int] | None = None,
 ) -> tuple[float, float, int]:
     aligned = _aligned_error_table(
         metrics,
@@ -453,6 +479,8 @@ def _aligned_dm_stat(
         estimator_ref="overlay",
         comparator=comparator,
     )
+    if valid_window_ids is not None and not aligned.empty:
+        aligned = aligned.loc[aligned.index.isin(valid_window_ids)]
     n_eff = int(aligned.shape[0])
     if n_eff < 2:
         return float("nan"), float("nan"), n_eff
@@ -521,6 +549,13 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
         type=Path,
         default=None,
         help="Optional FF5+MOM factor CSV (falls back to MKT proxy when absent).",
+    )
+    parser.add_argument(
+        "--use-factor-prewhiten",
+        type=int,
+        choices=[0, 1],
+        default=None,
+        help="Require registered FF5+MOM factors when prewhitening (default: 1).",
     )
     parser.add_argument("--window", type=int, default=None, help="Estimation window (days).")
     parser.add_argument("--horizon", type=int, default=None, help="Holdout horizon (days).")
@@ -935,6 +970,52 @@ def _write_overlay_toggle(path: Path, summary: pd.DataFrame) -> None:
     path.write_text("\n".join(content) + "\n", encoding="utf-8")
 
 
+def _plot_histogram(series: pd.Series, path: Path, *, xlabel: str, title: str, bins: int = 20) -> Path | None:
+    if plt is None:
+        return None
+    values = pd.to_numeric(series, errors="coerce").dropna().to_numpy(dtype=np.float64)
+    if values.size == 0:
+        return None
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.hist(values, bins=min(bins, max(int(values.size / 5), 10)), color="C0", edgecolor="black")
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel("Count")
+    ax.set_title(title)
+    fig.tight_layout()
+    fig.savefig(path, dpi=200)
+    plt.close(fig)
+    return path
+
+
+def _plot_acceptance_edge_histograms(diagnostics_df: pd.DataFrame, design: str, out_dir: Path) -> dict[str, Path]:
+    design_key = (design or "unknown").lower()
+    outputs: dict[str, Path] = {}
+    if diagnostics_df.empty:
+        return outputs
+    acceptance_path = out_dir / f"acceptance_hist_{design_key}.png"
+    edge_path = out_dir / f"edge_margin_hist_{design_key}.png"
+    acc_series = diagnostics_df.get("acceptance_rate", pd.Series(dtype=float))
+    edge_series = diagnostics_df.get("edge_margin_mean", pd.Series(dtype=float))
+    acc_plot = _plot_histogram(
+        acc_series,
+        acceptance_path,
+        xlabel="Acceptance rate",
+        title=f"Acceptance distribution ({design_key})",
+    )
+    if acc_plot is not None:
+        outputs["acceptance"] = acc_plot
+    edge_plot = _plot_histogram(
+        edge_series,
+        edge_path,
+        xlabel="Edge margin",
+        title=f"Edge margin distribution ({design_key})",
+    )
+    if edge_plot is not None:
+        outputs["edge_margin"] = edge_plot
+    return outputs
+
+
 def _required_replicates(design: str, config: EvalConfig) -> int:
     design_key = (design or "").lower()
     if design_key == "dow":
@@ -1084,7 +1165,9 @@ def _window_regime(
     return "full"
 
 
-def _prepare_returns(config: EvalConfig) -> tuple[DailyPanel, pd.DataFrame, PrewhitenResult, PrewhitenTelemetry]:
+def _prepare_returns(
+    config: EvalConfig,
+) -> tuple[DailyPanel, pd.DataFrame, PrewhitenResult, PrewhitenTelemetry, FactorRegistryEntry | None]:
     loader_kwargs: dict[str, Any] = {"min_history": config.window + config.horizon + 10}
     if config.assets_top is not None:
         loader_kwargs["assets_top"] = int(config.assets_top)
@@ -1105,26 +1188,57 @@ def _prepare_returns(config: EvalConfig) -> tuple[DailyPanel, pd.DataFrame, Prew
         returns = returns.loc[returns.index <= pd.to_datetime(config.end)]
     if returns.shape[0] < config.window + config.horizon + 5:
         raise ValueError("Not enough observations for requested window and horizon.")
+    returns = returns.sort_index()
+    returns_start = returns.index.min()
+    returns_end = returns.index.max()
 
     requested_mode = str(config.prewhiten or "off").lower()
     if requested_mode not in {"off", "ff5", "ff5mom"}:
         requested_mode = "off"
 
     factors_source: pd.DataFrame | None = None
+    factor_entry: FactorRegistryEntry | None = None
     if requested_mode != "off":
-        if config.factors_csv is not None:
-            try:
-                factors_source = load_observed_factors(path=config.factors_csv)
-            except FileNotFoundError:
-                factors_source = None
-        if factors_source is None:
-            try:
-                factors_source = load_observed_factors(path=None, returns=returns)
-            except FileNotFoundError:
+        if config.use_factor_prewhiten:
+            registry_keys = _FACTOR_FALLBACKS.get(requested_mode, (requested_mode,))
+            factor_error: FactorRegistryError | None = None
+            for candidate in registry_keys:
                 try:
-                    factors_source = load_observed_factors(returns=returns)
-                except Exception:  # pragma: no cover - defensive fallback
+                    required_cols = _FACTOR_SETS.get(candidate, _FACTOR_SETS.get(requested_mode, ()))
+                    loaded, entry = load_registered_factors(
+                        candidate,
+                        start=returns_start,
+                        end=returns_end,
+                        required=required_cols,
+                    )
+                    factors_source = loaded
+                    factor_entry = entry
+                    break
+                except FactorRegistryError as exc:
+                    factor_error = exc
+                    continue
+            if factors_source is None:
+                message = (
+                    f"Registered factor dataset for mode '{requested_mode}' "
+                    "is unavailable or lacks required coverage."
+                )
+                if factor_error is not None:
+                    message = str(factor_error)
+                raise RuntimeError(message)
+        else:
+            if config.factors_csv is not None:
+                try:
+                    factors_source = load_observed_factors(path=config.factors_csv)
+                except FileNotFoundError:
                     factors_source = None
+            if factors_source is None:
+                try:
+                    factors_source = load_observed_factors(path=None, returns=returns)
+                except FileNotFoundError:
+                    try:
+                        factors_source = load_observed_factors(returns=returns)
+                    except Exception:  # pragma: no cover - defensive fallback
+                        factors_source = None
 
     effective_mode, factor_subset = _select_prewhiten_factors(factors_source, requested_mode)
 
@@ -1146,7 +1260,7 @@ def _prepare_returns(config: EvalConfig) -> tuple[DailyPanel, pd.DataFrame, Prew
         requested_mode=requested_mode,
         effective_mode=effective_mode,
     )
-    return panel, returns, whitening, telemetry
+    return panel, returns, whitening, telemetry, factor_entry
 
 
 def run_evaluation(
@@ -1154,10 +1268,13 @@ def run_evaluation(
     *,
     resolved_config: Mapping[str, Any] | None = None,
 ) -> EvalOutputs:
-    panel, returns, whitening, prewhiten_meta = _prepare_returns(config)
+    panel, raw_returns, whitening, prewhiten_meta, factor_entry = _prepare_returns(config)
     random.seed(config.seed)
     np.random.seed(config.seed)
-    residuals = whitening.residuals
+    residuals = whitening.residuals.sort_index()
+    raw_returns = raw_returns.sort_index()
+    residual_index_set = set(residuals.index)
+    factor_tracking_required = bool(config.use_factor_prewhiten and prewhiten_meta.mode_effective != "off")
     vol_proxy_full = _compute_vol_proxy(residuals, span=config.vol_ewma_span)
     vol_proxy_past = vol_proxy_full.shift(1)
 
@@ -1178,6 +1295,17 @@ def run_evaluation(
     resolved_payload["prewhiten_beta_abs_mean"] = prewhiten_meta.beta_abs_mean
     resolved_payload["prewhiten_beta_abs_std"] = prewhiten_meta.beta_abs_std
     resolved_payload["prewhiten_beta_abs_median"] = prewhiten_meta.beta_abs_median
+    resolved_payload["use_factor_prewhiten"] = bool(config.use_factor_prewhiten)
+    if factor_entry is not None:
+        resolved_payload["factors_dataset"] = {
+            "key": factor_entry.key,
+            "path": str(factor_entry.path),
+            "sha256": factor_entry.sha256,
+            "start_date": factor_entry.start_date,
+            "end_date": factor_entry.end_date,
+            "source": factor_entry.source,
+            "note": factor_entry.note,
+        }
     resolved_path.write_text(json.dumps(resolved_payload, indent=2, sort_keys=True))
     resolved_path_str = str(resolved_path)
 
@@ -1212,16 +1340,40 @@ def run_evaluation(
     prev_mv_weights: dict[tuple[str, ...], np.ndarray] = {}
 
     def _evaluate_window(start: int) -> tuple[list[dict[str, object]], dict[str, object] | None]:
-        fit = residuals.iloc[start : start + config.window]
-        hold = residuals.iloc[start + config.window : start + config.window + config.horizon]
-        design = (config.group_design or "week").lower()
-        if hold.empty:
+        fit_end = start + config.window
+        hold_end = fit_end + config.horizon
+        if hold_end > raw_returns.shape[0]:
             return [], None
-        train_end = pd.to_datetime(fit.index[-1])
+        fit_idx = raw_returns.index[start:fit_end]
+        hold_idx = raw_returns.index[fit_end:hold_end]
+        if len(fit_idx) < config.window or len(hold_idx) < config.horizon:
+            return [], None
+        fit_labels = list(fit_idx)
+        hold_labels = list(hold_idx)
+        fit_base = raw_returns.loc[fit_labels]
+        hold_base = raw_returns.loc[hold_labels]
+        overlay_allowed = True
+        if factor_tracking_required:
+            needed_labels = fit_labels + hold_labels
+            overlay_allowed = all(label in residual_index_set for label in needed_labels)
+        if overlay_allowed:
+            try:
+                fit = residuals.loc[fit_labels]
+                hold = residuals.loc[hold_labels]
+            except KeyError:
+                overlay_allowed = False
+                fit = fit_base
+                hold = hold_base
+        else:
+            fit = fit_base
+            hold = hold_base
+        factor_present = bool(overlay_allowed) if factor_tracking_required else True
+        design = (config.group_design or "week").lower()
+        hold_start = pd.to_datetime(hold_labels[0])
+        train_end = pd.to_datetime(fit_labels[-1])
         calm_cut, crisis_cut = _vol_thresholds(vol_proxy_past, train_end, config)
         train_vol_slice = vol_proxy_past.loc[:train_end].dropna()
         fallback_vol = float(train_vol_slice.iloc[-1]) if not train_vol_slice.empty else float("nan")
-        hold_start = pd.to_datetime(hold.index[0])
         regime = _window_regime(
             vol_proxy_past,
             hold_start,
@@ -1282,6 +1434,8 @@ def run_evaluation(
                 "group_label_counts": "",
                 "group_observations": 0,
                 "vol_state_label": hold_vol_state,
+                "factor_present": bool(factor_present),
+                "changed_flag": 0,
             }
             diag_record.update(
                 {
@@ -1441,6 +1595,8 @@ def run_evaluation(
                 "group_label_counts": balance_counts_str,
                 "group_observations": int(sum(counts_map.values())),
                 "vol_state_label": hold_vol_state,
+                "factor_present": bool(factor_present),
+                "changed_flag": 0,
             }
             diag_record.update(balance_diag_fields)
             return [], diag_record
@@ -1488,6 +1644,8 @@ def run_evaluation(
                 "group_label_counts": balance_counts_str,
                 "group_observations": int(sum(counts_map.values())),
                 "vol_state_label": hold_vol_state,
+                "factor_present": bool(factor_present),
+                "changed_flag": 0,
             }
             diag_record.update(balance_diag_fields)
             return [], diag_record
@@ -1503,11 +1661,13 @@ def run_evaluation(
         group_label_counts = balance_counts_str
         group_observations = int(sum(counts_map.values()))
 
+        detections: list[dict[str, object]] = []
+        gating_info: dict[str, object] = {}
         reason = DiagnosticReason.NO_DETECTIONS
-        if group_count < int(config.group_min_count):
-            detections: list[dict[str, object]] = []
+        if not overlay_allowed and factor_tracking_required:
+            reason = DiagnosticReason.FACTOR_MISSING
+        elif group_count < int(config.group_min_count):
             reason = DiagnosticReason.INSUFFICIENT_GROUPS
-            gating_info: dict[str, object] = {}
         else:
             try:
                 detect_stats: dict[str, object] = {}
@@ -1597,6 +1757,10 @@ def run_evaluation(
         baseline_cov = apply_overlay(sample_cov, [], observations=fit_matrix, config=overlay_cfg)
         baseline_cond = _safe_condition_number(baseline_cov)
         overlay_cond = _safe_condition_number(overlay_cov)
+        diff_norm = 0.0
+        if overlay_cov.size and baseline_cov.size:
+            diff_norm = float(np.max(np.abs(overlay_cov - baseline_cov)))
+        changed_flag = bool(diff_norm > 1e-10)
         condition_flag = bool(
             mv_condition_cap > 0.0
             and (not np.isfinite(baseline_cond) or baseline_cond > mv_condition_cap)
@@ -1803,6 +1967,8 @@ def run_evaluation(
             "mv_turnover": mv_turnover_value,
             "mv_turnover_cost_bps": mv_turnover_cost_bps,
             "baseline_errors": baseline_error_str,
+            "factor_present": bool(factor_present),
+            "changed_flag": int(changed_flag),
         }
         diag_record.update(balance_diag_fields)
         for name, message in baseline_errors.items():
@@ -1812,7 +1978,7 @@ def run_evaluation(
     window_records: list[dict[str, object]] = []
     diagnostics_records: list[dict[str, object]] = []
 
-    total_days = residuals.shape[0]
+    total_days = raw_returns.shape[0]
     start_indices = range(0, total_days - config.window - config.horizon + 1)
     worker_setting = config.workers
     if mv_tau > 0.0:
@@ -1941,6 +2107,8 @@ def run_evaluation(
         "mv_turnover",
         "mv_turnover_cost_bps",
         "baseline_errors",
+        "factor_present",
+        "changed_flag",
     ]
     if diagnostics_df.empty:
         diagnostics_df = pd.DataFrame(columns=expected_diag_columns)
@@ -1955,6 +2123,8 @@ def run_evaluation(
                     "prewhiten_factors",
                 }:
                     diagnostics_df[column] = ""
+                elif column in {"factor_present", "changed_flag"}:
+                    diagnostics_df[column] = 0
                 else:
                     diagnostics_df[column] = np.nan
         diagnostics_df = diagnostics_df[expected_diag_columns]
@@ -2121,6 +2291,8 @@ def run_evaluation(
         "mv_condition_flag": ("mv_condition_flag", "mean"),
         "mv_turnover": ("mv_turnover", "mean"),
         "mv_turnover_cost_bps": ("mv_turnover_cost_bps", "mean"),
+        "percent_changed": ("changed_flag", "mean"),
+        "factor_present_share": ("factor_present", "mean"),
     }
     available_spec = {
         key: value for key, value in agg_spec.items() if value[0] in diagnostics_df.columns
@@ -2146,6 +2318,7 @@ def run_evaluation(
         diagnostics_summary["alignment_angle_mean"] = np.nan
         diagnostics_summary["raw_detection_count"] = np.nan
         diagnostics_summary["substitution_fraction"] = np.nan
+        diagnostics_summary["percent_changed"] = np.nan
         diagnostics_summary["gating_initial"] = np.nan
         diagnostics_summary["gating_accepted"] = np.nan
         diagnostics_summary["gating_rejected"] = np.nan
@@ -2169,6 +2342,7 @@ def run_evaluation(
         diagnostics_summary["prewhiten_mode_effective"] = ""
         diagnostics_summary["prewhiten_factors"] = ""
         diagnostics_summary["gating_mode"] = ""
+        diagnostics_summary["factor_present_share"] = np.nan
     else:
         reason_summary = (
             diagnostics_df.groupby("regime")["reason_code"]
@@ -2284,6 +2458,21 @@ def run_evaluation(
 
     overlay_toggle_path = out_dir / "overlay_toggle.md"
     _write_overlay_toggle(overlay_toggle_path, diagnostics_summary)
+    extra_plots = _plot_acceptance_edge_histograms(diagnostics_df, config.group_design or "", out_dir)
+
+    changed_windows_by_regime: dict[str, set[int]] = {regime: set() for regime in _REGIMES}
+    changed_windows_by_regime["full"] = set()
+    if {"changed_flag", "window_id"}.issubset(diagnostics_df.columns):
+        diag_ids = diagnostics_df.dropna(subset=["window_id"]).copy()
+        if not diag_ids.empty:
+            diag_ids["window_id"] = diag_ids["window_id"].astype(int)
+            changed_mask = diag_ids["changed_flag"].fillna(0).astype(int) == 1
+            changed_windows_by_regime["full"] = set(diag_ids.loc[changed_mask, "window_id"])
+            for regime_name in _REGIMES:
+                regime_mask = diag_ids["regime"] == regime_name
+                changed_windows_by_regime[regime_name] = set(
+                    diag_ids.loc[regime_mask & changed_mask, "window_id"]
+                )
 
     for regime, path in regime_dirs.items():
         subset_metrics = summary_df[summary_df["regime"] == regime]
@@ -2315,12 +2504,17 @@ def run_evaluation(
         comparators = ("baseline", "lw", "oas")
         for portfolio in ("ew", "mv"):
             for comparator in comparators:
+                if regime == "full":
+                    valid_ids = changed_windows_by_regime.get("full", set())
+                else:
+                    valid_ids = changed_windows_by_regime.get(regime, set())
                 dm_stat, p_value, n_eff = _aligned_dm_stat(
                     metrics_df,
                     regime,
                     portfolio,
                     column="sq_error",
                     comparator=comparator,
+                    valid_window_ids=valid_ids,
                 )
                 dm_stat_qlike, p_value_qlike, n_eff_qlike = _aligned_dm_stat(
                     metrics_df,
@@ -2328,6 +2522,7 @@ def run_evaluation(
                     portfolio,
                     column="qlike",
                     comparator=comparator,
+                    valid_window_ids=valid_ids,
                 )
                 dm_rows.append(
                     {
@@ -2369,6 +2564,41 @@ def run_evaluation(
             outputs_plots[regime] = plot_path
         else:
             outputs_plots[regime] = path / "delta_mse.png"
+
+    plot_paths = _paths_to_strings(outputs_plots)
+    if extra_plots:
+        plot_paths.update({f"hist_{name}": str(path) for name, path in extra_plots.items()})
+    run_metadata = {
+        "git_sha": _current_git_sha(),
+        "out_dir": str(out_dir),
+        "config": resolved_payload,
+        "execution": {
+            "mode": resolved_payload.get("exec_mode", "deterministic"),
+            "thread_caps": runtime.thread_caps_snapshot(),
+        },
+        "use_factor_prewhiten": bool(config.use_factor_prewhiten),
+        "factors": {
+            "key": factor_entry.key,
+            "path": str(factor_entry.path),
+            "sha256": factor_entry.sha256,
+            "start_date": factor_entry.start_date,
+            "end_date": factor_entry.end_date,
+            "source": factor_entry.source,
+            "note": factor_entry.note,
+        }
+        if factor_entry is not None
+        else None,
+        "outputs": {
+            "metrics": _paths_to_strings(outputs_metrics),
+            "risk": _paths_to_strings(outputs_risk),
+            "dm": _paths_to_strings(outputs_dm),
+            "diagnostics": _paths_to_strings(outputs_diag),
+            "diagnostics_detail": _paths_to_strings(outputs_diag_detail),
+            "plots": plot_paths,
+            "overlay_toggle": str(overlay_toggle_path),
+        },
+    }
+    _write_run_metadata(out_dir / "run.json", run_metadata)
 
     detail_root_path = out_dir / "diagnostics_detail.csv"
     diagnostics_df.to_csv(detail_root_path, index=False)

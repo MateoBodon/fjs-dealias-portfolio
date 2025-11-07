@@ -1,0 +1,7 @@
+portfolio,baseline,dm_stat,p_value,n_effective,dm_stat_qlike,p_value_qlike,n_effective_qlike
+ew,baseline,,,152,,,152
+ew,lw,,,152,-1.95447455561119,0.05249235060724344,152
+ew,oas,,,152,,,152
+mv,baseline,,,152,,,152
+mv,lw,,,152,1.5601684172706458,0.12081350086445886,152
+mv,oas,,,152,,,152

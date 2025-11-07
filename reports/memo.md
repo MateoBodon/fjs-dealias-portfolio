@@ -32,12 +32,38 @@ Values are measured versus the de-aliased baseline; negative Delta MSE indicates
 
 ## 2025-11-07 deterministic DoW + vol RC (WRDS)
 
-- **Scope & mode:** Re-ran the WRDS day-of-week (Tyler primary + SCM check) and vol-state (Tyler) RCs on the CRSP-daily panel (`data/returns_daily.csv`, SHA `96ac7dd…3197`) via `scripts/aws_run.sh` with deterministic threading/single BLAS. Every target now enforces the MV defaults (ridge 1e-4, box [0, 0.1], 5 bps turnover, κ-cap 1e6) from the CLI.
-- **Calibration check:** `tools/verify_dataset.py` guards every run against `data/registry.json`. Crisis buckets still reported 0% acceptance, so we nudged `calibration/defaults.json` (δ: 0.35→0.30 for both Tyler/SCM G36 bins) and documented the change in `reports/calibration_notes.md`. Post-nudge reruns remained fully rejected, indicating the gating failures stem from upstream detection errors rather than thresholds.
-- **Diagnostics:** `diagnostics.csv`/`diagnostics_detail.csv` log `acceptance_rate = detection_rate = 0` with `reason_code=detection_error` for 59% of DoW windows and 19% of vol windows, and `balance_failure` for the remainder. All acceptance/edge-margin histograms are attached (`reports/rc-20251107/*/acceptance_hist_*.png`, `edge_margin_hist_*.png`) and show the mass at zero. We need to root-cause the repeated `detect_spikes` failures (likely the missing factor residuals noted under `baseline_errors`) before expecting non-zero gate pass-through.
-- **Risk & coverage:** Even without accepted overlays, EW calm buckets stay near the 5% VaR target (4.8%), but MV calm exposures overshoot (9–10%) and vol-state EW calm buckets collapsed to 0% (too conservative). Crisis buckets also show 8–11% MV violation rates, so we still have work to do on turnover-aware MV smoothing.
-- **Condition numbers:** DoW baselines stay well below the κ-cap (median ≈25, p90 ≈33). Vol-state covariances remain an order of magnitude higher (median 1.8e2; crisis p90 ≈4.6e2) but still under the 1e6 limit after dropping the flagged windows.
-- **Baselines parity:** RIE, LW, OAS, QuEST, and EWMA appear in every regime table. Factor-residual rows are absent because the WRDS run lacks aligned factor residuals (`baseline_errors` records `factor:missing factor returns`), which we need to restore before the next evaluation.
+- **Scope & mode:** Attempted to dispatch the deterministic RC targets via `scripts/aws_run.sh`, but the AWS harness is currently missing `INSTANCE_DNS`/`KEY_PATH`. Re-ran the DoW (Tyler primary + SCM check) and vol-state (Tyler) targets locally with the same deterministic threading caps, `USE_FACTORS=1`, and the WRDS returns hash (`data/returns_daily.csv`, SHA `96ac7dd…3197`). Each run now writes a `run.json` manifest (see `reports/rc-20251107/*/run.json`) that captures git SHA `b1611887`, the factor registry entry, and the deterministic BLAS caps.
+- **Calibration check:** Factor prewhitening is now enforced via `data/factors/registry.json` (FF5+MOM, SHA `469d44ad…08ca`) with `prewhiten_mode_effective = ff5mom` and `r2_mean ≈ 0.39`. Crisis acceptance nevertheless stayed at 0%, so we recorded the “no change” decision in `reports/calibration_notes.md` (δ remains 0.30) pending a fix to the overlay detector itself.
+- **Diagnostics:** `factor_present_share = 1.0` and the new `changed_flag` column confirms that 0% of windows triggered an overlay update (`percent_changed = 0` in every regime). Reason codes split as: DoW full run — `detection_error` 471 (56.2%), `balance_failure` 342 (40.8%), `holdout_empty` 25 (3.0%); Vol full run — `balance_failure` 761 (85.3%), `detection_error` 97 (10.9%), `holdout_empty` 34 (3.8%). The acceptance/edge-margin histograms (`reports/rc-20251107/dow-tyler/acceptance_hist_dow.png`, `.../edge_margin_hist_dow.png`, `.../vol-tyler/acceptance_hist_vol.png`, `.../edge_margin_hist_vol.png`) show all mass at zero.
+- **Risk & coverage:** Overlay metrics collapse to the baseline because no windows changed (`delta_mse_vs_baseline = delta_es_vs_baseline = delta_qlike_vs_baseline = 0` for both EW and MV). VaR/ES forecasts therefore match the baseline values (e.g., DoW full EW VaR95 = −5.48 bps, MV VaR95 = −4.35 bps) and the violation rates remain unchanged (EW calm ≈4.8%, MV calm ≈6.5%; vol calm ≈0% because those windows failed balance checks).
+- **Condition numbers:** Baseline κ̄ stays moderate in DoW (full κ̄ = 11.2, p90 = 18.4; calm κ̄ = 9.1) but the vol-state crisis bucket spikes to κ̄ = 79.5 although still well below the 1e6 cap. Overlay κ values mirror the baseline because no windows were altered.
+- **Baselines parity:** Sample, RIE, LW, OAS, CC, QuEST, EWMA, observed-factor, and POET-lite rows all populate `metrics.csv`, and any estimator failure surfaces via the existing `baseline_error_*` columns (none fired in this rerun). The DM tables now annotate the effective sample size; every entry is `n_effective = 0` because no detections survived the overlay gate.
+
+### Transfer Check (deterministic RC)
+
+The new diagnostics add `factor_present`/`changed_flag`, per-regime `percent_changed`, and the acceptance/edge-margin histograms required for the transfer sanity check.
+
+- **DoW histograms:** `![DoW acceptance histogram](reports/rc-20251107/dow-tyler/acceptance_hist_dow.png)` and `![DoW edge-margin histogram](reports/rc-20251107/dow-tyler/edge_margin_hist_dow.png)`
+- **Vol histograms:** `![Vol acceptance histogram](reports/rc-20251107/vol-tyler/acceptance_hist_vol.png)` and `![Vol edge-margin histogram](reports/rc-20251107/vol-tyler/edge_margin_hist_vol.png)`
+- **DM conditioning:** Every DM row now reports `n_effective`, which remained zero because `percent_changed = 0`. All DM p-values are therefore `n/a (0 changed windows)` by construction.
+- **VaR/ES deltas:** Overlay VaR/ES equals the baseline in every regime (δVaR = δES = 0 for both EW and MV), confirming that no windows slipped through the overlay gate.
+- **Reason-code split:** DoW runs are dominated by `detection_error` (56%) with the remainder stuck in `balance_failure`; vol-state runs are mostly `balance_failure` (85%), flagging that the vol grouping still needs better balancing/universe pruning before overlays can kick in.
+
+#### DoW (Tyler edge; SCM mirrors the same stats)
+
+| Regime | ΔMSE (EW/MV) | DM p (EW/MV) | κ̄ baseline | % windows changed |
+| --- | --- | --- | --- | --- |
+| Full | 0 / 0 | n/a (0) / n/a (0) | 11.2 | 0 % |
+| Calm | 0 / 0 | n/a (0) / n/a (0) | 9.1 | 0 % |
+| Crisis | 0 / 0 | n/a (0) / n/a (0) | 11.5 | 0 % |
+
+#### Vol-state (Tyler edge)
+
+| Regime | ΔMSE (EW/MV) | DM p (EW/MV) | κ̄ baseline | % windows changed |
+| --- | --- | --- | --- | --- |
+| Full | 0 / 0 | n/a (0) / n/a (0) | 15.6 | 0 % |
+| Calm | 0 / 0 | n/a (0) / n/a (0) | 14.9 | 0 % |
+| Crisis | 0 / 0 | n/a (0) / n/a (0) | 79.5 | 0 % |
 
 ### DM(QLIKE) vs LW/OAS — DoW (Tyler overlay)
 

@@ -1,0 +1,18 @@
+{
+  "asset_count": 80,
+  "mean_r_squared": 0.39238155230446575,
+  "median_r_squared": 0.37336681060663696,
+  "mode_requested": "ff5mom",
+  "mode_effective": "ff5mom",
+  "beta_abs_mean": 0.3091984306657131,
+  "beta_abs_std": 0.5081310609215276,
+  "beta_abs_median": 0.13587326711595848,
+  "factor_columns": [
+    "MKT",
+    "SMB",
+    "HML",
+    "RMW",
+    "CMA",
+    "MOM"
+  ]
+}

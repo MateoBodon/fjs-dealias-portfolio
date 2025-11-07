@@ -1,0 +1,17 @@
+{
+  "samples": 10,
+  "cpu_process_avg": 0.0,
+  "cpu_process_peak": 0.0,
+  "memory_rss_avg_mb": 213.065625,
+  "memory_rss_peak_mb": 272.45703125,
+  "memory_uss_avg_mb": 206.81484375,
+  "memory_uss_peak_mb": 265.03125,
+  "io_read_total_mb": 1.80859375,
+  "io_write_total_mb": 0.01171875,
+  "command": "make rc-dow EDGE=tyler MODE=deterministic",
+  "start_utc": "2025-11-07T01:12:42.748381+00:00",
+  "end_utc": "2025-11-07T01:13:28.245233+00:00",
+  "duration_seconds": 45.49684691429138,
+  "return_code": 0,
+  "tag": ""
+}

@@ -1,0 +1,17 @@
+{
+  "samples": 10,
+  "cpu_process_avg": 0.0,
+  "cpu_process_peak": 0.0,
+  "memory_rss_avg_mb": 212.25,
+  "memory_rss_peak_mb": 272.3125,
+  "memory_uss_avg_mb": 207.244921875,
+  "memory_uss_peak_mb": 265.55078125,
+  "io_read_total_mb": 0.0,
+  "io_write_total_mb": 0.01171875,
+  "command": "make rc-dow EDGE=scm MODE=deterministic",
+  "start_utc": "2025-11-07T01:20:01.517210+00:00",
+  "end_utc": "2025-11-07T01:20:47.009420+00:00",
+  "duration_seconds": 45.492228269577026,
+  "return_code": 0,
+  "tag": ""
+}

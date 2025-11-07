@@ -64,8 +64,12 @@ DEFAULTS: dict[str, Any] = {
     "echo_config": True,
     "overlay_a_grid": 60,
     "overlay_seed": None,
-    "mv_gamma": 5e-4,
+    "mv_gamma": 1e-4,
     "mv_tau": 0.0,
+    "mv_box_lo": 0.0,
+    "mv_box_hi": 0.1,
+    "mv_turnover_bps": 5.0,
+    "mv_condition_cap": 1e6,
     "bootstrap_samples": 0,
     "require_isolated": True,
     "q_max": 1,
@@ -234,6 +238,19 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
     )
     merged["assets_top"] = assets_top_val
 
+    mv_gamma_val = float(merged.get("mv_gamma", DEFAULTS["mv_gamma"]))
+    mv_tau_val = float(merged.get("mv_tau", DEFAULTS["mv_tau"]))
+    mv_box_lo_val = float(merged.get("mv_box_lo", DEFAULTS["mv_box_lo"]))
+    mv_box_hi_val = float(merged.get("mv_box_hi", DEFAULTS["mv_box_hi"]))
+    if mv_box_hi_val <= mv_box_lo_val:
+        raise ValueError("mv_box_hi must be greater than mv_box_lo.")
+    mv_turnover_bps_val = float(merged.get("mv_turnover_bps", DEFAULTS["mv_turnover_bps"]))
+    if mv_turnover_bps_val < 0.0:
+        raise ValueError("mv_turnover_bps must be non-negative.")
+    mv_condition_cap_val = float(merged.get("mv_condition_cap", DEFAULTS["mv_condition_cap"]))
+    if mv_condition_cap_val <= 0.0:
+        raise ValueError("mv_condition_cap must be positive.")
+
     config = EvalConfig(
         returns_csv=Path(returns_csv),
         factors_csv=Path(factors_csv) if factors_csv else None,
@@ -259,8 +276,12 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         workers=int(merged["workers"]) if merged.get("workers") is not None else None,
         overlay_a_grid=int(merged.get("overlay_a_grid", DEFAULTS["overlay_a_grid"])),
         overlay_seed=int(merged["overlay_seed"]) if merged.get("overlay_seed") is not None else None,
-        mv_gamma=float(merged.get("mv_gamma", DEFAULTS["mv_gamma"])),
-        mv_tau=float(merged.get("mv_tau", DEFAULTS["mv_tau"])),
+        mv_gamma=mv_gamma_val,
+        mv_tau=mv_tau_val,
+        mv_box_lo=mv_box_lo_val,
+        mv_box_hi=mv_box_hi_val,
+        mv_turnover_bps=mv_turnover_bps_val,
+        mv_condition_cap=mv_condition_cap_val,
         bootstrap_samples=int(merged.get("bootstrap_samples", DEFAULTS["bootstrap_samples"])),
         require_isolated=require_isolated,
         q_max=q_max,
@@ -315,6 +336,10 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         "overlay_seed": config.overlay_seed,
         "mv_gamma": config.mv_gamma,
         "mv_tau": config.mv_tau,
+        "mv_box_lo": config.mv_box_lo,
+        "mv_box_hi": config.mv_box_hi,
+        "mv_turnover_bps": config.mv_turnover_bps,
+        "mv_condition_cap": config.mv_condition_cap,
         "bootstrap_samples": config.bootstrap_samples,
         "require_isolated": require_isolated,
         "q_max": config.q_max,

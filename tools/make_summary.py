@@ -51,12 +51,14 @@ def _pick_row(df: pd.DataFrame, *, regime: str | None, estimator: str | None, po
     return subset.iloc[0]
 
 
-def _pick_dm_row(df: pd.DataFrame, *, regime: str, portfolio: str) -> pd.Series | None:
+def _pick_dm_row(df: pd.DataFrame, *, regime: str, portfolio: str, baseline: str = "baseline") -> pd.Series | None:
     if df.empty:
         return None
     mask = _normalise(df["portfolio"], portfolio)
     if "regime" in df.columns:
         mask &= _normalise(df["regime"], regime)
+    if "baseline" in df.columns and baseline:
+        mask &= _normalise(df["baseline"], baseline)
     subset = df[mask]
     if subset.empty:
         return None

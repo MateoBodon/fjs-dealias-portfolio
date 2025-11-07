@@ -41,6 +41,7 @@ from eval.clean import apply_nan_policy
 from evaluation.factor import observed_factor_covariance, poet_lite_covariance
 from evaluation.dm import dm_test
 from evaluation.evaluate import alignment_diagnostics
+from finance import MinVarMemo, minvar_ridge_box, turnover
 from fjs.overlay import OverlayConfig, apply_overlay, detect_spikes
 from experiments.daily.grouping import (
     GroupingError,
@@ -140,8 +141,12 @@ class EvalConfig:
     workers: int | None = None
     overlay_a_grid: int = 60
     overlay_seed: int | None = None
-    mv_gamma: float = 5e-4
+    mv_gamma: float = 1e-4
     mv_tau: float = 0.0
+    mv_box_lo: float = 0.0
+    mv_box_hi: float = 0.1
+    mv_turnover_bps: float = 5.0
+    mv_condition_cap: float = 1e6
     bootstrap_samples: int = 0
     require_isolated: bool = True
     q_max: int = 1
@@ -408,36 +413,52 @@ def _aligned_error_table(
     metrics: pd.DataFrame,
     regime: str,
     portfolio: str,
+    *,
+    column: str,
+    estimator_ref: str = "overlay",
+    comparator: str = "baseline",
 ) -> pd.DataFrame:
     mask = metrics["portfolio"].eq(portfolio)
     if regime != "full":
         mask &= metrics["regime"].eq(regime)
-    subset = metrics.loc[mask, ["window_id", "estimator", "sq_error"]]
+    if column not in metrics.columns:
+        return pd.DataFrame(columns=[estimator_ref, comparator])
+    subset = metrics.loc[mask, ["window_id", "estimator", column]]
     if subset.empty:
-        return pd.DataFrame(columns=["overlay", "baseline"])
+        return pd.DataFrame(columns=[estimator_ref, comparator])
     pivot = subset.pivot_table(
         index="window_id",
         columns="estimator",
-        values="sq_error",
+        values=column,
         aggfunc="first",
     )
-    if "overlay" not in pivot.columns or "baseline" not in pivot.columns:
-        return pd.DataFrame(columns=["overlay", "baseline"])
-    return pivot[["overlay", "baseline"]].dropna()
+    if estimator_ref not in pivot.columns or comparator not in pivot.columns:
+        return pd.DataFrame(columns=[estimator_ref, comparator])
+    return pivot[[estimator_ref, comparator]].dropna()
 
 
 def _aligned_dm_stat(
     metrics: pd.DataFrame,
     regime: str,
     portfolio: str,
+    *,
+    column: str = "sq_error",
+    comparator: str = "baseline",
 ) -> tuple[float, float, int]:
-    aligned = _aligned_error_table(metrics, regime, portfolio)
+    aligned = _aligned_error_table(
+        metrics,
+        regime,
+        portfolio,
+        column=column,
+        estimator_ref="overlay",
+        comparator=comparator,
+    )
     n_eff = int(aligned.shape[0])
     if n_eff < 2:
         return float("nan"), float("nan"), n_eff
     dm_stat, p_value = dm_test(
         aligned["overlay"].to_numpy(),
-        aligned["baseline"].to_numpy(),
+        aligned[comparator].to_numpy(),
     )
     return dm_stat, p_value, n_eff
 
@@ -581,6 +602,55 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
         help="Optional seed override specifically for overlay search.",
     )
     parser.add_argument(
+        "--mv-gamma",
+        dest="mv_gamma",
+        type=float,
+        default=None,
+        help="Ridge penalty applied to the min-variance solver (overrides defaults).",
+    )
+    parser.add_argument(
+        "--mv-tau",
+        dest="mv_tau",
+        type=float,
+        default=None,
+        help="Turnover smoothing penalty for the legacy MV solver (default mirrors config).",
+    )
+    parser.add_argument(
+        "--mv-box",
+        dest="mv_box",
+        type=str,
+        default=None,
+        help="Comma-separated lower/upper bounds for MV weights (e.g., 0.0,0.1).",
+    )
+    parser.add_argument(
+        "--mv-box-lo",
+        dest="mv_box_lo",
+        type=float,
+        default=None,
+        help="Lower bound for MV weights (overrides defaults).",
+    )
+    parser.add_argument(
+        "--mv-box-hi",
+        dest="mv_box_hi",
+        type=float,
+        default=None,
+        help="Upper bound for MV weights (overrides defaults).",
+    )
+    parser.add_argument(
+        "--mv-turnover-bps",
+        dest="mv_turnover_bps",
+        type=float,
+        default=None,
+        help="One-way turnover cost applied to MV forecasts (in basis points).",
+    )
+    parser.add_argument(
+        "--mv-condition-cap",
+        dest="mv_condition_cap",
+        type=float,
+        default=None,
+        help="Drop windows whose covariance condition number exceeds this cap.",
+    )
+    parser.add_argument(
         "--ewma-halflife",
         dest="ewma_halflife",
         type=float,
@@ -706,20 +776,6 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
         help="Allow non-isolated detections to pass strict gate.",
     )
     parser.add_argument(
-        "--mv-gamma",
-        dest="mv_gamma",
-        type=float,
-        default=None,
-        help="Ridge regulariser for minimum-variance weights (default sourced from config layers).",
-    )
-    parser.add_argument(
-        "--mv-tau",
-        dest="mv_tau",
-        type=float,
-        default=None,
-        help="Turnover penalty for minimum-variance weights; set to 0 for no penalty.",
-    )
-    parser.add_argument(
         "--bootstrap-samples",
         dest="bootstrap_samples",
         type=int,
@@ -796,6 +852,16 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
         help="Maximum missing fraction allowed per replicate row before dropping.",
     )
     args = parser.parse_args(argv)
+    if getattr(args, "mv_box", None) and (args.mv_box_lo is None or args.mv_box_hi is None):
+        parts = [part.strip() for part in args.mv_box.split(",")]
+        if len(parts) != 2:
+            parser.error("--mv-box must be formatted as 'lo,hi'.")
+        try:
+            args.mv_box_lo = float(parts[0])
+            args.mv_box_hi = float(parts[1])
+        except ValueError as exc:  # pragma: no cover - argparse-level validation
+            parser.error(f"--mv-box bounds must be numeric: {exc}")
+    args.mv_box = None
     resolved = resolve_eval_config(vars(args))
     config = resolved.config
     resolved.resolved["exec_mode"] = args.exec_mode
@@ -904,36 +970,17 @@ def _build_grouped_window(
 def _min_variance_weights(
     covariance: np.ndarray,
     *,
-    gamma: float,
-    tau: float,
-    prev_weights: np.ndarray | None,
-) -> np.ndarray:
-    p = covariance.shape[0]
-    identity = np.eye(p, dtype=np.float64)
-    adjusted = np.asarray(covariance, dtype=np.float64) + float(gamma + tau) * identity
-    rhs = np.zeros(p + 1, dtype=np.float64)
-    if tau > 0.0 and prev_weights is not None and prev_weights.shape[0] == p:
-        rhs[:p] = float(tau) * prev_weights
-    K = np.zeros((p + 1, p + 1), dtype=np.float64)
-    K[:p, :p] = adjusted
-    K[:p, -1] = 1.0
-    K[-1, :p] = 1.0
-    rhs[-1] = 1.0
-    try:
-        solution = np.linalg.solve(K, rhs)
-        weights = solution[:p]
-    except np.linalg.LinAlgError:
-        try:
-            solution, *_ = np.linalg.lstsq(K, rhs, rcond=None)
-            weights = solution[:p]
-        except np.linalg.LinAlgError:
-            return np.full(p, 1.0 / p, dtype=np.float64)
-    if not np.all(np.isfinite(weights)):
-        return np.full(p, 1.0 / p, dtype=np.float64)
-    total = float(weights.sum())
-    if abs(total) <= 1e-12:
-        return np.full(p, 1.0 / p, dtype=np.float64)
-    return weights / total
+    ridge: float,
+    box: tuple[float, float],
+    cache: MinVarMemo | None,
+) -> tuple[np.ndarray, dict[str, float | int | bool]]:
+    weights, info = minvar_ridge_box(
+        covariance,
+        ridge=max(float(ridge), 0.0),
+        box=box,
+        cache=cache,
+    )
+    return weights, info
 
 
 def _expected_shortfall(sigma: float, alpha: float = 0.05) -> float:
@@ -946,6 +993,25 @@ def _realised_tail_mean(returns: np.ndarray, var_threshold: float) -> float:
     if tail.size == 0:
         return float("nan")
     return float(np.mean(tail))
+
+
+def _safe_condition_number(matrix: np.ndarray) -> float:
+    try:
+        return float(np.linalg.cond(matrix))
+    except Exception:
+        return float("inf")
+
+
+def _qlike_loss(forecast_var: float, realised_var: float) -> float:
+    if not np.isfinite(forecast_var):
+        return float("nan")
+    eps = 1e-12
+    fvar = max(float(forecast_var), eps)
+    rval = max(float(realised_var), eps)
+    ratio = rval / fvar
+    if ratio <= 0.0 or not np.isfinite(ratio):
+        return float("nan")
+    return float(ratio - math.log(ratio) - 1.0)
 
 
 def _limit_windows_by_regime(
@@ -1139,6 +1205,10 @@ def run_evaluation(
 
     mv_gamma = float(config.mv_gamma)
     mv_tau = float(config.mv_tau)
+    mv_box = (float(config.mv_box_lo), float(config.mv_box_hi))
+    mv_turnover_bps = float(config.mv_turnover_bps)
+    mv_condition_cap = float(config.mv_condition_cap)
+    mv_cache = MinVarMemo()
     prev_mv_weights: dict[tuple[str, ...], np.ndarray] = {}
 
     def _evaluate_window(start: int) -> tuple[list[dict[str, object]], dict[str, object] | None]:
@@ -1525,107 +1595,136 @@ def run_evaluation(
 
         overlay_cov = apply_overlay(sample_cov, detections, observations=fit_matrix, config=overlay_cfg)
         baseline_cov = apply_overlay(sample_cov, [], observations=fit_matrix, config=overlay_cfg)
-        covariances: dict[str, np.ndarray] = {
-            "overlay": np.asarray(overlay_cov, dtype=np.float64),
-            "baseline": np.asarray(baseline_cov, dtype=np.float64),
-            "sample": np.asarray(sample_cov, dtype=np.float64),
-            "scm": np.asarray(sample_cov, dtype=np.float64),
-        }
+        baseline_cond = _safe_condition_number(baseline_cov)
+        overlay_cond = _safe_condition_number(overlay_cov)
+        condition_flag = bool(
+            mv_condition_cap > 0.0
+            and (not np.isfinite(baseline_cond) or baseline_cond > mv_condition_cap)
+        )
+        if condition_flag:
+            reason = DiagnosticReason.CONDITION_CAP
+
+        covariances: dict[str, np.ndarray] = {}
         baseline_errors: dict[str, str] = {}
-
-        sample_count = int(fit_matrix.shape[0])
-
-        def _add_covariance(name: str, builder: Callable[[], np.ndarray]) -> None:
-            try:
-                matrix = np.asarray(builder(), dtype=np.float64)
-                if matrix.shape != sample_cov.shape:
-                    raise ValueError(f"unexpected covariance shape {matrix.shape} (expected {sample_cov.shape})")
-                covariances[name] = 0.5 * (matrix + matrix.T)
-            except Exception as exc:  # pragma: no cover - propagated to diagnostics
-                baseline_errors[name] = str(exc)
-
-        _add_covariance("rie", lambda: rie_covariance(sample_cov, sample_count=sample_count))
-        _add_covariance("lw", lambda: baseline_lw_covariance(fit_matrix))
-        _add_covariance("oas", lambda: baseline_oas_covariance(fit_matrix))
-        _add_covariance("cc", lambda: baseline_cc_covariance(fit_matrix))
-        _add_covariance("quest", lambda: baseline_quest_covariance(sample_cov, sample_count=sample_count))
-        _add_covariance(
-            "ewma",
-            lambda: baseline_ewma_covariance(
-                fit_matrix,
-                halflife=float(config.ewma_halflife),
-            ),
-        )
-
-        def _factor_cov_builder() -> np.ndarray:
-            factors_df = getattr(whitening, "factors", pd.DataFrame())
-            if not isinstance(factors_df, pd.DataFrame) or factors_df.empty:
-                raise ValueError("missing factor returns")
-            aligned_index = factors_df.index.intersection(fit.index)
-            factor_window = factors_df.loc[aligned_index].dropna(axis=0, how="any")
-            if factor_window.shape[0] <= 1:
-                raise ValueError("insufficient factor observations for window")
-            returns_window = fit.loc[factor_window.index].astype(np.float64)
-            factor_window = factor_window.astype(np.float64)
-            return observed_factor_covariance(returns_window, factor_window, add_intercept=True)
-
-        _add_covariance("factor", _factor_cov_builder)
-
-        def _poet_cov_builder() -> np.ndarray:
-            window = fit.dropna(axis=0, how="any")
-            if window.shape[0] <= 1:
-                raise ValueError("insufficient observations for POET")
-            max_factors = int(min(10, max(window.shape[1] - 1, 1)))
-            poet_result = poet_lite_covariance(window, max_factors=max_factors)
-            return poet_result.covariance
-
-        _add_covariance("poet", _poet_cov_builder)
-
-        hold_matrix = hold.to_numpy(dtype=np.float64)
-        eq_weights = np.full(p_assets, 1.0 / p_assets, dtype=np.float64)
-        prev_weights = prev_mv_weights.get(asset_key) if mv_tau > 0.0 else None
-        mv_weights = _min_variance_weights(
-            baseline_cov,
-            gamma=mv_gamma,
-            tau=mv_tau,
-            prev_weights=prev_weights,
-        )
-        if mv_tau > 0.0:
-            prev_mv_weights[asset_key] = mv_weights
-        weights_map = {"ew": eq_weights, "mv": mv_weights}
-
+        cond_map: dict[str, float] = {}
         metrics_block: list[dict[str, object]] = []
-        for estimator, cov in covariances.items():
-            for portfolio, weights in weights_map.items():
-                forecast_var = float(weights.T @ cov @ weights)
-                sigma = float(np.sqrt(max(forecast_var, 1e-12)))
-                realised_returns = hold_matrix @ weights
-                realised_var = float(np.var(realised_returns, ddof=1)) if realised_returns.size > 1 else float("nan")
-                var95 = float(stats.norm.ppf(0.05) * sigma)
-                es95 = _expected_shortfall(sigma)
-                violations = realised_returns < var95
-                violation_rate = float(np.mean(violations)) if violations.size else float("nan")
-                realised_es = _realised_tail_mean(realised_returns, var95)
-                mse = (forecast_var - realised_var) ** 2 if np.isfinite(realised_var) else float("nan")
-                es_error = (es95 - realised_es) ** 2 if np.isfinite(realised_es) else float("nan")
+        mv_turnover_value = float("nan")
+        mv_turnover_cost_bps = float("nan")
+        mv_condition_penalized = float("nan")
 
-                metrics_block.append(
-                    {
-                        "window_id": start,
-                        "regime": regime,
-                        "estimator": estimator,
-                        "portfolio": portfolio,
-                        "forecast_var": forecast_var,
-                        "realised_var": realised_var,
-                        "vaR95": var95,
-                        "es95": es95,
-                        "violation_rate": violation_rate,
-                        "realised_es": realised_es,
-                        "sq_error": mse,
-                        "sq_error_es": es_error,
-                    }
-                )
+        if not condition_flag:
+            covariances = {
+                "overlay": np.asarray(overlay_cov, dtype=np.float64),
+                "baseline": np.asarray(baseline_cov, dtype=np.float64),
+                "sample": np.asarray(sample_cov, dtype=np.float64),
+                "scm": np.asarray(sample_cov, dtype=np.float64),
+            }
 
+            sample_count = int(fit_matrix.shape[0])
+
+            def _add_covariance(name: str, builder: Callable[[], np.ndarray]) -> None:
+                try:
+                    matrix = np.asarray(builder(), dtype=np.float64)
+                    if matrix.shape != sample_cov.shape:
+                        raise ValueError(
+                            f"unexpected covariance shape {matrix.shape} (expected {sample_cov.shape})"
+                        )
+                    covariances[name] = 0.5 * (matrix + matrix.T)
+                except Exception as exc:  # pragma: no cover - propagated to diagnostics
+                    baseline_errors[name] = str(exc)
+
+            _add_covariance("rie", lambda: rie_covariance(sample_cov, sample_count=sample_count))
+            _add_covariance("lw", lambda: baseline_lw_covariance(fit_matrix))
+            _add_covariance("oas", lambda: baseline_oas_covariance(fit_matrix))
+            _add_covariance("cc", lambda: baseline_cc_covariance(fit_matrix))
+            _add_covariance("quest", lambda: baseline_quest_covariance(sample_cov, sample_count=sample_count))
+            _add_covariance(
+                "ewma",
+                lambda: baseline_ewma_covariance(
+                    fit_matrix,
+                    halflife=float(config.ewma_halflife),
+                ),
+            )
+
+            def _factor_cov_builder() -> np.ndarray:
+                factors_df = getattr(whitening, "factors", pd.DataFrame())
+                if not isinstance(factors_df, pd.DataFrame) or factors_df.empty:
+                    raise ValueError("missing factor returns")
+                aligned_index = factors_df.index.intersection(fit.index)
+                factor_window = factors_df.loc[aligned_index].dropna(axis=0, how="any")
+                if factor_window.shape[0] <= 1:
+                    raise ValueError("insufficient factor observations for window")
+                returns_window = fit.loc[factor_window.index].astype(np.float64)
+                factor_window = factor_window.astype(np.float64)
+                return observed_factor_covariance(returns_window, factor_window, add_intercept=True)
+
+            _add_covariance("factor", _factor_cov_builder)
+
+            def _poet_cov_builder() -> np.ndarray:
+                window = fit.dropna(axis=0, how="any")
+                if window.shape[0] <= 1:
+                    raise ValueError("insufficient observations for POET")
+                max_factors = int(min(10, max(window.shape[1] - 1, 1)))
+                poet_result = poet_lite_covariance(window, max_factors=max_factors)
+                return poet_result.covariance
+
+            _add_covariance("poet", _poet_cov_builder)
+
+            hold_matrix = hold.to_numpy(dtype=np.float64)
+            eq_weights = np.full(p_assets, 1.0 / p_assets, dtype=np.float64)
+            prev_weights = prev_mv_weights.get(asset_key)
+            mv_weights, mv_solver_info = _min_variance_weights(
+                baseline_cov,
+                ridge=mv_gamma,
+                box=mv_box,
+                cache=mv_cache,
+            )
+            mv_condition_penalized = float(mv_solver_info.get("cond_penalized", float("nan")))
+            if prev_weights is not None and prev_weights.shape == mv_weights.shape:
+                mv_turnover_value = float(turnover(prev_weights, mv_weights))
+            else:
+                mv_turnover_value = 0.0
+            mv_turnover_cost_bps = mv_turnover_value * mv_turnover_bps
+            prev_mv_weights[asset_key] = mv_weights.copy()
+            weights_map = {"ew": eq_weights, "mv": mv_weights}
+            cond_map = {name: _safe_condition_number(matrix) for name, matrix in covariances.items()}
+
+            for estimator, cov in covariances.items():
+                for portfolio, weights in weights_map.items():
+                    forecast_var = float(weights.T @ cov @ weights)
+                    sigma = float(np.sqrt(max(forecast_var, 1e-12)))
+                    realised_returns = hold_matrix @ weights
+                    realised_var = (
+                        float(np.var(realised_returns, ddof=1)) if realised_returns.size > 1 else float("nan")
+                    )
+                    var95 = float(stats.norm.ppf(0.05) * sigma)
+                    es95 = _expected_shortfall(sigma)
+                    violations = realised_returns < var95
+                    violation_rate = float(np.mean(violations)) if violations.size else float("nan")
+                    realised_es = _realised_tail_mean(realised_returns, var95)
+                    mse = (forecast_var - realised_var) ** 2 if np.isfinite(realised_var) else float("nan")
+                    es_error = (es95 - realised_es) ** 2 if np.isfinite(realised_es) else float("nan")
+                    qlike_error = _qlike_loss(forecast_var, realised_var)
+                    metrics_block.append(
+                        {
+                            "window_id": start,
+                            "regime": regime,
+                            "estimator": estimator,
+                            "portfolio": portfolio,
+                            "forecast_var": forecast_var,
+                            "realised_var": realised_var,
+                            "vaR95": var95,
+                            "es95": es95,
+                            "violation_rate": violation_rate,
+                            "realised_es": realised_es,
+                            "sq_error": mse,
+                            "sq_error_es": es_error,
+                            "qlike": qlike_error,
+                            "cov_condition": cond_map.get(estimator, float("nan")),
+                            "mv_turnover": mv_turnover_value if portfolio == "mv" else 0.0,
+                            "mv_turnover_cost_bps": mv_turnover_cost_bps if portfolio == "mv" else 0.0,
+                        }
+                    )
         if detections:
             edge_margins = [float(det.get("edge_margin", 0.0) or 0.0) for det in detections]
             stability = [float(det.get("stability_margin", 0.0) or 0.0) for det in detections]
@@ -1650,14 +1749,19 @@ def run_evaluation(
         substitution_fraction = (
             len(detections) / float(p_assets) if p_assets else 0.0
         )
+        baseline_error_str = "" if not baseline_errors else ";".join(
+            f"{key}:{value}" for key, value in sorted(baseline_errors.items())
+        )
         diag_record = {
             "window_id": start,
             "window_start": hold_start.isoformat(),
             "regime": regime,
             "detections": len(detections),
             "detection_rate": len(detections) / float(p_assets) if p_assets else 0.0,
+            "acceptance_rate": len(detections) / float(p_assets) if p_assets else 0.0,
             "edge_margin_mean": float(np.mean(edge_margins)) if edge_margins else 0.0,
             "stability_margin_mean": float(np.mean(stability)) if stability else 0.0,
+            "stability_eta": float(np.mean(stability)) if stability else 0.0,
             "isolation_share": float(np.mean(isolation)) if isolation else 0.0,
             "raw_detection_count": raw_detection_count,
             "substitution_fraction": substitution_fraction,
@@ -1691,6 +1795,14 @@ def run_evaluation(
             "group_label_counts": group_label_counts,
             "group_observations": group_observations,
             "vol_state_label": hold_vol_state,
+            "cov_condition_baseline": baseline_cond,
+            "cov_condition_overlay": overlay_cond,
+            "cov_condition_penalized": mv_condition_penalized,
+            "mv_condition_cap": mv_condition_cap,
+            "mv_condition_flag": bool(condition_flag),
+            "mv_turnover": mv_turnover_value,
+            "mv_turnover_cost_bps": mv_turnover_cost_bps,
+            "baseline_errors": baseline_error_str,
         }
         diag_record.update(balance_diag_fields)
         for name, message in baseline_errors.items():
@@ -1784,8 +1896,10 @@ def run_evaluation(
         "regime",
         "detections",
         "detection_rate",
+        "acceptance_rate",
         "edge_margin_mean",
         "stability_margin_mean",
+        "stability_eta",
         "isolation_share",
         "alignment_cos_mean",
         "alignment_angle_mean",
@@ -1819,6 +1933,14 @@ def run_evaluation(
         "group_label_counts",
         "group_observations",
         "vol_state_label",
+        "cov_condition_baseline",
+        "cov_condition_overlay",
+        "cov_condition_penalized",
+        "mv_condition_cap",
+        "mv_condition_flag",
+        "mv_turnover",
+        "mv_turnover_cost_bps",
+        "baseline_errors",
     ]
     if diagnostics_df.empty:
         diagnostics_df = pd.DataFrame(columns=expected_diag_columns)
@@ -1913,6 +2035,13 @@ def run_evaluation(
                 realised_es=("realised_es", "mean"),
                 violation_rate=("violation_rate", "mean"),
                 count=("sq_error", "count"),
+                qlike_mean=("qlike", "mean"),
+                mv_turnover_mean=("mv_turnover", "mean"),
+                mv_turnover_cost_bps=("mv_turnover_cost_bps", "mean"),
+                cov_condition_median=("cov_condition", lambda s: float(np.nanmedian(pd.to_numeric(s, errors="coerce")))
+                ),
+                cov_condition_p90=("cov_condition", lambda s: float(np.nanquantile(pd.to_numeric(s, errors="coerce"), 0.9))
+                ),
             )
             .reset_index()
         )
@@ -1922,11 +2051,16 @@ def run_evaluation(
 
     baseline_mask = summary_df["estimator"] == "baseline"
     baseline_df = summary_df[baseline_mask].rename(
-        columns={"mse_mean": "baseline_mse", "es_mse_mean": "baseline_es_mse"}
-    )[["regime", "portfolio", "baseline_mse", "baseline_es_mse"]]
+        columns={
+            "mse_mean": "baseline_mse",
+            "es_mse_mean": "baseline_es_mse",
+            "qlike_mean": "baseline_qlike_mean",
+        }
+    )[["regime", "portfolio", "baseline_mse", "baseline_es_mse", "baseline_qlike_mean"]]
     summary_df = summary_df.merge(baseline_df, on=["regime", "portfolio"], how="left")
     summary_df["delta_mse_vs_baseline"] = summary_df["mse_mean"] - summary_df["baseline_mse"]
     summary_df["delta_es_vs_baseline"] = summary_df["es_mse_mean"] - summary_df["baseline_es_mse"]
+    summary_df["delta_qlike_vs_baseline"] = summary_df["qlike_mean"] - summary_df["baseline_qlike_mean"]
     summary_df["delta_mse_ci_lower"] = np.nan
     summary_df["delta_mse_ci_upper"] = np.nan
 
@@ -1953,8 +2087,10 @@ def run_evaluation(
     agg_spec = {
         "detections": ("detections", "mean"),
         "detection_rate": ("detection_rate", "mean"),
+        "acceptance_rate": ("acceptance_rate", "mean"),
         "edge_margin_mean": ("edge_margin_mean", "mean"),
         "stability_margin_mean": ("stability_margin_mean", "mean"),
+        "stability_eta": ("stability_eta", "mean"),
         "isolation_share": ("isolation_share", "mean"),
         "alignment_cos_mean": ("alignment_cos_mean", "mean"),
         "alignment_angle_mean": ("alignment_angle_mean", "mean"),
@@ -1979,6 +2115,12 @@ def run_evaluation(
         "residual_energy_mean": ("residual_energy_mean", "mean"),
         "acceptance_delta": ("acceptance_delta", "mean"),
         "group_observations": ("group_observations", "mean"),
+        "cov_condition_baseline": ("cov_condition_baseline", "mean"),
+        "cov_condition_overlay": ("cov_condition_overlay", "mean"),
+        "cov_condition_penalized": ("cov_condition_penalized", "mean"),
+        "mv_condition_flag": ("mv_condition_flag", "mean"),
+        "mv_turnover": ("mv_turnover", "mean"),
+        "mv_turnover_cost_bps": ("mv_turnover_cost_bps", "mean"),
     }
     available_spec = {
         key: value for key, value in agg_spec.items() if value[0] in diagnostics_df.columns
@@ -2158,23 +2300,47 @@ def run_evaluation(
             "vaR95",
             "es95",
             "violation_rate",
+            "realised_var",
             "realised_es",
+            "qlike",
+            "mv_turnover",
+            "mv_turnover_cost_bps",
+            "cov_condition",
         ]
-        risk_subset[risk_columns].to_csv(risk_path, index=False)
+        available_cols = [col for col in risk_columns if col in risk_subset.columns]
+        risk_subset[available_cols].to_csv(risk_path, index=False)
         outputs_risk[regime] = risk_path
 
         dm_rows = []
+        comparators = ("baseline", "lw", "oas")
         for portfolio in ("ew", "mv"):
-            dm_stat, p_value, n_eff = _aligned_dm_stat(metrics_df, regime, portfolio)
-            dm_rows.append(
-                {
-                    "portfolio": portfolio,
-                    "baseline": "baseline",
-                    "dm_stat": dm_stat,
-                    "p_value": p_value,
-                    "n_effective": n_eff,
-                }
-            )
+            for comparator in comparators:
+                dm_stat, p_value, n_eff = _aligned_dm_stat(
+                    metrics_df,
+                    regime,
+                    portfolio,
+                    column="sq_error",
+                    comparator=comparator,
+                )
+                dm_stat_qlike, p_value_qlike, n_eff_qlike = _aligned_dm_stat(
+                    metrics_df,
+                    regime,
+                    portfolio,
+                    column="qlike",
+                    comparator=comparator,
+                )
+                dm_rows.append(
+                    {
+                        "portfolio": portfolio,
+                        "baseline": comparator,
+                        "dm_stat": dm_stat,
+                        "p_value": p_value,
+                        "n_effective": n_eff,
+                        "dm_stat_qlike": dm_stat_qlike,
+                        "p_value_qlike": p_value_qlike,
+                        "n_effective_qlike": n_eff_qlike,
+                    }
+                )
         dm_path = path / "dm.csv"
         pd.DataFrame(dm_rows).to_csv(dm_path, index=False)
         outputs_dm[regime] = dm_path

@@ -1,0 +1,61 @@
+{
+  "rc_date": "20251107",
+  "generated_at": "2025-11-07T01:30:52.062054+00:00",
+  "datasets": {
+    "returns_csv": {
+      "path": "data/returns_daily.csv",
+      "sha256": "96ac7dd318245cf1a8b434bb358a9344bf282992fc9fe66f0282023696563197",
+      "rows": 892529,
+      "columns": 300,
+      "start_date": "2010-01-05",
+      "end_date": "2024-12-31",
+      "wrds_source": "crsp.dsf",
+      "wrds_query_params": {
+        "start": "2010-01-01",
+        "end": "2024-12-31",
+        "exchanges": [
+          1,
+          2,
+          3
+        ],
+        "share_codes": [
+          10,
+          11
+        ],
+        "min_price": 1.0,
+        "min_volume": 0
+      },
+      "note": "CRSP daily returns ingested via src/io/crsp_daily.py with default filters; tickers aligned to WRDS canonical names."
+    }
+  },
+  "calibration": {
+    "defaults": "calibration/defaults.json",
+    "edge_thresholds": "calibration/edge_delta_thresholds.json"
+  },
+  "window": 126,
+  "horizon": 21,
+  "modes": [
+    "deterministic"
+  ],
+  "exec": [
+    {
+      "design": "dow",
+      "edge": "tyler",
+      "command": "make rc-dow EDGE=tyler",
+      "out": "reports/rc-20251107/dow-tyler"
+    },
+    {
+      "design": "dow",
+      "edge": "scm",
+      "command": "make rc-dow EDGE=scm",
+      "out": "reports/rc-20251107/dow-scm"
+    },
+    {
+      "design": "vol",
+      "edge": "tyler",
+      "command": "make rc-vol EDGE=tyler",
+      "out": "reports/rc-20251107/vol-tyler"
+    }
+  ],
+  "notes": "Runs triggered via scripts/aws_run.sh with MODE=deterministic; dataset hash enforced via tools/verify_dataset.py."
+}

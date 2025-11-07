@@ -1,0 +1,63 @@
+{
+  "criteria": [
+    {
+      "key": "delta_mse_ew",
+      "label": "EW \u0394MSE must not exceed baseline",
+      "pass": null,
+      "threshold": {
+        "max": 0.0
+      },
+      "value": NaN
+    },
+    {
+      "key": "delta_mse_mv",
+      "label": "MV \u0394MSE must not exceed baseline",
+      "pass": null,
+      "threshold": {
+        "max": 0.0
+      },
+      "value": NaN
+    },
+    {
+      "key": "detection_rate",
+      "label": "Detection coverage within target band",
+      "pass": false,
+      "threshold": {
+        "max": 0.25,
+        "min": 0.01
+      },
+      "value": 0.0
+    },
+    {
+      "key": "edge_margin",
+      "label": "Average edge margin positive",
+      "pass": false,
+      "threshold": {
+        "min": 0.0
+      },
+      "value": 0.0
+    },
+    {
+      "key": "alignment_cos",
+      "label": "Alignment cosine above 0.9",
+      "pass": null,
+      "threshold": {
+        "min": 0.9
+      },
+      "value": NaN
+    },
+    {
+      "key": "reason_code",
+      "label": "Dominant reason code acceptable",
+      "pass": true,
+      "threshold": {
+        "allowed": [
+          "accepted"
+        ]
+      },
+      "value": null
+    }
+  ],
+  "rc_run": "rc-20251103",
+  "regime": "full"
+}

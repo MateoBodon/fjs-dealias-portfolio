@@ -11,6 +11,8 @@ class DiagnosticReason(str, Enum):
     DETECTION_ERROR = "detection_error"
     HOLDOUT_EMPTY = "holdout_empty"
     ALIGNMENT_REJECTED = "alignment_rejected"
+    BASELINE_FAILURE = "baseline_failure"
+    CONDITION_CAP = "condition_cap"
 
     def __str__(self) -> str:  # pragma: no cover - invoked implicitly
         return self.value

@@ -1,0 +1,25 @@
+{
+  "rc_date": "20251104",
+  "datasets": {
+    "returns_csv": "data/returns_daily.csv",
+    "factors_csv": null
+  },
+  "universe": {
+    "assets_top": 80,
+    "start": "2018-01-01",
+    "end": "2023-12-31"
+  },
+  "window": 126,
+  "horizon": 21,
+  "calibration": "calibration/edge_delta_thresholds.json",
+  "commands": [
+    "PYTHONPATH=src:. python3 -u experiments/daily/run.py --returns-csv data/returns_daily.csv --design dow --window 126 --horizon 21 --assets-top 80 --start 2018-01-01 --end 2023-12-31 --shrinker rie --prewhiten ff5mom --gate-delta-calibration calibration/edge_delta_thresholds.json --gate-delta-frac-min 0.02 --out reports/rc-20251104/dow-bounded",
+    "PYTHONPATH=src:. python3 -u experiments/daily/run.py --returns-csv data/returns_daily.csv --design vol --window 126 --horizon 21 --assets-top 80 --start 2018-01-01 --end 2023-12-31 --shrinker oas --prewhiten off --gate-delta-calibration calibration/edge_delta_thresholds.json --gate-delta-frac-min 0.02 --out reports/rc-20251104/vol-bounded"
+  ],
+  "outputs": {
+    "dow_bounded": "reports/rc-20251104/dow-bounded",
+    "vol_bounded": "reports/rc-20251104/vol-bounded",
+    "dow_smoke": "reports/rc-20251104/dow-smoke-top80",
+    "vol_smoke": "reports/rc-20251104/vol-smoke-top80"
+  }
+}

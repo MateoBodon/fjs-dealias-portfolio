@@ -1,0 +1,115 @@
+PYTHONPATH=src python experiments/synthetic/calibrate_thresholds.py \
+	--alpha 0.02 \
+	--p-assets 64 80 96 \
+	--n-groups 36 \
+	--replicates 14 20 \
+	--replicate-bins r12-16:12-16 r17-22:17-22 \
+	--asset-bins p64-96:64-96 \
+	--trials-null 300 \
+	--trials-alt 200 \
+	--delta-abs-grid 0.35 0.45 0.55 0.65 \
+	--delta-frac-grid 0.01 0.015 0.02 0.025 0.03 \
+	--stability-grid 0.30 0.40 0.50 0.60 \
+	--edge-modes scm tyler \
+	--workers 128 \
+	--verbose \
+	--out calibration/edge_delta_thresholds.json \
+	--defaults-out calibration/defaults.json
+[1/48] edge=scm p=64 G=36 r=14 δ=0.350
+{"event": "calibration_progress", "edge_mode": "scm", "current": 1, "total": 48, "jobs_completed": 1, "jobs_total": 48, "elapsed_seconds": 258.129765687, "eta_seconds": 12132.098987288999}
+[2/48] edge=tyler p=64 G=36 r=14 δ=0.350
+{"event": "calibration_progress", "edge_mode": "tyler", "current": 2, "total": 48, "jobs_completed": 2, "jobs_total": 48, "elapsed_seconds": 516.591639936, "eta_seconds": 11881.607718528}
+[3/48] edge=scm p=64 G=36 r=14 δ=0.450
+{"event": "calibration_progress", "edge_mode": "scm", "current": 3, "total": 48, "jobs_completed": 3, "jobs_total": 48, "elapsed_seconds": 771.23523951, "eta_seconds": 11568.528592650002}
+[4/48] edge=tyler p=64 G=36 r=14 δ=0.450
+{"event": "calibration_progress", "edge_mode": "tyler", "current": 4, "total": 48, "jobs_completed": 4, "jobs_total": 48, "elapsed_seconds": 1024.828662677, "eta_seconds": 11273.115289447}
+[5/48] edge=scm p=64 G=36 r=14 δ=0.550
+{"event": "calibration_progress", "edge_mode": "scm", "current": 5, "total": 48, "jobs_completed": 5, "jobs_total": 48, "elapsed_seconds": 1271.139824045, "eta_seconds": 10931.802486787}
+[6/48] edge=tyler p=64 G=36 r=14 δ=0.550
+{"event": "calibration_progress", "edge_mode": "tyler", "current": 6, "total": 48, "jobs_completed": 6, "jobs_total": 48, "elapsed_seconds": 1516.032369819, "eta_seconds": 10612.226588733}
+[7/48] edge=scm p=64 G=36 r=14 δ=0.650
+{"event": "calibration_progress", "edge_mode": "scm", "current": 7, "total": 48, "jobs_completed": 7, "jobs_total": 48, "elapsed_seconds": 1756.448179446, "eta_seconds": 10287.767908183714}
+[8/48] edge=tyler p=64 G=36 r=14 δ=0.650
+{"event": "calibration_progress", "edge_mode": "tyler", "current": 8, "total": 48, "jobs_completed": 8, "jobs_total": 48, "elapsed_seconds": 1996.0013687090002, "eta_seconds": 9980.006843545001}
+[9/48] edge=scm p=64 G=36 r=20 δ=0.350
+{"event": "calibration_progress", "edge_mode": "scm", "current": 9, "total": 48, "jobs_completed": 9, "jobs_total": 48, "elapsed_seconds": 2246.095091075, "eta_seconds": 9733.078727991666}
+[10/48] edge=tyler p=64 G=36 r=20 δ=0.350
+{"event": "calibration_progress", "edge_mode": "tyler", "current": 10, "total": 48, "jobs_completed": 10, "jobs_total": 48, "elapsed_seconds": 2501.3348642150004, "eta_seconds": 9505.072484017}
+[11/48] edge=scm p=64 G=36 r=20 δ=0.450
+{"event": "calibration_progress", "edge_mode": "scm", "current": 11, "total": 48, "jobs_completed": 11, "jobs_total": 48, "elapsed_seconds": 2746.08929714, "eta_seconds": 9236.845817652727}
+[12/48] edge=tyler p=64 G=36 r=20 δ=0.450
+{"event": "calibration_progress", "edge_mode": "tyler", "current": 12, "total": 48, "jobs_completed": 12, "jobs_total": 48, "elapsed_seconds": 2989.6435342960003, "eta_seconds": 8968.930602888002}
+[13/48] edge=scm p=64 G=36 r=20 δ=0.550
+{"event": "calibration_progress", "edge_mode": "scm", "current": 13, "total": 48, "jobs_completed": 13, "jobs_total": 48, "elapsed_seconds": 3226.7414333369998, "eta_seconds": 8687.380782061153}
+[14/48] edge=tyler p=64 G=36 r=20 δ=0.550
+{"event": "calibration_progress", "edge_mode": "tyler", "current": 14, "total": 48, "jobs_completed": 14, "jobs_total": 48, "elapsed_seconds": 3464.8456914, "eta_seconds": 8414.625250542857}
+[15/48] edge=scm p=64 G=36 r=20 δ=0.650
+{"event": "calibration_progress", "edge_mode": "scm", "current": 15, "total": 48, "jobs_completed": 15, "jobs_total": 48, "elapsed_seconds": 3698.2745977980003, "eta_seconds": 8136.2041151556}
+[16/48] edge=tyler p=64 G=36 r=20 δ=0.650
+{"event": "calibration_progress", "edge_mode": "tyler", "current": 16, "total": 48, "jobs_completed": 16, "jobs_total": 48, "elapsed_seconds": 3929.8399822419997, "eta_seconds": 7859.679964483999}
+[17/48] edge=scm p=80 G=36 r=14 δ=0.350
+{"event": "calibration_progress", "edge_mode": "scm", "current": 17, "total": 48, "jobs_completed": 17, "jobs_total": 48, "elapsed_seconds": 4234.796951132, "eta_seconds": 7722.276793240706}
+[18/48] edge=tyler p=80 G=36 r=14 δ=0.350
+{"event": "calibration_progress", "edge_mode": "tyler", "current": 18, "total": 48, "jobs_completed": 18, "jobs_total": 48, "elapsed_seconds": 4536.555347701, "eta_seconds": 7560.925579501666}
+[19/48] edge=scm p=80 G=36 r=14 δ=0.450
+{"event": "calibration_progress", "edge_mode": "scm", "current": 19, "total": 48, "jobs_completed": 19, "jobs_total": 48, "elapsed_seconds": 4831.8910494659995, "eta_seconds": 7374.991601816526}
+[20/48] edge=tyler p=80 G=36 r=14 δ=0.450
+{"event": "calibration_progress", "edge_mode": "tyler", "current": 20, "total": 48, "jobs_completed": 20, "jobs_total": 48, "elapsed_seconds": 5128.056199135, "eta_seconds": 7179.278678789}
+[21/48] edge=scm p=80 G=36 r=14 δ=0.550
+{"event": "calibration_progress", "edge_mode": "scm", "current": 21, "total": 48, "jobs_completed": 21, "jobs_total": 48, "elapsed_seconds": 5421.17348227, "eta_seconds": 6970.08019149}
+[22/48] edge=tyler p=80 G=36 r=14 δ=0.550
+{"event": "calibration_progress", "edge_mode": "tyler", "current": 22, "total": 48, "jobs_completed": 22, "jobs_total": 48, "elapsed_seconds": 5710.669873297, "eta_seconds": 6748.973486623727}
+[23/48] edge=scm p=80 G=36 r=14 δ=0.650
+{"event": "calibration_progress", "edge_mode": "scm", "current": 23, "total": 48, "jobs_completed": 23, "jobs_total": 48, "elapsed_seconds": 5993.000381174, "eta_seconds": 6514.130849102174}
+[24/48] edge=tyler p=80 G=36 r=14 δ=0.650
+{"event": "calibration_progress", "edge_mode": "tyler", "current": 24, "total": 48, "jobs_completed": 24, "jobs_total": 48, "elapsed_seconds": 6277.738798253, "eta_seconds": 6277.738798253}
+[25/48] edge=scm p=80 G=36 r=20 δ=0.350
+{"event": "calibration_progress", "edge_mode": "scm", "current": 25, "total": 48, "jobs_completed": 25, "jobs_total": 48, "elapsed_seconds": 6573.954125292, "eta_seconds": 6048.0377952686395}
+[26/48] edge=tyler p=80 G=36 r=20 δ=0.350
+{"event": "calibration_progress", "edge_mode": "tyler", "current": 26, "total": 48, "jobs_completed": 26, "jobs_total": 48, "elapsed_seconds": 6874.282243201999, "eta_seconds": 5816.700359632461}
+[27/48] edge=scm p=80 G=36 r=20 δ=0.450
+{"event": "calibration_progress", "edge_mode": "scm", "current": 27, "total": 48, "jobs_completed": 27, "jobs_total": 48, "elapsed_seconds": 7169.493237467, "eta_seconds": 5576.2725180298885}
+[28/48] edge=tyler p=80 G=36 r=20 δ=0.450
+{"event": "calibration_progress", "edge_mode": "tyler", "current": 28, "total": 48, "jobs_completed": 28, "jobs_total": 48, "elapsed_seconds": 7464.802346148, "eta_seconds": 5332.00167582}
+[29/48] edge=scm p=80 G=36 r=20 δ=0.550
+{"event": "calibration_progress", "edge_mode": "scm", "current": 29, "total": 48, "jobs_completed": 29, "jobs_total": 48, "elapsed_seconds": 7751.587731156999, "eta_seconds": 5078.626444551138}
+[30/48] edge=tyler p=80 G=36 r=20 δ=0.550
+{"event": "calibration_progress", "edge_mode": "tyler", "current": 30, "total": 48, "jobs_completed": 30, "jobs_total": 48, "elapsed_seconds": 8038.547676233, "eta_seconds": 4823.1286057398}
+[31/48] edge=scm p=80 G=36 r=20 δ=0.650
+{"event": "calibration_progress", "edge_mode": "scm", "current": 31, "total": 48, "jobs_completed": 31, "jobs_total": 48, "elapsed_seconds": 8315.640730781, "eta_seconds": 4560.190078170226}
+[32/48] edge=tyler p=80 G=36 r=20 δ=0.650
+{"event": "calibration_progress", "edge_mode": "tyler", "current": 32, "total": 48, "jobs_completed": 32, "jobs_total": 48, "elapsed_seconds": 8598.029803533, "eta_seconds": 4299.0149017665}
+[33/48] edge=scm p=96 G=36 r=14 δ=0.350
+{"event": "calibration_progress", "edge_mode": "scm", "current": 33, "total": 48, "jobs_completed": 33, "jobs_total": 48, "elapsed_seconds": 8945.827828907, "eta_seconds": 4066.285376775909}
+[34/48] edge=tyler p=96 G=36 r=14 δ=0.350
+{"event": "calibration_progress", "edge_mode": "tyler", "current": 34, "total": 48, "jobs_completed": 34, "jobs_total": 48, "elapsed_seconds": 9287.275406416, "eta_seconds": 3824.172226171294}
+[35/48] edge=scm p=96 G=36 r=14 δ=0.450
+{"event": "calibration_progress", "edge_mode": "scm", "current": 35, "total": 48, "jobs_completed": 35, "jobs_total": 48, "elapsed_seconds": 9624.165281092, "eta_seconds": 3574.6899615484576}
+[36/48] edge=tyler p=96 G=36 r=14 δ=0.450
+{"event": "calibration_progress", "edge_mode": "tyler", "current": 36, "total": 48, "jobs_completed": 36, "jobs_total": 48, "elapsed_seconds": 9965.871538213, "eta_seconds": 3321.957179404333}
+[37/48] edge=scm p=96 G=36 r=14 δ=0.550
+{"event": "calibration_progress", "edge_mode": "scm", "current": 37, "total": 48, "jobs_completed": 37, "jobs_total": 48, "elapsed_seconds": 10305.245585028, "eta_seconds": 3063.7216604137298}
+[38/48] edge=tyler p=96 G=36 r=14 δ=0.550
+{"event": "calibration_progress", "edge_mode": "tyler", "current": 38, "total": 48, "jobs_completed": 38, "jobs_total": 48, "elapsed_seconds": 10639.346369424, "eta_seconds": 2799.8279919536844}
+[39/48] edge=scm p=96 G=36 r=14 δ=0.650
+{"event": "calibration_progress", "edge_mode": "scm", "current": 39, "total": 48, "jobs_completed": 39, "jobs_total": 48, "elapsed_seconds": 10970.017493491, "eta_seconds": 2531.5424984979227}
+[40/48] edge=tyler p=96 G=36 r=14 δ=0.650
+{"event": "calibration_progress", "edge_mode": "tyler", "current": 40, "total": 48, "jobs_completed": 40, "jobs_total": 48, "elapsed_seconds": 11298.965052599, "eta_seconds": 2259.7930105198}
+[41/48] edge=scm p=96 G=36 r=20 δ=0.350
+{"event": "calibration_progress", "edge_mode": "scm", "current": 41, "total": 48, "jobs_completed": 41, "jobs_total": 48, "elapsed_seconds": 11639.014846695, "eta_seconds": 1987.1488762650001}
+[42/48] edge=tyler p=96 G=36 r=20 δ=0.350
+{"event": "calibration_progress", "edge_mode": "tyler", "current": 42, "total": 48, "jobs_completed": 42, "jobs_total": 48, "elapsed_seconds": 11977.427820863, "eta_seconds": 1711.061117266143}
+[43/48] edge=scm p=96 G=36 r=20 δ=0.450
+{"event": "calibration_progress", "edge_mode": "scm", "current": 43, "total": 48, "jobs_completed": 43, "jobs_total": 48, "elapsed_seconds": 12312.338689586999, "eta_seconds": 1431.6672894868602}
+[44/48] edge=tyler p=96 G=36 r=20 δ=0.450
+{"event": "calibration_progress", "edge_mode": "tyler", "current": 44, "total": 48, "jobs_completed": 44, "jobs_total": 48, "elapsed_seconds": 12648.933940198, "eta_seconds": 1149.9030854725454}
+[45/48] edge=scm p=96 G=36 r=20 δ=0.550
+{"event": "calibration_progress", "edge_mode": "scm", "current": 45, "total": 48, "jobs_completed": 45, "jobs_total": 48, "elapsed_seconds": 12981.579286021999, "eta_seconds": 865.4386190681332}
+[46/48] edge=tyler p=96 G=36 r=20 δ=0.550
+{"event": "calibration_progress", "edge_mode": "tyler", "current": 46, "total": 48, "jobs_completed": 46, "jobs_total": 48, "elapsed_seconds": 13307.78982261, "eta_seconds": 578.5995575047826}
+[47/48] edge=scm p=96 G=36 r=20 δ=0.650
+{"event": "calibration_progress", "edge_mode": "scm", "current": 47, "total": 48, "jobs_completed": 47, "jobs_total": 48, "elapsed_seconds": 13631.255862676, "eta_seconds": 290.0267204824681}
+[48/48] edge=tyler p=96 G=36 r=20 δ=0.650
+{"event": "calibration_progress", "edge_mode": "tyler", "current": 48, "total": 48, "jobs_completed": 48, "jobs_total": 48, "elapsed_seconds": 13953.844531843999, "eta_seconds": 0.0}
+/home/ubuntu/fjs-dealias-portfolio/experiments/synthetic/calibrate_thresholds.py:169: MatplotlibDeprecationWarning: The get_cmap function was deprecated in Matplotlib 3.7 and will be removed in 3.11. Use ``matplotlib.colormaps[name]`` or ``matplotlib.colormaps.get_cmap()`` or ``pyplot.get_cmap()`` instead.
+  cmap = plt.cm.get_cmap("tab10")

@@ -1,0 +1,36 @@
+{
+  "rc_date": "20251105",
+  "datasets": {
+    "returns_parquet": "data/wrds/returns_daily.parquet",
+    "labels_parquet": "data/wrds/labels.parquet",
+    "universe_json": "data/meta/universe_2016_2024.json"
+  },
+  "wrds_query": {
+    "service": "CRSP DSF",
+    "exchanges": [
+      1,
+      2,
+      3
+    ],
+    "share_codes": [
+      10,
+      11
+    ],
+    "price_min": 1.0,
+    "volume_min": 0,
+    "start": "2016-01-01",
+    "end": "2024-12-31"
+  },
+  "window": 126,
+  "horizon": 21,
+  "calibration": "calibration/edge_delta_thresholds.json",
+  "commands": [
+    "PYTHONPATH=src:. python3 experiments/eval/run.py --returns-csv data/wrds/returns_daily.parquet --window 126 --horizon 21 --start 2018-01-01 --end 2024-12-31 --assets-top 60 --group-design dow --shrinker rie --prewhiten ff5mom --edge-mode tyler --gate-delta-calibration calibration/edge_delta_thresholds.json --gate-delta-frac-min 0.02 --out reports/rc-20251105/dow-bounded",
+    "PYTHONPATH=src:. python3 experiments/eval/run.py --returns-csv data/wrds/returns_daily.parquet --window 126 --horizon 21 --start 2018-01-01 --end 2024-12-31 --assets-top 80 --group-design vol --group-min-count 3 --group-min-replicates 10 --shrinker oas --prewhiten off --edge-mode huber --gate-delta-calibration calibration/edge_delta_thresholds.json --gate-delta-frac-min 0.02 --out reports/rc-20251105/vol-bounded"
+  ],
+  "outputs": {
+    "regime_csv": "reports/rc-20251105/regime.csv",
+    "dow_bounded": "reports/rc-20251105/dow-bounded",
+    "vol_bounded": "reports/rc-20251105/vol-bounded"
+  }
+}

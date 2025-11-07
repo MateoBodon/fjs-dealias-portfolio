@@ -63,6 +63,19 @@ endif
 RC_RETURNS := data/returns_daily.csv
 RC_DATE := $(shell python3 -c 'import datetime as _dt; print(_dt.datetime.utcnow().strftime("%Y%m%d"))')
 RC_OUT := reports/rc-$(RC_DATE)
+RC_REGISTRY := data/registry.json
+RC_VERIFY_DATASET := python tools/verify_dataset.py $(RC_RETURNS) --registry $(RC_REGISTRY)
+RC_GATE_CALIB := calibration/edge_delta_thresholds.json
+RC_GATE_DEFAULTS := calibration/defaults.json
+RC_WINDOW ?= 126
+RC_HORIZON ?= 21
+RC_START ?= 2018-01-01
+RC_END ?= 2024-12-31
+RC_GATE_DELTA_FRAC ?= 0.02
+RC_MV_GAMMA ?= 1e-4
+RC_MV_BOX ?= 0.0,0.1
+RC_MV_TURNOVER_BPS ?= 5
+RC_MV_CONDITION_CAP ?= 1000000
 ABLA_GRID ?= experiments/ablate/ablation_matrix.yaml
 RC_CALM_WINDOW_SAMPLE ?=
 RC_CRISIS_WINDOW_TOPK ?=
@@ -123,6 +136,68 @@ AWS_ARGS ?=
 
 aws\:%:
 	scripts/aws_run.sh $* $(AWS_ARGS)
+
+DOW_EDGE := $(if $(EDGE),$(EDGE),tyler)
+VOL_EDGE := $(if $(EDGE),$(EDGE),tyler)
+RC_DOW_OUT := $(RC_OUT)/dow-$(DOW_EDGE)
+RC_VOL_OUT := $(RC_OUT)/vol-$(VOL_EDGE)
+RC_DOW_ASSETS ?= 60
+RC_VOL_ASSETS ?= 80
+RC_DOW_SHRINKER ?= rie
+RC_VOL_SHRINKER ?= oas
+RC_DOW_PREWHITEN ?= ff5mom
+RC_VOL_PREWHITEN ?= off
+RC_VOL_GROUP_MIN ?= 3
+RC_VOL_GROUP_REPS ?= 10
+
+.PHONY: rc-dow rc-vol
+rc-dow:
+	$(RC_VERIFY_DATASET)
+	$(RC_PY) experiments/eval/run.py \
+		--returns-csv $(RC_RETURNS) \
+		--window $(RC_WINDOW) \
+		--horizon $(RC_HORIZON) \
+		--start $(RC_START) \
+		--end $(RC_END) \
+		--assets-top $(RC_DOW_ASSETS) \
+		--group-design dow \
+		--edge-mode $(DOW_EDGE) \
+		--shrinker $(RC_DOW_SHRINKER) \
+		--prewhiten $(RC_DOW_PREWHITEN) \
+		--gate-delta-calibration $(RC_GATE_CALIB) \
+		--gate-delta-frac-min $(RC_GATE_DELTA_FRAC) \
+		--require-isolated \
+		--q-max 1 \
+		--mv-gamma $(RC_MV_GAMMA) \
+		--mv-box $(RC_MV_BOX) \
+		--mv-turnover-bps $(RC_MV_TURNOVER_BPS) \
+		--mv-condition-cap $(RC_MV_CONDITION_CAP) \
+		--out $(RC_DOW_OUT)
+
+rc-vol:
+	$(RC_VERIFY_DATASET)
+	$(RC_PY) experiments/eval/run.py \
+		--returns-csv $(RC_RETURNS) \
+		--window $(RC_WINDOW) \
+		--horizon $(RC_HORIZON) \
+		--start $(RC_START) \
+		--end $(RC_END) \
+		--assets-top $(RC_VOL_ASSETS) \
+		--group-design vol \
+		--group-min-count $(RC_VOL_GROUP_MIN) \
+		--group-min-replicates $(RC_VOL_GROUP_REPS) \
+		--edge-mode $(VOL_EDGE) \
+		--shrinker $(RC_VOL_SHRINKER) \
+		--prewhiten $(RC_VOL_PREWHITEN) \
+		--gate-delta-calibration $(RC_GATE_CALIB) \
+		--gate-delta-frac-min $(RC_GATE_DELTA_FRAC) \
+		--require-isolated \
+		--q-max 1 \
+		--mv-gamma $(RC_MV_GAMMA) \
+		--mv-box $(RC_MV_BOX) \
+		--mv-turnover-bps $(RC_MV_TURNOVER_BPS) \
+		--mv-condition-cap $(RC_MV_CONDITION_CAP) \
+		--out $(RC_VOL_OUT)
 
 run-synth:
 	python experiments/synthetic_oneway/run.py

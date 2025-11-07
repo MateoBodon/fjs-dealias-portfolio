@@ -1,0 +1,29 @@
+{
+  "samples": 2520,
+  "cpu_process_avg": 0.0,
+  "cpu_process_peak": 0.0,
+  "memory_rss_avg_mb": 16075.177514260913,
+  "memory_rss_peak_mb": 17485.98046875,
+  "memory_uss_avg_mb": 927.3619869171627,
+  "memory_uss_peak_mb": 2146.55078125,
+  "io_read_total_mb": 0.30859375,
+  "io_write_total_mb": 0.0,
+  "command": "make calibrate-thresholds",
+  "start_utc": "2025-11-06T16:56:09.261421+00:00",
+  "end_utc": "2025-11-06T20:48:47.479242+00:00",
+  "duration_seconds": 13958.217813968658,
+  "return_code": 0,
+  "tag": "",
+  "progress": {
+    "last": {
+      "event": "calibration_progress",
+      "current": 48,
+      "total": 48,
+      "percent": 100.0,
+      "elapsed_seconds": 13954.754012584686,
+      "eta_seconds": 0.0,
+      "timestamp": "2025-11-06T20:48:44.015448+00:00"
+    },
+    "events": 48
+  }
+}

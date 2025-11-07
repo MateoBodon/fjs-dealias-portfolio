@@ -1,0 +1,45 @@
+python tools/verify_dataset.py data/returns_daily.csv --registry data/registry.json
+PYTHONPATH=src:. OMP_NUM_THREADS=1 python3 experiments/eval/run.py \
+	--returns-csv data/returns_daily.csv \
+	--window 126 \
+	--horizon 21 \
+	--start 2018-01-01 \
+	--end 2024-12-31 \
+	--assets-top 60 \
+	--group-design dow \
+	--edge-mode tyler \
+	--shrinker rie \
+	--prewhiten ff5mom \
+	--gate-delta-calibration calibration/edge_delta_thresholds.json \
+	--gate-delta-frac-min 0.02 \
+	--require-isolated \
+	--q-max 1 \
+	--mv-gamma 1e-4 \
+	--mv-box 0.0,0.1 \
+	--mv-turnover-bps 5 \
+	--mv-condition-cap 1000000 \
+	--out reports/rc-20251107/dow-tyler
+Traceback (most recent call last):
+  File "/home/ubuntu/fjs-dealias-portfolio/experiments/eval/run.py", line 2391, in <module>
+    main()
+  File "/home/ubuntu/fjs-dealias-portfolio/experiments/eval/run.py", line 2383, in main
+    config, resolved = parse_args(argv)
+                       ^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/fjs-dealias-portfolio/experiments/eval/run.py", line 768, in parse_args
+    parser.add_argument(
+  File "/home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/argparse.py", line 1473, in add_argument
+    return self._add_action(action)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/argparse.py", line 1855, in _add_action
+    self._optionals._add_action(action)
+  File "/home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/argparse.py", line 1675, in _add_action
+    action = super(_ArgumentGroup, self)._add_action(action)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/argparse.py", line 1487, in _add_action
+    self._check_conflict(action)
+  File "/home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/argparse.py", line 1624, in _check_conflict
+    conflict_handler(action, confl_optionals)
+  File "/home/ubuntu/.local/share/mamba/envs/fjs/lib/python3.11/argparse.py", line 1633, in _handle_conflict_error
+    raise ArgumentError(action, message % conflict_string)
+argparse.ArgumentError: argument --mv-gamma: conflicting option string: --mv-gamma
+make: *** [Makefile:156: rc-dow] Error 1

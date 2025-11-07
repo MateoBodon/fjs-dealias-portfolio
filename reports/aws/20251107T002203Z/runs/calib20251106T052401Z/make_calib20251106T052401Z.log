@@ -1,0 +1,10 @@
+PYTHONPATH=src python experiments/synthetic/null.py \
+	--trials 600 \
+	--out reports/synthetic/null_harness \
+	--figures-out reports/figures
+PYTHONPATH=src python experiments/synthetic/power.py \
+	--trials 600 \
+	--null-scores reports/synthetic/null_harness/null_scores.parquet \
+	--out reports/synthetic/power_harness \
+	--figures-out reports/figures \
+	--defaults-path calibration_defaults.json

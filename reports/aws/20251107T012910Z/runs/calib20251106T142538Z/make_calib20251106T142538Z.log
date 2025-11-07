@@ -1,0 +1,23 @@
+PYTHONPATH=src python experiments/synthetic/calibrate_thresholds.py \
+	--alpha 0.02 \
+	--p-assets 64 80 96 \
+	--n-groups 36 \
+	--replicates 14 20 \
+	--replicate-bins r12-16:12-16 r17-22:17-22 \
+	--asset-bins p64-96:64-96 \
+	--trials-null 300 \
+	--trials-alt 200 \
+	--delta-abs-grid 0.35 0.45 0.55 0.65 \
+	--delta-frac-grid 0.01 0.015 0.02 0.025 0.03 \
+	--stability-grid 0.30 0.40 0.50 0.60 \
+	--edge-modes scm tyler \
+	--workers 32 \
+	--verbose \
+	--out calibration/edge_delta_thresholds.json \
+	--defaults-out calibration/defaults.json
+[1/48] edge=scm p=64 G=36 r=14 δ=0.350
+[2/48] edge=tyler p=64 G=36 r=14 δ=0.350
+[3/48] edge=scm p=64 G=36 r=14 δ=0.450
+[4/48] edge=tyler p=64 G=36 r=14 δ=0.450
+[5/48] edge=scm p=64 G=36 r=14 δ=0.550
+[6/48] edge=tyler p=64 G=36 r=14 δ=0.550

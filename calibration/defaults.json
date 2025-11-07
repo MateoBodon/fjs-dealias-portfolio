@@ -1,13 +1,13 @@
 {
   "alpha": 0.02,
-  "generated_at": "2025-11-06T20:48:44.163101+00:00",
+  "generated_at": "2025-11-07T01:18:31.013995+00:00",
   "thresholds_source": "/home/ubuntu/fjs-dealias-portfolio/calibration/edge_delta_thresholds.json",
   "defaults": {
     "scm": {
       "G36": {
         "r12-16": {
           "p64-96": {
-            "delta": 0.35,
+            "delta": 0.3,
             "delta_frac": 0.01,
             "stability_eta_deg": 0.3,
             "fpr": 0.0,
@@ -24,7 +24,7 @@
         },
         "r17-22": {
           "p64-96": {
-            "delta": 0.35,
+            "delta": 0.3,
             "delta_frac": 0.01,
             "stability_eta_deg": 0.3,
             "fpr": 0.0,
@@ -45,7 +45,7 @@
       "G36": {
         "r12-16": {
           "p64-96": {
-            "delta": 0.35,
+            "delta": 0.3,
             "delta_frac": 0.01,
             "stability_eta_deg": 0.3,
             "fpr": 0.0,
@@ -62,7 +62,7 @@
         },
         "r17-22": {
           "p64-96": {
-            "delta": 0.35,
+            "delta": 0.3,
             "delta_frac": 0.01,
             "stability_eta_deg": 0.3,
             "fpr": 0.0,

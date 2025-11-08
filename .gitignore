@@ -32,6 +32,7 @@ reports/rc-*/**
 !reports/rc-*/run_manifest.json
 !reports/rc-*/regime.csv
 !reports/rc-*/overlay_toggle.md
+reports/aws/
 
 # Synthetic acceptance artefacts retained for calibration defaults
 !reports/figures/

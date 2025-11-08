@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import sys
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -19,6 +20,7 @@ try:  # pragma: no cover - plotting dependency optional in CI
 except Exception:  # pragma: no cover
     plt = None
 
+from evaluation.dm import dm_test
 from tools.verify_dataset import verify_dataset
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -186,8 +188,11 @@ def _load_first_row(path: Path) -> pd.Series:
     return df.iloc[0]
 
 
-def _changed_window_ids(detail_path: Path) -> list[int]:
-    detail_df = pd.read_csv(detail_path)
+def _changed_window_ids(detail_source: Path | pd.DataFrame) -> list[int]:
+    if isinstance(detail_source, Path):
+        detail_df = pd.read_csv(detail_source)
+    else:
+        detail_df = detail_source
     if detail_df.empty:
         return []
     regime_series = detail_df["regime"].astype(str).str.lower()
@@ -223,19 +228,35 @@ def _mean_delta_sq_error(metrics_path: Path, changed_ids: set[int], portfolio: s
     return float(diffs.mean())
 
 
-def _dm_stats(dm_path: Path, portfolio: str) -> tuple[float, float, int]:
-    if not dm_path.exists():
+def _dm_stats_from_metrics(
+    metrics_path: Path,
+    changed_ids: set[int],
+    portfolio: str,
+) -> tuple[float, float, int]:
+    if not metrics_path.exists() or not changed_ids:
         return float("nan"), float("nan"), 0
-    df = pd.read_csv(dm_path)
+    df = pd.read_csv(metrics_path)
     if df.empty:
         return float("nan"), float("nan"), 0
-    subset = df[(df["portfolio"] == portfolio) & (df["baseline"].str.lower() == "baseline")]
+    subset = df[(df["regime"] == "full") & (df["portfolio"] == portfolio)]
     if subset.empty:
         return float("nan"), float("nan"), 0
-    row = subset.iloc[0]
-    dm_stat = float(pd.to_numeric(row.get("dm_stat"), errors="coerce")) if "dm_stat" in row else float("nan")
-    p_value = float(pd.to_numeric(row.get("p_value"), errors="coerce")) if "p_value" in row else float("nan")
-    n_eff = int(pd.to_numeric(row.get("n_effective"), errors="coerce")) if "n_effective" in row else 0
+    pivot = subset.pivot_table(index="window_id", columns="estimator", values="sq_error", aggfunc="first")
+    if pivot.empty or "overlay" not in pivot.columns or "baseline" not in pivot.columns:
+        return float("nan"), float("nan"), 0
+    valid_ids = pivot.index.isin(list(changed_ids))
+    filtered = pivot[valid_ids]
+    if filtered.empty:
+        return float("nan"), float("nan"), 0
+    overlay_errors = pd.to_numeric(filtered["overlay"], errors="coerce").to_numpy(dtype=np.float64)
+    baseline_errors = pd.to_numeric(filtered["baseline"], errors="coerce").to_numpy(dtype=np.float64)
+    mask = np.isfinite(overlay_errors) & np.isfinite(baseline_errors)
+    n_eff = int(mask.sum())
+    if n_eff <= 1:
+        return float("nan"), float("nan"), 0
+    dm_stat, p_value = dm_test(overlay_errors[mask], baseline_errors[mask])
+    if not np.isfinite(dm_stat):
+        return float("nan"), float("nan"), 0
     return dm_stat, p_value, n_eff
 
 
@@ -277,6 +298,80 @@ def _plot_heatmap(
     fig.savefig(path, dpi=200)
     plt.close(fig)
     return path
+
+
+def _full_regime(detail_df: pd.DataFrame) -> pd.DataFrame:
+    if detail_df.empty or "regime" not in detail_df.columns:
+        return detail_df
+    mask = detail_df["regime"].astype(str).str.lower() == "full"
+    subset = detail_df[mask]
+    if subset.empty:
+        return detail_df
+    return subset
+
+
+def _metric_series(
+    detail_df: pd.DataFrame,
+    column: str,
+    changed_ids: set[int] | None,
+) -> pd.Series:
+    frame = _full_regime(detail_df)
+    if frame.empty or column not in frame.columns:
+        return pd.Series(dtype=float)
+    filtered = frame
+    if changed_ids and "window_id" in frame.columns:
+        window_ids = pd.to_numeric(frame["window_id"], errors="coerce")
+        mask = window_ids.isin(list(changed_ids))
+        filtered = frame[mask]
+        if filtered.empty:
+            filtered = frame
+    series = pd.to_numeric(filtered[column], errors="coerce").dropna()
+    return series
+
+
+def _median_metric(detail_df: pd.DataFrame, column: str, changed_ids: set[int]) -> float:
+    series = _metric_series(detail_df, column, changed_ids if changed_ids else None)
+    if series.empty:
+        return float("nan")
+    return float(series.median())
+
+
+def _plot_metric_histograms(
+    metric_map: dict[tuple[bool, str], list[float]],
+    *,
+    figures_dir: Path,
+    slug: str,
+    xlabel: str,
+    title_prefix: str,
+) -> list[str]:
+    if plt is None or not metric_map:
+        return []
+    paths: list[str] = []
+    for (ri, align_label), values in sorted(
+        metric_map.items(), key=lambda item: (int(not item[0][0]), item[0][1])
+    ):
+        if not values:
+            continue
+        data = np.asarray(values, dtype=np.float64)
+        data = data[np.isfinite(data)]
+        if data.size == 0:
+            continue
+        bin_count = int(max(10, min(40, round(np.sqrt(data.size)))))
+        fig, ax = plt.subplots(figsize=(4.5, 3.2))
+        ax.hist(data, bins=bin_count, color="#1f77b4", alpha=0.85)
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel("Frequency")
+        label = align_label.replace(".", "p")
+        iso_label = "on" if ri else "off"
+        ax.set_title(f"{title_prefix} (iso={iso_label}, align={align_label})")
+        ax.grid(True, axis="y", alpha=0.3)
+        fig.tight_layout()
+        path = figures_dir / f"{slug}_ri{'1' if ri else '0'}_align{label}.png"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(path, dpi=200)
+        plt.close(fig)
+        paths.append(path.as_posix())
+    return paths
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -344,6 +439,8 @@ def main(argv: Sequence[str] | None = None) -> None:
     env = _thread_env()
     results: list[dict[str, Any]] = []
     run_manifest: list[dict[str, Any]] = []
+    alignment_hist_data: dict[tuple[bool, str], list[float]] = defaultdict(list)
+    leakage_hist_data: dict[tuple[bool, str], list[float]] = defaultdict(list)
 
     for combo in combos:
         run_dir = runs_dir / combo.slug
@@ -364,21 +461,38 @@ def main(argv: Sequence[str] | None = None) -> None:
             raise RuntimeError(f"missing diagnostics at '{diag_path}'")
         diag_row = _load_first_row(diag_path)
         acceptance_rate = float(diag_row.get("acceptance_rate", float("nan")))
-        edge_margin = float(diag_row.get("mp_edge_margin", diag_row.get("edge_margin_mean", float("nan"))))
         leakage = float(diag_row.get("leakage_offcomp", float("nan")))
         percent_changed = float(diag_row.get("percent_changed", 0.0))
 
         detail_root = run_dir / "diagnostics_detail.csv"
-        changed_ids = set(_changed_window_ids(detail_root))
+        if not detail_root.exists():
+            raise RuntimeError(f"missing diagnostics detail at '{detail_root}'")
+        detail_df = pd.read_csv(detail_root)
+        changed_ids = set(_changed_window_ids(detail_df))
         n_changed = len(changed_ids)
+        edge_margin_median = _median_metric(detail_df, "mp_edge_margin", changed_ids)
+
+        alignment_series = _metric_series(detail_df, "alignment_cos", changed_ids)
+        if not alignment_series.empty:
+            alignment_hist_data[(combo.require_isolated, combo.alignment_label)].extend(
+                alignment_series.tolist()
+            )
+        leakage_series = _metric_series(detail_df, "leakage_offcomp", changed_ids)
+        if not leakage_series.empty:
+            leakage_hist_data[(combo.require_isolated, combo.alignment_label)].extend(
+                leakage_series.tolist()
+            )
+
+        edge_margin_mean = float(diag_row.get("mp_edge_margin", diag_row.get("edge_margin_mean", float("nan"))))
+        if not np.isfinite(edge_margin_median):
+            edge_margin_median = edge_margin_mean
 
         metrics_detail_path = run_dir / "metrics_detail.csv"
         delta_mse_ew = _mean_delta_sq_error(metrics_detail_path, changed_ids, "ew")
         delta_mse_mv = _mean_delta_sq_error(metrics_detail_path, changed_ids, "mv")
 
-        dm_path = run_dir / "full" / "dm.csv"
-        dm_stat_ew, dm_p_ew, dm_n_ew = _dm_stats(dm_path, "ew")
-        dm_stat_mv, dm_p_mv, dm_n_mv = _dm_stats(dm_path, "mv")
+        dm_stat_ew, dm_p_ew, dm_n_ew = _dm_stats_from_metrics(metrics_detail_path, changed_ids, "ew")
+        dm_stat_mv, dm_p_mv, dm_n_mv = _dm_stats_from_metrics(metrics_detail_path, changed_ids, "mv")
 
         result_record = {
             "require_isolated": combo.require_isolated,
@@ -387,7 +501,8 @@ def main(argv: Sequence[str] | None = None) -> None:
             "delta_frac": combo.delta_frac,
             "stability_eta": combo.stability_eta,
             "acceptance_rate": acceptance_rate,
-            "mp_edge_margin": edge_margin,
+            "mp_edge_margin_mean": edge_margin_mean,
+            "mp_edge_margin_median": edge_margin_median,
             "leakage_offcomp": leakage,
             "percent_changed": percent_changed,
             "n_changed_windows": n_changed,
@@ -415,7 +530,6 @@ def main(argv: Sequence[str] | None = None) -> None:
                     "diagnostics": diag_path.as_posix(),
                     "diagnostics_detail": detail_root.as_posix(),
                     "metrics_detail": metrics_detail_path.as_posix(),
-                    "dm": dm_path.as_posix(),
                     "run_json": run_json.as_posix(),
                 },
             }
@@ -439,8 +553,7 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     heatmap_metrics = {
         "acceptance_rate": "Acceptance Rate",
-        "mp_edge_margin": "MP Edge Margin",
-        "leakage_offcomp": "Leakage (Off-comp)",
+        "mp_edge_margin_median": "Median MP Edge Margin",
     }
     heatmap_paths: list[str] = []
     _ensure_matplotlib()
@@ -469,6 +582,21 @@ def main(argv: Sequence[str] | None = None) -> None:
                 if plotted is not None:
                     heatmap_paths.append(plotted.as_posix())
 
+    alignment_hist_paths = _plot_metric_histograms(
+        alignment_hist_data,
+        figures_dir=figures_dir,
+        slug="alignment_hist",
+        xlabel="Alignment cos",
+        title_prefix="Alignment cos distribution",
+    )
+    leakage_hist_paths = _plot_metric_histograms(
+        leakage_hist_data,
+        figures_dir=figures_dir,
+        slug="leakage_hist",
+        xlabel="Leakage (off-comp)",
+        title_prefix="Leakage distribution",
+    )
+
     manifest_path = out_dir / "run_manifest.json"
     manifest_payload = {
         "label": label,
@@ -491,6 +619,8 @@ def main(argv: Sequence[str] | None = None) -> None:
         "runs": run_manifest,
         "summary_csv": summary_path.as_posix(),
         "heatmaps": heatmap_paths,
+        "alignment_histograms": alignment_hist_paths,
+        "leakage_histograms": leakage_hist_paths,
     }
     manifest_path.write_text(json.dumps(manifest_payload, indent=2), encoding="utf-8")
     print(f"[sensitivity] Completed sweep with {len(results_df)} combinations. Summary: {summary_path}")

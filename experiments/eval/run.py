@@ -48,6 +48,8 @@ from fjs.overlay import OverlayConfig, apply_overlay, detect_spikes
 from experiments.daily.grouping import (
     GroupingError,
     group_by_day_of_week,
+    group_by_dow_month,
+    group_by_dow_vol,
     group_by_vol_state,
     group_by_week,
 )
@@ -143,6 +145,7 @@ class EvalConfig:
     workers: int | None = None
     overlay_a_grid: int = 60
     overlay_seed: int | None = None
+    overlay_delta_frac: float | None = None
     mv_gamma: float = 1e-4
     mv_tau: float = 0.0
     mv_box_lo: float = 0.0
@@ -202,6 +205,36 @@ class EvalOutputs:
 
 _REGIMES = ("full", "calm", "crisis")
 
+
+def _plot_regime_histograms(
+    diagnostics_df: pd.DataFrame,
+    column: str,
+    *,
+    out_dir: Path,
+    xlabel: str,
+    title_prefix: str,
+) -> dict[str, Path]:
+    if plt is None or diagnostics_df.empty or column not in diagnostics_df.columns:
+        return {}
+    outputs: dict[str, Path] = {}
+    slug = column.replace("/", "_").replace(" ", "_")
+    for regime in _REGIMES:
+        subset = diagnostics_df[diagnostics_df["regime"] == regime]
+        if subset.empty:
+            continue
+        series = pd.to_numeric(subset[column], errors="coerce")
+        path = out_dir / f"{slug}_{regime}_hist.png"
+        plotted = _plot_histogram(
+            series,
+            path,
+            xlabel=xlabel,
+            title=f"{title_prefix} ({regime})",
+        )
+        if plotted is not None:
+            outputs[f"{column}_{regime}"] = plotted
+    return outputs
+
+
 _DOW_LABELS = {
     0: "mon",
     1: "tue",
@@ -214,6 +247,21 @@ _VOL_LABELS = {
     0: "calm",
     1: "mid",
     2: "crisis",
+}
+
+_MONTH_LABELS = {
+    1: "jan",
+    2: "feb",
+    3: "mar",
+    4: "apr",
+    5: "may",
+    6: "jun",
+    7: "jul",
+    8: "aug",
+    9: "sep",
+    10: "oct",
+    11: "nov",
+    12: "dec",
 }
 
 _FACTOR_SETS: dict[str, tuple[str, ...]] = {
@@ -235,13 +283,29 @@ def _format_group_label_counts(labels: np.ndarray, design: str) -> tuple[str, di
     if unique.size == 0:
         return "", {}
     design_key = design.lower()
-    label_map = _DOW_LABELS if design_key == "dow" else _VOL_LABELS if design_key == "vol" else {}
     entries: list[str] = []
     counts_map: dict[int, int] = {}
     pairs = [(int(raw_label), int(raw_count)) for raw_label, raw_count in zip(unique.tolist(), counts.tolist())]
     for label, count in sorted(pairs, key=lambda pair: pair[0]):
         counts_map[label] = count
-        label_name = label_map.get(label, str(label))
+        if design_key == "dow":
+            label_name = _DOW_LABELS.get(label, str(label))
+        elif design_key == "vol":
+            label_name = _VOL_LABELS.get(label, str(label))
+        elif design_key == "dowxvol":
+            dow_code = label % 10
+            vol_code = label // 10
+            dow_name = _DOW_LABELS.get(dow_code, str(dow_code))
+            vol_name = _VOL_LABELS.get(vol_code, str(vol_code))
+            label_name = f"{dow_name}@{vol_name}"
+        elif design_key == "dowxmonth":
+            dow_code = label % 10
+            month_code = label // 10
+            month_name = _MONTH_LABELS.get(month_code, str(month_code))
+            dow_name = _DOW_LABELS.get(dow_code, str(dow_code))
+            label_name = f"{month_name}@{dow_name}"
+        else:
+            label_name = str(label)
         entries.append(f"{label_name}:{count}")
     return "|".join(entries), counts_map
 
@@ -372,6 +436,7 @@ def _serialise_config(config: EvalConfig) -> dict[str, Any]:
         "workers": config.workers,
         "overlay_a_grid": config.overlay_a_grid,
         "overlay_seed": config.overlay_seed,
+        "overlay_delta_frac": config.overlay_delta_frac,
         "mv_gamma": config.mv_gamma,
         "mv_tau": config.mv_tau,
         "bootstrap_samples": config.bootstrap_samples,
@@ -628,6 +693,13 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
         type=int,
         default=None,
         help="Angular grid resolution for overlay t-vector search.",
+    )
+    parser.add_argument(
+        "--overlay-delta-frac",
+        dest="overlay_delta_frac",
+        type=float,
+        default=None,
+        help="Relative delta_frac multiplier applied to MP edge thresholds (overrides defaults).",
     )
     parser.add_argument(
         "--overlay-seed",
@@ -1016,12 +1088,52 @@ def _plot_acceptance_edge_histograms(diagnostics_df: pd.DataFrame, design: str, 
     return outputs
 
 
+def _detail_defaults() -> dict[str, object]:
+    return {
+        "design_ok": 0,
+        "reps_by_label": "",
+        "mp_edge_margin": float("nan"),
+        "alignment_cos_p50": float("nan"),
+        "leakage_offcomp": float("nan"),
+        "stability_eta_pass": float("nan"),
+        "bracket_status": "",
+    }
+
+
+def _safe_nanmean(values: Sequence[float]) -> float:
+    arr = np.asarray(list(values), dtype=np.float64)
+    if arr.size == 0:
+        return float("nan")
+    finite = arr[np.isfinite(arr)]
+    if finite.size == 0:
+        return float("nan")
+    return float(finite.mean())
+
+
+def _safe_nanmedian(values: Sequence[float]) -> float:
+    arr = np.asarray(list(values), dtype=np.float64)
+    if arr.size == 0:
+        return float("nan")
+    finite = arr[np.isfinite(arr)]
+    if finite.size == 0:
+        return float("nan")
+    return float(np.median(finite))
+
+
+def _safe_share(successes: int, total: int) -> float:
+    if total <= 0:
+        return float("nan")
+    return float(successes) / float(total)
+
+
 def _required_replicates(design: str, config: EvalConfig) -> int:
     design_key = (design or "").lower()
     if design_key == "dow":
         return max(0, int(config.min_reps_dow))
     if design_key == "vol":
         return max(0, int(config.min_reps_vol))
+    if design_key in {"dowxvol", "dowxmonth"}:
+        return max(0, int(config.group_min_replicates))
     return max(0, int(config.group_min_replicates))
 
 
@@ -1045,6 +1157,18 @@ def _build_grouped_window(
             crisis_threshold=float(crisis_threshold),
             min_replicates=min_replicates,
         )
+    if design == "dowxvol":
+        return group_by_dow_vol(
+            frame,
+            vol_proxy=vol_proxy,
+            calm_threshold=float(calm_threshold),
+            crisis_threshold=float(crisis_threshold),
+            min_replicates=min_replicates,
+        )
+    if design == "dowxmonth":
+        return group_by_dow_month(frame, min_replicates=min_replicates)
+    if design == "week":
+        return group_by_week(frame, replicates=5)
     return group_by_week(frame, replicates=5)
 
 
@@ -1296,6 +1420,7 @@ def run_evaluation(
     resolved_payload["prewhiten_beta_abs_std"] = prewhiten_meta.beta_abs_std
     resolved_payload["prewhiten_beta_abs_median"] = prewhiten_meta.beta_abs_median
     resolved_payload["use_factor_prewhiten"] = bool(config.use_factor_prewhiten)
+    resolved_payload["overlay_delta_frac"] = config.overlay_delta_frac
     if factor_entry is not None:
         resolved_payload["factors_dataset"] = {
             "key": factor_entry.key,
@@ -1316,6 +1441,7 @@ def run_evaluation(
         edge_mode=str(config.edge_mode),
         seed=config.overlay_seed if config.overlay_seed is not None else config.seed,
         a_grid=int(config.overlay_a_grid),
+        delta_frac=config.overlay_delta_frac,
         require_isolated=bool(config.require_isolated),
         cs_drop_top_frac=config.cs_drop_top_frac,
         ewma_halflife=float(config.ewma_halflife),
@@ -1437,6 +1563,7 @@ def run_evaluation(
                 "factor_present": bool(factor_present),
                 "changed_flag": 0,
             }
+            diag_record.update(_detail_defaults())
             diag_record.update(
                 {
                     "balance_reason": "grouping_error",
@@ -1551,6 +1678,8 @@ def run_evaluation(
                 "group_observations": 0,
                 "vol_state_label": hold_vol_state,
             }
+            diag_record.update(_detail_defaults())
+            diag_record["reps_by_label"] = balance_counts_str
             diag_record.update(balance_diag_fields)
             return [], diag_record
 
@@ -1598,6 +1727,8 @@ def run_evaluation(
                 "factor_present": bool(factor_present),
                 "changed_flag": 0,
             }
+            diag_record.update(_detail_defaults())
+            diag_record["reps_by_label"] = balance_counts_str
             diag_record.update(balance_diag_fields)
             return [], diag_record
 
@@ -1647,6 +1778,8 @@ def run_evaluation(
                 "factor_present": bool(factor_present),
                 "changed_flag": 0,
             }
+            diag_record.update(_detail_defaults())
+            diag_record["reps_by_label"] = balance_counts_str
             diag_record.update(balance_diag_fields)
             return [], diag_record
 
@@ -1890,18 +2023,71 @@ def run_evaluation(
                         }
                     )
         if detections:
-            edge_margins = [float(det.get("edge_margin", 0.0) or 0.0) for det in detections]
-            stability = [float(det.get("stability_margin", 0.0) or 0.0) for det in detections]
-            isolation = [
-                1.0 - min(1.0, float(det.get("off_component_ratio", 1.0) or 1.0))
-                for det in detections
+            edge_margin_detail = [
+                float(det.get("edge_margin", float("nan"))) for det in detections
             ]
+            edge_margins = [
+                float(det.get("edge_margin", 0.0) or 0.0) for det in detections
+            ]
+            stability_detail = [
+                float(det.get("stability_margin", float("nan"))) for det in detections
+            ]
+            stability = [
+                val if np.isfinite(val) else 0.0 for val in stability_detail
+            ]
+            off_component_ratios = [
+                float(det.get("off_component_ratio", float("nan"))) for det in detections
+            ]
+            isolation = []
+            for ratio in off_component_ratios:
+                ratio_val = ratio if np.isfinite(ratio) else 1.0
+                ratio_clip = min(1.0, max(0.0, ratio_val))
+                isolation.append(1.0 - ratio_clip)
         else:
+            edge_margin_detail = []
             edge_margins = []
+            stability_detail = []
             stability = []
+            off_component_ratios = []
             isolation = []
         alignment_cos_mean = float(np.mean(alignment_cos_values)) if alignment_cos_values else float("nan")
         alignment_angle_mean = float(np.mean(alignment_angle_values)) if alignment_angle_values else float("nan")
+
+        mp_edge_margin_value = _safe_nanmean(edge_margin_detail)
+        alignment_cos_p50 = _safe_nanmedian(alignment_cos_values)
+        leakage_offcomp_value = _safe_nanmean(off_component_ratios)
+        stability_threshold = (
+            float(overlay_cfg.gate_stability_min)
+            if overlay_cfg.gate_stability_min is not None
+            else float(overlay_cfg.stability_eta_deg)
+        )
+        stability_finite = [val for val in stability_detail if np.isfinite(val)]
+        stability_pass = sum(1 for val in stability_finite if val >= stability_threshold)
+        stability_eta_share = _safe_share(stability_pass, len(stability_finite))
+        solver_tokens = sorted(
+            {
+                str(det.get("solver_used", "")).strip().lower()
+                for det in detections
+                if det.get("solver_used")
+            }
+        )
+        bracket_status = "none"
+        if solver_tokens:
+            if solver_tokens == ["grid"]:
+                bracket_status = "grid"
+            elif solver_tokens == ["rootfind"]:
+                bracket_status = "rootfind"
+            elif solver_tokens == ["auto"]:
+                bracket_status = "auto"
+            elif "rootfind" in solver_tokens and "grid" in solver_tokens:
+                bracket_status = "mixed"
+            else:
+                bracket_status = "+".join(solver_tokens[:3])
+        required_groups = max(1, int(config.group_min_count))
+        required_reps = max(0, _required_replicates(design, config))
+        design_ok_flag = int(
+            group_count >= required_groups and replicates_per_group >= required_reps
+        )
 
         reason_value = reason.value if config.reason_codes else ""
         gating_mode = str(gating_info.get("mode", overlay_cfg.gate_mode or "strict"))
@@ -1970,6 +2156,19 @@ def run_evaluation(
             "factor_present": bool(factor_present),
             "changed_flag": int(changed_flag),
         }
+        detail_fields = _detail_defaults()
+        detail_fields.update(
+            {
+                "design_ok": design_ok_flag,
+                "reps_by_label": group_label_counts,
+                "mp_edge_margin": mp_edge_margin_value,
+                "alignment_cos_p50": alignment_cos_p50,
+                "leakage_offcomp": leakage_offcomp_value,
+                "stability_eta_pass": stability_eta_share,
+                "bracket_status": bracket_status,
+            }
+        )
+        diag_record.update(detail_fields)
         diag_record.update(balance_diag_fields)
         for name, message in baseline_errors.items():
             diag_record[f"baseline_error_{name}"] = message
@@ -2000,6 +2199,8 @@ def run_evaluation(
                 diagnostics_records.append(diag_record)
 
     metrics_df = pd.DataFrame(window_records)
+    metrics_detail_path = out_dir / "metrics_detail.csv"
+    metrics_df.to_csv(metrics_detail_path, index=False)
     diagnostics_df = pd.DataFrame(diagnostics_records)
     if "group_label_counts" not in diagnostics_df.columns:
         diagnostics_df["group_label_counts"] = ""
@@ -2097,6 +2298,7 @@ def run_evaluation(
         "residual_energy_mean",
         "acceptance_delta",
         "group_label_counts",
+        "reps_by_label",
         "group_observations",
         "vol_state_label",
         "cov_condition_baseline",
@@ -2109,6 +2311,12 @@ def run_evaluation(
         "baseline_errors",
         "factor_present",
         "changed_flag",
+        "design_ok",
+        "mp_edge_margin",
+        "alignment_cos_p50",
+        "leakage_offcomp",
+        "stability_eta_pass",
+        "bracket_status",
     ]
     if diagnostics_df.empty:
         diagnostics_df = pd.DataFrame(columns=expected_diag_columns)
@@ -2121,10 +2329,19 @@ def run_evaluation(
                     "prewhiten_mode_requested",
                     "prewhiten_mode_effective",
                     "prewhiten_factors",
+                    "reps_by_label",
+                    "bracket_status",
                 }:
                     diagnostics_df[column] = ""
-                elif column in {"factor_present", "changed_flag"}:
+                elif column in {"factor_present", "changed_flag", "design_ok"}:
                     diagnostics_df[column] = 0
+                elif column in {
+                    "mp_edge_margin",
+                    "alignment_cos_p50",
+                    "leakage_offcomp",
+                    "stability_eta_pass",
+                }:
+                    diagnostics_df[column] = np.nan
                 else:
                     diagnostics_df[column] = np.nan
         diagnostics_df = diagnostics_df[expected_diag_columns]
@@ -2264,8 +2481,12 @@ def run_evaluation(
         "isolation_share": ("isolation_share", "mean"),
         "alignment_cos_mean": ("alignment_cos_mean", "mean"),
         "alignment_angle_mean": ("alignment_angle_mean", "mean"),
+        "alignment_cos_p50": ("alignment_cos_p50", "mean"),
         "raw_detection_count": ("raw_detection_count", "mean"),
         "substitution_fraction": ("substitution_fraction", "mean"),
+        "mp_edge_margin": ("mp_edge_margin", "mean"),
+        "leakage_offcomp": ("leakage_offcomp", "mean"),
+        "stability_eta_pass": ("stability_eta_pass", "mean"),
         "gating_initial": ("gating_initial", "mean"),
         "gating_accepted": ("gating_accepted", "mean"),
         "gating_rejected": ("gating_rejected", "mean"),
@@ -2293,6 +2514,7 @@ def run_evaluation(
         "mv_turnover_cost_bps": ("mv_turnover_cost_bps", "mean"),
         "percent_changed": ("changed_flag", "mean"),
         "factor_present_share": ("factor_present", "mean"),
+        "design_ok": ("design_ok", "mean"),
     }
     available_spec = {
         key: value for key, value in agg_spec.items() if value[0] in diagnostics_df.columns
@@ -2337,12 +2559,19 @@ def run_evaluation(
         diagnostics_summary["acceptance_delta"] = np.nan
         diagnostics_summary["group_observations"] = np.nan
         diagnostics_summary["group_label_counts"] = ""
+        diagnostics_summary["reps_by_label"] = ""
         diagnostics_summary["vol_state_label"] = ""
         diagnostics_summary["prewhiten_mode_requested"] = ""
         diagnostics_summary["prewhiten_mode_effective"] = ""
         diagnostics_summary["prewhiten_factors"] = ""
         diagnostics_summary["gating_mode"] = ""
         diagnostics_summary["factor_present_share"] = np.nan
+        diagnostics_summary["mp_edge_margin"] = np.nan
+        diagnostics_summary["alignment_cos_p50"] = np.nan
+        diagnostics_summary["leakage_offcomp"] = np.nan
+        diagnostics_summary["stability_eta_pass"] = np.nan
+        diagnostics_summary["design_ok"] = np.nan
+        diagnostics_summary["bracket_status"] = ""
     else:
         reason_summary = (
             diagnostics_df.groupby("regime")["reason_code"]
@@ -2379,6 +2608,15 @@ def run_evaluation(
             diagnostics_summary = diagnostics_summary.merge(label_counts_summary, on="regime", how="left")
         else:
             diagnostics_summary["group_label_counts"] = ""
+        if "reps_by_label" in diagnostics_df.columns:
+            reps_summary = (
+                diagnostics_df.groupby("regime")["reps_by_label"]
+                .agg(_mode_string)
+                .reset_index()
+            )
+            diagnostics_summary = diagnostics_summary.merge(reps_summary, on="regime", how="left")
+        else:
+            diagnostics_summary["reps_by_label"] = ""
         if "vol_state_label" in diagnostics_df.columns:
             vol_state_summary = (
                 diagnostics_df.groupby("regime")["vol_state_label"]
@@ -2388,6 +2626,15 @@ def run_evaluation(
             diagnostics_summary = diagnostics_summary.merge(vol_state_summary, on="regime", how="left")
         else:
             diagnostics_summary["vol_state_label"] = ""
+        if "bracket_status" in diagnostics_df.columns:
+            bracket_summary = (
+                diagnostics_df.groupby("regime")["bracket_status"]
+                .agg(_mode_string)
+                .reset_index()
+            )
+            diagnostics_summary = diagnostics_summary.merge(bracket_summary, on="regime", how="left")
+        else:
+            diagnostics_summary["bracket_status"] = ""
         if "prewhiten_mode_requested" in diagnostics_df.columns:
             req_summary = (
                 diagnostics_df.groupby("regime")["prewhiten_mode_requested"]
@@ -2459,6 +2706,21 @@ def run_evaluation(
     overlay_toggle_path = out_dir / "overlay_toggle.md"
     _write_overlay_toggle(overlay_toggle_path, diagnostics_summary)
     extra_plots = _plot_acceptance_edge_histograms(diagnostics_df, config.group_design or "", out_dir)
+    regime_hist_config = [
+        ("mp_edge_margin", "MP edge margin", "MP edge margin"),
+        ("alignment_cos_p50", "Alignment cos (p50)", "Alignment cos"),
+        ("leakage_offcomp", "Leakage (off-comp ratio)", "Leakage / off-comp"),
+    ]
+    for column, xlabel, title_prefix in regime_hist_config:
+        extra_plots.update(
+            _plot_regime_histograms(
+                diagnostics_df,
+                column,
+                out_dir=out_dir,
+                xlabel=xlabel,
+                title_prefix=title_prefix,
+            )
+        )
 
     changed_windows_by_regime: dict[str, set[int]] = {regime: set() for regime in _REGIMES}
     changed_windows_by_regime["full"] = set()

@@ -1093,6 +1093,7 @@ def _detail_defaults() -> dict[str, object]:
         "design_ok": 0,
         "reps_by_label": "",
         "mp_edge_margin": float("nan"),
+        "alignment_cos": float("nan"),
         "alignment_cos_p50": float("nan"),
         "leakage_offcomp": float("nan"),
         "stability_eta_pass": float("nan"),
@@ -2162,6 +2163,7 @@ def run_evaluation(
                 "design_ok": design_ok_flag,
                 "reps_by_label": group_label_counts,
                 "mp_edge_margin": mp_edge_margin_value,
+                "alignment_cos": alignment_cos_p50,
                 "alignment_cos_p50": alignment_cos_p50,
                 "leakage_offcomp": leakage_offcomp_value,
                 "stability_eta_pass": stability_eta_share,
@@ -2269,6 +2271,7 @@ def run_evaluation(
         "stability_eta",
         "isolation_share",
         "alignment_cos_mean",
+        "alignment_cos",
         "alignment_angle_mean",
         "raw_detection_count",
         "substitution_fraction",
@@ -2337,6 +2340,7 @@ def run_evaluation(
                     diagnostics_df[column] = 0
                 elif column in {
                     "mp_edge_margin",
+                    "alignment_cos",
                     "alignment_cos_p50",
                     "leakage_offcomp",
                     "stability_eta_pass",
@@ -2480,6 +2484,7 @@ def run_evaluation(
         "stability_eta": ("stability_eta", "mean"),
         "isolation_share": ("isolation_share", "mean"),
         "alignment_cos_mean": ("alignment_cos_mean", "mean"),
+        "alignment_cos": ("alignment_cos", "mean"),
         "alignment_angle_mean": ("alignment_angle_mean", "mean"),
         "alignment_cos_p50": ("alignment_cos_p50", "mean"),
         "raw_detection_count": ("raw_detection_count", "mean"),
@@ -2537,6 +2542,7 @@ def run_evaluation(
         diagnostics_summary["crisis_threshold"] = np.nan
         diagnostics_summary["vol_signal"] = np.nan
         diagnostics_summary["alignment_cos_mean"] = np.nan
+        diagnostics_summary["alignment_cos"] = np.nan
         diagnostics_summary["alignment_angle_mean"] = np.nan
         diagnostics_summary["raw_detection_count"] = np.nan
         diagnostics_summary["substitution_fraction"] = np.nan
@@ -2708,8 +2714,10 @@ def run_evaluation(
     extra_plots = _plot_acceptance_edge_histograms(diagnostics_df, config.group_design or "", out_dir)
     regime_hist_config = [
         ("mp_edge_margin", "MP edge margin", "MP edge margin"),
-        ("alignment_cos_p50", "Alignment cos (p50)", "Alignment cos"),
+        ("alignment_cos", "Alignment cos (p50)", "Alignment cos"),
         ("leakage_offcomp", "Leakage (off-comp ratio)", "Leakage / off-comp"),
+        ("stability_eta_pass", "Stability η pass share", "Stability η pass share"),
+        ("design_ok", "Design OK flag", "Design OK"),
     ]
     for column, xlabel, title_prefix in regime_hist_config:
         extra_plots.update(

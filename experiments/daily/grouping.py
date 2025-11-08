@@ -8,6 +8,8 @@ __all__ = [
     "group_by_week",
     "group_by_day_of_week",
     "group_by_vol_state",
+    "group_by_dow_vol",
+    "group_by_dow_month",
 ]
 
 
@@ -90,6 +92,33 @@ def group_by_day_of_week(
     return trimmed, np.asarray(group_labels, dtype=np.intp)
 
 
+def _vol_state_codes(
+    frame: pd.DataFrame,
+    vol_proxy: pd.Series,
+    *,
+    calm_threshold: float,
+    crisis_threshold: float,
+) -> np.ndarray:
+    frame_sorted = frame.sort_index()
+    proxy_aligned = (
+        vol_proxy.reindex(frame_sorted.index, method=None)
+        .interpolate(method="time", limit_direction="both")
+        .ffill()
+        .bfill()
+    )
+    if proxy_aligned.isna().any():
+        raise GroupingError("Missing volatility proxy values for window.")
+    values = proxy_aligned.to_numpy(dtype=np.float64)
+    states = np.full(values.shape[0], -1, dtype=np.intp)
+    calm = max(float(calm_threshold), float("-inf"))
+    crisis = min(float(crisis_threshold), float("inf"))
+    states[values <= calm] = 0
+    states[values >= crisis] = 2
+    mid_mask = (values > calm) & (values < crisis)
+    states[mid_mask] = 1
+    return states
+
+
 def group_by_vol_state(
     frame: pd.DataFrame,
     *,
@@ -105,27 +134,12 @@ def group_by_vol_state(
         raise GroupingError("Cannot balance empty frame.")
 
     frame_sorted = frame.sort_index()
-    # Align proxy to frame and fill small gaps
-    proxy_aligned = (
-        vol_proxy.reindex(frame_sorted.index, method=None)
-        .interpolate(method="time", limit_direction="both")
-        .ffill()
-        .bfill()
+    states = _vol_state_codes(
+        frame_sorted,
+        vol_proxy,
+        calm_threshold=calm_threshold,
+        crisis_threshold=crisis_threshold,
     )
-    if proxy_aligned.isna().any():
-        raise GroupingError("Missing volatility proxy values for window.")
-
-    states = np.full(frame_sorted.shape[0], -1, dtype=np.intp)
-    calm = max(calm_threshold, float("-inf"))
-    crisis = min(crisis_threshold, float("inf"))
-
-    for idx, value in enumerate(proxy_aligned.to_numpy(dtype=np.float64)):  # type: ignore[arg-type]
-        if value <= calm:
-            states[idx] = 0
-        elif value >= crisis:
-            states[idx] = 2
-        else:
-            states[idx] = 1
 
     present_states = np.sort(np.unique(states))
     valid_states = [int(state) for state in present_states if state in {0, 1, 2}]
@@ -156,3 +170,93 @@ def group_by_vol_state(
     trimmed = frame_sorted.loc[ordered_indices]
     trimmed = trimmed.astype(np.float64)
     return trimmed, np.asarray(group_labels, dtype=np.intp)
+
+
+def group_by_dow_vol(
+    frame: pd.DataFrame,
+    *,
+    vol_proxy: pd.Series,
+    calm_threshold: float,
+    crisis_threshold: float,
+    min_replicates: int,
+) -> tuple[pd.DataFrame, np.ndarray]:
+    """Balance windows by crossing day-of-week with volatility states."""
+
+    _ensure_datetime_index(frame)
+    if frame.empty:
+        raise GroupingError("Cannot balance empty frame.")
+
+    frame_sorted = frame.sort_index()
+    states = _vol_state_codes(
+        frame_sorted,
+        vol_proxy,
+        calm_threshold=calm_threshold,
+        crisis_threshold=crisis_threshold,
+    )
+    weekdays = frame_sorted.index.weekday
+    labels = states * 10 + weekdays
+
+    groups: dict[int, list[int]] = {}
+    for idx, label in enumerate(labels.tolist()):
+        if label < 0:
+            continue
+        groups.setdefault(int(label), []).append(idx)
+
+    if not groups:
+        raise GroupingError("dow×vol design produced no valid groups.")
+
+    insufficient = [lbl for lbl, idxs in groups.items() if len(idxs) < max(1, min_replicates)]
+    if insufficient:
+        raise GroupingError(
+            "dow×vol design lacks replicates for labels: " + ",".join(map(str, insufficient))
+        )
+
+    ordered_positions: list[int] = []
+    ordered_labels: list[int] = []
+    for label in sorted(groups.keys()):
+        idxs = sorted(groups[label])
+        ordered_positions.extend(idxs)
+        ordered_labels.extend([label] * len(idxs))
+
+    trimmed = frame_sorted.iloc[ordered_positions].astype(np.float64)
+    return trimmed, np.asarray(ordered_labels, dtype=np.intp)
+
+
+def group_by_dow_month(
+    frame: pd.DataFrame,
+    *,
+    min_replicates: int,
+) -> tuple[pd.DataFrame, np.ndarray]:
+    """Balance windows by crossing day-of-week with calendar month."""
+
+    _ensure_datetime_index(frame)
+    if frame.empty:
+        raise GroupingError("Cannot balance empty frame.")
+
+    frame_sorted = frame.sort_index()
+    weekdays = frame_sorted.index.weekday
+    months = frame_sorted.index.month
+    labels = months * 10 + weekdays
+
+    groups: dict[int, list[int]] = {}
+    for idx, label in enumerate(labels.tolist()):
+        groups.setdefault(int(label), []).append(idx)
+
+    if not groups:
+        raise GroupingError("dow×month design produced no valid groups.")
+
+    insufficient = [lbl for lbl, idxs in groups.items() if len(idxs) < max(1, min_replicates)]
+    if insufficient:
+        raise GroupingError(
+            "dow×month design lacks replicates for labels: " + ",".join(map(str, insufficient))
+        )
+
+    ordered_positions: list[int] = []
+    ordered_labels: list[int] = []
+    for label in sorted(groups.keys()):
+        idxs = sorted(groups[label])
+        ordered_positions.extend(idxs)
+        ordered_labels.extend([label] * len(idxs))
+
+    trimmed = frame_sorted.iloc[ordered_positions].astype(np.float64)
+    return trimmed, np.asarray(ordered_labels, dtype=np.intp)

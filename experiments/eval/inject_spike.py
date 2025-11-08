@@ -272,14 +272,14 @@ def main(argv: Sequence[str] | None = None) -> None:
         )
         recall_points.append((mu, recall))
 
-    out_dir = args.out.resolve() / "inject"
-    out_dir.mkdir(parents=True, exist_ok=True)
+    out_root = args.out.resolve()
+    out_root.mkdir(parents=True, exist_ok=True)
     summary_df = pd.DataFrame(summary_rows)
-    summary_csv = out_dir / "inject_summary.csv"
+    summary_csv = out_root / "inject_summary.csv"
     summary_df.to_csv(summary_csv, index=False)
 
-    recall_fig = out_dir / "inject_recall.png"
-    fp_fig = out_dir / "inject_fp.png"
+    recall_fig = out_root / "inject_recall.png"
+    fp_fig = out_root / "inject_fp.png"
 
     fig, ax = plt.subplots(figsize=(5, 3.5))
     recall_df = summary_df.sort_values("mu")
@@ -309,7 +309,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         "false_positive_rate": fp_rate,
         "mu_grid": args.mu_values,
     }
-    manifest_path = out_dir / "inject_summary.json"
+    manifest_path = out_root / "inject_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     print(
         f"[inject] windows={len(samples)} fp_rate={fp_rate:.3f} "

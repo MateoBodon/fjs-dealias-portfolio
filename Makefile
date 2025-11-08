@@ -65,6 +65,9 @@ RC_DATE := $(shell python3 -c 'import datetime as _dt; print(_dt.datetime.utcnow
 RC_OUT := reports/rc-$(RC_DATE)
 RC_REGISTRY := data/registry.json
 RC_VERIFY_DATASET := python tools/verify_dataset.py $(RC_RETURNS) --registry $(RC_REGISTRY)
+RC_FACTORS ?= data/factors/ff5mom_daily.csv
+RC_FACTORS_REGISTRY ?= data/factors/registry.json
+RC_VERIFY_FACTORS := python tools/verify_dataset.py $(RC_FACTORS) --registry $(RC_FACTORS_REGISTRY)
 RC_GATE_CALIB := calibration/edge_delta_thresholds.json
 RC_GATE_DEFAULTS := calibration/defaults.json
 RC_WINDOW ?= 126
@@ -164,10 +167,12 @@ RC_DOWXVOL_PREWHITEN ?= $(RC_DOW_PREWHITEN)
 RC_SENS_START ?= 2024-05-01
 RC_SENS_END ?= 2024-10-31
 RC_SENS_LABEL ?= rc-sensitivity-$(RC_DATE)
+RC_INJECT_OUT ?= reports/figures
 
 .PHONY: rc-dow rc-vol rc-week rc-dowxvol
 rc-dow:
 	$(RC_VERIFY_DATASET)
+	$(RC_VERIFY_FACTORS)
 	$(RC_PY) experiments/eval/run.py \
 		--returns-csv $(RC_RETURNS) \
 		--window $(RC_WINDOW) \
@@ -192,6 +197,7 @@ rc-dow:
 
 rc-vol:
 	$(RC_VERIFY_DATASET)
+	$(RC_VERIFY_FACTORS)
 	$(RC_PY) experiments/eval/run.py \
 		--returns-csv $(RC_RETURNS) \
 		--window $(RC_WINDOW) \
@@ -218,6 +224,7 @@ rc-vol:
 
 rc-week:
 	$(RC_VERIFY_DATASET)
+	$(RC_VERIFY_FACTORS)
 	$(RC_PY) experiments/eval/run.py \
 		--returns-csv $(RC_RETURNS) \
 		--window $(RC_WINDOW) \
@@ -244,6 +251,7 @@ rc-week:
 
 rc-dowxvol:
 	$(RC_VERIFY_DATASET)
+	$(RC_VERIFY_FACTORS)
 	$(RC_PY) experiments/eval/run.py \
 		--returns-csv $(RC_RETURNS) \
 		--window $(RC_WINDOW) \
@@ -271,6 +279,7 @@ rc-dowxvol:
 .PHONY: rc-sensitivity
 rc-sensitivity:
 	$(RC_VERIFY_DATASET)
+	$(RC_VERIFY_FACTORS)
 	$(RC_PY) experiments/eval/sensitivity.py \
 		--returns-csv $(RC_RETURNS) \
 		--slice-start $(RC_SENS_START) \
@@ -284,6 +293,24 @@ rc-sensitivity:
 		--out reports/rc-sensitivity \
 		--label $(RC_SENS_LABEL) \
 		--workers 1
+
+.PHONY: inject-spike
+inject-spike:
+	$(RC_VERIFY_DATASET)
+	$(RC_VERIFY_FACTORS)
+	PYTHONPATH=src python experiments/eval/inject_spike.py \
+		--returns-csv $(RC_RETURNS) \
+		--factors-csv $(RC_FACTORS) \
+		--window $(RC_WINDOW) \
+		--horizon $(RC_HORIZON) \
+		--start $(RC_START) \
+		--end $(RC_END) \
+		--assets-top 150 \
+		--config experiments/eval/config.yaml \
+		--thresholds experiments/eval/thresholds.json \
+		--group-design week \
+		--use-factor-prewhiten 1 \
+		--out $(RC_INJECT_OUT)
 
 run-synth:
 	python experiments/synthetic_oneway/run.py

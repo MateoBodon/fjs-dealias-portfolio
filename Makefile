@@ -149,11 +149,23 @@ RC_DOW_PREWHITEN ?= ff5mom
 RC_VOL_PREWHITEN ?= ff5mom
 RC_VOL_GROUP_MIN ?= 3
 RC_VOL_GROUP_REPS ?= 10
+RC_WEEK_OUT := $(RC_OUT)/week
+RC_WEEK_ASSETS ?= 80
+RC_WEEK_GROUP_MIN ?= 4
+RC_WEEK_GROUP_REPS ?= 5
+RC_WEEK_SHRINKER ?= $(RC_DOW_SHRINKER)
+RC_WEEK_PREWHITEN ?= $(RC_DOW_PREWHITEN)
+RC_DOWXVOL_OUT := $(RC_OUT)/dowxvol
+RC_DOWXVOL_ASSETS ?= 90
+RC_DOWXVOL_GROUP_MIN ?= 10
+RC_DOWXVOL_GROUP_REPS ?= 3
+RC_DOWXVOL_SHRINKER ?= $(RC_DOW_SHRINKER)
+RC_DOWXVOL_PREWHITEN ?= $(RC_DOW_PREWHITEN)
 RC_SENS_START ?= 2024-05-01
 RC_SENS_END ?= 2024-10-31
 RC_SENS_LABEL ?= rc-sensitivity-$(RC_DATE)
 
-.PHONY: rc-dow rc-vol
+.PHONY: rc-dow rc-vol rc-week rc-dowxvol
 rc-dow:
 	$(RC_VERIFY_DATASET)
 	$(RC_PY) experiments/eval/run.py \
@@ -203,6 +215,58 @@ rc-vol:
 		--mv-turnover-bps $(RC_MV_TURNOVER_BPS) \
 		--mv-condition-cap $(RC_MV_CONDITION_CAP) \
 		--out $(RC_VOL_OUT)
+
+rc-week:
+	$(RC_VERIFY_DATASET)
+	$(RC_PY) experiments/eval/run.py \
+		--returns-csv $(RC_RETURNS) \
+		--window $(RC_WINDOW) \
+		--horizon $(RC_HORIZON) \
+		--start $(RC_START) \
+		--end $(RC_END) \
+		--assets-top $(RC_WEEK_ASSETS) \
+		--group-design week \
+		--group-min-count $(RC_WEEK_GROUP_MIN) \
+		--group-min-replicates $(RC_WEEK_GROUP_REPS) \
+		--edge-mode $(DOW_EDGE) \
+		--shrinker $(RC_WEEK_SHRINKER) \
+		--prewhiten $(RC_WEEK_PREWHITEN) \
+		$(if $(USE_FACTORS),--use-factor-prewhiten $(USE_FACTORS),) \
+		--gate-delta-calibration $(RC_GATE_CALIB) \
+		--gate-delta-frac-min $(RC_GATE_DELTA_FRAC) \
+		--require-isolated \
+		--q-max 1 \
+		--mv-gamma $(RC_MV_GAMMA) \
+		--mv-box $(RC_MV_BOX) \
+		--mv-turnover-bps $(RC_MV_TURNOVER_BPS) \
+		--mv-condition-cap $(RC_MV_CONDITION_CAP) \
+		--out $(RC_WEEK_OUT)
+
+rc-dowxvol:
+	$(RC_VERIFY_DATASET)
+	$(RC_PY) experiments/eval/run.py \
+		--returns-csv $(RC_RETURNS) \
+		--window $(RC_WINDOW) \
+		--horizon $(RC_HORIZON) \
+		--start $(RC_START) \
+		--end $(RC_END) \
+		--assets-top $(RC_DOWXVOL_ASSETS) \
+		--group-design dowxvol \
+		--group-min-count $(RC_DOWXVOL_GROUP_MIN) \
+		--group-min-replicates $(RC_DOWXVOL_GROUP_REPS) \
+		--edge-mode $(DOW_EDGE) \
+		--shrinker $(RC_DOWXVOL_SHRINKER) \
+		--prewhiten $(RC_DOWXVOL_PREWHITEN) \
+		$(if $(USE_FACTORS),--use-factor-prewhiten $(USE_FACTORS),) \
+		--gate-delta-calibration $(RC_GATE_CALIB) \
+		--gate-delta-frac-min $(RC_GATE_DELTA_FRAC) \
+		--require-isolated \
+		--q-max 1 \
+		--mv-gamma $(RC_MV_GAMMA) \
+		--mv-box $(RC_MV_BOX) \
+		--mv-turnover-bps $(RC_MV_TURNOVER_BPS) \
+		--mv-condition-cap $(RC_MV_CONDITION_CAP) \
+		--out $(RC_DOWXVOL_OUT)
 
 .PHONY: rc-sensitivity
 rc-sensitivity:

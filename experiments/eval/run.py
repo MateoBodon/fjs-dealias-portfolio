@@ -292,6 +292,8 @@ def _format_group_label_counts(labels: np.ndarray, design: str) -> tuple[str, di
             label_name = _DOW_LABELS.get(label, str(label))
         elif design_key == "vol":
             label_name = _VOL_LABELS.get(label, str(label))
+        elif design_key == "week":
+            label_name = f"wk{label}"
         elif design_key == "dowxvol":
             dow_code = label % 10
             vol_code = label // 10
@@ -913,7 +915,7 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
         dest="group_design",
         type=str,
         default=None,
-        choices=["week", "dow", "vol"],
+        choices=["week", "dow", "vol", "dowxvol"],
         help="Replicate grouping design for the detection window.",
     )
     parser.add_argument(
@@ -1496,6 +1498,8 @@ def run_evaluation(
             hold = hold_base
         factor_present = bool(overlay_allowed) if factor_tracking_required else True
         design = (config.group_design or "week").lower()
+        required_groups = max(1, int(config.group_min_count))
+        required_reps = max(0, _required_replicates(design, config))
         hold_start = pd.to_datetime(hold_labels[0])
         train_end = pd.to_datetime(fit_labels[-1])
         calm_cut, crisis_cut = _vol_thresholds(vol_proxy_past, train_end, config)
@@ -1564,6 +1568,8 @@ def run_evaluation(
                 "factor_present": bool(factor_present),
                 "changed_flag": 0,
             }
+            diag_record["group_count_required"] = required_groups
+            diag_record["group_replicates_required"] = required_reps
             diag_record.update(_detail_defaults())
             diag_record.update(
                 {
@@ -1592,7 +1598,7 @@ def run_evaluation(
         balance_result = build_balanced_window(
             fit_clean,
             group_labels_clean,
-            min_replicates=_required_replicates(design, config),
+            min_replicates=required_reps,
         )
         fit_balanced = balance_result.frame.replace([np.inf, -np.inf], np.nan)
         group_labels = balance_result.labels
@@ -1679,6 +1685,8 @@ def run_evaluation(
                 "group_observations": 0,
                 "vol_state_label": hold_vol_state,
             }
+            diag_record["group_count_required"] = required_groups
+            diag_record["group_replicates_required"] = required_reps
             diag_record.update(_detail_defaults())
             diag_record["reps_by_label"] = balance_counts_str
             diag_record.update(balance_diag_fields)
@@ -1728,6 +1736,8 @@ def run_evaluation(
                 "factor_present": bool(factor_present),
                 "changed_flag": 0,
             }
+            diag_record["group_count_required"] = required_groups
+            diag_record["group_replicates_required"] = required_reps
             diag_record.update(_detail_defaults())
             diag_record["reps_by_label"] = balance_counts_str
             diag_record.update(balance_diag_fields)
@@ -1779,6 +1789,8 @@ def run_evaluation(
                 "factor_present": bool(factor_present),
                 "changed_flag": 0,
             }
+            diag_record["group_count_required"] = required_groups
+            diag_record["group_replicates_required"] = required_reps
             diag_record.update(_detail_defaults())
             diag_record["reps_by_label"] = balance_counts_str
             diag_record.update(balance_diag_fields)
@@ -2132,6 +2144,8 @@ def run_evaluation(
             "group_design": config.group_design,
             "group_count": group_count,
             "group_replicates": replicates_per_group,
+            "group_count_required": required_groups,
+            "group_replicates_required": required_reps,
             "prewhiten_r2_mean": prewhiten_r2_mean,
             "prewhiten_r2_median": prewhiten_meta.r2_median,
             "prewhiten_mode_requested": prewhiten_meta.mode_requested,
@@ -2289,6 +2303,8 @@ def run_evaluation(
         "group_design",
         "group_count",
         "group_replicates",
+        "group_count_required",
+        "group_replicates_required",
         "prewhiten_r2_mean",
         "prewhiten_r2_median",
         "prewhiten_mode_requested",
@@ -2502,6 +2518,8 @@ def run_evaluation(
         "vol_signal": ("vol_signal", "mean"),
         "group_count": ("group_count", "mean"),
         "group_replicates": ("group_replicates", "mean"),
+        "group_count_required": ("group_count_required", "mean"),
+        "group_replicates_required": ("group_replicates_required", "mean"),
         "prewhiten_r2_mean": ("prewhiten_r2_mean", "mean"),
         "prewhiten_r2_median": ("prewhiten_r2_median", "mean"),
         "prewhiten_factor_count": ("prewhiten_factor_count", "mean"),
@@ -2555,6 +2573,8 @@ def run_evaluation(
         diagnostics_summary["group_design"] = ""
         diagnostics_summary["group_count"] = np.nan
         diagnostics_summary["group_replicates"] = np.nan
+        diagnostics_summary["group_count_required"] = np.nan
+        diagnostics_summary["group_replicates_required"] = np.nan
         diagnostics_summary["prewhiten_r2_mean"] = np.nan
         diagnostics_summary["prewhiten_r2_median"] = np.nan
         diagnostics_summary["prewhiten_factor_count"] = np.nan

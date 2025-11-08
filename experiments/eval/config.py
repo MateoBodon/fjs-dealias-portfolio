@@ -64,6 +64,7 @@ DEFAULTS: dict[str, Any] = {
     "echo_config": True,
     "overlay_a_grid": 60,
     "overlay_seed": None,
+    "overlay_delta_frac": None,
     "mv_gamma": 1e-4,
     "mv_tau": 0.0,
     "mv_box_lo": 0.0,
@@ -260,6 +261,13 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
     if mv_condition_cap_val <= 0.0:
         raise ValueError("mv_condition_cap must be positive.")
 
+    overlay_delta_frac_raw = merged.get("overlay_delta_frac")
+    overlay_delta_frac_val = (
+        float(overlay_delta_frac_raw)
+        if overlay_delta_frac_raw is not None and str(overlay_delta_frac_raw).strip() != ""
+        else None
+    )
+
     config = EvalConfig(
         returns_csv=Path(returns_csv),
         factors_csv=Path(factors_csv) if factors_csv else None,
@@ -285,6 +293,7 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         workers=int(merged["workers"]) if merged.get("workers") is not None else None,
         overlay_a_grid=int(merged.get("overlay_a_grid", DEFAULTS["overlay_a_grid"])),
         overlay_seed=int(merged["overlay_seed"]) if merged.get("overlay_seed") is not None else None,
+        overlay_delta_frac=overlay_delta_frac_val,
         mv_gamma=mv_gamma_val,
         mv_tau=mv_tau_val,
         mv_box_lo=mv_box_lo_val,
@@ -344,6 +353,7 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         "echo_config": config.echo_config,
         "overlay_a_grid": config.overlay_a_grid,
         "overlay_seed": config.overlay_seed,
+        "overlay_delta_frac": config.overlay_delta_frac,
         "mv_gamma": config.mv_gamma,
         "mv_tau": config.mv_tau,
         "mv_box_lo": config.mv_box_lo,

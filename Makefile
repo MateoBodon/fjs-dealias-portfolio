@@ -131,7 +131,7 @@ rc-lite:
 	$(RC_PY) tools/build_gallery.py --config experiments/equity_panel/config.rc.yaml
 	$(RC_PY) tools/build_memo.py --config experiments/equity_panel/config.rc.yaml
 
-.PHONY: aws\:rc-lite aws\:rc aws\:sweep-calibration
+.PHONY: aws\:rc-lite aws\:rc aws\:sweep-calibration aws\:rc-sensitivity
 AWS_ARGS ?=
 
 aws\:%:
@@ -149,6 +149,9 @@ RC_DOW_PREWHITEN ?= ff5mom
 RC_VOL_PREWHITEN ?= ff5mom
 RC_VOL_GROUP_MIN ?= 3
 RC_VOL_GROUP_REPS ?= 10
+RC_SENS_START ?= 2024-05-01
+RC_SENS_END ?= 2024-10-31
+RC_SENS_LABEL ?= rc-sensitivity-$(RC_DATE)
 
 .PHONY: rc-dow rc-vol
 rc-dow:
@@ -200,6 +203,23 @@ rc-vol:
 		--mv-turnover-bps $(RC_MV_TURNOVER_BPS) \
 		--mv-condition-cap $(RC_MV_CONDITION_CAP) \
 		--out $(RC_VOL_OUT)
+
+.PHONY: rc-sensitivity
+rc-sensitivity:
+	$(RC_VERIFY_DATASET)
+	$(RC_PY) experiments/eval/sensitivity.py \
+		--returns-csv $(RC_RETURNS) \
+		--slice-start $(RC_SENS_START) \
+		--slice-end $(RC_SENS_END) \
+		--assets-top 150 \
+		--window $(RC_WINDOW) \
+		--horizon $(RC_HORIZON) \
+		--config experiments/eval/config.yaml \
+		--thresholds experiments/eval/thresholds.json \
+		--registry $(RC_REGISTRY) \
+		--out reports/rc-sensitivity \
+		--label $(RC_SENS_LABEL) \
+		--workers 1
 
 run-synth:
 	python experiments/synthetic_oneway/run.py

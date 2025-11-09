@@ -373,3 +373,27 @@ def test_detect_spikes_records_pre_gate_stats(monkeypatch: pytest.MonkeyPatch) -
     assert pre["raw_outliers_found"] == 1
     assert pre["bracket_status"] == "grid"
     assert pre["mp_edge_margin"] == pytest.approx(0.35)
+
+
+def test_detect_spikes_coarse_candidate_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("fjs.overlay.dealias_search", lambda *args, **kwargs: [])
+    rng = np.random.default_rng(321)
+    obs = rng.normal(scale=0.2, size=(80, 6))
+    obs[:, 0] += rng.normal(scale=1.0, size=80)
+    groups = np.repeat(np.arange(40), 2)
+    stats: dict = {}
+    cfg = OverlayConfig(
+        coarse_candidate=True,
+        gate_stability_min=0.0,
+    
+        min_edge_margin=0.0,
+        require_isolated=False,
+        q_max=2,
+        gate_mode="soft",
+        gate_soft_max=2,
+    )
+    kept = detect_spikes(obs, groups, config=cfg, stats=stats)
+    assert kept
+    pre = stats.get("pre_gate")
+    assert pre is not None
+    assert pre.get("coarse_candidates", 0) >= 1

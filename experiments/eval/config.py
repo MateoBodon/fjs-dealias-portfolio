@@ -98,6 +98,7 @@ DEFAULTS: dict[str, Any] = {
     "gate_stability_min": 0.3,
     "gate_alignment_min": None,
     "gate_accept_nonisolated": False,
+    "coarse_candidate": False,
 }
 
 
@@ -241,6 +242,11 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         float(merged["gate_alignment_min"]) if merged.get("gate_alignment_min") is not None else None
     )
     gate_accept_nonisolated_val = bool(merged.get("gate_accept_nonisolated", DEFAULTS["gate_accept_nonisolated"]))
+    coarse_candidate_raw = merged.get("coarse_candidate", DEFAULTS["coarse_candidate"])
+    if isinstance(coarse_candidate_raw, str):
+        coarse_candidate_val = coarse_candidate_raw.strip().lower() not in {"0", "false", "off"}
+    else:
+        coarse_candidate_val = bool(coarse_candidate_raw)
 
     assets_top_raw = merged.get("assets_top", DEFAULTS["assets_top"])
     assets_top_val = (
@@ -331,6 +337,7 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         gate_stability_min=gate_stability_min_val,
         gate_alignment_min=gate_alignment_min_val,
         gate_accept_nonisolated=gate_accept_nonisolated_val,
+        coarse_candidate=coarse_candidate_val,
     )
 
     resolved = {

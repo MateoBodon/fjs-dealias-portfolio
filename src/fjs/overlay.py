@@ -46,6 +46,7 @@ class OverlayConfig:
     gate_stability_min: float | None = None
     gate_alignment_min: float | None = None
     gate_accept_nonisolated: bool = False
+    coarse_candidate: bool = False
 
 
 def _bracket_status_label(detections: Sequence[Mapping[str, Any]]) -> str:
@@ -102,6 +103,91 @@ def _summarise_pre_gate(detections: Sequence[Mapping[str, Any]], cfg: OverlayCon
         summary["stability_eta_pass"] = float(np.mean(finite_stab >= threshold))
     summary["bracket_status"] = _bracket_status_label(detections)
     return summary
+
+
+def _coarse_candidates(
+    observations: NDArray[np.float64],
+    cfg: OverlayConfig,
+) -> list[Detection]:
+    matrix = np.asarray(observations, dtype=np.float64)
+    if matrix.ndim != 2 or matrix.shape[0] <= 2 or matrix.shape[1] == 0:
+        return []
+    finite_mask = np.all(np.isfinite(matrix), axis=1)
+    matrix = matrix[finite_mask]
+    if matrix.shape[0] <= 2 or matrix.shape[1] == 0:
+        return []
+    try:
+        sample_cov = np.cov(matrix, rowvar=False, ddof=1)
+    except Exception:
+        return []
+    if sample_cov.size == 0:
+        return []
+    try:
+        eigvals, eigvecs = np.linalg.eigh(sample_cov)
+    except np.linalg.LinAlgError:
+        return []
+    if eigvals.size == 0:
+        return []
+    avg_var = float(np.mean(np.clip(eigvals, 1e-12, None)))
+    if not np.isfinite(avg_var) or avg_var <= 0.0:
+        return []
+    n_samples = matrix.shape[0]
+    p_dim = matrix.shape[1]
+    if n_samples <= 1 or p_dim == 0:
+        return []
+    aspect = p_dim / float(max(n_samples - 1, 1))
+    mp_edge = avg_var * (1.0 + math.sqrt(max(aspect, 0.0))) ** 2
+    edge_eps = max(float(cfg.min_edge_margin), 1e-6 * max(abs(mp_edge), 1.0))
+    order = np.argsort(eigvals)[::-1]
+    candidates: list[Detection] = []
+    for idx in order:
+        lam_val = float(eigvals[idx])
+        edge_margin = lam_val - mp_edge
+        if not np.isfinite(edge_margin) or edge_margin <= edge_eps:
+            continue
+        vec = eigvecs[:, idx].astype(np.float64)
+        norm = np.linalg.norm(vec)
+        if norm <= 0.0:
+            continue
+        vec = vec / norm
+        det: Detection = Detection(
+            mu_hat=lam_val,
+            lambda_hat=lam_val,
+            a=[1.0],
+            components=[lam_val],
+            eigvec=vec,
+            stability_margin=edge_margin,
+            edge_margin=edge_margin,
+            buffer_margin=edge_margin,
+            t_values=None,
+            admissible_root=True,
+            solver_used="coarse",
+            z_plus=None,
+            threshold_main=None,
+            z_plus_low=None,
+            z_plus_high=None,
+            threshold_low=None,
+            threshold_high=None,
+            stability_margin_low=None,
+            stability_margin_high=None,
+            sensitivity_low_accept=None,
+            sensitivity_high_accept=None,
+            target_energy=lam_val,
+            target_index=0,
+            off_component_ratio=0.0,
+            pre_outlier_count=1,
+            edge_mode=str(cfg.edge_mode),
+            edge_scale=float(mp_edge),
+        )
+        candidates.append(det)
+    if not candidates:
+        return []
+    cap = len(candidates)
+    if cfg.q_max is not None:
+        cap = min(cap, int(cfg.q_max))
+    if cfg.max_detections is not None:
+        cap = min(cap, int(cfg.max_detections))
+    return candidates[:cap]
 
 
 def _baseline_covariance(
@@ -271,7 +357,14 @@ def detect_spikes(
         for det in detections:
             det["delta_frac"] = resolved_delta_frac
 
+    coarse_candidates: list[Detection] = []
+    if cfg.coarse_candidate and not detections:
+        coarse_candidates = _coarse_candidates(observations, cfg)
+        if coarse_candidates:
+            detections = list(coarse_candidates)
     pre_gate_summary = _summarise_pre_gate(detections, cfg)
+    if coarse_candidates:
+        pre_gate_summary["coarse_candidates"] = len(coarse_candidates)
     if stats_dict is not None:
         stats_dict.setdefault("pre_gate", {}).update(pre_gate_summary)
     soft_cap = cfg.gate_soft_max if (cfg.gate_mode or "strict").lower() == "soft" else None

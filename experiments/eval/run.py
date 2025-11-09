@@ -179,6 +179,7 @@ class EvalConfig:
     gate_stability_min: float | None = None
     gate_alignment_min: float | None = None
     gate_accept_nonisolated: bool = False
+    coarse_candidate: bool = False
 
 
 @dataclass(slots=True, frozen=True)
@@ -829,6 +830,14 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
         help="Permit non-isolated detections to substitute eigenvalues.",
     )
     parser.add_argument(
+        "--coarse-candidate",
+        dest="coarse_candidate",
+        type=int,
+        choices=[0, 1],
+        default=None,
+        help="Enable coarse eigenpair fallback before gating (1 to enable).",
+    )
+    parser.add_argument(
         "--gate-mode",
         dest="gate_mode",
         type=str,
@@ -1475,6 +1484,7 @@ def run_evaluation(
         gate_stability_min=config.gate_stability_min,
         gate_alignment_min=config.gate_alignment_min,
         gate_accept_nonisolated=bool(config.gate_accept_nonisolated),
+        coarse_candidate=bool(config.coarse_candidate),
     )
 
     mv_gamma = float(config.mv_gamma)

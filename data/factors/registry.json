@@ -13,6 +13,16 @@
       "source": "ken_french.ff5_umd_daily",
       "note": "Merged F-F Research Data 5 Factors 2x3 daily CSV with Momentum Factor daily CSV; values divided by 100."
     },
+    "data/factors/ff5mom_daily.csv": {
+      "sha256": "469d44ad0c5cac556c60c1f258e14245acfcc9f2901ad443f41b64309bf908ca",
+      "columns": ["MKT", "SMB", "HML", "RMW", "CMA", "MOM", "RF"],
+      "frequency": "B",
+      "start_date": "2005-01-03",
+      "end_date": "2025-08-29",
+      "source": "ken_french.ff5_umd_daily",
+      "note": "Alias for ff5mom stored to support path-based registry verification.",
+      "path": "data/factors/ff5mom_daily.csv"
+    },
     "ff5": {
       "path": "data/factors/ff5mom_daily.csv",
       "sha256": "469d44ad0c5cac556c60c1f258e14245acfcc9f2901ad443f41b64309bf908ca",

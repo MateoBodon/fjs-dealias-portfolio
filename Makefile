@@ -298,7 +298,7 @@ rc-sensitivity:
 inject-spike:
 	$(RC_VERIFY_DATASET)
 	$(RC_VERIFY_FACTORS)
-	PYTHONPATH=src python experiments/eval/inject_spike.py \
+	$(RC_PY) experiments/eval/inject_spike.py \
 		--returns-csv $(RC_RETURNS) \
 		--factors-csv $(RC_FACTORS) \
 		--window $(RC_WINDOW) \

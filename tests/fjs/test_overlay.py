@@ -341,3 +341,35 @@ def test_detect_spikes_rejects_when_calibrated_delta_below_min(tmp_path: pathlib
     assert stats["gating"]["accepted"] == 0
     assert stats["gating"]["rejected"] == 1
     assert stats["gating"]["delta_frac_used"] == pytest.approx(0.015)
+
+
+def test_detect_spikes_records_pre_gate_stats(monkeypatch: pytest.MonkeyPatch) -> None:
+    det = _make_detection(
+        3.0,
+        np.array([1.0, 0.0, 0.0]),
+        edge_margin=0.35,
+        stability=0.45,
+        pre_outlier=1,
+    )
+    det["off_component_ratio"] = 0.05
+
+    def fake_search(*args, **kwargs):
+        return [det]
+
+    monkeypatch.setattr("fjs.overlay.dealias_search", fake_search)
+    obs = np.ones((12, 3))
+    groups = np.repeat(np.arange(6), 2)
+    stats: dict = {}
+    cfg = OverlayConfig(
+        gate_stability_min=0.2,
+        min_edge_margin=0.1,
+        require_isolated=False,
+        q_max=2,
+    )
+    kept = detect_spikes(obs, groups, config=cfg, stats=stats)
+    assert kept
+    pre = stats.get("pre_gate")
+    assert pre is not None
+    assert pre["raw_outliers_found"] == 1
+    assert pre["bracket_status"] == "grid"
+    assert pre["mp_edge_margin"] == pytest.approx(0.35)

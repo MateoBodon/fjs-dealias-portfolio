@@ -117,8 +117,12 @@ def test_run_evaluation_emits_artifacts(tmp_path_factory: pytest.TempPathFactory
         "group_label_counts",
         "group_observations",
         "vol_state_label",
-        "factor_present",
-        "changed_flag",
+        "raw_outliers_found",
+        "pre_mp_edge_margin",
+        "pre_alignment_cos",
+        "pre_leakage_offcomp",
+        "pre_stability_eta_pass",
+        "pre_bracket_status",
     }.issubset(diag_df.columns)
     assert "reps_by_label" in diag_df.columns
     if not diag_df.empty:
@@ -140,7 +144,7 @@ def test_run_evaluation_emits_artifacts(tmp_path_factory: pytest.TempPathFactory
     assert detail_diag.exists()
     assert outputs.diagnostics_detail["all"].exists()
     detail_df = pd.read_csv(detail_diag)
-    assert "reps_by_label" in detail_df.columns
+    assert {"reps_by_label", "raw_outliers_found", "pre_mp_edge_margin", "pre_alignment_cos"}.issubset(detail_df.columns)
     if not detail_df.empty:
         assert detail_df["reps_by_label"].astype(str).str.len().gt(0).any()
     run_json = Path(out_dir) / "run.json"

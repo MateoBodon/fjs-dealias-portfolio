@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Iterable, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 import numpy as np
 from numpy.typing import NDArray
@@ -46,6 +46,62 @@ class OverlayConfig:
     gate_stability_min: float | None = None
     gate_alignment_min: float | None = None
     gate_accept_nonisolated: bool = False
+
+
+def _bracket_status_label(detections: Sequence[Mapping[str, Any]]) -> str:
+    tokens = sorted(
+        {
+            str(det.get("solver_used", "")).strip().lower()
+            for det in detections
+            if det.get("solver_used")
+        }
+    )
+    if not tokens:
+        return "none"
+    if tokens == ["grid"]:
+        return "grid"
+    if tokens == ["rootfind"]:
+        return "rootfind"
+    if tokens == ["auto"]:
+        return "auto"
+    if "rootfind" in tokens and "grid" in tokens:
+        return "mixed"
+    return "+".join(tokens[:3])
+
+
+def _summarise_pre_gate(detections: Sequence[Mapping[str, Any]], cfg: OverlayConfig) -> dict[str, Any]:
+    summary = {
+        "raw_outliers_found": int(len(detections)),
+        "mp_edge_margin": float("nan"),
+        "leakage_offcomp": float("nan"),
+        "stability_eta_pass": float("nan"),
+        "bracket_status": "none",
+    }
+    if not detections:
+        return summary
+    edge_vals = np.asarray([float(det.get("edge_margin", float("nan"))) for det in detections], dtype=np.float64)
+    leak_vals = np.asarray(
+        [float(det.get("off_component_ratio", float("nan"))) for det in detections], dtype=np.float64
+    )
+    stab_vals = np.asarray(
+        [float(det.get("stability_margin", float("nan"))) for det in detections], dtype=np.float64
+    )
+    finite_edges = edge_vals[np.isfinite(edge_vals)]
+    finite_leak = leak_vals[np.isfinite(leak_vals)]
+    finite_stab = stab_vals[np.isfinite(stab_vals)]
+    if finite_edges.size:
+        summary["mp_edge_margin"] = float(np.mean(finite_edges))
+    if finite_leak.size:
+        summary["leakage_offcomp"] = float(np.mean(finite_leak))
+    threshold = (
+        float(cfg.gate_stability_min)
+        if cfg.gate_stability_min is not None
+        else float(cfg.stability_eta_deg)
+    )
+    if finite_stab.size:
+        summary["stability_eta_pass"] = float(np.mean(finite_stab >= threshold))
+    summary["bracket_status"] = _bracket_status_label(detections)
+    return summary
 
 
 def _baseline_covariance(
@@ -188,6 +244,7 @@ def detect_spikes(
 ) -> list[Detection]:
     cfg = config or OverlayConfig()
     _ = np.random.default_rng(cfg.seed)  # ensure deterministic rng initialisation
+    stats_dict = stats if isinstance(stats, dict) else None
     resolved_delta_frac = _resolve_delta_frac(cfg, observations, groups)
     delta_for_search = (
         float(resolved_delta_frac)
@@ -214,6 +271,9 @@ def detect_spikes(
         for det in detections:
             det["delta_frac"] = resolved_delta_frac
 
+    pre_gate_summary = _summarise_pre_gate(detections, cfg)
+    if stats_dict is not None:
+        stats_dict.setdefault("pre_gate", {}).update(pre_gate_summary)
     soft_cap = cfg.gate_soft_max if (cfg.gate_mode or "strict").lower() == "soft" else None
     kept, rejected = _gate_detections(detections, cfg, soft_cap, resolved_delta_frac)
 
@@ -224,8 +284,8 @@ def detect_spikes(
     if kept and cap < len(kept):
         kept = kept[: int(cap)]
 
-    if stats is not None:
-        gating_info = stats.setdefault("gating", {})
+    if stats_dict is not None:
+        gating_info = stats_dict.setdefault("gating", {})
         gating_info.update(
             {
                 "mode": (cfg.gate_mode or "strict"),

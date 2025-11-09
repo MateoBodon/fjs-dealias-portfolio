@@ -1100,6 +1100,12 @@ def _detail_defaults() -> dict[str, object]:
         "leakage_offcomp": float("nan"),
         "stability_eta_pass": float("nan"),
         "bracket_status": "",
+        "raw_outliers_found": 0,
+        "pre_mp_edge_margin": float("nan"),
+        "pre_alignment_cos": float("nan"),
+        "pre_leakage_offcomp": float("nan"),
+        "pre_stability_eta_pass": float("nan"),
+        "pre_bracket_status": "",
     }
 
 
@@ -1121,6 +1127,17 @@ def _safe_nanmedian(values: Sequence[float]) -> float:
     if finite.size == 0:
         return float("nan")
     return float(np.median(finite))
+
+
+def _top_mean(values: Sequence[float], count: int) -> float:
+    if count <= 0:
+        return float("nan")
+    filtered = [float(val) for val in values if np.isfinite(val)]
+    if not filtered:
+        return float("nan")
+    filtered.sort(reverse=True)
+    limit = min(len(filtered), max(1, int(count)))
+    return float(np.mean(filtered[:limit]))
 
 
 def _safe_share(successes: int, total: int) -> float:
@@ -1809,6 +1826,7 @@ def run_evaluation(
 
         detections: list[dict[str, object]] = []
         gating_info: dict[str, object] = {}
+        detect_stats: dict[str, object] = {}
         reason = DiagnosticReason.NO_DETECTIONS
         if not overlay_allowed and factor_tracking_required:
             reason = DiagnosticReason.FACTOR_MISSING
@@ -1816,7 +1834,6 @@ def run_evaluation(
             reason = DiagnosticReason.INSUFFICIENT_GROUPS
         else:
             try:
-                detect_stats: dict[str, object] = {}
                 detections = detect_spikes(
                     fit_matrix,
                     group_labels,
@@ -1850,11 +1867,12 @@ def run_evaluation(
 
         alignment_cos_values: list[float] = []
         alignment_angle_values: list[float] = []
+        alignment_cos_all: list[float] = []
+        top_p = max(1, int(config.alignment_top_p))
         raw_detection_count = int(gating_info.get("initial", len(detections)))
         if detections:
             filtered: list[dict[str, object]] = []
             threshold = float(config.angle_min_cos) if config.angle_min_cos is not None else None
-            top_p = max(1, int(config.alignment_top_p))
             for det in detections:
                 eigvec = det.get("eigvec")
                 angle_deg = float("nan")
@@ -1876,6 +1894,8 @@ def run_evaluation(
                 det_copy["alignment_angle_deg"] = angle_deg
                 det_copy["alignment_cos"] = cos_val
                 det_copy["alignment_energy_mu"] = energy_mu
+                if np.isfinite(cos_val):
+                    alignment_cos_all.append(cos_val)
                 if threshold is not None:
                     if not np.isfinite(cos_val) or cos_val < threshold:
                         continue
@@ -1890,6 +1910,8 @@ def run_evaluation(
         else:
             alignment_cos_values = []
             alignment_angle_values = []
+            alignment_cos_all = []
+        pre_alignment_cos = _top_mean(alignment_cos_all, top_p)
 
         energy_values = [
             float(det.get("target_energy", det.get("lambda_hat", 0.0)) or 0.0)
@@ -2115,6 +2137,14 @@ def run_evaluation(
         baseline_error_str = "" if not baseline_errors else ";".join(
             f"{key}:{value}" for key, value in sorted(baseline_errors.items())
         )
+        pre_gate_stats = detect_stats.get("pre_gate", {}) if isinstance(detect_stats, dict) else {}
+        raw_outliers_found = int(
+            pre_gate_stats.get("raw_outliers_found", raw_detection_count)
+        )
+        pre_mp_edge_margin = float(pre_gate_stats.get("mp_edge_margin", float("nan")))
+        pre_leakage_offcomp = float(pre_gate_stats.get("leakage_offcomp", float("nan")))
+        pre_stability_eta_pass = float(pre_gate_stats.get("stability_eta_pass", float("nan")))
+        pre_bracket_status = str(pre_gate_stats.get("bracket_status", ""))
         diag_record = {
             "window_id": start,
             "window_start": hold_start.isoformat(),
@@ -2182,6 +2212,12 @@ def run_evaluation(
                 "leakage_offcomp": leakage_offcomp_value,
                 "stability_eta_pass": stability_eta_share,
                 "bracket_status": bracket_status,
+                "raw_outliers_found": raw_outliers_found,
+                "pre_mp_edge_margin": pre_mp_edge_margin,
+                "pre_alignment_cos": pre_alignment_cos,
+                "pre_leakage_offcomp": pre_leakage_offcomp,
+                "pre_stability_eta_pass": pre_stability_eta_pass,
+                "pre_bracket_status": pre_bracket_status,
             }
         )
         diag_record.update(detail_fields)
@@ -2336,6 +2372,12 @@ def run_evaluation(
         "leakage_offcomp",
         "stability_eta_pass",
         "bracket_status",
+        "raw_outliers_found",
+        "pre_mp_edge_margin",
+        "pre_alignment_cos",
+        "pre_leakage_offcomp",
+        "pre_stability_eta_pass",
+        "pre_bracket_status",
     ]
     if diagnostics_df.empty:
         diagnostics_df = pd.DataFrame(columns=expected_diag_columns)
@@ -2538,6 +2580,11 @@ def run_evaluation(
         "percent_changed": ("changed_flag", "mean"),
         "factor_present_share": ("factor_present", "mean"),
         "design_ok": ("design_ok", "mean"),
+        "raw_outliers_found": ("raw_outliers_found", "mean"),
+        "pre_mp_edge_margin": ("pre_mp_edge_margin", "mean"),
+        "pre_alignment_cos": ("pre_alignment_cos", "mean"),
+        "pre_leakage_offcomp": ("pre_leakage_offcomp", "mean"),
+        "pre_stability_eta_pass": ("pre_stability_eta_pass", "mean"),
     }
     available_spec = {
         key: value for key, value in agg_spec.items() if value[0] in diagnostics_df.columns
@@ -2598,6 +2645,12 @@ def run_evaluation(
         diagnostics_summary["stability_eta_pass"] = np.nan
         diagnostics_summary["design_ok"] = np.nan
         diagnostics_summary["bracket_status"] = ""
+        diagnostics_summary["raw_outliers_found"] = np.nan
+        diagnostics_summary["pre_mp_edge_margin"] = np.nan
+        diagnostics_summary["pre_alignment_cos"] = np.nan
+        diagnostics_summary["pre_leakage_offcomp"] = np.nan
+        diagnostics_summary["pre_stability_eta_pass"] = np.nan
+        diagnostics_summary["pre_bracket_status"] = ""
     else:
         reason_summary = (
             diagnostics_df.groupby("regime")["reason_code"]
@@ -2661,6 +2714,15 @@ def run_evaluation(
             diagnostics_summary = diagnostics_summary.merge(bracket_summary, on="regime", how="left")
         else:
             diagnostics_summary["bracket_status"] = ""
+        if "pre_bracket_status" in diagnostics_df.columns:
+            pre_bracket_summary = (
+                diagnostics_df.groupby("regime")["pre_bracket_status"]
+                .agg(_mode_string)
+                .reset_index()
+            )
+            diagnostics_summary = diagnostics_summary.merge(pre_bracket_summary, on="regime", how="left")
+        else:
+            diagnostics_summary["pre_bracket_status"] = ""
         if "prewhiten_mode_requested" in diagnostics_df.columns:
             req_summary = (
                 diagnostics_df.groupby("regime")["prewhiten_mode_requested"]
@@ -2738,6 +2800,11 @@ def run_evaluation(
         ("leakage_offcomp", "Leakage (off-comp ratio)", "Leakage / off-comp"),
         ("stability_eta_pass", "Stability η pass share", "Stability η pass share"),
         ("design_ok", "Design OK flag", "Design OK"),
+        ("pre_mp_edge_margin", "Pre-gate MP edge margin", "Pre-gate MP edge"),
+        ("pre_alignment_cos", "Pre-gate alignment cos (top q)", "Pre-gate alignment"),
+        ("pre_leakage_offcomp", "Pre-gate leakage", "Pre-gate leakage"),
+        ("pre_stability_eta_pass", "Pre-gate stability η pass", "Pre-gate stability η"),
+        ("raw_outliers_found", "Raw outliers found", "Raw outliers"),
     ]
     for column, xlabel, title_prefix in regime_hist_config:
         extra_plots.update(

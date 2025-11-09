@@ -150,6 +150,10 @@ RC_DOW_SHRINKER ?= rie
 RC_VOL_SHRINKER ?= oas
 RC_DOW_PREWHITEN ?= ff5mom
 RC_VOL_PREWHITEN ?= ff5mom
+RC_DOW_GROUP_MIN ?= 5
+RC_DOW_GROUP_REPS ?= 3
+RC_DOW_MIN_REPS ?= 20
+RC_VOL_MIN_REPS ?= 15
 RC_VOL_GROUP_MIN ?= 3
 RC_VOL_GROUP_REPS ?= 10
 RC_WEEK_OUT := $(RC_OUT)/week
@@ -181,6 +185,9 @@ rc-dow:
 		--end $(RC_END) \
 		--assets-top $(RC_DOW_ASSETS) \
 		--group-design dow \
+		--group-min-count $(RC_DOW_GROUP_MIN) \
+		--group-min-replicates $(RC_DOW_GROUP_REPS) \
+		--min-reps-dow $(RC_DOW_MIN_REPS) \
 		--edge-mode $(DOW_EDGE) \
 		--shrinker $(RC_DOW_SHRINKER) \
 		--prewhiten $(RC_DOW_PREWHITEN) \
@@ -208,6 +215,7 @@ rc-vol:
 		--group-design vol \
 		--group-min-count $(RC_VOL_GROUP_MIN) \
 		--group-min-replicates $(RC_VOL_GROUP_REPS) \
+		--min-reps-vol $(RC_VOL_MIN_REPS) \
 		--edge-mode $(VOL_EDGE) \
 		--shrinker $(RC_VOL_SHRINKER) \
 		--prewhiten $(RC_VOL_PREWHITEN) \

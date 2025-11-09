@@ -35,15 +35,16 @@ def test_run_evaluation_emits_artifacts(tmp_path_factory: pytest.TempPathFactory
     returns_csv = _make_returns_csv(tmp_path_factory)
     out_dir = tmp_path_factory.mktemp("outputs")
     config = EvalConfig(
-        returns_csv=Path(returns_csv),
-        factors_csv=None,
-        window=20,
-        horizon=5,
-        out_dir=Path(out_dir),
-        shrinker="rie",
-        seed=123,
-        use_factor_prewhiten=False,
-    )
+            returns_csv=Path(returns_csv),
+            factors_csv=None,
+            window=20,
+            horizon=5,
+            out_dir=Path(out_dir),
+            shrinker="rie",
+            seed=123,
+            use_factor_prewhiten=False,
+            mv_box_hi=1.0,
+        )
     outputs = run_evaluation(config)
 
     resolved_path = Path(out_dir) / "resolved_config.json"
@@ -119,6 +120,7 @@ def test_run_evaluation_emits_artifacts(tmp_path_factory: pytest.TempPathFactory
         "factor_present",
         "changed_flag",
     }.issubset(diag_df.columns)
+    assert "reps_by_label" in diag_df.columns
     if not diag_df.empty:
         reason_values = set(diag_df["reason_code"].dropna().unique())
         allowed = {reason.value for reason in DiagnosticReason} | {""}
@@ -126,6 +128,7 @@ def test_run_evaluation_emits_artifacts(tmp_path_factory: pytest.TempPathFactory
         assert diag_df["resolved_config_path"].str.endswith("resolved_config.json").all()
         assert diag_df["calm_threshold"].notna().any()
         assert diag_df["crisis_threshold"].notna().any()
+        assert diag_df["reps_by_label"].astype(str).str.len().gt(0).any()
         assert diag_df["vol_signal"].notna().any()
         assert diag_df["group_label_counts"].notna().all()
         assert diag_df["vol_state_label"].notna().all()
@@ -136,6 +139,10 @@ def test_run_evaluation_emits_artifacts(tmp_path_factory: pytest.TempPathFactory
     detail_diag = outputs.diagnostics_detail["full"]
     assert detail_diag.exists()
     assert outputs.diagnostics_detail["all"].exists()
+    detail_df = pd.read_csv(detail_diag)
+    assert "reps_by_label" in detail_df.columns
+    if not detail_df.empty:
+        assert detail_df["reps_by_label"].astype(str).str.len().gt(0).any()
     run_json = Path(out_dir) / "run.json"
     assert run_json.exists()
     run_payload = json.loads(run_json.read_text(encoding="utf-8"))

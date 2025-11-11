@@ -331,6 +331,11 @@ def detect_spikes(
     cfg = config or OverlayConfig()
     _ = np.random.default_rng(cfg.seed)  # ensure deterministic rng initialisation
     stats_dict = stats if isinstance(stats, dict) else None
+    stats_for_search: dict[str, Any] | None
+    if stats_dict and {"MS1", "Sigma1_hat"}.issubset(stats_dict.keys()):
+        stats_for_search = stats_dict
+    else:
+        stats_for_search = None
     resolved_delta_frac = _resolve_delta_frac(cfg, observations, groups)
     delta_for_search = (
         float(resolved_delta_frac)
@@ -351,7 +356,7 @@ def detect_spikes(
         off_component_leak_cap=cfg.off_component_cap,
         edge_mode=str(cfg.edge_mode),
         cs_drop_top_frac=cfg.cs_drop_top_frac,
-        stats=stats,
+        stats=stats_for_search,
     )
     if resolved_delta_frac is not None:
         for det in detections:

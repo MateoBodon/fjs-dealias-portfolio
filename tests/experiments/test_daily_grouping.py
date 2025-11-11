@@ -179,6 +179,32 @@ def test_daily_cli_forwards_prewhiten(tmp_path: Path, monkeypatch: pytest.Monkey
     assert forwarded[forwarded.index("--prewhiten") + 1] == "off"
 
 
+def test_daily_cli_forwards_use_factor_prewhiten(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    returns_csv = tmp_path / "returns.csv"
+    frame = _make_returns_frame("2024-04-01", 30)
+    frame.reset_index().rename(columns={"index": "date"}).to_csv(returns_csv, index=False)
+
+    captured: dict[str, list[str]] = {}
+
+    def fake_eval_main(args: list[str]) -> None:
+        captured["args"] = args
+
+    monkeypatch.setattr("experiments.daily.run.eval_main", fake_eval_main)
+
+    daily_main([
+        "--returns-csv",
+        str(returns_csv),
+        "--design",
+        "dow",
+        "--use-factor-prewhiten",
+        "0",
+    ])
+
+    forwarded = captured["args"]
+    assert "--use-factor-prewhiten" in forwarded
+    assert forwarded[forwarded.index("--use-factor-prewhiten") + 1] == "0"
+
+
 def test_daily_cli_forwards_assets_top(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     returns_csv = tmp_path / "returns.csv"
     frame = _make_returns_frame("2024-07-01", 30)

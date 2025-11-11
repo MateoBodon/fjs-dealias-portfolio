@@ -94,3 +94,22 @@ def test_prewhiten_residuals_preserve_null_fpr() -> None:
         detections += int(bool(found))
 
     assert detections <= math.ceil(0.02 * trials)
+
+
+def test_prewhiten_result_exposes_betas_and_intercepts() -> None:
+    rng = np.random.default_rng(11)
+    returns_df, factors_df = _simulated_returns(
+        rng,
+        n_obs=180,
+        n_assets=6,
+        n_factors=3,
+        factor_scale=1.2,
+        noise_scale=0.2,
+    )
+    result = prewhiten_returns(returns_df, factors_df)
+    assert list(result.betas.columns) == list(factors_df.columns)
+    assert not result.intercept.empty
+    assert result.intercept.index.tolist() == returns_df.columns.tolist()
+    assert not result.r_squared.empty
+    assert result.r_squared.index.tolist() == returns_df.columns.tolist()
+    assert np.all(result.r_squared.to_numpy(dtype=np.float64) >= 0.0)

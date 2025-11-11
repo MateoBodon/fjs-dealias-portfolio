@@ -80,7 +80,7 @@ from data.panels import (
     write_manifest as write_panel_manifest,
 )
 from baselines import load_observed_factors
-from experiments.prewhiten import PrewhitenTelemetry, apply_prewhitening
+from experiments.prewhiten import PrewhitenTelemetry, apply_prewhitening, write_prewhiten_diagnostics
 
 DEFAULT_CONFIG = {
     "data_path": "data/returns_daily.csv",
@@ -3090,10 +3090,12 @@ def run_experiment(
 
     factor_returns: pd.DataFrame | None = None
     factor_csv_cfg = config.get("factor_csv")
+    factor_csv_path: Path | None = None
     if factor_csv_cfg:
         factor_path = Path(str(factor_csv_cfg)).expanduser()
         if not factor_path.exists():
             raise FileNotFoundError(f"Factor CSV not found at '{factor_path}'.")
+        factor_csv_path = factor_path
         factor_returns = load_observed_factors(path=factor_path)
 
     if factor_returns is None and estimator_value in {"factor", "factor_obs"}:
@@ -3123,10 +3125,12 @@ def run_experiment(
         huber_c=huber_c_val,
     )
     prewhiten_mode_cfg = str(config.get("prewhiten", "off") or "off").lower()
-    if prewhiten_mode_cfg not in {"off", "ff5", "ff5mom"}:
+    if prewhiten_mode_cfg not in {"off", "ff5", "ff5mom", "custom"}:
         prewhiten_mode_cfg = "off"
     use_factor_prewhiten = bool(config.get("use_factor_prewhiten", True))
     factors_for_prewhiten = factor_returns
+    if prewhiten_mode_cfg == "custom" and factors_for_prewhiten is None:
+        raise RuntimeError("Custom prewhitening requires --factor-csv pointing to a factor dataset.")
     if prewhiten_mode_cfg != "off" and factors_for_prewhiten is None:
         if use_factor_prewhiten:
             raise RuntimeError(
@@ -3136,12 +3140,12 @@ def run_experiment(
             factors_for_prewhiten = load_observed_factors(returns=daily_returns)
         except Exception as exc:  # pragma: no cover - defensive proxy construction
             raise RuntimeError("Unable to build fallback factor proxy for prewhitening.") from exc
-    whitening, prewhiten_meta = apply_prewhitening(
+    prewhiten_result, prewhiten_meta = apply_prewhitening(
         daily_returns,
         factors=factors_for_prewhiten,
         requested_mode=prewhiten_mode_cfg,
     )
-    daily_returns = whitening.residuals.sort_index()
+    daily_returns = prewhiten_result.residuals.sort_index()
     preprocess_flags = dict(preprocess_flags)
     preprocess_flags["prewhiten_mode"] = prewhiten_meta.mode_effective
     if prewhiten_meta.factor_columns:
@@ -3216,6 +3220,7 @@ def run_experiment(
     if ablation_only and bool(ablations):
         primary_dir = output_dir / run_suffix if run_suffix else output_dir
         primary_dir.mkdir(parents=True, exist_ok=True)
+        write_prewhiten_diagnostics(primary_dir, prewhiten_result, prewhiten_meta)
     else:
         for run_cfg in runs:
             crisis_tag = run_cfg.get("crisis_label")
@@ -3226,6 +3231,7 @@ def run_experiment(
                 dir_suffix = crisis_tag or ""
                 run_output_dir = output_dir / dir_suffix if dir_suffix else output_dir
             run_output_dir.mkdir(parents=True, exist_ok=True)
+            write_prewhiten_diagnostics(run_output_dir, prewhiten_result, prewhiten_meta)
             label_with_suffix = (
                 f"{run_cfg['label']}_{run_suffix}" if run_suffix else str(run_cfg["label"])
             )
@@ -3363,7 +3369,7 @@ def main() -> None:
     parser.add_argument(
         "--prewhiten",
         type=str,
-        choices=["off", "ff5", "ff5mom"],
+        choices=["off", "ff5", "ff5mom", "custom"],
         default=None,
         help="Observed-factor prewhitening mode applied before detection.",
     )

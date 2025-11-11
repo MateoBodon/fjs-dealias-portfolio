@@ -60,9 +60,16 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[argparse.Namespace, l
     parser.add_argument(
         "--prewhiten",
         type=str,
-        choices=["off", "ff5", "ff5mom"],
+        choices=["off", "ff5", "ff5mom", "custom"],
         default=None,
         help="Observed-factor prewhitening mode passed through to evaluation.",
+    )
+    parser.add_argument(
+        "--use-factor-prewhiten",
+        type=int,
+        choices=[0, 1],
+        default=None,
+        help="Override for evaluation --use-factor-prewhiten flag (default inherits config).",
     )
     args, extra = parser.parse_known_args(argv)
     return args, list(extra)
@@ -100,6 +107,8 @@ def main(argv: Sequence[str] | None = None) -> None:
         forwarded.extend(["--prewhiten", args.prewhiten])
     elif design.prewhiten and not _detect_forward_override(extra, "--prewhiten"):
         forwarded.extend(["--prewhiten", design.prewhiten])
+    if args.use_factor_prewhiten is not None and not _detect_forward_override(extra, "--use-factor-prewhiten"):
+        forwarded.extend(["--use-factor-prewhiten", str(args.use_factor_prewhiten)])
 
     out_dir = args.out
     if out_dir is None and not _detect_forward_override(extra, "--out"):

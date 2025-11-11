@@ -125,6 +125,7 @@ ssh "${SSH_COMMON_OPTS[@]}" "$SSH_TARGET" "mkdir -p '$REMOTE_ROOT'"
 
 echo "==> Rsync repository to remote"
 rsync -az --delete "${RSYNC_EXCLUDES[@]}" -e "ssh ${SSH_COMMON_OPTS[*]}" \
+  --rsync-path="env RSYNC_MAX_ALLOC=2G rsync" \
   "$REPO_ROOT"/ "$SSH_TARGET":"$REMOTE_ROOT"/
 
 REMOTE_ENV_PREFIX=""

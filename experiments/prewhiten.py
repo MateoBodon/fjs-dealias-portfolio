@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Sequence, Tuple
 
 import numpy as np
@@ -76,6 +78,11 @@ def select_prewhiten_factors(
     requested_key = str(requested or "off").lower()
     if requested_key == "off":
         return "off", None
+    if requested_key == "custom":
+        numeric = factors.select_dtypes(include=["number"])
+        if numeric.empty:
+            return "off", None
+        return "custom", numeric.copy()
     candidate_modes = FACTOR_FALLBACKS.get(requested_key, ())
     for mode in candidate_modes:
         required = FACTOR_SETS.get(mode, ())
@@ -158,3 +165,28 @@ def apply_prewhitening(
     )
     return whitening, telemetry
 
+
+def write_prewhiten_diagnostics(
+    out_dir: Path,
+    whitening: PrewhitenResult,
+    telemetry: PrewhitenTelemetry,
+) -> None:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    diag_path = out_dir / "prewhiten_diagnostics.csv"
+    summary_path = out_dir / "prewhiten_summary.json"
+    betas = whitening.betas.copy()
+    betas["intercept"] = whitening.intercept
+    betas["r_squared"] = whitening.r_squared
+    betas.to_csv(diag_path)
+    summary = {
+        "asset_count": int(whitening.r_squared.shape[0]) if not whitening.r_squared.empty else 0,
+        "mean_r_squared": telemetry.r2_mean,
+        "median_r_squared": telemetry.r2_median,
+        "mode_requested": telemetry.mode_requested,
+        "mode_effective": telemetry.mode_effective,
+        "beta_abs_mean": telemetry.beta_abs_mean,
+        "beta_abs_std": telemetry.beta_abs_std,
+        "beta_abs_median": telemetry.beta_abs_median,
+        "factor_columns": list(telemetry.factor_columns),
+    }
+    summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")

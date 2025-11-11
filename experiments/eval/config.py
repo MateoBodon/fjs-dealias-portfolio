@@ -63,6 +63,7 @@ DEFAULTS: dict[str, Any] = {
     "reason_codes": True,
     "echo_config": True,
     "overlay_a_grid": 60,
+    "overlay_delta": 0.5,
     "overlay_seed": None,
     "overlay_delta_frac": None,
     "mv_gamma": 1e-4,
@@ -173,10 +174,10 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         prewhiten_mode = str(DEFAULTS["prewhiten"]).lower()
     else:
         prewhiten_mode = str(pre_raw).lower()
-    valid_pre_modes = {"off", "ff5", "ff5mom"}
+    valid_pre_modes = {"off", "ff5", "ff5mom", "custom"}
     if prewhiten_mode not in valid_pre_modes:
         raise ValueError(
-            "prewhiten must be one of {'off', 'ff5', 'ff5mom'}"
+            "prewhiten must be one of {'off', 'ff5', 'ff5mom', 'custom'}"
         )
 
     use_factor_raw = merged.get("use_factor_prewhiten", DEFAULTS["use_factor_prewhiten"])
@@ -267,12 +268,26 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
     if mv_condition_cap_val <= 0.0:
         raise ValueError("mv_condition_cap must be positive.")
 
+    overlay_delta_raw = merged.get("overlay_delta")
+    if overlay_delta_raw is None or str(overlay_delta_raw).strip() == "":
+        overlay_delta_val = float(DEFAULTS["overlay_delta"])
+    else:
+        overlay_delta_val = float(overlay_delta_raw)
+        if overlay_delta_val < 0.0:
+            raise ValueError("overlay_delta must be non-negative.")
     overlay_delta_frac_raw = merged.get("overlay_delta_frac")
     overlay_delta_frac_val = (
         float(overlay_delta_frac_raw)
         if overlay_delta_frac_raw is not None and str(overlay_delta_frac_raw).strip() != ""
         else None
     )
+    max_windows_raw = merged.get("max_windows")
+    if max_windows_raw is None or str(max_windows_raw).strip() == "":
+        max_windows_val = None
+    else:
+        max_windows_val = int(max_windows_raw)
+        if max_windows_val <= 0:
+            max_windows_val = None
 
     config = EvalConfig(
         returns_csv=Path(returns_csv),
@@ -298,6 +313,7 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         reason_codes=bool(merged.get("reason_codes", DEFAULTS["reason_codes"])),
         workers=int(merged["workers"]) if merged.get("workers") is not None else None,
         overlay_a_grid=int(merged.get("overlay_a_grid", DEFAULTS["overlay_a_grid"])),
+        overlay_delta=overlay_delta_val,
         overlay_seed=int(merged["overlay_seed"]) if merged.get("overlay_seed") is not None else None,
         overlay_delta_frac=overlay_delta_frac_val,
         mv_gamma=mv_gamma_val,
@@ -338,6 +354,7 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         gate_alignment_min=gate_alignment_min_val,
         gate_accept_nonisolated=gate_accept_nonisolated_val,
         coarse_candidate=coarse_candidate_val,
+        max_windows=max_windows_val,
     )
 
     resolved = {

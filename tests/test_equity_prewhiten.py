@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 
 import numpy as np
 import pandas as pd
@@ -86,3 +87,11 @@ def test_run_experiment_emits_prewhiten_columns(tmp_path: Path) -> None:
     }
     assert required_cols <= set(df.columns)
     assert df["prewhiten_mode_effective"].str.lower().eq("ff5mom").any()
+    diag_path = run_dirs[0] / "prewhiten_diagnostics.csv"
+    summary_path = run_dirs[0] / "prewhiten_summary.json"
+    assert diag_path.exists()
+    assert summary_path.exists()
+    diag_df = pd.read_csv(diag_path)
+    assert "r_squared" in diag_df.columns
+    summary_payload = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert summary_payload["mode_effective"] == "ff5mom"

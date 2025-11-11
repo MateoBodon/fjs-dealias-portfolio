@@ -196,6 +196,39 @@ def test_detect_spikes_strict_gate_filters(monkeypatch: pytest.MonkeyPatch) -> N
     assert stats["gating"]["delta_frac_used"] is None
 
 
+def test_detect_spikes_handles_missing_stats(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object | None] = {}
+
+    def fake_search(*args, **kwargs):
+        captured["stats"] = kwargs.get("stats")
+        return []
+
+    monkeypatch.setattr("fjs.overlay.dealias_search", fake_search)
+    observations = np.ones((12, 4))
+    groups = np.repeat(np.arange(6), 2)
+    stats: dict[str, object] = {}
+    detect_spikes(observations, groups, config=OverlayConfig(q_max=1), stats=stats)
+    assert captured["stats"] is None
+
+
+def test_detect_spikes_preserves_precomputed_stats(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object | None] = {}
+
+    def fake_search(*args, **kwargs):
+        captured["stats"] = kwargs.get("stats")
+        return []
+
+    monkeypatch.setattr("fjs.overlay.dealias_search", fake_search)
+    observations = np.ones((12, 4))
+    groups = np.repeat(np.arange(6), 2)
+    stats = {
+        "MS1": np.eye(4),
+        "Sigma1_hat": np.eye(4),
+    }
+    detect_spikes(observations, groups, config=OverlayConfig(q_max=1), stats=stats)
+    assert captured["stats"] is stats
+
+
 def test_detect_spikes_soft_gate_selects_top_score(monkeypatch: pytest.MonkeyPatch) -> None:
     det_low = _make_detection(
         2.0,

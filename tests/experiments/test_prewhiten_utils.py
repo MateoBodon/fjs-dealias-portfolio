@@ -39,3 +39,13 @@ def test_apply_prewhitening_with_factors_uses_requested_mode() -> None:
     assert telemetry.mode_effective == "ff5mom"
     assert len(telemetry.factor_columns) == 6
     assert not np.allclose(whitening.residuals.values, returns.values)
+
+
+def test_apply_prewhitening_custom_mode_preserves_columns() -> None:
+    returns = _mock_returns()
+    factors = _mock_factors()
+    factors["ALT"] = np.linspace(0.0, 0.01, factors.shape[0])
+    whitening, telemetry = apply_prewhitening(returns, factors=factors, requested_mode="custom")
+    assert telemetry.mode_effective == "custom"
+    assert len(telemetry.factor_columns) == factors.shape[1]
+    assert "ALT" in telemetry.factor_columns

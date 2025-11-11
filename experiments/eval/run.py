@@ -60,6 +60,7 @@ from experiments.prewhiten import (
     FACTOR_SETS,
     PrewhitenTelemetry,
     apply_prewhitening,
+    write_prewhiten_diagnostics,
 )
 from meta import runtime
 
@@ -223,6 +224,7 @@ class EvalConfig:
     reason_codes: bool = True
     workers: int | None = None
     overlay_a_grid: int = 60
+    overlay_delta: float = 0.5
     overlay_seed: int | None = None
     overlay_delta_frac: float | None = None
     mv_gamma: float = 1e-4
@@ -258,6 +260,7 @@ class EvalConfig:
     gate_stability_min: float | None = None
     gate_alignment_min: float | None = None
     gate_accept_nonisolated: bool = False
+    max_windows: int | None = None
     coarse_candidate: bool = False
 def _format_group_label_counts(labels: np.ndarray, design: str) -> tuple[str, dict[int, int]]:
     if labels.size == 0:
@@ -326,6 +329,7 @@ def _serialise_config(config: EvalConfig) -> dict[str, Any]:
         "reason_codes": config.reason_codes,
         "workers": config.workers,
         "overlay_a_grid": config.overlay_a_grid,
+        "overlay_delta": config.overlay_delta,
         "overlay_seed": config.overlay_seed,
         "overlay_delta_frac": config.overlay_delta_frac,
         "mv_gamma": config.mv_gamma,
@@ -353,6 +357,7 @@ def _serialise_config(config: EvalConfig) -> dict[str, Any]:
         "gate_stability_min": config.gate_stability_min,
         "gate_alignment_min": config.gate_alignment_min,
         "gate_accept_nonisolated": config.gate_accept_nonisolated,
+        "max_windows": config.max_windows,
     }
 
 
@@ -588,6 +593,13 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
         help="Angular grid resolution for overlay t-vector search.",
     )
     parser.add_argument(
+        "--overlay-delta",
+        dest="overlay_delta",
+        type=float,
+        default=None,
+        help="Absolute MP edge buffer applied before accepting a detection (default: 0.5).",
+    )
+    parser.add_argument(
         "--overlay-delta-frac",
         dest="overlay_delta_frac",
         type=float,
@@ -797,6 +809,13 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
         help="Optional worker count for experimental parallel evaluation.",
     )
     parser.add_argument(
+        "--max-windows",
+        dest="max_windows",
+        type=int,
+        default=None,
+        help="Optional cap on the number of rolling windows to evaluate (debugging/profiling).",
+    )
+    parser.add_argument(
         "--no-reason-codes",
         dest="reason_codes",
         action="store_false",
@@ -805,7 +824,7 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
     parser.add_argument(
         "--prewhiten",
         type=str,
-        choices=["off", "ff5", "ff5mom"],
+        choices=["off", "ff5", "ff5mom", "custom"],
         default=None,
         help="Observed-factor prewhitening mode (default sourced from config layers).",
     )
@@ -886,31 +905,6 @@ def _compute_vol_proxy(returns: pd.DataFrame, span: int = 21) -> pd.Series:
     return proxy.dropna()
 
 
-def _write_prewhiten_diagnostics(
-    out_dir: Path,
-    whitening: PrewhitenResult,
-    telemetry: PrewhitenTelemetry,
-) -> None:
-    diag_path = out_dir / "prewhiten_diagnostics.csv"
-    summary_path = out_dir / "prewhiten_summary.json"
-    betas = whitening.betas.copy()
-    betas["intercept"] = whitening.intercept
-    betas["r_squared"] = whitening.r_squared
-    betas.to_csv(diag_path)
-    summary = {
-        "asset_count": int(whitening.r_squared.shape[0]) if not whitening.r_squared.empty else 0,
-        "mean_r_squared": telemetry.r2_mean,
-        "median_r_squared": telemetry.r2_median,
-        "mode_requested": telemetry.mode_requested,
-        "mode_effective": telemetry.mode_effective,
-        "beta_abs_mean": telemetry.beta_abs_mean,
-        "beta_abs_std": telemetry.beta_abs_std,
-        "beta_abs_median": telemetry.beta_abs_median,
-        "factor_columns": list(telemetry.factor_columns),
-    }
-    summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
-
-
 def _write_overlay_toggle(path: Path, summary: pd.DataFrame) -> None:
     if summary.empty:
         content = ["# Overlay Toggle", "", "No detection telemetry available."]
@@ -948,6 +942,8 @@ def _plot_histogram(series: pd.Series, path: Path, *, xlabel: str, title: str, b
         return None
     values = pd.to_numeric(series, errors="coerce").dropna().to_numpy(dtype=np.float64)
     if values.size == 0:
+        return None
+    if float(np.max(values) - np.min(values)) <= 1e-12:
         return None
     path.parent.mkdir(parents=True, exist_ok=True)
     fig, ax = plt.subplots(figsize=(6, 4))
@@ -1236,13 +1232,25 @@ def _prepare_returns(
     returns_end = returns.index.max()
 
     requested_mode = str(config.prewhiten or "off").lower()
-    if requested_mode not in {"off", "ff5", "ff5mom"}:
+    if requested_mode not in {"off", "ff5", "ff5mom", "custom"}:
         requested_mode = "off"
 
     factors_source: pd.DataFrame | None = None
     factor_entry: FactorRegistryEntry | None = None
     if requested_mode != "off":
-        if config.use_factor_prewhiten:
+        if requested_mode == "custom":
+            if config.factors_csv is None:
+                raise RuntimeError("Custom prewhitening requires --factors-csv pointing to a factor dataset.")
+            try:
+                factors_source, factor_entry = load_registered_factors(
+                    str(config.factors_csv),
+                    start=returns_start,
+                    end=returns_end,
+                )
+            except FactorRegistryError:
+                factors_source = load_observed_factors(path=config.factors_csv)
+                factor_entry = None
+        elif config.use_factor_prewhiten:
             registry_keys = FACTOR_FALLBACKS.get(requested_mode, (requested_mode,))
             factor_error: FactorRegistryError | None = None
             for candidate in registry_keys:
@@ -1313,7 +1321,7 @@ def run_evaluation(
         dir_path.mkdir(parents=True, exist_ok=True)
     resolved_payload = dict(resolved_config) if resolved_config is not None else _serialise_config(config)
     resolved_path = out_dir / "resolved_config.json"
-    _write_prewhiten_diagnostics(out_dir, whitening, prewhiten_meta)
+    write_prewhiten_diagnostics(out_dir, whitening, prewhiten_meta)
     prewhiten_r2_mean = prewhiten_meta.r2_mean
     resolved_payload["prewhiten_r2_mean"] = prewhiten_meta.r2_mean
     resolved_payload["prewhiten_r2_median"] = prewhiten_meta.r2_median
@@ -1345,6 +1353,7 @@ def run_evaluation(
         edge_mode=str(config.edge_mode),
         seed=config.overlay_seed if config.overlay_seed is not None else config.seed,
         a_grid=int(config.overlay_a_grid),
+        delta=float(config.overlay_delta),
         delta_frac=config.overlay_delta_frac,
         require_isolated=bool(config.require_isolated),
         cs_drop_top_frac=config.cs_drop_top_frac,
@@ -2115,7 +2124,11 @@ def run_evaluation(
     diagnostics_records: list[dict[str, object]] = []
 
     total_days = raw_returns.shape[0]
+    start_indices: Iterable[int]
     start_indices = range(0, total_days - config.window - config.horizon + 1)
+    if config.max_windows is not None:
+        max_windows = max(0, int(config.max_windows))
+        start_indices = list(start_indices)[:max_windows]
     worker_setting = config.workers
     if mv_tau > 0.0:
         worker_setting = 1

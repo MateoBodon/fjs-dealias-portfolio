@@ -53,13 +53,9 @@ memo: gallery
 report: gallery
 
 RC_PY := PYTHONPATH=src:. OMP_NUM_THREADS=1 python3
+USE_FACTORS ?= 1
 RC_PROGRESS ?= 0
 RC_WORKERS := $(shell python3 -c 'import os;print(os.cpu_count() or 4)')
-RC_FLAGS_BASE := --workers $(RC_WORKERS) --assets-top 100 --stride-windows 4 --resume --cache-dir .cache --precompute-panel --drop-partial-weeks --oneway-a-solver auto
-RC_FLAGS := $(RC_FLAGS_BASE)
-ifeq ($(RC_PROGRESS),0)
-RC_FLAGS := --no-progress $(RC_FLAGS)
-endif
 RC_RETURNS := data/returns_daily.csv
 RC_DATE := $(shell python3 -c 'import datetime as _dt; print(_dt.datetime.utcnow().strftime("%Y%m%d"))')
 RC_OUT := reports/rc-$(RC_DATE)
@@ -68,8 +64,20 @@ RC_VERIFY_DATASET := python tools/verify_dataset.py $(RC_RETURNS) --registry $(R
 RC_FACTORS ?= data/factors/ff5mom_daily.csv
 RC_FACTORS_REGISTRY ?= data/factors/registry.json
 RC_VERIFY_FACTORS := python tools/verify_dataset.py $(RC_FACTORS) --registry $(RC_FACTORS_REGISTRY)
+RC_PREWHITEN ?= ff5mom
+RC_USE_FACTOR_PREWHITEN ?= 1
+RC_OVERLAY_DELTA ?= 0.05
+RC_COARSE_CANDIDATE ?= 1
+RC_GATE_ACCEPT_NONISOLATED ?= 1
+RC_GATE_STABILITY_MIN ?= 0.0001
+RC_FLAGS_BASE := --workers $(RC_WORKERS) --assets-top 100 --stride-windows 4 --resume --cache-dir .cache --precompute-panel --drop-partial-weeks --oneway-a-solver auto --factor-csv $(RC_FACTORS) --prewhiten $(RC_PREWHITEN) --use-factor-prewhiten $(RC_USE_FACTOR_PREWHITEN)
+RC_FLAGS := $(RC_FLAGS_BASE)
+ifeq ($(RC_PROGRESS),0)
+RC_FLAGS := --no-progress $(RC_FLAGS)
+endif
 RC_GATE_CALIB := calibration/edge_delta_thresholds.json
 RC_GATE_DEFAULTS := calibration/defaults.json
+RC_GATE_MODE ?= soft
 RC_WINDOW ?= 126
 RC_HORIZON ?= 21
 RC_START ?= 2018-01-01
@@ -100,7 +108,9 @@ CALIB_BATCH_SIZE ?= 100
 MP_CACHE_DIR ?= .cache/mp_edges
 EXEC_MODE ?= deterministic
 
-rc-data:
+rc-data: 
+	$(RC_VERIFY_DATASET)
+	$(RC_VERIFY_FACTORS)
 	$(RC_PY) experiments/equity_panel/run.py --config experiments/equity_panel/config.smoke.yaml $(RC_FLAGS) --estimator dealias
 	$(RC_PY) experiments/equity_panel/run.py --config experiments/equity_panel/config.smoke.yaml $(RC_FLAGS) --estimator lw
 	$(RC_PY) experiments/equity_panel/run.py --config experiments/equity_panel/config.smoke.yaml $(RC_FLAGS) --estimator oas
@@ -112,7 +122,9 @@ rc-data:
 	$(RC_PY) experiments/equity_panel/run.py --config experiments/equity_panel/config.crisis.2022.yaml $(RC_FLAGS)
 
 rc-eval:
-	$(RC_PY) experiments/eval/run.py --returns-csv $(RC_RETURNS) --out $(RC_OUT)
+	$(RC_VERIFY_DATASET)
+	$(RC_VERIFY_FACTORS)
+	$(RC_PY) experiments/eval/run.py --returns-csv $(RC_RETURNS) --factors-csv $(RC_FACTORS) --prewhiten $(RC_PREWHITEN) --use-factor-prewhiten $(RC_USE_FACTOR_PREWHITEN) --overlay-delta $(RC_OVERLAY_DELTA) --coarse-candidate $(RC_COARSE_CANDIDATE) --gate-mode $(RC_GATE_MODE) $(if $(RC_GATE_ACCEPT_NONISOLATED),--gate-accept-nonisolated,) $(if $(RC_GATE_STABILITY_MIN),--gate-stability-min $(RC_GATE_STABILITY_MIN),) --out $(RC_OUT)
 
 rc-ablations:
 	$(RC_PY) experiments/ablate/run.py --config $(ABLA_GRID) $(if $(RC_CALM_WINDOW_SAMPLE),--calm-window-sample $(RC_CALM_WINDOW_SAMPLE),) $(if $(RC_CRISIS_WINDOW_TOPK),--crisis-window-topk $(RC_CRISIS_WINDOW_TOPK),)
@@ -126,6 +138,8 @@ rc: rc-data rc-eval
 	$(MAKE) memo
 
 rc-lite:
+	$(RC_VERIFY_DATASET)
+	$(RC_VERIFY_FACTORS)
 	$(RC_PY) experiments/equity_panel/run.py --config experiments/equity_panel/config.smoke.yaml $(RC_FLAGS) --estimator dealias
 	$(RC_PY) experiments/equity_panel/run.py --config experiments/equity_panel/config.smoke.yaml $(RC_FLAGS) --estimator lw
 	$(RC_PY) experiments/equity_panel/run.py --config experiments/equity_panel/config.smoke.yaml $(RC_FLAGS) --estimator oas
@@ -146,7 +160,7 @@ VOL_EDGE := $(if $(EDGE),$(EDGE),tyler)
 RC_DOW_OUT := $(RC_OUT)/dow-$(DOW_EDGE)
 RC_VOL_OUT := $(RC_OUT)/vol-$(VOL_EDGE)
 RC_DOW_ASSETS ?= 60
-RC_VOL_ASSETS ?= 80
+RC_VOL_ASSETS ?= 60
 RC_DOW_SHRINKER ?= rie
 RC_VOL_SHRINKER ?= oas
 RC_DOW_PREWHITEN ?= ff5mom
@@ -192,6 +206,11 @@ rc-dow:
 		--edge-mode $(DOW_EDGE) \
 		--shrinker $(RC_DOW_SHRINKER) \
 		--prewhiten $(RC_DOW_PREWHITEN) \
+		--overlay-delta $(RC_OVERLAY_DELTA) \
+		--coarse-candidate $(RC_COARSE_CANDIDATE) \
+		--gate-mode $(RC_GATE_MODE) \
+		$(if $(RC_GATE_ACCEPT_NONISOLATED),--gate-accept-nonisolated,) \
+		$(if $(RC_GATE_STABILITY_MIN),--gate-stability-min $(RC_GATE_STABILITY_MIN),) \
 		$(if $(USE_FACTORS),--use-factor-prewhiten $(USE_FACTORS),) \
 		--gate-delta-calibration $(RC_GATE_CALIB) \
 		--gate-delta-frac-min $(RC_GATE_DELTA_FRAC_MIN) \
@@ -220,6 +239,11 @@ rc-vol:
 		--edge-mode $(VOL_EDGE) \
 		--shrinker $(RC_VOL_SHRINKER) \
 		--prewhiten $(RC_VOL_PREWHITEN) \
+		--overlay-delta $(RC_OVERLAY_DELTA) \
+		--coarse-candidate $(RC_COARSE_CANDIDATE) \
+		--gate-mode $(RC_GATE_MODE) \
+		$(if $(RC_GATE_ACCEPT_NONISOLATED),--gate-accept-nonisolated,) \
+		$(if $(RC_GATE_STABILITY_MIN),--gate-stability-min $(RC_GATE_STABILITY_MIN),) \
 		$(if $(USE_FACTORS),--use-factor-prewhiten $(USE_FACTORS),) \
 		--gate-delta-calibration $(RC_GATE_CALIB) \
 		--gate-delta-frac-min $(RC_GATE_DELTA_FRAC_MIN) \
@@ -247,6 +271,11 @@ rc-week:
 		--edge-mode $(DOW_EDGE) \
 		--shrinker $(RC_WEEK_SHRINKER) \
 		--prewhiten $(RC_WEEK_PREWHITEN) \
+		--overlay-delta $(RC_OVERLAY_DELTA) \
+		--coarse-candidate $(RC_COARSE_CANDIDATE) \
+		--gate-mode $(RC_GATE_MODE) \
+		$(if $(RC_GATE_ACCEPT_NONISOLATED),--gate-accept-nonisolated,) \
+		$(if $(RC_GATE_STABILITY_MIN),--gate-stability-min $(RC_GATE_STABILITY_MIN),) \
 		$(if $(USE_FACTORS),--use-factor-prewhiten $(USE_FACTORS),) \
 		--gate-delta-calibration $(RC_GATE_CALIB) \
 		--gate-delta-frac-min $(RC_GATE_DELTA_FRAC_MIN) \
@@ -274,6 +303,11 @@ rc-dowxvol:
 		--edge-mode $(DOW_EDGE) \
 		--shrinker $(RC_DOWXVOL_SHRINKER) \
 		--prewhiten $(RC_DOWXVOL_PREWHITEN) \
+		--overlay-delta $(RC_OVERLAY_DELTA) \
+		--coarse-candidate $(RC_COARSE_CANDIDATE) \
+		--gate-mode $(RC_GATE_MODE) \
+		$(if $(RC_GATE_ACCEPT_NONISOLATED),--gate-accept-nonisolated,) \
+		$(if $(RC_GATE_STABILITY_MIN),--gate-stability-min $(RC_GATE_STABILITY_MIN),) \
 		$(if $(USE_FACTORS),--use-factor-prewhiten $(USE_FACTORS),) \
 		--gate-delta-calibration $(RC_GATE_CALIB) \
 		--gate-delta-frac-min $(RC_GATE_DELTA_FRAC_MIN) \

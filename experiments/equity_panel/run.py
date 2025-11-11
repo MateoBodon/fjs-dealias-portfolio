@@ -79,6 +79,8 @@ from data.panels import (
     save_balanced_panel,
     write_manifest as write_panel_manifest,
 )
+from baselines import load_observed_factors
+from experiments.prewhiten import PrewhitenTelemetry, apply_prewhitening
 
 DEFAULT_CONFIG = {
     "data_path": "data/returns_daily.csv",
@@ -116,6 +118,8 @@ DEFAULT_CONFIG = {
         "calibration_path": "calibration/edge_delta_thresholds.json",
     },
     "alignment_top_p": 3,
+    "prewhiten": "off",
+    "use_factor_prewhiten": True,
 }
 
 def _parse_box_bounds(bounds: Any) -> tuple[float, float]:
@@ -367,7 +371,23 @@ def _compute_nested_prepared(
     total_years = int(pd.unique(year_labels).size)
     total_weeks = int(pd.unique(week_labels).size)
     counts = labels_df.groupby(["year", "week"])["idx"].transform("count")
-    labels_df["valid_reps"] = counts == int(expected_reps)
+    max_count = int(counts.max()) if counts.size else 0
+    if max_count < 2:
+        return (
+            None,
+            {
+                "exit_reason": "Nested design requires at least two observations per (year, week).",
+                "years_kept": total_years,
+                "weeks_common": 0,
+                "replicates": int(expected_reps),
+                "replicates_observed": max_count,
+            },
+        )
+    counts_mode = (
+        int(counts.mode().iloc[0]) if not counts.mode().empty else max_count
+    )
+    target_reps = min(int(expected_reps), max(counts_mode, 2), max_count)
+    labels_df["valid_reps"] = counts >= int(target_reps)
     labels_valid = labels_df[labels_df["valid_reps"]]
     if labels_valid.empty:
         max_count = int(counts.max()) if counts.size else 0
@@ -375,15 +395,20 @@ def _compute_nested_prepared(
             None,
             {
                 "exit_reason": (
-                    f"No (year, week) cells matched expected replicates={expected_reps} "
+                    f"No (year, week) cells reached replicates≥{target_reps} "
                     f"(observed max {max_count})."
                 ),
                 "years_kept": total_years,
                 "weeks_common": 0,
                 "replicates": int(expected_reps),
+                "replicates_used": int(target_reps),
                 "replicates_observed": max_count,
             },
         )
+    labels_valid = labels_valid.sort_values("idx").copy()
+    labels_valid["rep_rank"] = labels_valid.groupby(["year", "week"]).cumcount()
+    labels_valid = labels_valid[labels_valid["rep_rank"] < int(target_reps)]
+    labels_valid.drop(columns=["rep_rank"], inplace=True)
 
     week_sets_series = (
         labels_valid.drop_duplicates(subset=["year", "week"])
@@ -394,23 +419,44 @@ def _compute_nested_prepared(
         return (
             None,
             {
-                "exit_reason": "No ISO weeks remain after filtering to complete replicate cells.",
+                "exit_reason": "No ISO weeks remain after replicate filtering.",
                 "years_kept": int(total_years),
                 "weeks_common": 0,
                 "replicates": int(expected_reps),
+                "replicates_used": int(target_reps),
             },
         )
-    common_weeks = set.intersection(*week_sets_series.tolist())
+    week_sets_items = [(int(year), set(weeks)) for year, weeks in week_sets_series.items()]
+
+    def _intersect(items: list[tuple[int, set[int]]]) -> set[int]:
+        if not items:
+            return set()
+        sets_only = [item[1] for item in items if item[1]]
+        if not sets_only:
+            return set()
+        return set.intersection(*sets_only)
+
+    keep_items = week_sets_items.copy()
+    dropped_years: list[int] = []
+    common_weeks = _intersect(keep_items)
+    while not common_weeks and len(keep_items) > 2:
+        drop_idx = min(range(len(keep_items)), key=lambda idx: len(keep_items[idx][1]))
+        dropped_years.append(keep_items.pop(drop_idx)[0])
+        common_weeks = _intersect(keep_items)
     if not common_weeks:
         return (
             None,
             {
-                "exit_reason": "Years share no common ISO weeks after replicate filtering.",
-                "years_kept": int(len(week_sets_series)),
+                "exit_reason": "Unable to find shared ISO weeks across nested years.",
+                "years_kept": int(len(keep_items)),
                 "weeks_common": 0,
                 "replicates": int(expected_reps),
+                "replicates_used": int(target_reps),
+                "years_dropped": dropped_years,
             },
         )
+    keep_years = {year for year, _ in keep_items}
+    labels_valid = labels_valid[labels_valid["year"].isin(keep_years)]
 
     labels_common = labels_valid[labels_valid["week"].isin(common_weeks)].copy()
     if labels_common.empty:
@@ -421,6 +467,7 @@ def _compute_nested_prepared(
                 "years_kept": int(len(week_sets_series)),
                 "weeks_common": int(len(common_weeks)),
                 "replicates": int(expected_reps),
+                "replicates_used": int(target_reps),
             },
         )
     labels_common.sort_values("idx", inplace=True)
@@ -439,6 +486,7 @@ def _compute_nested_prepared(
                 "weeks_common": int(len(common_weeks)),
                 "replicates": int(expected_reps),
                 "replicates_observed": int(max(observed)) if observed else 0,
+                "replicates_used": int(target_reps),
             },
         )
 
@@ -454,6 +502,7 @@ def _compute_nested_prepared(
                 "years_kept": int(counts_per_year.index.size),
                 "weeks_common": int(max_weeks),
                 "replicates": int(expected_reps),
+                "replicates_used": int(target_reps),
             },
         )
     weeks_per_year = int(counts_per_year.iloc[0])
@@ -465,6 +514,7 @@ def _compute_nested_prepared(
                 "years_kept": int(counts_per_year.index.size),
                 "weeks_common": int(weeks_per_year),
                 "replicates": int(expected_reps),
+                "replicates_used": int(target_reps),
             },
         )
     unique_years_common = labels_common["year"].nunique()
@@ -476,6 +526,7 @@ def _compute_nested_prepared(
                 "years_kept": int(unique_years_common),
                 "weeks_common": int(weeks_per_year),
                 "replicates": int(expected_reps),
+                "replicates_used": int(target_reps),
             },
         )
 
@@ -499,6 +550,7 @@ def _compute_nested_prepared(
                 "years_kept": int(unique_years_common),
                 "weeks_common": int(weeks_per_year),
                 "replicates": int(expected_reps),
+                "replicates_used": int(target_reps),
             },
         )
 
@@ -1114,6 +1166,7 @@ def _run_single_period(
     a_grid: int = 120,
     energy_min_abs: float | None = None,
     factor_returns: pd.DataFrame | None = None,
+    prewhiten_meta: PrewhitenTelemetry | None = None,
     minvar_ridge: float = 1e-4,
     minvar_box: tuple[float, float] = (0.0, 0.1),
     turnover_cost_bps: float = 5.0,
@@ -1153,6 +1206,17 @@ def _run_single_period(
     valid_designs = {"oneway", "nested", "dow", "vol"}
     if design_mode not in valid_designs:
         raise ValueError(f"design_mode must be one of {sorted(valid_designs)}.")
+    if prewhiten_meta is None:
+        prewhiten_meta = PrewhitenTelemetry(
+            mode_requested="off",
+            mode_effective="off",
+            factor_columns=(),
+            beta_abs_mean=0.0,
+            beta_abs_std=0.0,
+            beta_abs_median=0.0,
+            r2_mean=0.0,
+            r2_median=0.0,
+        )
     if design_mode == "nested":
         nested_reps_value = int(nested_replicates) if nested_replicates > 0 else int(replicates)
     else:
@@ -1448,6 +1512,12 @@ def _run_single_period(
                         "years_kept": 0,
                         "weeks_common": 0,
                         "replicates": int(prep_info.get("replicates", nested_reps_value)),
+                        "replicates_used": int(
+                            prep_info.get(
+                                "replicates_used",
+                                prep_info.get("replicates", nested_reps_value),
+                            )
+                        ),
                     },
                 )
                 detail["windows"] = int(detail.get("windows", 0)) + 1
@@ -1827,6 +1897,16 @@ def _run_single_period(
                 if off_component_leak_cap is not None
                 else float("nan")
             ),
+            "prewhiten_mode_requested": prewhiten_meta.mode_requested,
+            "prewhiten_mode_effective": prewhiten_meta.mode_effective,
+            "prewhiten_r2_mean": prewhiten_meta.r2_mean,
+            "prewhiten_r2_median": prewhiten_meta.r2_median,
+            "prewhiten_factor_count": len(prewhiten_meta.factor_columns),
+            "prewhiten_beta_abs_mean": prewhiten_meta.beta_abs_mean,
+            "prewhiten_beta_abs_std": prewhiten_meta.beta_abs_std,
+            "prewhiten_beta_abs_median": prewhiten_meta.beta_abs_median,
+            "prewhiten_factors": ",".join(prewhiten_meta.factor_columns),
+            "factor_present": prewhiten_meta.mode_effective != "off",
         }
         if gate_discard_detail:
             window_record["gate_discarded"] = json.dumps(gate_discard_detail)
@@ -2584,6 +2664,16 @@ def _run_single_period(
         "alignment_top_p": int(alignment_top_p),
         "gating_mode": gating_mode_value,
     }
+    summary_payload["prewhiten"] = {
+        "mode_requested": prewhiten_meta.mode_requested,
+        "mode_effective": prewhiten_meta.mode_effective,
+        "r2_mean": prewhiten_meta.r2_mean,
+        "r2_median": prewhiten_meta.r2_median,
+        "beta_abs_mean": prewhiten_meta.beta_abs_mean,
+        "beta_abs_std": prewhiten_meta.beta_abs_std,
+        "beta_abs_median": prewhiten_meta.beta_abs_median,
+        "factor_columns": list(prewhiten_meta.factor_columns),
+    }
     if delta_used_values:
         summary_payload["delta_frac_used_min"] = float(min(delta_used_values))
         summary_payload["delta_frac_used_max"] = float(max(delta_used_values))
@@ -2835,6 +2925,8 @@ def run_experiment(
     winsorize_q_override: float | None = None,
     huber_c_override: float | None = None,
     factor_csv_override: str | None = None,
+    prewhiten_override: str | None = None,
+    use_factor_prewhiten_override: int | None = None,
     minvar_ridge_override: float | None = None,
     minvar_box_override: str | None = None,
     turnover_cost_override: float | None = None,
@@ -2887,6 +2979,10 @@ def run_experiment(
         config["huber_c"] = float(huber_c_override)
     if factor_csv_override is not None:
         config["factor_csv"] = factor_csv_override
+    if prewhiten_override is not None:
+        config["prewhiten"] = str(prewhiten_override)
+    if use_factor_prewhiten_override is not None:
+        config["use_factor_prewhiten"] = bool(use_factor_prewhiten_override)
     if minvar_ridge_override is not None:
         config["minvar_ridge"] = float(minvar_ridge_override)
     if minvar_box_override is not None:
@@ -2997,26 +3093,8 @@ def run_experiment(
     if factor_csv_cfg:
         factor_path = Path(str(factor_csv_cfg)).expanduser()
         if not factor_path.exists():
-            raise FileNotFoundError(
-                f"Factor CSV not found at '{factor_path}'."
-            )
-        factor_df = pd.read_csv(factor_path)
-        if factor_df.empty or factor_df.shape[1] < 2:
-            raise ValueError("Factor CSV must contain a date column and at least one factor column.")
-        date_col_candidates = [
-            col
-            for col in factor_df.columns
-            if str(col).lower() in {"date", "timestamp", "time", "week", "period"}
-        ]
-        date_col = date_col_candidates[0] if date_col_candidates else factor_df.columns[0]
-        factor_df[date_col] = pd.to_datetime(factor_df[date_col])
-        factor_df = factor_df.set_index(date_col).sort_index()
-        factor_df = factor_df.apply(pd.to_numeric, errors="coerce")
-        factor_df = factor_df.dropna(how="all")
-        factor_df = factor_df.loc[~factor_df.index.duplicated(keep="last")]
-        if factor_df.empty:
-            raise ValueError("Factor CSV contains no usable numeric data after cleaning.")
-        factor_returns = factor_df
+            raise FileNotFoundError(f"Factor CSV not found at '{factor_path}'.")
+        factor_returns = load_observed_factors(path=factor_path)
 
     if factor_returns is None and estimator_value in {"factor", "factor_obs"}:
         print(
@@ -3044,7 +3122,40 @@ def run_experiment(
         winsorize_q=winsorize_q_val,
         huber_c=huber_c_val,
     )
+    prewhiten_mode_cfg = str(config.get("prewhiten", "off") or "off").lower()
+    if prewhiten_mode_cfg not in {"off", "ff5", "ff5mom"}:
+        prewhiten_mode_cfg = "off"
+    use_factor_prewhiten = bool(config.get("use_factor_prewhiten", True))
+    factors_for_prewhiten = factor_returns
+    if prewhiten_mode_cfg != "off" and factors_for_prewhiten is None:
+        if use_factor_prewhiten:
+            raise RuntimeError(
+                "Observed-factor prewhitening requires --factor-csv or a registered factor dataset."
+            )
+        try:
+            factors_for_prewhiten = load_observed_factors(returns=daily_returns)
+        except Exception as exc:  # pragma: no cover - defensive proxy construction
+            raise RuntimeError("Unable to build fallback factor proxy for prewhitening.") from exc
+    whitening, prewhiten_meta = apply_prewhitening(
+        daily_returns,
+        factors=factors_for_prewhiten,
+        requested_mode=prewhiten_mode_cfg,
+    )
+    daily_returns = whitening.residuals.sort_index()
+    preprocess_flags = dict(preprocess_flags)
+    preprocess_flags["prewhiten_mode"] = prewhiten_meta.mode_effective
+    if prewhiten_meta.factor_columns:
+        preprocess_flags["prewhiten_factors"] = ",".join(prewhiten_meta.factor_columns)
     config["preprocess_flags"] = dict(preprocess_flags)
+    config["prewhiten_mode_requested"] = prewhiten_meta.mode_requested
+    config["prewhiten_mode_effective"] = prewhiten_meta.mode_effective
+    config["prewhiten_r2_mean"] = prewhiten_meta.r2_mean
+    config["prewhiten_r2_median"] = prewhiten_meta.r2_median
+    config["prewhiten_beta_abs_mean"] = prewhiten_meta.beta_abs_mean
+    config["prewhiten_beta_abs_std"] = prewhiten_meta.beta_abs_std
+    config["prewhiten_beta_abs_median"] = prewhiten_meta.beta_abs_median
+    config["prewhiten_factor_columns"] = list(prewhiten_meta.factor_columns)
+    config["use_factor_prewhiten"] = use_factor_prewhiten
 
     output_dir = Path(config["output_dir"])
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -3158,6 +3269,7 @@ def run_experiment(
                 alignment_top_p=alignment_top_p_cfg,
                 edge_mode=str(config.get("edge_mode", "scm")),
                 edge_huber_c=float(config.get("edge_huber_c", 1.5)),
+                prewhiten_meta=prewhiten_meta,
             )
 
             try:
@@ -3247,6 +3359,20 @@ def main() -> None:
         type=str,
         default=None,
         help="Optional CSV of factor returns (date-indexed) for observed-factor covariance.",
+    )
+    parser.add_argument(
+        "--prewhiten",
+        type=str,
+        choices=["off", "ff5", "ff5mom"],
+        default=None,
+        help="Observed-factor prewhitening mode applied before detection.",
+    )
+    parser.add_argument(
+        "--use-factor-prewhiten",
+        type=int,
+        choices=[0, 1],
+        default=None,
+        help="Require registered/CSV factors when prewhitening (default: 1).",
     )
     parser.add_argument(
         "--edge-mode",
@@ -3494,6 +3620,8 @@ def main() -> None:
         winsorize_q_override=args.winsorize,
         huber_c_override=args.huber,
         factor_csv_override=args.factor_csv,
+        prewhiten_override=args.prewhiten,
+        use_factor_prewhiten_override=args.use_factor_prewhiten,
         minvar_ridge_override=args.minvar_ridge,
         minvar_box_override=args.minvar_box,
         turnover_cost_override=args.turnover_cost,

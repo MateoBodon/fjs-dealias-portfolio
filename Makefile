@@ -74,7 +74,8 @@ RC_WINDOW ?= 126
 RC_HORIZON ?= 21
 RC_START ?= 2018-01-01
 RC_END ?= 2024-12-31
-RC_GATE_DELTA_FRAC ?= 0.02
+RC_GATE_DELTA_FRAC_MIN ?= 0.01
+RC_Q_MAX ?= 2
 RC_MV_GAMMA ?= 1e-4
 RC_MV_BOX ?= 0.0,0.1
 RC_MV_TURNOVER_BPS ?= 5
@@ -193,9 +194,9 @@ rc-dow:
 		--prewhiten $(RC_DOW_PREWHITEN) \
 		$(if $(USE_FACTORS),--use-factor-prewhiten $(USE_FACTORS),) \
 		--gate-delta-calibration $(RC_GATE_CALIB) \
-		--gate-delta-frac-min $(RC_GATE_DELTA_FRAC) \
+		--gate-delta-frac-min $(RC_GATE_DELTA_FRAC_MIN) \
 		--require-isolated \
-		--q-max 1 \
+		--q-max $(RC_Q_MAX) \
 		--mv-gamma $(RC_MV_GAMMA) \
 		--mv-box $(RC_MV_BOX) \
 		--mv-turnover-bps $(RC_MV_TURNOVER_BPS) \
@@ -221,9 +222,9 @@ rc-vol:
 		--prewhiten $(RC_VOL_PREWHITEN) \
 		$(if $(USE_FACTORS),--use-factor-prewhiten $(USE_FACTORS),) \
 		--gate-delta-calibration $(RC_GATE_CALIB) \
-		--gate-delta-frac-min $(RC_GATE_DELTA_FRAC) \
+		--gate-delta-frac-min $(RC_GATE_DELTA_FRAC_MIN) \
 		--require-isolated \
-		--q-max 1 \
+		--q-max $(RC_Q_MAX) \
 		--mv-gamma $(RC_MV_GAMMA) \
 		--mv-box $(RC_MV_BOX) \
 		--mv-turnover-bps $(RC_MV_TURNOVER_BPS) \
@@ -248,9 +249,9 @@ rc-week:
 		--prewhiten $(RC_WEEK_PREWHITEN) \
 		$(if $(USE_FACTORS),--use-factor-prewhiten $(USE_FACTORS),) \
 		--gate-delta-calibration $(RC_GATE_CALIB) \
-		--gate-delta-frac-min $(RC_GATE_DELTA_FRAC) \
+		--gate-delta-frac-min $(RC_GATE_DELTA_FRAC_MIN) \
 		--require-isolated \
-		--q-max 1 \
+		--q-max $(RC_Q_MAX) \
 		--mv-gamma $(RC_MV_GAMMA) \
 		--mv-box $(RC_MV_BOX) \
 		--mv-turnover-bps $(RC_MV_TURNOVER_BPS) \
@@ -275,9 +276,9 @@ rc-dowxvol:
 		--prewhiten $(RC_DOWXVOL_PREWHITEN) \
 		$(if $(USE_FACTORS),--use-factor-prewhiten $(USE_FACTORS),) \
 		--gate-delta-calibration $(RC_GATE_CALIB) \
-		--gate-delta-frac-min $(RC_GATE_DELTA_FRAC) \
+		--gate-delta-frac-min $(RC_GATE_DELTA_FRAC_MIN) \
 		--require-isolated \
-		--q-max 1 \
+		--q-max $(RC_Q_MAX) \
 		--mv-gamma $(RC_MV_GAMMA) \
 		--mv-box $(RC_MV_BOX) \
 		--mv-turnover-bps $(RC_MV_TURNOVER_BPS) \
@@ -302,6 +303,25 @@ rc-sensitivity:
 		--label $(RC_SENS_LABEL) \
 		--workers 1
 
+.PHONY: rc-sensitivity-coarse
+rc-sensitivity-coarse:
+	$(RC_VERIFY_DATASET)
+	$(RC_VERIFY_FACTORS)
+	$(RC_PY) experiments/eval/sensitivity.py \
+		--returns-csv $(RC_RETURNS) \
+		--slice-start $(RC_SENS_START) \
+		--slice-end $(RC_SENS_END) \
+		--assets-top 150 \
+		--window $(RC_WINDOW) \
+		--horizon $(RC_HORIZON) \
+		--config experiments/eval/config.yaml \
+		--thresholds experiments/eval/thresholds.json \
+		--registry $(RC_REGISTRY) \
+		--out reports/rc-sensitivity \
+		--label $(RC_SENS_LABEL)-coarse \
+		--workers 1 \
+		--coarse-candidate 1
+
 .PHONY: inject-spike
 inject-spike:
 	$(RC_VERIFY_DATASET)
@@ -318,6 +338,25 @@ inject-spike:
 		--thresholds experiments/eval/thresholds.json \
 		--group-design week \
 		--use-factor-prewhiten 1 \
+		--out $(RC_INJECT_OUT)
+
+.PHONY: inject-spike-coarse
+inject-spike-coarse:
+	$(RC_VERIFY_DATASET)
+	$(RC_VERIFY_FACTORS)
+	$(RC_PY) experiments/eval/inject_spike.py \
+		--returns-csv $(RC_RETURNS) \
+		--factors-csv $(RC_FACTORS) \
+		--window $(RC_WINDOW) \
+		--horizon $(RC_HORIZON) \
+		--start $(RC_START) \
+		--end $(RC_END) \
+		--assets-top 150 \
+		--config experiments/eval/config.yaml \
+		--thresholds experiments/eval/thresholds.json \
+		--group-design week \
+		--use-factor-prewhiten 1 \
+		--coarse-candidate 1 \
 		--out $(RC_INJECT_OUT)
 
 run-synth:
@@ -354,7 +393,7 @@ sweep-calibration: sweep\:acceptance
 
 .PHONY: calibrate-thresholds
 calibrate-thresholds:
-	PYTHONPATH=src python experiments/synthetic/calibrate_thresholds.py \
+	PYTHONPATH=src:. python experiments/synthetic/calibrate_thresholds.py \
 		--alpha $(CALIB_ALPHA) \
 		--p-assets $(CALIB_P_ASSETS) \
 		--n-groups $(CALIB_N_GROUPS) \

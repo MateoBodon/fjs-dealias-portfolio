@@ -27,7 +27,7 @@ SRC_ROOT = PROJECT_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from baselines import load_observed_factors, prewhiten_returns
+from baselines import load_observed_factors
 from baselines.covariance import (
     cc_covariance as baseline_cc_covariance,
     ewma_covariance as baseline_ewma_covariance,
@@ -55,7 +55,86 @@ from experiments.daily.grouping import (
 )
 from experiments.eval.config import resolve_eval_config
 from experiments.eval.diagnostics import DiagnosticReason
+from experiments.prewhiten import (
+    FACTOR_FALLBACKS,
+    FACTOR_SETS,
+    PrewhitenTelemetry,
+    apply_prewhitening,
+)
 from meta import runtime
+
+
+@dataclass(slots=True, frozen=True)
+class EvalOutputs:
+    metrics: dict[str, Path]
+    risk: dict[str, Path]
+    dm: dict[str, Path]
+    diagnostics: dict[str, Path]
+    plots: dict[str, Path]
+    diagnostics_detail: dict[str, Path]
+
+
+_REGIMES = ("full", "calm", "crisis")
+
+
+def _plot_regime_histograms(
+    diagnostics_df: pd.DataFrame,
+    column: str,
+    *,
+    out_dir: Path,
+    xlabel: str,
+    title_prefix: str,
+) -> dict[str, Path]:
+    if plt is None or diagnostics_df.empty or column not in diagnostics_df.columns:
+        return {}
+    outputs: dict[str, Path] = {}
+    slug = column.replace("/", "_").replace(" ", "_")
+    for regime in _REGIMES:
+        subset = diagnostics_df[diagnostics_df["regime"] == regime]
+        if subset.empty:
+            continue
+        series = pd.to_numeric(subset[column], errors="coerce")
+        path = out_dir / f"{slug}_{regime}_hist.png"
+        plotted = _plot_histogram(
+            series,
+            path,
+            xlabel=xlabel,
+            title=f"{title_prefix} ({regime})",
+        )
+        if plotted is not None:
+            outputs[f"{column}_{regime}"] = plotted
+    return outputs
+
+
+_DOW_LABELS = {
+    0: "mon",
+    1: "tue",
+    2: "wed",
+    3: "thu",
+    4: "fri",
+}
+
+_VOL_LABELS = {
+    0: "calm",
+    1: "mid",
+    2: "crisis",
+}
+
+_MONTH_LABELS = {
+    1: "jan",
+    2: "feb",
+    3: "mar",
+    4: "apr",
+    5: "may",
+    6: "jun",
+    7: "jul",
+    8: "aug",
+    9: "sep",
+    10: "oct",
+    11: "nov",
+    12: "dec",
+}
+
 
 try:
     from data.loader import DailyLoaderConfig, DailyPanel, load_daily_panel
@@ -180,103 +259,6 @@ class EvalConfig:
     gate_alignment_min: float | None = None
     gate_accept_nonisolated: bool = False
     coarse_candidate: bool = False
-
-
-@dataclass(slots=True, frozen=True)
-class PrewhitenTelemetry:
-    mode_requested: str
-    mode_effective: str
-    factor_columns: tuple[str, ...]
-    beta_abs_mean: float
-    beta_abs_std: float
-    beta_abs_median: float
-    r2_mean: float
-    r2_median: float
-
-
-@dataclass(slots=True, frozen=True)
-class EvalOutputs:
-    metrics: dict[str, Path]
-    risk: dict[str, Path]
-    dm: dict[str, Path]
-    diagnostics: dict[str, Path]
-    plots: dict[str, Path]
-    diagnostics_detail: dict[str, Path]
-
-
-_REGIMES = ("full", "calm", "crisis")
-
-
-def _plot_regime_histograms(
-    diagnostics_df: pd.DataFrame,
-    column: str,
-    *,
-    out_dir: Path,
-    xlabel: str,
-    title_prefix: str,
-) -> dict[str, Path]:
-    if plt is None or diagnostics_df.empty or column not in diagnostics_df.columns:
-        return {}
-    outputs: dict[str, Path] = {}
-    slug = column.replace("/", "_").replace(" ", "_")
-    for regime in _REGIMES:
-        subset = diagnostics_df[diagnostics_df["regime"] == regime]
-        if subset.empty:
-            continue
-        series = pd.to_numeric(subset[column], errors="coerce")
-        path = out_dir / f"{slug}_{regime}_hist.png"
-        plotted = _plot_histogram(
-            series,
-            path,
-            xlabel=xlabel,
-            title=f"{title_prefix} ({regime})",
-        )
-        if plotted is not None:
-            outputs[f"{column}_{regime}"] = plotted
-    return outputs
-
-
-_DOW_LABELS = {
-    0: "mon",
-    1: "tue",
-    2: "wed",
-    3: "thu",
-    4: "fri",
-}
-
-_VOL_LABELS = {
-    0: "calm",
-    1: "mid",
-    2: "crisis",
-}
-
-_MONTH_LABELS = {
-    1: "jan",
-    2: "feb",
-    3: "mar",
-    4: "apr",
-    5: "may",
-    6: "jun",
-    7: "jul",
-    8: "aug",
-    9: "sep",
-    10: "oct",
-    11: "nov",
-    12: "dec",
-}
-
-_FACTOR_SETS: dict[str, tuple[str, ...]] = {
-    "ff5mom": ("MKT", "SMB", "HML", "RMW", "CMA", "MOM"),
-    "ff5": ("MKT", "SMB", "HML", "RMW", "CMA"),
-    "mkt": ("MKT",),
-}
-
-_FACTOR_FALLBACKS: dict[str, tuple[str, ...]] = {
-    "ff5mom": ("ff5mom", "ff5", "mkt"),
-    "ff5": ("ff5", "mkt"),
-}
-
-
 def _format_group_label_counts(labels: np.ndarray, design: str) -> tuple[str, dict[int, int]]:
     if labels.size == 0:
         return "", {}
@@ -321,100 +303,6 @@ def _vol_state_label(value: float, calm_cut: float, crisis_cut: float) -> str:
     if value >= crisis_cut:
         return "crisis"
     return "mid"
-
-
-def _identity_prewhiten_result(
-    returns: pd.DataFrame,
-    factor_cols: Sequence[str] | None = None,
-) -> PrewhitenResult:
-    columns = list(factor_cols or [])
-    assets = list(returns.columns)
-    betas = pd.DataFrame(
-        np.zeros((len(assets), len(columns)), dtype=np.float64),
-        index=assets,
-        columns=columns,
-    )
-    intercept = pd.Series(np.zeros(len(assets), dtype=np.float64), index=assets, name="intercept")
-    r_squared = pd.Series(np.zeros(len(assets), dtype=np.float64), index=assets, name="r_squared")
-    fitted = pd.DataFrame(
-        np.zeros_like(returns.to_numpy(dtype=np.float64, copy=True)),
-        index=returns.index,
-        columns=assets,
-    )
-    factor_frame = pd.DataFrame(
-        np.zeros((returns.shape[0], len(columns)), dtype=np.float64),
-        index=returns.index,
-        columns=columns,
-    )
-    return PrewhitenResult(
-        residuals=returns.copy(),
-        betas=betas,
-        intercept=intercept,
-        r_squared=r_squared,
-        fitted=fitted,
-        factors=factor_frame,
-    )
-
-
-def _select_prewhiten_factors(
-    factors: pd.DataFrame | None,
-    requested: str,
-) -> tuple[str, pd.DataFrame | None]:
-    if factors is None or factors.empty:
-        return "off", None
-    requested_key = requested.lower()
-    if requested_key == "off":
-        return "off", None
-    candidate_modes = _FACTOR_FALLBACKS.get(requested_key, ())
-    for mode in candidate_modes:
-        required = _FACTOR_SETS.get(mode, ())
-        if all(col in factors.columns for col in required):
-            subset = factors.loc[:, list(required)].copy()
-            return mode, subset
-    if "MKT" in factors.columns:
-        return "mkt", factors.loc[:, ["MKT"]].copy()
-    return "off", None
-
-
-def _beta_abs_stats(betas: pd.DataFrame) -> tuple[float, float, float]:
-    if betas.empty:
-        return 0.0, 0.0, 0.0
-    numeric = betas.select_dtypes(include=["number"])
-    if numeric.empty:
-        return 0.0, 0.0, 0.0
-    values = np.abs(numeric.to_numpy(dtype=np.float64, copy=True))
-    values = values[np.isfinite(values)]
-    if values.size == 0:
-        return 0.0, 0.0, 0.0
-    mean = float(np.mean(values))
-    std = float(np.std(values, ddof=0))
-    median = float(np.median(values))
-    return mean, std, median
-
-
-def _compute_prewhiten_telemetry(
-    whitening: PrewhitenResult,
-    *,
-    requested_mode: str,
-    effective_mode: str,
-) -> PrewhitenTelemetry:
-    r2_series = whitening.r_squared if not whitening.r_squared.empty else pd.Series(dtype=np.float64)
-    r2_vals = r2_series.to_numpy(dtype=np.float64, copy=True) if not r2_series.empty else np.array([], dtype=np.float64)
-    r2_vals = r2_vals[np.isfinite(r2_vals)] if r2_vals.size else r2_vals
-    r2_mean = float(np.mean(r2_vals)) if r2_vals.size else 0.0
-    r2_median = float(np.median(r2_vals)) if r2_vals.size else 0.0
-    beta_mean, beta_std, beta_median = _beta_abs_stats(whitening.betas)
-    factor_columns = tuple(whitening.betas.columns.tolist())
-    return PrewhitenTelemetry(
-        mode_requested=requested_mode,
-        mode_effective=effective_mode,
-        factor_columns=factor_columns,
-        beta_abs_mean=beta_mean,
-        beta_abs_std=beta_std,
-        beta_abs_median=beta_median,
-        r2_mean=r2_mean,
-        r2_median=r2_median,
-    )
 
 
 def _serialise_config(config: EvalConfig) -> dict[str, Any]:
@@ -614,6 +502,8 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
     parser.add_argument("--returns-csv", type=Path, required=True, help="Path to daily returns CSV.")
     parser.add_argument(
         "--factors-csv",
+        "--factor-csv",
+        dest="factors_csv",
         type=Path,
         default=None,
         help="Optional FF5+MOM factor CSV (falls back to MKT proxy when absent).",
@@ -1353,11 +1243,11 @@ def _prepare_returns(
     factor_entry: FactorRegistryEntry | None = None
     if requested_mode != "off":
         if config.use_factor_prewhiten:
-            registry_keys = _FACTOR_FALLBACKS.get(requested_mode, (requested_mode,))
+            registry_keys = FACTOR_FALLBACKS.get(requested_mode, (requested_mode,))
             factor_error: FactorRegistryError | None = None
             for candidate in registry_keys:
                 try:
-                    required_cols = _FACTOR_SETS.get(candidate, _FACTOR_SETS.get(requested_mode, ()))
+                    required_cols = FACTOR_SETS.get(candidate, FACTOR_SETS.get(requested_mode, ()))
                     loaded, entry = load_registered_factors(
                         candidate,
                         start=returns_start,
@@ -1393,25 +1283,10 @@ def _prepare_returns(
                     except Exception:  # pragma: no cover - defensive fallback
                         factors_source = None
 
-    effective_mode, factor_subset = _select_prewhiten_factors(factors_source, requested_mode)
-
-    if effective_mode != "off" and factor_subset is not None:
-        try:
-            whitening = prewhiten_returns(returns, factor_subset)
-            if whitening.residuals.empty:
-                whitening = _identity_prewhiten_result(returns)
-                effective_mode = "off"
-        except ValueError:
-            whitening = _identity_prewhiten_result(returns)
-            effective_mode = "off"
-    else:
-        whitening = _identity_prewhiten_result(returns)
-        effective_mode = "off"
-
-    telemetry = _compute_prewhiten_telemetry(
-        whitening,
+    whitening, telemetry = apply_prewhitening(
+        returns,
+        factors=factors_source,
         requested_mode=requested_mode,
-        effective_mode=effective_mode,
     )
     return panel, returns, whitening, telemetry, factor_entry
 

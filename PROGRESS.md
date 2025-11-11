@@ -25,3 +25,40 @@
   - Sensitivity sweep: `reports/rc-sensitivity/rc-sensitivity-20251108/{run_manifest.json,tables/sensitivity_summary.csv,tables/changed_windows.csv,figures/acceptance_rate_ri[0|1]_align[0p70|0p80|0p90].png}`.
   - Weak-spike study: `reports/figures/inject_summary.csv`, `reports/figures/{inject_recall.png,inject_fp.png,inject_manifest.json}`.
 - **Notes**: All deterministic RCs (including the new week/dow×vol designs) remain at zero acceptance: the enriched telemetry shows `gating_initial = raw_detection_count = 0` everywhere, DoW design compliance tops out at ~59%, vol-state at ~11%, and week slices at ~32%, so reason codes split between `detection_error` and `balance_failure` (see `.../diagnostics_detail.csv`). The sensitivity sweep over 72 `(require_isolated, alignment_min_cos, delta_frac, stability_eta)` combos reports `n_changed_windows = 0` for every cell, so η/δ/alignment tweaks alone cannot unlock detections while the balance issues persist. The weak-spike harness injected μ∈{3,4,5} into ~8% of 1,446 windows yet still logged 0% recall and 0% FP, underscoring that the detector is never emitting candidates on the current balanced panels.
+
+## 2025-11-10T02:08Z — Plan for prewhiten/coverage refresh (284034b1)
+- **Scope**: Wire prewhitening + factor diagnostics, relax nested guardrails, rerun RC-lite + ROC sweeps per operator brief.
+- **Plan**:
+  1. Inspect runners/configs for current prewhiten + diagnostics plumbing; outline manifest schema changes.
+  2. Add `--prewhiten/--factor-csv` to eval + panel runners, persist R² + factor names into diagnostics + `run_manifest.json`, update README/memo templates, and cover with unit/integration tests.
+  3. Loosen nested balancing constraints, surface `--gate-delta-frac-min`/`q_max` configs, and validate via nested smoke run to ensure skip reasons diversify.
+  4. Dispatch deterministic `aws:rc-lite` against WRDS registry data, sync artifacts + telemetry back, and log in PROGRESS.
+  5. Execute acceptance ROC sweep (`aws:calibrate-thresholds`), consolidate artifacts + update `calibration_defaults.json`, refresh configs, and prep PR.
+
+## 2025-11-10T03:35Z — Prewhiten plumbing + RC-lite/AWS calibration status (284034b1)
+- **Data**: `data/returns_daily.csv` (sha256 `96ac7dd318245cf1a8b434bb358a9344bf282992fc9fe66f0282023696563197`) and `data/factors/ff5mom_daily.csv` (sha256 `469d44ad0c5cac556c60c1f258e14245acfcc9f2901ad443f41b64309bf908ca`), verified via `tools/verify_dataset.py` before each local/AWS invocation.
+- **Commands**: `pytest tests/experiments/test_prewhiten_utils.py`; `pytest tests/test_equity_prewhiten.py -m slow`; `make test-fast`; `PYTHONPATH=src OMP_NUM_THREADS=1 python experiments/equity_panel/run.py --config experiments/equity_panel/config.nested.smoke.yaml --prewhiten ff5mom --factor-csv data/factors/ff5mom_daily.csv --no-progress --exec-mode deterministic` (local nested smoke to validate relaxed balancing + per-window factor telemetry); `INSTANCE_DNS=ec2-98-92-104-129.compute-1.amazonaws.com KEY_PATH=~/.ssh/mateo-us-east-1-ec2-2025 AWS_ARGS="EXEC_MODE=deterministic" make aws:rc-lite`; `INSTANCE_DNS=... AWS_ARGS="EXEC_MODE=deterministic CALIB_TRIALS_NULL=600 CALIB_TRIALS_ALT=600" make aws:calibrate-thresholds` (in flight; monitor shows `calibration_progress: 1/48` at run id `20251110T031745Z`).
+- **Artifacts**:
+  - Local nested smoke: `experiments/equity_panel/outputs_nested_smoke/nested_J5_solver-auto_est-dealias_prep-prewhiten_factorsMKT,SMB,HML,RMW,CMA,MOM-prewhiten_modeff5mom/{rolling_results.csv,summary.json,run_meta.json}` now carry `prewhiten_*` columns plus relaxed nested skip detail (`weeks_common`, `years_dropped`, `replicates_used`).
+  - RC-lite AWS batch (run dir `reports/aws/20251110T025119Z/`): refreshed smoke/crisis outputs with memo+brief regenerated (`reports/aws/20251110T025119Z/memo_20251110_025534.md`, `.../brief.md`) and gallery snapshots (`figures/rc/**`). Each run folder contains the augmented diagnostics columns (`prewhiten_*`, `factor_present`).
+  - AWS calibration sweep is still running under `reports/aws/runs/20251110T031745Z` (not yet synced locally); progress + logs available via `reports/runs/monitor` once the EC2 job finishes. No new `calibration/edge_delta_thresholds.json` committed yet—pending that run’s completion.
+- **Notes**: Evaluation + panel runners accept `--prewhiten`/`--factor-csv` and persist telemetry into diagnostics, summary payloads, and `run.json`. Memo/brief templates now expose a “Factor Baseline” block. Nested guardrails accept looser replicate/ISO-week intersections (records `replicates_used`, `years_dropped`) and daily runners surface `RC_Q_MAX`/`RC_GATE_DELTA_FRAC_MIN`. `make test-fast` + the new targeted tests cover the refactor. RC-lite on AWS completed deterministically; calibration sweep remains queued (ETA ≈ 9h per `run_monitor`), so defaults will be updated once that run lands.
+
+## 2025-11-11T01:45Z — Deterministic AWS calibration sweep (20251110T154048Z)
+- **Data**: Same WRDS returns + FF5+MOM factors as prior RC runs (hashes above), re-verified before dispatch.
+- **Commands**: `INSTANCE_DNS=ec2-98-92-104-129.compute-1.amazonaws.com KEY_PATH=~/.ssh/mateo-us-east-1-ec2-2025 AWS_ARGS="EXEC_MODE=deterministic CALIB_TRIALS_NULL=600 CALIB_TRIALS_ALT=600" make aws:calibrate-thresholds`; post-run rsync of `reports/runs/20251110T154048Z/` and `calibration/*`; `make test-fast`.
+- **Artifacts**:
+  - Remote provenance: `reports/aws/20251110T154048Z/runs/20251110T154048Z/run.json` (status `0`, duration ≈10 h) plus full `metrics.jsonl`/`progress.jsonl`.
+  - Updated calibration files in repo: `calibration/edge_delta_thresholds.json` (48 cells) + `calibration/defaults.json` (new selection + metadata).
+  - Local monitor log `aws_calib_latest.log` capturing `[1/48 … 48/48]` milestones.
+- **Notes**: Sweep covered `(p ∈ {64, 80, 96}, replicates ∈ {14, 20}, δ_abs ∈ {0.35, 0.45, 0.55, 0.65}, edge ∈ {scm, tyler})` under deterministic thread caps. Final ETA ticked to zero at 48/48 with no retries. With new thresholds committed, RC configs should continue pointing at `calibration/edge_delta_thresholds.json` (rev 20251110). Unit tests re-run locally (`make test-fast`) to confirm no regressions after syncing the calibration outputs.
+
+## 2025-11-11T02:00Z — RC-lite refresh w/ new calibration defaults (284034b1)
+- **Data**: `data/returns_daily.csv` + `data/factors/ff5mom_daily.csv` (hashes above), verified pre-run.
+- **Commands**: `make rc-lite` (covers smoke + 2020 crisis configs across {dealias,lw,oas}); gallery/memo/brief regenerated implicitly by the target.
+- **Artifacts**:
+  - Smoke outputs: `experiments/equity_panel/outputs_smoke/oneway_J5_solver-auto_est-{dealias,lw,oas}_prep-*`.
+  - Crisis outputs: `experiments/equity_panel/outputs_crisis_2020/...`.
+  - Gallery: `figures/rc/**` (new tables/plots incorporate `prewhiten_*` columns).
+  - Memo/brief refreshed under `reports/{memo.md,brief.md}` plus timestamped copies.
+- **Notes**: First full rc-lite after ingesting the 20251110 calibration defaults. No runtime errors; diagnostics now show factor baselines + updated Δ thresholds. Ready to mirror on AWS (`make aws:rc-lite`) if we want cloud telemetry.

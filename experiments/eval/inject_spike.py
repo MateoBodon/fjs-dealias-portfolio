@@ -68,6 +68,7 @@ def _make_overlay_config(config: eval_run.EvalConfig) -> OverlayConfig:
         gate_stability_min=config.gate_stability_min,
         gate_alignment_min=config.gate_alignment_min,
         gate_accept_nonisolated=bool(config.gate_accept_nonisolated),
+        coarse_candidate=bool(getattr(config, "coarse_candidate", False)),
     )
 
 
@@ -191,6 +192,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--thresholds", type=Path, default=None)
     parser.add_argument("--group-design", type=str, default="week")
     parser.add_argument("--use-factor-prewhiten", type=int, choices=[0, 1], default=1)
+    parser.add_argument("--coarse-candidate", type=int, choices=[0, 1], default=0)
     parser.add_argument("--mu-grid", type=str, default="3,4,5")
     parser.add_argument("--inject-frac-min", type=float, default=0.05)
     parser.add_argument("--inject-frac-max", type=float, default=0.10)
@@ -222,6 +224,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         "thresholds": args.thresholds,
         "group_design": args.group_design,
         "use_factor_prewhiten": args.use_factor_prewhiten,
+        "coarse_candidate": args.coarse_candidate,
     }
     resolved = resolve_eval_config(config_args)
     config = resolved.config

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -80,12 +81,38 @@ def build_brief(config_path: Path) -> Path:
     detection_rates: list[float] = []
     dm_pvalues: list[float] = []
     reason_records: list[dict[str, object]] = []
+    factor_baseline_lines: list[str] = []
 
     for run_path in run_paths:
         frames = load_run(run_path)
         panel_df = collect_estimator_panel([run_path])
         if panel_df.empty:
             continue
+        summary_json: dict[str, object] = {}
+        summary_json_path = run_path / "summary.json"
+        if summary_json_path.exists():
+            try:
+                summary_json = json.loads(summary_json_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                summary_json = {}
+        prewhiten_payload = summary_json.get("prewhiten") if isinstance(summary_json, dict) else {}
+        if isinstance(prewhiten_payload, dict) and prewhiten_payload:
+            mode_effective = str(prewhiten_payload.get("mode_effective", "off"))
+            r2_mean_val = prewhiten_payload.get("r2_mean")
+            factor_cols = prewhiten_payload.get("factor_columns") or []
+            if factor_cols:
+                factor_fragment = ", ".join(factor_cols[:3])
+                if len(factor_cols) > 3:
+                    factor_fragment += ", …"
+            else:
+                factor_fragment = "n/a"
+            if isinstance(r2_mean_val, (int, float)):
+                r2_fragment = f"{float(r2_mean_val):.2f}"
+            else:
+                r2_fragment = "n/a"
+            factor_baseline_lines.append(
+                f"{run_path.name}: prewhiten {mode_effective} (R²≈{r2_fragment}, factors: {factor_fragment})"
+            )
         if "detection_rate" in panel_df:
             detection_rates.extend(panel_df["detection_rate"].dropna().astype(float).tolist())
         dm_columns = [col for col in panel_df.columns if col.startswith("dm_p")]
@@ -173,6 +200,8 @@ def build_brief(config_path: Path) -> Path:
     elif kill_status == "UNKNOWN" and not kill_criteria_md.strip():
         alerts_text = "Kill criteria unavailable; rely on latest RC diagnostics."
 
+    factor_baseline_text = factor_baseline_lines[0] if factor_baseline_lines else "n/a"
+
     template_path = Path("reports/templates/brief.md.j2")
     template = template_path.read_text(encoding="utf-8")
     context = {
@@ -186,6 +215,7 @@ def build_brief(config_path: Path) -> Path:
         "kill_status": kill_status,
         "kill_criteria_md": kill_criteria_md,
         "limitations_fragment": limitations_fragment,
+        "factor_baseline_text": factor_baseline_text,
     }
     brief_text = template.format(**context)
 

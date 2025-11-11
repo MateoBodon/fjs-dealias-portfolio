@@ -571,6 +571,7 @@ def build_memo(config_path: Path) -> Path:
 
     panel_frames: list[pd.DataFrame] = []
     run_lines: list[str] = []
+    factor_baseline_lines: list[str] = []
     artifact_map: dict[str, list[str]] = defaultdict(list)
     rejection_records: list[dict[str, float]] = []
     ablation_frames: list[pd.DataFrame] = []
@@ -651,6 +652,24 @@ def build_memo(config_path: Path) -> Path:
                     break
 
         run_label = crisis_label or run_path.name
+        prewhiten_payload = summary_json.get("prewhiten") if isinstance(summary_json, dict) else {}
+        if isinstance(prewhiten_payload, dict) and prewhiten_payload:
+            mode_effective = str(prewhiten_payload.get("mode_effective", "off"))
+            r2_mean_val = prewhiten_payload.get("r2_mean")
+            factor_cols = prewhiten_payload.get("factor_columns") or []
+            if factor_cols:
+                factor_fragment = ", ".join(factor_cols[:3])
+                if len(factor_cols) > 3:
+                    factor_fragment += ", …"
+            else:
+                factor_fragment = "n/a"
+            if isinstance(r2_mean_val, (int, float)):
+                r2_fragment = f"{float(r2_mean_val):.2f}"
+            else:
+                r2_fragment = "n/a"
+            factor_baseline_lines.append(
+                f"- {run_label}: prewhiten {mode_effective} (R²≈{r2_fragment}, factors: {factor_fragment})"
+            )
         alignment_fragment = (
             f", median angle={alignment_median:.1f}°"
             if not pd.isna(alignment_median)
@@ -687,6 +706,10 @@ def build_memo(config_path: Path) -> Path:
             badge_bits.append(f"gate={gating_mode_value}")
         if not pd.isna(delta_frac_median):
             badge_bits.append(f"df~{delta_frac_median:.3f}")
+        if isinstance(prewhiten_payload, dict):
+            mode_effective = str(prewhiten_payload.get("mode_effective", "off"))
+            if mode_effective != "off":
+                badge_bits.append(f"pre={mode_effective}")
         edge_mode_fragment = f" [{' | '.join(badge_bits)}]" if badge_bits else ""
         run_lines.append(
             f"- **{run_label}** (design={design}, J={nested}, period={start_date} → {end_date}{alignment_fragment}{no_iso_fragment}){nested_scope_fragment}{edge_mode_fragment} — estimators: {', '.join(estimators) if estimators else 'n/a'}"
@@ -1219,6 +1242,11 @@ def build_memo(config_path: Path) -> Path:
     else:
         nested_scope_section = ""
 
+    if factor_baseline_lines:
+        factor_baseline_section = "\n".join(factor_baseline_lines)
+    else:
+        factor_baseline_section = "No factor baseline telemetry available."
+
     template_path = Path("reports/templates/memo.md.j2")
     template = template_path.read_text(encoding="utf-8")
     context = {
@@ -1252,6 +1280,7 @@ def build_memo(config_path: Path) -> Path:
         "kill_overall_status": kill_overall_status,
         "limitations_fragment": limitations_fragment,
         "ablation_matrix_table_md": ablation_matrix_table_md,
+        "factor_baseline_section": factor_baseline_section,
     }
     memo_text = template.format(**context)
 

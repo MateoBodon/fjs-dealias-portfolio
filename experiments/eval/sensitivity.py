@@ -178,6 +178,8 @@ def _build_command(base_args: argparse.Namespace, combo: Combo, run_dir: Path) -
         cmd.extend(["--angle-min-cos", f"{combo.alignment_min_cos:.3f}"])
     if base_args.q_max is not None:
         cmd.extend(["--q-max", str(base_args.q_max)])
+    if base_args.coarse_candidate:
+        cmd.extend(["--coarse-candidate", str(int(base_args.coarse_candidate))])
     return cmd
 
 
@@ -390,6 +392,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--label", type=str, default=None)
     parser.add_argument("--skip-existing", action="store_true")
     parser.add_argument("--workers", type=int, default=1)
+    parser.add_argument("--coarse-candidate", type=int, choices=[0, 1], default=0)
     parser.add_argument("--group-design", type=str, default="week")
     parser.add_argument("--mv-turnover-bps", type=float, default=5.0)
     parser.add_argument("--mv-condition-cap", type=float, default=1e6)

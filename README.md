@@ -253,6 +253,8 @@ or call the CLI directly (same flags as before). Commit updated JSON artefacts s
 
 Use `experiments/eval/run.py` for a lighter-weight daily pipeline that combines prewhitening, calm/crisis splits, and overlay diagnostics. It accepts wide (`date,<ticker>...`) or long (`date,ticker,ret`) returns with optional factor files and now supports capping the universe via `--assets-top`.
 
+The rolling equity-panel experiment inherits the same observed-factor plumbing: pass `--prewhiten ff5mom --factor-csv data/factors/ff5mom_daily.csv` (or any registry entry) to `experiments/equity_panel/run.py` to regress out FF5+UMD exposure before nested balancing. The runner records the effective mode, factor columns, and mean R² in every `rolling_results.csv`, `summary.json`, and `run_meta.json`, and the memos/briefs surface those values under the new “Factor Baseline” section.
+
 ```bash
 python experiments/eval/run.py \
     --returns-csv data/returns_daily.csv \
@@ -480,6 +482,8 @@ Preprocess selections propagate into the cache key, panel manifest, artifact dir
 | `off_component_leak_cap` | `10.0` | Reject when Σ₂ leakage exceeds the cap relative to Σ₁. |
 | `energy_min_abs` | `1e-6` | Drop spikes with insufficient Σ₁ energy. |
 | `sigma_ablation` | `False` | Toggle ±10% Cs perturbations for sensitivity checks. |
+
+All `make rc-*` targets honour `RC_Q_MAX` and `RC_GATE_DELTA_FRAC_MIN` (defaults `2` and `0.01` for the exploratory `rc-lite` path). Override them on the command line—e.g., `RC_Q_MAX=1 RC_GATE_DELTA_FRAC_MIN=0.02 make rc-dow`—when you need the historical guardrails.
 
 The detection summary and memo bullets explicitly badge runs where `no_isolated_spike` skips dominate; leverage the sweep tool above to retune acceptance thresholds when that happens. The October 2025 sweep over `(δ_frac, ε, η, a_grid) ∈ {0.01,0.02} × {0.02,0.03} × {0.4,0.6} × {90,120}` produced numerically identical detection and ΔMSE profiles across the grid, so the RC defaults above retain the long-standing guardrail (δ_frac = 0.02, ε = 0.03, η = 0.4) while standardising on `a_grid = 120` to keep the alignment diagnostic smooth without materially increasing runtime. The refreshed `metrics_summary.csv` mirrors these decisions via `edge_mode`, `gating_mode`, `substitution_fraction`, `skip_no_isolated_share`, and VaR/ES p-value columns that propagate into the gallery tables and aggregates.
 

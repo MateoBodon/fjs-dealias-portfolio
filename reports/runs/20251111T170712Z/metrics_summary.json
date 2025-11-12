@@ -1,0 +1,17 @@
+{
+  "samples": 2227,
+  "cpu_process_avg": 0.0,
+  "cpu_process_peak": 0.0,
+  "memory_rss_avg_mb": 244.4960007858105,
+  "memory_rss_peak_mb": 249.09375,
+  "memory_uss_avg_mb": 203.85325339582397,
+  "memory_uss_peak_mb": 249.125,
+  "io_read_total_mb": 0.0,
+  "io_write_total_mb": 0.20703125,
+  "command": "make rc-dow USE_FACTORS=1",
+  "start_utc": "2025-11-11T17:24:41.888480+00:00",
+  "end_utc": "2025-11-11T20:32:05.292097+00:00",
+  "duration_seconds": 11243.403610944748,
+  "return_code": 0,
+  "tag": ""
+}

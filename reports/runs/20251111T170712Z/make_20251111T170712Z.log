@@ -1,0 +1,32 @@
+python tools/verify_dataset.py data/returns_daily.csv --registry data/registry.json
+python tools/verify_dataset.py data/factors/ff5mom_daily.csv --registry data/factors/registry.json
+PYTHONPATH=src:. OMP_NUM_THREADS=1 python3 experiments/eval/run.py \
+	--returns-csv data/returns_daily.csv \
+	--window 126 \
+	--horizon 21 \
+	--start 2018-01-01 \
+	--end 2024-12-31 \
+	--assets-top 60 \
+	--group-design dow \
+	--group-min-count 5 \
+	--group-min-replicates 3 \
+	--min-reps-dow 20 \
+	--edge-mode tyler \
+	--shrinker rie \
+	--prewhiten ff5mom \
+	--overlay-delta 0.05 \
+	--coarse-candidate 1 \
+	--gate-mode soft \
+	--gate-accept-nonisolated \
+	--gate-stability-min 0.0001 \
+	--use-factor-prewhiten 1 \
+	--gate-delta-calibration calibration/edge_delta_thresholds.json \
+	--gate-delta-frac-min 0.01 \
+	--require-isolated \
+	--q-max 2 \
+	--mv-gamma 1e-4 \
+	--mv-box 0.0,0.1 \
+	--mv-turnover-bps 5 \
+	--mv-condition-cap 1000000 \
+	--out reports/rc-20251111/dow-tyler
+[diagnostics] prewhiten=ff5mom r2_mean=0.394 residual_energy=0.001 acceptance_delta=0.000 detection_rate=0.025 edge_margin=0.001 alignment=0.562 substitution=0.025

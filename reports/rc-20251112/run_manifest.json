@@ -1,0 +1,102 @@
+{
+  "rc_date": "20251112",
+  "generated_at": "2025-11-12T09:26:15.818178Z",
+  "datasets": {
+    "returns_csv": {
+      "sha256": "96ac7dd318245cf1a8b434bb358a9344bf282992fc9fe66f0282023696563197",
+      "rows": 892529,
+      "columns": 300,
+      "start_date": "2010-01-05",
+      "end_date": "2024-12-31",
+      "wrds_source": "crsp.dsf",
+      "wrds_query_params": {
+        "start": "2010-01-01",
+        "end": "2024-12-31",
+        "exchanges": [
+          1,
+          2,
+          3
+        ],
+        "share_codes": [
+          10,
+          11
+        ],
+        "min_price": 1.0,
+        "min_volume": 0
+      },
+      "note": "CRSP daily returns ingested via src/io/crsp_daily.py with default filters; tickers aligned to WRDS canonical names."
+    },
+    "factor_csv": {
+      "sha256": "469d44ad0c5cac556c60c1f258e14245acfcc9f2901ad443f41b64309bf908ca",
+      "columns": [
+        "MKT",
+        "SMB",
+        "HML",
+        "RMW",
+        "CMA",
+        "MOM",
+        "RF"
+      ],
+      "frequency": "B",
+      "start_date": "2005-01-03",
+      "end_date": "2025-08-29",
+      "source": "ken_french.ff5_umd_daily",
+      "note": "Alias for ff5mom stored to support path-based registry verification.",
+      "path": "data/factors/ff5mom_daily.csv"
+    }
+  },
+  "runs": [
+    {
+      "design": "dow-tyler",
+      "run_id": "20251112T035651Z",
+      "command": "make rc-dow EXEC_MODE=deterministic USE_FACTORS=1 RC_DATE=20251112 RC_START=2020-01-01 RC_END=2024-12-31 RC_WINDOW=84 RC_HORIZON=21 RC_DOW_MIN_REPS=10 RC_VOL_MIN_REPS=8 RC_REQUIRE_ISOLATED=0 RC_GATE_DELTA_FRAC_MIN=0.01 RC_OVERLAY_DELTA=0.05 RC_COARSE_CANDIDATE=1 RC_GATE_MODE=soft RC_GATE_ACCEPT_NONISOLATED=1"
+    },
+    {
+      "design": "vol-tyler",
+      "run_id": "20251112T084450Z",
+      "command": "make rc-vol EXEC_MODE=deterministic USE_FACTORS=1 RC_DATE=20251112 RC_START=2020-01-01 RC_END=2024-12-31 RC_WINDOW=84 RC_HORIZON=21 RC_DOW_MIN_REPS=10 RC_VOL_MIN_REPS=2 RC_REQUIRE_ISOLATED=0 RC_GATE_DELTA_FRAC_MIN=0.005 RC_OVERLAY_DELTA=0.03 RC_COARSE_CANDIDATE=1 RC_GATE_MODE=soft RC_GATE_ACCEPT_NONISOLATED=1"
+    }
+  ],
+  "detection_summary": {
+    "dow-tyler": {
+      "full": {
+        "detection_rate": 0.0372812788993913,
+        "percent_changed": 0.9658119658119658,
+        "delta_mse_ew": 2.7948089656010886e-10,
+        "delta_mse_mv": 2.193515051481888e-11
+      },
+      "calm": {
+        "detection_rate": 0.0412698321660688,
+        "percent_changed": 1.0,
+        "delta_mse_ew": 1.0560740051001592e-12,
+        "delta_mse_mv": 2.3978823742274093e-14
+      },
+      "crisis": {
+        "detection_rate": 0.0382577155256725,
+        "percent_changed": 0.981042654028436,
+        "delta_mse_ew": -4.213975416100339e-12,
+        "delta_mse_mv": -2.317140528358225e-12
+      }
+    },
+    "vol-tyler": {
+      "full": {
+        "detection_rate": 0.0043438192420974,
+        "percent_changed": 0.1068376068376068,
+        "delta_mse_ew": 2.7240003047721636e-12,
+        "delta_mse_mv": 1.087189612433739e-13
+      },
+      "calm": {
+        "detection_rate": 0.0013509601466756,
+        "percent_changed": 0.0290456431535269,
+        "delta_mse_ew": 8.85381638450411e-13,
+        "delta_mse_mv": 1.385583797657093e-12
+      },
+      "crisis": {
+        "detection_rate": 0.0069871740540617,
+        "percent_changed": 0.1658767772511848,
+        "delta_mse_ew": -2.1599890814327605e-12,
+        "delta_mse_mv": -5.054953023033887e-13
+      }
+    }
+  }
+}

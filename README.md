@@ -4,14 +4,14 @@ Robust variance forecasting over balanced equity panels, with tooling to explore
 
 ---
 
-## Current Status — 2025-11-05
+## Current Status — 2025-11-12
 
-- **Balanced windows & NaN hygiene**: daily evaluation now enforces replicate balancing and missing-data caps with per-window telemetry (logs written alongside diagnostics).
-- **Calibration**: replicate-aware synthetic sweep added; run via `scripts/run_calibration.sh` (writes `calibration/edge_delta_thresholds.json`). Latest long-form sweep is in-progress on external compute; prior artefacts remain under `calibration/`.
-- **Latest RC artefacts**: refreshed reports live in `reports/rc-20251103/` (full/calm/crisis CSVs, `overlay_toggle.md`). Memo/run manifest for the upcoming RC will be generated after Steps 5–6.
-- **Next milestones**: (1) integrate WRDS FF5+UMD factor loader (`src/io/wrds_factors.py`) and expose `--prewhiten` path in the runners, (2) tighten MP-edge bracketing & overlay stability gates, (3) produce bounded WRDS RC + memo. Track the sprint focus in `AGENTS.md`.
+- **Prewhitening end-to-end**: `experiments/eval/run.py` and the equity-panel runner now accept `--prewhiten {off,ff5,ff5mom,custom}` plus `--factor-csv/--use-factor-prewhiten` and persist `prewhiten_diagnostics.csv` + `prewhiten_summary.json` (R², betas, intercepts) for every run. `tests/test_equity_prewhiten.py` covers the telemetry wiring and a tiny WRDS slice smoke.
+- **RC-lite (WRDS, deterministic)**: `reports/rc-20251112/` captures the latest DoW + vol-state evaluations fed by real CRSP returns (`sha256=96ac7dd3…3197`) and FF5+MOM factors (`sha256=469d44ad…908ca`). DoW gating now sits at ~3.7% detection coverage with q≤2 substitutions, while the vol-state path is unlocking ≈0.4% coverage after relaxing replicate requirements (still flagged as work-in-progress in `PROGRESS.md`). Each design directory includes diagnostics/metrics/DM CSVs, `prewhiten_*` artefacts, gallery plots, `run_manifest.json`, and `metrics_summary.json`.
+- **Docs & briefs**: `README.md` reflects the prewhitening status + RC path, `reports/memo.md` / `reports/brief.md` were regenerated on 2025-11-12, and the AWS specifics moved to `docs/CLOUD.md` so the README only carries the generic workflow.
+- **Next milestones**: close the remaining vol-state coverage gap (target 2–6%), refresh calibration defaults once the queued AWS sweep lands, fold the new run manifest into advisor reporting, and keep `AGENTS.md` aligned with the gating experiments.
 
-Data footprint (local): WRDS snapshots under `data/wrds/*.parquet` (preferred source), sample RC outputs under `reports/rc-20251103/`. Figures are generated on demand into `figures/` (gitignored).
+Data footprint (local): WRDS snapshots under `data/wrds/*.parquet`, the stitched RC drop under `reports/rc-20251112/`, and generated figures under `figures/` (gitignored).
 
 ---
 
@@ -37,14 +37,14 @@ Optional data: `experiments/equity_panel/config*.yaml` expect `data/returns_dail
 
 ## Cloud compute runner (AWS EC2)
 
-- **Resources.** Region `us-east-1`, instance `i-075b6e3853fe2349e` (`ec2-3-236-225-54.compute-1.amazonaws.com`), SSH user `ubuntu`, key `~/.ssh/mateo-us-east-1-ec2-2025`, bucket `fjs-artifacts-mab-prod`, IAM role `EC2AdminRole`.
-- **Environment.** Micromamba lives under `~/.local/share/mamba`; the `fjs` env (Python 3.11) already includes NumPy, SciPy, pandas, pyarrow, scikit-learn, boto3, s3fs, dask, ray, tqdm, click, etc. Thread caps (`OMP/MKL/OPENBLAS/NUMEXPR=1`) are exported via `~/.bashrc`, and the repo is cloned at `~/fjs-dealias-portfolio`.
-- **Provisioning.** `scripts/aws_provision.sh` now defaults to `INSTANCE_TYPE=c7a.32xlarge`; override via environment variables if you need a lighter host. The script installs toolchains, pins BLAS threads to 1, and ensures micromamba + the `fjs` env are ready for rsync-driven jobs.
-- **Usage.** Configure the local AWS CLI profile `fjs-prod`, confirm the SSH key permissions (`chmod 400 ~/.ssh/mateo-us-east-1-ec2-2025`), then connect with `ssh -i ~/.ssh/mateo-us-east-1-ec2-2025 ubuntu@ec2-3-236-225-54.compute-1.amazonaws.com`. Run jobs with `micromamba run -n fjs python experiments/eval/run.py ...` (or activate the env) and push artefacts to `s3://fjs-artifacts-mab-prod/reports/`.
-- **Documentation.** Step-by-step cloud procedures—preflight checks, S3 hardening (AES256 + lifecycle), smoke testing, and report uploads—are captured in `docs/CLOUD.md`. The bucket also stores dated setup summaries (`docs/fjs-cloud-setup-pre-YYYY-MM-DD.md`, `docs/fjs-ec2-setup-YYYY-MM-DD.md`) for auditing.
-- **Telemetry.** AWS runs automatically wrap commands with `tools/run_monitor.py`, writing `metrics.jsonl` (resource samples), `metrics_summary.json` (avg/peak CPU/memory/IO, runtime), and `progress.jsonl` (parsed progress events + ETA). Tune sampling via `MONITOR_INTERVAL=<seconds>` when calling `make aws:<target>`.
-- **Instance families.** Set `INSTANCE_FAMILY={c7a|c7i|auto}` before running `scripts/aws_provision.sh`. In `auto` mode the script inspects the latest `reports/aws/bench/*.json` artefacts (see `scripts/bench_linalg.py` below) and chooses the faster family, falling back to `c7a` when no benchmarks are present. Override the size with `INSTANCE_SIZE=16xlarge` (defaults to `32xlarge`).
-- **Benchmarks.** `scripts/bench_linalg.py` times 100× `numpy.linalg.eigh` at `p∈{100,200,300}` with the configured thread cap, writing metadata to `reports/aws/bench/<timestamp>/bench.json`. Run it locally via `make bench-linalg` or remotely with `make aws:bench-linalg` before switching instance families.
+The production RC + calibration jobs run on a pinned EC2 workstation with deterministic thread caps. The high-level workflow is:
+
+1. **Provision / connect.** Use `scripts/aws_provision.sh` (micromamba, BLAS pins, monitoring hooks) when the host is rebuilt, then tunnel in via the standard SSH key.
+2. **Sync & execute.** `scripts/aws_run.sh <target>` rsyncs the repo, runs the requested `make` target under micromamba with `OMP/MKL/OPENBLAS/NUMEXPR=1`, captures `metrics.jsonl` / `metrics_summary.json` / `progress.jsonl`, and syncs `reports/` back under `reports/aws/<run_id>/`.
+3. **Monitor.** Tail the emitted `reports/aws/<run_id>/runs/<run_id>/run.json` or the `metrics_summary.json` for status, and forward any long-running jobs to `tools/run_monitor.py` (already wired inside `aws_run.sh`).
+4. **Cleanup & upload.** Once artefacts look good, publish them under `reports/rc-$(date +%Y%m%d)/` locally, rebuild the gallery/memo/brief, and push curated bundles to the S3 bucket via `aws s3 sync`.
+
+All instance-specific details, IAM notes, and bucket policies now live in `docs/CLOUD.md`; update that file whenever the ops footprint changes.
 
 ---
 

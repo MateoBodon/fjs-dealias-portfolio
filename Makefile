@@ -70,6 +70,14 @@ RC_OVERLAY_DELTA ?= 0.05
 RC_COARSE_CANDIDATE ?= 1
 RC_GATE_ACCEPT_NONISOLATED ?= 1
 RC_GATE_STABILITY_MIN ?= 0.0001
+RC_REQUIRE_ISOLATED ?= 1
+RC_DOW_MIN_REPS ?= 10
+RC_VOL_MIN_REPS ?= 3
+ifeq ($(RC_REQUIRE_ISOLATED),1)
+RC_ISOLATION_FLAG := --require-isolated
+else
+RC_ISOLATION_FLAG := --allow-non-isolated
+endif
 RC_FLAGS_BASE := --workers $(RC_WORKERS) --assets-top 100 --stride-windows 4 --resume --cache-dir .cache --precompute-panel --drop-partial-weeks --oneway-a-solver auto --factor-csv $(RC_FACTORS) --prewhiten $(RC_PREWHITEN) --use-factor-prewhiten $(RC_USE_FACTOR_PREWHITEN)
 RC_FLAGS := $(RC_FLAGS_BASE)
 ifeq ($(RC_PROGRESS),0)
@@ -167,10 +175,10 @@ RC_DOW_PREWHITEN ?= ff5mom
 RC_VOL_PREWHITEN ?= ff5mom
 RC_DOW_GROUP_MIN ?= 5
 RC_DOW_GROUP_REPS ?= 3
-RC_DOW_MIN_REPS ?= 20
-RC_VOL_MIN_REPS ?= 15
+RC_DOW_MIN_REPS ?= 10
+RC_VOL_MIN_REPS ?= 3
 RC_VOL_GROUP_MIN ?= 3
-RC_VOL_GROUP_REPS ?= 10
+RC_VOL_GROUP_REPS ?= 3
 RC_WEEK_OUT := $(RC_OUT)/week
 RC_WEEK_ASSETS ?= 80
 RC_WEEK_GROUP_MIN ?= 4
@@ -214,7 +222,8 @@ rc-dow:
 		$(if $(USE_FACTORS),--use-factor-prewhiten $(USE_FACTORS),) \
 		--gate-delta-calibration $(RC_GATE_CALIB) \
 		--gate-delta-frac-min $(RC_GATE_DELTA_FRAC_MIN) \
-		--require-isolated \
+		$(RC_ISOLATION_FLAG) \
+		--min-reps-dow $(RC_DOW_MIN_REPS) \
 		--q-max $(RC_Q_MAX) \
 		--mv-gamma $(RC_MV_GAMMA) \
 		--mv-box $(RC_MV_BOX) \
@@ -244,10 +253,11 @@ rc-vol:
 		--gate-mode $(RC_GATE_MODE) \
 		$(if $(RC_GATE_ACCEPT_NONISOLATED),--gate-accept-nonisolated,) \
 		$(if $(RC_GATE_STABILITY_MIN),--gate-stability-min $(RC_GATE_STABILITY_MIN),) \
+		$(RC_ISOLATION_FLAG) \
+		--min-reps-vol $(RC_VOL_MIN_REPS) \
 		$(if $(USE_FACTORS),--use-factor-prewhiten $(USE_FACTORS),) \
 		--gate-delta-calibration $(RC_GATE_CALIB) \
 		--gate-delta-frac-min $(RC_GATE_DELTA_FRAC_MIN) \
-		--require-isolated \
 		--q-max $(RC_Q_MAX) \
 		--mv-gamma $(RC_MV_GAMMA) \
 		--mv-box $(RC_MV_BOX) \
@@ -276,10 +286,10 @@ rc-week:
 		--gate-mode $(RC_GATE_MODE) \
 		$(if $(RC_GATE_ACCEPT_NONISOLATED),--gate-accept-nonisolated,) \
 		$(if $(RC_GATE_STABILITY_MIN),--gate-stability-min $(RC_GATE_STABILITY_MIN),) \
+		$(RC_ISOLATION_FLAG) \
 		$(if $(USE_FACTORS),--use-factor-prewhiten $(USE_FACTORS),) \
 		--gate-delta-calibration $(RC_GATE_CALIB) \
 		--gate-delta-frac-min $(RC_GATE_DELTA_FRAC_MIN) \
-		--require-isolated \
 		--q-max $(RC_Q_MAX) \
 		--mv-gamma $(RC_MV_GAMMA) \
 		--mv-box $(RC_MV_BOX) \
@@ -308,10 +318,11 @@ rc-dowxvol:
 		--gate-mode $(RC_GATE_MODE) \
 		$(if $(RC_GATE_ACCEPT_NONISOLATED),--gate-accept-nonisolated,) \
 		$(if $(RC_GATE_STABILITY_MIN),--gate-stability-min $(RC_GATE_STABILITY_MIN),) \
+		$(RC_ISOLATION_FLAG) \
+		--min-reps-vol $(RC_VOL_MIN_REPS) \
 		$(if $(USE_FACTORS),--use-factor-prewhiten $(USE_FACTORS),) \
 		--gate-delta-calibration $(RC_GATE_CALIB) \
 		--gate-delta-frac-min $(RC_GATE_DELTA_FRAC_MIN) \
-		--require-isolated \
 		--q-max $(RC_Q_MAX) \
 		--mv-gamma $(RC_MV_GAMMA) \
 		--mv-box $(RC_MV_BOX) \

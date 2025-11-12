@@ -1,3 +1,25 @@
+## 2025-11-12T10:10Z — prewhiten RC-lite + coverage lift (feat/prewhiten-coverage@baa1a4b)
+- **Data**: `data/returns_daily.csv` (`sha256=96ac7dd318245cf1a8b434bb358a9344bf282992fc9fe66f0282023696563197`) + `data/factors/ff5mom_daily.csv` (`sha256=469d44ad0c5cac556c60c1f258e14245acfcc9f2901ad443f41b64309bf908ca`), revalidated via `tools/verify_dataset.py` before every AWS dispatch.
+- **Commands**:
+  1. `make test-fast`
+  2. `make aws:rc-lite EXEC_MODE=deterministic`
+  3. `INSTANCE_DNS=… KEY_PATH=… RC_REQUIRE_ISOLATED=0 RC_DOW_MIN_REPS=10 make aws:rc-dow`
+  4. `INSTANCE_DNS=… KEY_PATH=… RC_VOL_MIN_REPS∈{8,6,4,2} RC_GATE_DELTA_FRAC_MIN∈{0.01,0.007,0.005} RC_OVERLAY_DELTA∈{0.05,0.04,0.03} make aws:rc-vol`
+  5. `PYTHONPATH=src:. python tools/make_summary.py --rc-dir reports/rc-20251112`
+  6. `make memo` and `PYTHONPATH=src:. python tools/build_brief.py --config experiments/equity_panel/config.rc.yaml`
+- **Artifacts**:
+  - `reports/rc-20251112/{dow-tyler,vol-tyler}/` (full/calm/crisis CSVs, diagnostics detail, `prewhiten_diagnostics.csv`, plots, `resolved_config.json`).
+  - `reports/rc-20251112/run_manifest.json` (datasets + AWS run IDs `20251112T035651Z` dow, `20251112T084450Z` vol) and `metrics_summary.json`.
+  - Refreshed `reports/memo.md`, `reports/memo_20251112_092343.md`, `reports/brief.md`, `reports/brief_20251112_092348.md`, plus `figures/rc/**`.
+- **Coverage / deltas**:
+  - DoW (tyler edge, soft gate, q≤2) now lands at detection_rate full ≈ 3.73 %, calm ≈ 4.13 %, crisis ≈ 3.83 % with ΔMSE (overlay vs baseline) ≲3e‑10 and DM stats still undefined because almost every window flips.
+  - Vol-state (tyler edge, soft gate, q≤2) is trending upward but still shy of the 2–6 % target: detection_rate full ≈ 0.43 %, calm ≈ 0.14 %, crisis ≈ 0.70 %; `percent_changed` ~10.7 %. Relaxing `group_min_replicates`/`min_reps_vol` down to 2 and lowering `gate_delta_frac_min` to 0.5 % improved acceptance, but the memo + README track the remaining gap as an open item.
+- **Notes**:
+  - Prewhitening CLI/telemetry is fully wired (CLI flags, `prewhiten_summary.json`, `prewhiten_diagnostics.csv` per window) and covered by `tests/test_equity_prewhiten.py`.
+  - Makefile exposes `RC_DOW_MIN_REPS`, `RC_VOL_MIN_REPS`, `RC_VOL_GROUP_REPS`, and `RC_REQUIRE_ISOLATED` so RC-lite targets stay configurable without editing YAML.
+  - README Current Status references `reports/rc-20251112/` and punts AWS host specifics to `docs/CLOUD.md` per ops request.
+  - Calibration defaults remain untouched; any future tuning still needs the “before/after” note per AGENTS.md.
+
 ## 2025-11-05T21:52Z — sprint-1 calibration & smoke (2d235955)
 - **Data**: `data/returns_daily.csv` (`sha1=1ff062eab6f0741f7fdc8d25098ffb8f9e3a5344`)
 - **Commands**: `make sweep:acceptance`, `make run:equity_smoke`, `make memo`, `make test`

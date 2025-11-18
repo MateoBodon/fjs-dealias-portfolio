@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
+from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import yaml
 
@@ -15,9 +16,7 @@ def _deep_merge(base: Mapping[str, Any], override: Mapping[str, Any]) -> dict[st
     merged = dict(base)
     for key, value in override.items():
         if isinstance(value, Mapping) and isinstance(merged.get(key), Mapping):
-            merged[key] = _deep_merge(
-                merged[key], value  # type: ignore[arg-type]
-            )
+            merged[key] = _deep_merge(merged[key], value)  # type: ignore[arg-type]
         else:
             merged[key] = value
     return merged
@@ -75,6 +74,7 @@ DEFAULTS: dict[str, Any] = {
     "bootstrap_samples": 0,
     "require_isolated": True,
     "q_max": 1,
+    "q2_alignment_min_cos": None,
     "edge_mode": "tyler",
     "angle_min_cos": None,
     "alignment_top_p": 3,
@@ -105,7 +105,7 @@ DEFAULTS: dict[str, Any] = {
 
 @dataclass(slots=True)
 class ResolveResult:
-    config: "EvalConfig"
+    config: EvalConfig
     resolved: dict[str, Any]
 
 
@@ -161,11 +161,23 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
 
     q_max_raw = merged.get("q_max", DEFAULTS["q_max"])
     q_max = int(q_max_raw) if q_max_raw is not None else DEFAULTS["q_max"]
+    q2_align_raw = merged.get("q2_alignment_min_cos", DEFAULTS["q2_alignment_min_cos"])
+    q2_alignment_min_cos = (
+        float(q2_align_raw)
+        if q2_align_raw is not None
+        else DEFAULTS["q2_alignment_min_cos"]
+    )
 
-    edge_mode_val = merged.get("edge_mode", DEFAULTS["edge_mode"]) or DEFAULTS["edge_mode"]
+    edge_mode_val = (
+        merged.get("edge_mode", DEFAULTS["edge_mode"]) or DEFAULTS["edge_mode"]
+    )
 
     alignment_top_p_raw = merged.get("alignment_top_p", DEFAULTS["alignment_top_p"])
-    alignment_top_p = int(alignment_top_p_raw) if alignment_top_p_raw is not None else DEFAULTS["alignment_top_p"]
+    alignment_top_p = (
+        int(alignment_top_p_raw)
+        if alignment_top_p_raw is not None
+        else DEFAULTS["alignment_top_p"]
+    )
 
     pre_raw = merged.get("prewhiten", DEFAULTS["prewhiten"])
     if isinstance(pre_raw, bool):
@@ -176,19 +188,25 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         prewhiten_mode = str(pre_raw).lower()
     valid_pre_modes = {"off", "ff5", "ff5mom", "custom"}
     if prewhiten_mode not in valid_pre_modes:
-        raise ValueError(
-            "prewhiten must be one of {'off', 'ff5', 'ff5mom', 'custom'}"
-        )
+        raise ValueError("prewhiten must be one of {'off', 'ff5', 'ff5mom', 'custom'}")
 
-    use_factor_raw = merged.get("use_factor_prewhiten", DEFAULTS["use_factor_prewhiten"])
+    use_factor_raw = merged.get(
+        "use_factor_prewhiten", DEFAULTS["use_factor_prewhiten"]
+    )
     if isinstance(use_factor_raw, str):
-        use_factor_prewhiten = use_factor_raw.strip().lower() not in {"0", "false", "off"}
+        use_factor_prewhiten = use_factor_raw.strip().lower() not in {
+            "0",
+            "false",
+            "off",
+        }
     elif use_factor_raw is None:
         use_factor_prewhiten = bool(DEFAULTS["use_factor_prewhiten"])
     else:
         use_factor_prewhiten = bool(use_factor_raw)
 
-    group_design_val = str(merged.get("group_design", DEFAULTS["group_design"]) or DEFAULTS["group_design"])
+    group_design_val = str(
+        merged.get("group_design", DEFAULTS["group_design"]) or DEFAULTS["group_design"]
+    )
     group_min_count_val = int(
         merged.get("group_min_count", DEFAULTS["group_min_count"])
         if merged.get("group_min_count") is not None
@@ -215,7 +233,9 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
             else DEFAULTS["min_reps_vol"]
         ),
     )
-    max_missing_asset_raw = float(merged.get("max_missing_asset", DEFAULTS["max_missing_asset"]))
+    max_missing_asset_raw = float(
+        merged.get("max_missing_asset", DEFAULTS["max_missing_asset"])
+    )
     max_missing_asset_val = float(min(1.0, max(0.0, max_missing_asset_raw)))
     max_missing_group_row_raw = float(
         merged.get("max_missing_group_row", DEFAULTS["max_missing_group_row"])
@@ -224,34 +244,52 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
     ewma_halflife_val = float(merged.get("ewma_halflife", DEFAULTS["ewma_halflife"]))
     gate_mode_val = str(merged.get("gate_mode", DEFAULTS["gate_mode"]))
     gate_soft_max_val = (
-        int(merged["gate_soft_max"]) if merged.get("gate_soft_max") is not None else None
+        int(merged["gate_soft_max"])
+        if merged.get("gate_soft_max") is not None
+        else None
     )
     gate_delta_calibration_raw = merged.get("gate_delta_calibration")
     gate_delta_calibration_val = (
         Path(gate_delta_calibration_raw) if gate_delta_calibration_raw else None
     )
     gate_delta_frac_min_val = (
-        float(merged["gate_delta_frac_min"]) if merged.get("gate_delta_frac_min") is not None else None
+        float(merged["gate_delta_frac_min"])
+        if merged.get("gate_delta_frac_min") is not None
+        else None
     )
     gate_delta_frac_max_val = (
-        float(merged["gate_delta_frac_max"]) if merged.get("gate_delta_frac_max") is not None else None
+        float(merged["gate_delta_frac_max"])
+        if merged.get("gate_delta_frac_max") is not None
+        else None
     )
     gate_stability_min_val = (
-        float(merged["gate_stability_min"]) if merged.get("gate_stability_min") is not None else float(DEFAULTS["gate_stability_min"])
+        float(merged["gate_stability_min"])
+        if merged.get("gate_stability_min") is not None
+        else float(DEFAULTS["gate_stability_min"])
     )
     gate_alignment_min_val = (
-        float(merged["gate_alignment_min"]) if merged.get("gate_alignment_min") is not None else None
+        float(merged["gate_alignment_min"])
+        if merged.get("gate_alignment_min") is not None
+        else None
     )
-    gate_accept_nonisolated_val = bool(merged.get("gate_accept_nonisolated", DEFAULTS["gate_accept_nonisolated"]))
+    gate_accept_nonisolated_val = bool(
+        merged.get("gate_accept_nonisolated", DEFAULTS["gate_accept_nonisolated"])
+    )
     coarse_candidate_raw = merged.get("coarse_candidate", DEFAULTS["coarse_candidate"])
     if isinstance(coarse_candidate_raw, str):
-        coarse_candidate_val = coarse_candidate_raw.strip().lower() not in {"0", "false", "off"}
+        coarse_candidate_val = coarse_candidate_raw.strip().lower() not in {
+            "0",
+            "false",
+            "off",
+        }
     else:
         coarse_candidate_val = bool(coarse_candidate_raw)
 
     assets_top_raw = merged.get("assets_top", DEFAULTS["assets_top"])
     assets_top_val = (
-        int(assets_top_raw) if assets_top_raw is not None and str(assets_top_raw).strip() != "" else None
+        int(assets_top_raw)
+        if assets_top_raw is not None and str(assets_top_raw).strip() != ""
+        else None
     )
     merged["assets_top"] = assets_top_val
 
@@ -261,10 +299,14 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
     mv_box_hi_val = float(merged.get("mv_box_hi", DEFAULTS["mv_box_hi"]))
     if mv_box_hi_val <= mv_box_lo_val:
         raise ValueError("mv_box_hi must be greater than mv_box_lo.")
-    mv_turnover_bps_val = float(merged.get("mv_turnover_bps", DEFAULTS["mv_turnover_bps"]))
+    mv_turnover_bps_val = float(
+        merged.get("mv_turnover_bps", DEFAULTS["mv_turnover_bps"])
+    )
     if mv_turnover_bps_val < 0.0:
         raise ValueError("mv_turnover_bps must be non-negative.")
-    mv_condition_cap_val = float(merged.get("mv_condition_cap", DEFAULTS["mv_condition_cap"]))
+    mv_condition_cap_val = float(
+        merged.get("mv_condition_cap", DEFAULTS["mv_condition_cap"])
+    )
     if mv_condition_cap_val <= 0.0:
         raise ValueError("mv_condition_cap must be positive.")
 
@@ -278,7 +320,8 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
     overlay_delta_frac_raw = merged.get("overlay_delta_frac")
     overlay_delta_frac_val = (
         float(overlay_delta_frac_raw)
-        if overlay_delta_frac_raw is not None and str(overlay_delta_frac_raw).strip() != ""
+        if overlay_delta_frac_raw is not None
+        and str(overlay_delta_frac_raw).strip() != ""
         else None
     )
     max_windows_raw = merged.get("max_windows")
@@ -301,20 +344,30 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         shrinker=str(merged.get("shrinker", DEFAULTS["shrinker"])),
         seed=int(merged.get("seed", DEFAULTS["seed"])),
         calm_quantile=float(merged.get("calm_quantile", DEFAULTS["calm_quantile"])),
-        crisis_quantile=float(merged.get("crisis_quantile", DEFAULTS["crisis_quantile"])),
-        vol_ewma_span=int(merged.get("vol_ewma_span", DEFAULTS["vol_ewma_span"])),
-        config_path=config_path_obj if (config_path_obj and config_path_obj.exists()) else (
-            DEFAULT_CONFIG_PATH if DEFAULT_CONFIG_PATH.exists() else None
+        crisis_quantile=float(
+            merged.get("crisis_quantile", DEFAULTS["crisis_quantile"])
         ),
-        thresholds_path=thresholds_path_obj if (thresholds_path_obj and thresholds_path_obj.exists()) else (
-            DEFAULT_THRESHOLDS_PATH if DEFAULT_THRESHOLDS_PATH.exists() else None
+        vol_ewma_span=int(merged.get("vol_ewma_span", DEFAULTS["vol_ewma_span"])),
+        config_path=(
+            config_path_obj
+            if (config_path_obj and config_path_obj.exists())
+            else (DEFAULT_CONFIG_PATH if DEFAULT_CONFIG_PATH.exists() else None)
+        ),
+        thresholds_path=(
+            thresholds_path_obj
+            if (thresholds_path_obj and thresholds_path_obj.exists())
+            else (DEFAULT_THRESHOLDS_PATH if DEFAULT_THRESHOLDS_PATH.exists() else None)
         ),
         echo_config=bool(merged.get("echo_config", DEFAULTS["echo_config"])),
         reason_codes=bool(merged.get("reason_codes", DEFAULTS["reason_codes"])),
         workers=int(merged["workers"]) if merged.get("workers") is not None else None,
         overlay_a_grid=int(merged.get("overlay_a_grid", DEFAULTS["overlay_a_grid"])),
         overlay_delta=overlay_delta_val,
-        overlay_seed=int(merged["overlay_seed"]) if merged.get("overlay_seed") is not None else None,
+        overlay_seed=(
+            int(merged["overlay_seed"])
+            if merged.get("overlay_seed") is not None
+            else None
+        ),
         overlay_delta_frac=overlay_delta_frac_val,
         mv_gamma=mv_gamma_val,
         mv_tau=mv_tau_val,
@@ -322,21 +375,36 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         mv_box_hi=mv_box_hi_val,
         mv_turnover_bps=mv_turnover_bps_val,
         mv_condition_cap=mv_condition_cap_val,
-        bootstrap_samples=int(merged.get("bootstrap_samples", DEFAULTS["bootstrap_samples"])),
+        bootstrap_samples=int(
+            merged.get("bootstrap_samples", DEFAULTS["bootstrap_samples"])
+        ),
         require_isolated=require_isolated,
         q_max=q_max,
+        q2_alignment_min_cos=q2_alignment_min_cos,
         edge_mode=str(edge_mode_val),
-        angle_min_cos=float(merged["angle_min_cos"]) if merged.get("angle_min_cos") is not None else None,
+        angle_min_cos=(
+            float(merged["angle_min_cos"])
+            if merged.get("angle_min_cos") is not None
+            else None
+        ),
         alignment_top_p=alignment_top_p,
-        cs_drop_top_frac=float(merged["cs_drop_top_frac"]) if merged.get("cs_drop_top_frac") is not None else None,
+        cs_drop_top_frac=(
+            float(merged["cs_drop_top_frac"])
+            if merged.get("cs_drop_top_frac") is not None
+            else None
+        ),
         prewhiten=prewhiten_mode,
         use_factor_prewhiten=use_factor_prewhiten,
-        calm_window_sample=int(merged["calm_window_sample"])
-        if merged.get("calm_window_sample") is not None
-        else None,
-        crisis_window_top_k=int(merged["crisis_window_top_k"])
-        if merged.get("crisis_window_top_k") is not None
-        else None,
+        calm_window_sample=(
+            int(merged["calm_window_sample"])
+            if merged.get("calm_window_sample") is not None
+            else None
+        ),
+        crisis_window_top_k=(
+            int(merged["crisis_window_top_k"])
+            if merged.get("crisis_window_top_k") is not None
+            else None
+        ),
         group_design=group_design_val,
         group_min_count=group_min_count_val,
         group_min_replicates=group_min_replicates_val,
@@ -372,7 +440,9 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         "vol_ewma_span": config.vol_ewma_span,
         "workers": config.workers,
         "config_path": str(config.config_path) if config.config_path else None,
-        "thresholds_path": str(config.thresholds_path) if config.thresholds_path else None,
+        "thresholds_path": (
+            str(config.thresholds_path) if config.thresholds_path else None
+        ),
         "reason_codes": config.reason_codes,
         "echo_config": config.echo_config,
         "overlay_a_grid": config.overlay_a_grid,
@@ -387,6 +457,7 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         "bootstrap_samples": config.bootstrap_samples,
         "require_isolated": require_isolated,
         "q_max": config.q_max,
+        "q2_alignment_min_cos": config.q2_alignment_min_cos,
         "edge_mode": config.edge_mode,
         "angle_min_cos": config.angle_min_cos,
         "alignment_top_p": config.alignment_top_p,

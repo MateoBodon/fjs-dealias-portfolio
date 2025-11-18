@@ -157,7 +157,7 @@ Kick off a crisis run with the same CLI switches shown for the smoke slice, but 
 3. (If present) tagged crisis directories under `experiments/equity_panel/outputs_crisis_*`.
 4. Gallery + memo generation (see sections 7 & 8).
 
-`make rc-lite` is a spot-check pass that only runs `{dealias,lw,oas}` on the smoke and 2020 crisis configs before rebuilding the gallery and memo.
+`make rc-lite` is a spot-check pass that only runs `{dealias,lw,oas}` on the smoke and 2020 crisis configs before rebuilding the gallery and memo. When you just need a deterministic DoW+vol sanity pulse (with telemetry baked into `reports/rc-<DATE>/summary_sanity.json` and a merged `regime.csv`), use `make rc-lite-sanity`; it runs `rc-dow`, `rc-vol`, distills the top-line gate stats, and preserves the merged regimes for quick diffing.
 
 All RC targets respect the run policy flags (`--workers`, `--resume`, `--cache-dir .cache`, `--drop-partial-weeks`, etc.).
 
@@ -281,6 +281,7 @@ Flags of interest: `--factors-csv` to supply FF5+MOM data (falls back to an equa
 - All daily runs now log shrinker parity for **sample, RIE, LW, OAS, CC, QuEST, EWMA, observed factor (FF5+MOM), and POET-lite** baselines. Failures are surfaced in `diagnostics.csv` under `baseline_error_*` columns.
 - The strict overlay gate enforces calibrated δ-frac thresholds (see `calibration/edge_delta_thresholds.json`), minimum stability, admissible roots, and optional alignment guards. Use `--gate-mode soft` alongside `--gate-soft-max` for exploratory ranking.
 - `--assets-top N` trims the alphabetically sorted universe before windowing, keeping bounded RC runs quick without re-sampling returns.
+- **Vol-state overrides.** `rc-vol` now honours `RC_GATE_DELTA_FRAC_MIN_VOL=0.015`, bumps the replicate knobs to `RC_VOL_MIN_REPS=10` / `RC_VOL_GROUP_REPS=6`, and runs with `Q_MAX_VOL=2`. The second substitution (and any additional slots) is guarded by `--q2-alignment-min-cos` (default `0.9`, configurable via `VOL_Q2_ALIGNMENT_MIN_COS`), and vol slices default to `--allow-non-isolated` so they can fill the 2-slot gate when alignment cooperates.
 
 For an ETF demo (countries/sectors), run:
 
@@ -306,6 +307,21 @@ The ETF wrapper simply forwards options to the daily evaluation harness, emittin
 | Vol-state (OAS, off) | Crisis | 4.1 % | 3.5 % | 0.35 | Stable VaR95 coverage (±1%). |
 
 Figures live under `figures/rc/20251104/` (generate via `make gallery`); rerun `make rc` after tuning to refresh both graphics and memo content.
+
+#### Conditional DM & prewhiten deltas
+
+- Every evaluation directory now emits `dm_flip_only.csv`, a compact DM/sign-test table restricted to the “flip set” (windows where the overlay actually perturbs the forecast). Expect the columns `portfolio, baseline, test ∈ {dm,sign}, stat, p_value, n_effective`. When Matplotlib is available the companion visualization lands in `flip_dm.png`.
+- Use `tools/prewhiten_effect.py` to compare paired vol-state runs (prewhiten off vs FF5+MOM). Example:
+
+  ```bash
+  python tools/prewhiten_effect.py \
+      --off reports/rc-20251112/vol-off \
+      --on reports/rc-20251112/vol-ff5mom \
+      --out reports/rc-20251112/vol-ff5mom/prewhiten_effect.csv \
+      --mirror
+  ```
+
+  The CSV contains per-mode detection rates, ΔMSE (EW/MV), ES95 forecast errors, and flip-set sign-test p-values, plus a final row for the FF5MOM-minus-off deltas.
 | Smoke (oneway, 2023-01→03) | 4/4 windows (100%) | LW: −1.05×10⁻⁶, OAS: −1.11×10⁻⁶, CC: −7.5×10⁻⁸, Tyler: +2.57×10⁻¹ | Tyler vs De: p≈0.0137 (significant); every other DM test ≥0.074 | Shrinkage baselines dominate the aliased/de-aliased pair; see `figures/rc/oneway_J5_solver-auto_est-lw_prep-none/plots/dm_pvals.png` and `.../edge_margin_hist.png`. |
 | Nested smoke (2022-01→2023-12) | 0/24 windows (0%) | ΔMSE columns remain ≈0 because every window is skipped by guardrails | DM stats effectively degenerate | Memo now badges the run with “no accepted detections; check guardrails”; see `figures/rc/nested_J5_solver-auto_est-dealias_prep-none/tables/estimators.csv` plus `summary.json`’s `nested_skip_reasons`. |
 | Crisis 2020 (oneway, 2020-02-15→05-31) | 4/4 windows (100%) | De-aliased median ΔMSE vs LW: +2.18×10⁻⁵ (worse); vs Tyler: +0.12 | DM(p) vs LW ≈ 1.1×10⁻⁴, vs OAS ≈ 9.3×10⁻⁵, vs Tyler ≈ 9.5×10⁻⁴ | De-aliased loses to shrinkage baselines but detections are plentiful; browse `figures/rc/oneway_J5_solver-auto_est-dealias_prep-none__crisis_20200215_20200531/plots/*.png`. |
@@ -483,7 +499,7 @@ Preprocess selections propagate into the cache key, panel manifest, artifact dir
 | `energy_min_abs` | `1e-6` | Drop spikes with insufficient Σ₁ energy. |
 | `sigma_ablation` | `False` | Toggle ±10% Cs perturbations for sensitivity checks. |
 
-All `make rc-*` targets honour `RC_Q_MAX` and `RC_GATE_DELTA_FRAC_MIN` (defaults `2` and `0.01` for the exploratory `rc-lite` path). Override them on the command line—e.g., `RC_Q_MAX=1 RC_GATE_DELTA_FRAC_MIN=0.02 make rc-dow`—when you need the historical guardrails.
+All `make rc-*` targets honour the gating knobs: `RC_Q_MAX`/`RC_GATE_DELTA_FRAC_MIN` (defaults `2` / `0.02` for DoW/week/dow×vol) and the vol-only pair `Q_MAX_VOL` / `RC_GATE_DELTA_FRAC_MIN_VOL` (defaults `2` / `0.015`). Override them on the command line—e.g., `RC_Q_MAX=1 RC_GATE_DELTA_FRAC_MIN=0.025 make rc-dow` or `Q_MAX_VOL=1 VOL_Q2_ALIGNMENT_MIN_COS=0.95 make rc-vol`—when you need different guardrails.
 
 The detection summary and memo bullets explicitly badge runs where `no_isolated_spike` skips dominate; leverage the sweep tool above to retune acceptance thresholds when that happens. The October 2025 sweep over `(δ_frac, ε, η, a_grid) ∈ {0.01,0.02} × {0.02,0.03} × {0.4,0.6} × {90,120}` produced numerically identical detection and ΔMSE profiles across the grid, so the RC defaults above retain the long-standing guardrail (δ_frac = 0.02, ε = 0.03, η = 0.4) while standardising on `a_grid = 120` to keep the alignment diagnostic smooth without materially increasing runtime. The refreshed `metrics_summary.csv` mirrors these decisions via `edge_mode`, `gating_mode`, `substitution_fraction`, `skip_no_isolated_share`, and VaR/ES p-value columns that propagate into the gallery tables and aggregates.
 

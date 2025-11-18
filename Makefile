@@ -72,11 +72,17 @@ RC_GATE_ACCEPT_NONISOLATED ?= 1
 RC_GATE_STABILITY_MIN ?= 0.0001
 RC_REQUIRE_ISOLATED ?= 1
 RC_DOW_MIN_REPS ?= 10
-RC_VOL_MIN_REPS ?= 3
+RC_VOL_MIN_REPS ?= 10
+RC_VOL_REQUIRE_ISOLATED ?= 0
 ifeq ($(RC_REQUIRE_ISOLATED),1)
 RC_ISOLATION_FLAG := --require-isolated
 else
 RC_ISOLATION_FLAG := --allow-non-isolated
+endif
+ifeq ($(RC_VOL_REQUIRE_ISOLATED),1)
+RC_VOL_ISOLATION_FLAG := --require-isolated
+else
+RC_VOL_ISOLATION_FLAG := --allow-non-isolated
 endif
 RC_FLAGS_BASE := --workers $(RC_WORKERS) --assets-top 100 --stride-windows 4 --resume --cache-dir .cache --precompute-panel --drop-partial-weeks --oneway-a-solver auto --factor-csv $(RC_FACTORS) --prewhiten $(RC_PREWHITEN) --use-factor-prewhiten $(RC_USE_FACTOR_PREWHITEN)
 RC_FLAGS := $(RC_FLAGS_BASE)
@@ -90,8 +96,11 @@ RC_WINDOW ?= 126
 RC_HORIZON ?= 21
 RC_START ?= 2018-01-01
 RC_END ?= 2024-12-31
-RC_GATE_DELTA_FRAC_MIN ?= 0.01
+RC_GATE_DELTA_FRAC_MIN ?= 0.02
+RC_GATE_DELTA_FRAC_MIN_VOL ?= 0.015
 RC_Q_MAX ?= 2
+Q_MAX_VOL ?= 2
+VOL_Q2_ALIGNMENT_MIN_COS ?= 0.9
 RC_MV_GAMMA ?= 1e-4
 RC_MV_BOX ?= 0.0,0.1
 RC_MV_TURNOVER_BPS ?= 5
@@ -157,6 +166,52 @@ rc-lite:
 	$(RC_PY) tools/build_gallery.py --config experiments/equity_panel/config.rc.yaml
 	$(RC_PY) tools/build_memo.py --config experiments/equity_panel/config.rc.yaml
 
+.PHONY: rc-lite-sanity
+rc-lite-sanity:
+	$(MAKE) rc-dow
+	$(MAKE) rc-vol
+	$(RC_PY) tools/make_summary.py --rc-dir $(RC_OUT)
+	python3 - <<'PY'
+	import json
+	from pathlib import Path
+
+	import pandas as pd
+
+	root = Path("$(RC_OUT)").resolve()
+	entries = {
+	    "dow": Path("$(RC_DOW_OUT)").resolve(),
+	    "vol": Path("$(RC_VOL_OUT)").resolve(),
+	}
+	summary = {"rc_dir": str(root), "entries": {}}
+	regime_frames = []
+	for label, subdir in entries.items():
+	    diag_path = subdir / "diagnostics.csv"
+	    record = {"path": str(subdir)}
+	    if diag_path.exists():
+	        diag_df = pd.read_csv(diag_path)
+	        if not diag_df.empty:
+	            row = diag_df.iloc[0]
+	            record["detection_rate"] = float(row.get("detection_rate", float("nan")))
+	            record["alignment_cos"] = float(row.get("alignment_cos_mean", float("nan")))
+	            record["reason_code"] = row.get("reason_code", "")
+	    summary["entries"][label] = record
+	    regime_path = subdir / "regime.csv"
+	    if regime_path.exists():
+	        regime_df = pd.read_csv(regime_path)
+	        regime_df.insert(0, "design", label)
+	        regime_frames.append(regime_df)
+
+	regime_out = root / "regime.csv"
+	if regime_frames:
+	    pd.concat(regime_frames, ignore_index=True).to_csv(regime_out, index=False)
+	else:
+	    pd.DataFrame(columns=["design"]).to_csv(regime_out, index=False)
+	summary_path = root / "summary_sanity.json"
+	summary_path.write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
+	print(f"[rc-lite-sanity] Wrote {summary_path}")
+		print(f"[rc-lite-sanity] Wrote {regime_out}")
+	PY
+
 .PHONY: aws\:rc-lite aws\:rc aws\:sweep-calibration aws\:rc-sensitivity
 AWS_ARGS ?=
 
@@ -176,9 +231,9 @@ RC_VOL_PREWHITEN ?= ff5mom
 RC_DOW_GROUP_MIN ?= 5
 RC_DOW_GROUP_REPS ?= 3
 RC_DOW_MIN_REPS ?= 10
-RC_VOL_MIN_REPS ?= 3
+RC_VOL_MIN_REPS ?= 10
 RC_VOL_GROUP_MIN ?= 3
-RC_VOL_GROUP_REPS ?= 3
+RC_VOL_GROUP_REPS ?= 6
 RC_WEEK_OUT := $(RC_OUT)/week
 RC_WEEK_ASSETS ?= 80
 RC_WEEK_GROUP_MIN ?= 4
@@ -253,12 +308,13 @@ rc-vol:
 		--gate-mode $(RC_GATE_MODE) \
 		$(if $(RC_GATE_ACCEPT_NONISOLATED),--gate-accept-nonisolated,) \
 		$(if $(RC_GATE_STABILITY_MIN),--gate-stability-min $(RC_GATE_STABILITY_MIN),) \
-		$(RC_ISOLATION_FLAG) \
+		$(RC_VOL_ISOLATION_FLAG) \
 		--min-reps-vol $(RC_VOL_MIN_REPS) \
 		$(if $(USE_FACTORS),--use-factor-prewhiten $(USE_FACTORS),) \
 		--gate-delta-calibration $(RC_GATE_CALIB) \
-		--gate-delta-frac-min $(RC_GATE_DELTA_FRAC_MIN) \
-		--q-max $(RC_Q_MAX) \
+		--gate-delta-frac-min $(RC_GATE_DELTA_FRAC_MIN_VOL) \
+		--q-max $(Q_MAX_VOL) \
+		$(if $(VOL_Q2_ALIGNMENT_MIN_COS),--q2-alignment-min-cos $(VOL_Q2_ALIGNMENT_MIN_COS),) \
 		--mv-gamma $(RC_MV_GAMMA) \
 		--mv-box $(RC_MV_BOX) \
 		--mv-turnover-bps $(RC_MV_TURNOVER_BPS) \

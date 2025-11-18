@@ -1,23 +1,27 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
-
 from experiments.eval.config import resolve_eval_config
 from experiments.eval.diagnostics import DiagnosticReason
 from experiments.eval.run import (
     DailyLoaderConfig,
     EvalConfig,
+    _aligned_dm_stat,
+    _apply_multi_alignment_guard,
+    _min_variance_weights,
+    _sign_test_stat,
+    _vol_thresholds,
     load_daily_panel,
     run_evaluation,
-    _aligned_dm_stat,
-    _min_variance_weights,
-    _vol_thresholds,
 )
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _make_returns_csv(tmp_path: pytest.TempPathFactory) -> str:
@@ -30,21 +34,35 @@ def _make_returns_csv(tmp_path: pytest.TempPathFactory) -> str:
     return str(path)
 
 
+def _make_factors_csv(tmp_path: pytest.TempPathFactory) -> str:
+    dates = pd.date_range("2024-01-01", periods=200, freq="B")
+    rng = np.random.default_rng(410)
+    factors = rng.normal(scale=0.01, size=(len(dates), 6))
+    columns = ["MKT", "SMB", "HML", "RMW", "CMA", "UMD"]
+    frame = pd.DataFrame(factors, columns=columns)
+    frame.insert(0, "date", dates)
+    path = tmp_path.mktemp("factors") / "ff5mom.csv"
+    frame.to_csv(path, index=False)
+    return str(path)
+
+
 @pytest.mark.slow
-def test_run_evaluation_emits_artifacts(tmp_path_factory: pytest.TempPathFactory) -> None:
+def test_run_evaluation_emits_artifacts(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
     returns_csv = _make_returns_csv(tmp_path_factory)
     out_dir = tmp_path_factory.mktemp("outputs")
     config = EvalConfig(
-            returns_csv=Path(returns_csv),
-            factors_csv=None,
-            window=20,
-            horizon=5,
-            out_dir=Path(out_dir),
-            shrinker="rie",
-            seed=123,
-            use_factor_prewhiten=False,
-            mv_box_hi=1.0,
-        )
+        returns_csv=Path(returns_csv),
+        factors_csv=None,
+        window=20,
+        horizon=5,
+        out_dir=Path(out_dir),
+        shrinker="rie",
+        seed=123,
+        use_factor_prewhiten=False,
+        mv_box_hi=1.0,
+    )
     outputs = run_evaluation(config)
 
     resolved_path = Path(out_dir) / "resolved_config.json"
@@ -129,7 +147,9 @@ def test_run_evaluation_emits_artifacts(tmp_path_factory: pytest.TempPathFactory
         reason_values = set(diag_df["reason_code"].dropna().unique())
         allowed = {reason.value for reason in DiagnosticReason} | {""}
         assert reason_values <= allowed
-        assert diag_df["resolved_config_path"].str.endswith("resolved_config.json").all()
+        assert (
+            diag_df["resolved_config_path"].str.endswith("resolved_config.json").all()
+        )
         assert diag_df["calm_threshold"].notna().any()
         assert diag_df["crisis_threshold"].notna().any()
         assert diag_df["reps_by_label"].astype(str).str.len().gt(0).any()
@@ -144,7 +164,12 @@ def test_run_evaluation_emits_artifacts(tmp_path_factory: pytest.TempPathFactory
     assert detail_diag.exists()
     assert outputs.diagnostics_detail["all"].exists()
     detail_df = pd.read_csv(detail_diag)
-    assert {"reps_by_label", "raw_outliers_found", "pre_mp_edge_margin", "pre_alignment_cos"}.issubset(detail_df.columns)
+    assert {
+        "reps_by_label",
+        "raw_outliers_found",
+        "pre_mp_edge_margin",
+        "pre_alignment_cos",
+    }.issubset(detail_df.columns)
     if not detail_df.empty:
         assert detail_df["reps_by_label"].astype(str).str.len().gt(0).any()
     run_json = Path(out_dir) / "run.json"
@@ -160,6 +185,12 @@ def test_run_evaluation_emits_artifacts(tmp_path_factory: pytest.TempPathFactory
     summary_payload = json.loads(prewhiten_summary.read_text(encoding="utf-8"))
     assert summary_payload["mode_effective"] in {"ff5mom", "ff5", "mkt", "off"}
     assert "beta_abs_mean" in summary_payload
+    flip_path = Path(out_dir) / "dm_flip_only.csv"
+    assert flip_path.exists()
+    flip_df = pd.read_csv(flip_path)
+    assert {"portfolio", "baseline", "test", "stat", "p_value", "n_effective"} <= set(
+        flip_df.columns
+    )
 
 
 def test_run_evaluation_prewhiten_off(tmp_path_factory: pytest.TempPathFactory) -> None:
@@ -177,7 +208,9 @@ def test_run_evaluation_prewhiten_off(tmp_path_factory: pytest.TempPathFactory) 
         use_factor_prewhiten=False,
     )
     outputs = run_evaluation(config)
-    summary_payload = json.loads((Path(out_dir) / "prewhiten_summary.json").read_text(encoding="utf-8"))
+    summary_payload = json.loads(
+        (Path(out_dir) / "prewhiten_summary.json").read_text(encoding="utf-8")
+    )
     assert summary_payload["mode_effective"] == "off"
     diag_df = pd.read_csv(outputs.diagnostics["full"])
     assert not diag_df.empty
@@ -185,7 +218,35 @@ def test_run_evaluation_prewhiten_off(tmp_path_factory: pytest.TempPathFactory) 
     assert np.isclose(diag_df["prewhiten_r2_mean"], 0.0).all()
 
 
-def test_run_evaluation_respects_assets_top(tmp_path_factory: pytest.TempPathFactory) -> None:
+@pytest.mark.unit
+def test_apply_multi_alignment_guard_respects_threshold() -> None:
+    detections = [
+        {"alignment_cos": 0.4},
+        {"alignment_cos": 0.89},
+        {"alignment_cos": 0.95},
+    ]
+    kept, rejected = _apply_multi_alignment_guard(detections, threshold=0.9, max_keep=2)
+    assert rejected == 1
+    assert len(kept) == 2
+    assert kept[0]["alignment_cos"] == 0.4
+    assert kept[1]["alignment_cos"] == 0.95
+
+
+@pytest.mark.unit
+def test_sign_test_stat_filters_ties() -> None:
+    aligned = pd.DataFrame(
+        {"overlay": [0.1, 0.2, 0.3], "baseline": [0.2, 0.1, 0.3]},
+        index=[1, 2, 3],
+    )
+    stat, p_value, n_eff = _sign_test_stat(aligned, "baseline")
+    assert n_eff == 2
+    assert np.isfinite(stat)
+    assert 0.0 <= p_value <= 1.0
+
+
+def test_run_evaluation_respects_assets_top(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
     returns_csv = _make_returns_csv(tmp_path_factory)
     out_dir = tmp_path_factory.mktemp("outputs_capped")
     config = EvalConfig(
@@ -200,19 +261,31 @@ def test_run_evaluation_respects_assets_top(tmp_path_factory: pytest.TempPathFac
         use_factor_prewhiten=False,
     )
     outputs = run_evaluation(config)
-    summary_payload = json.loads((Path(out_dir) / "prewhiten_summary.json").read_text(encoding="utf-8"))
+    summary_payload = json.loads(
+        (Path(out_dir) / "prewhiten_summary.json").read_text(encoding="utf-8")
+    )
     assert summary_payload["asset_count"] == 3
-    resolved_payload = json.loads((Path(out_dir) / "resolved_config.json").read_text(encoding="utf-8"))
+    resolved_payload = json.loads(
+        (Path(out_dir) / "resolved_config.json").read_text(encoding="utf-8")
+    )
     assert resolved_payload["assets_top"] == 3
-def test_run_evaluation_vol_design_logs_state(tmp_path_factory: pytest.TempPathFactory) -> None:
+
+
+def test_run_evaluation_vol_design_logs_state(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
     tmp_dir = tmp_path_factory.mktemp("vol_design")
     dates = pd.date_range("2024-02-01", periods=90, freq="B")
     rng = np.random.default_rng(2042)
     scales = np.array([0.004, 0.012, 0.025], dtype=np.float64)
-    data = np.vstack([rng.normal(scale=scales[idx % 3], size=6) for idx in range(len(dates))])
+    data = np.vstack(
+        [rng.normal(scale=scales[idx % 3], size=6) for idx in range(len(dates))]
+    )
     frame = pd.DataFrame(data, index=dates, columns=[f"S{col}" for col in range(6)])
     returns_csv = tmp_dir / "returns.csv"
-    frame.reset_index().rename(columns={"index": "date"}).to_csv(returns_csv, index=False)
+    frame.reset_index().rename(columns={"index": "date"}).to_csv(
+        returns_csv, index=False
+    )
     out_dir = tmp_dir / "outputs"
     config = EvalConfig(
         returns_csv=returns_csv,
@@ -236,11 +309,103 @@ def test_run_evaluation_vol_design_logs_state(tmp_path_factory: pytest.TempPathF
     assert non_empty["group_label_counts"].str.contains("calm:").any()
     assert non_empty["group_label_counts"].str.contains("mid:").any()
     assert non_empty["group_label_counts"].str.contains("crisis:").any()
-    assert set(non_empty["vol_state_label"].unique()) <= {"calm", "mid", "crisis", "unknown"}
+    assert set(non_empty["vol_state_label"].unique()) <= {
+        "calm",
+        "mid",
+        "crisis",
+        "unknown",
+    }
     assert non_empty["prewhiten_mode_effective"].notna().all()
 
 
-def test_resolve_eval_config_precedence(tmp_path_factory: pytest.TempPathFactory) -> None:
+@pytest.mark.slow
+def test_vol_run_outputs_flip_and_prewhiten_effect(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    returns_csv = _make_returns_csv(tmp_path_factory)
+    factors_csv = _make_factors_csv(tmp_path_factory)
+    off_dir = Path(tmp_path_factory.mktemp("vol_off"))
+    on_dir = Path(tmp_path_factory.mktemp("vol_on"))
+    common = dict(
+        returns_csv=Path(returns_csv),
+        window=30,
+        horizon=5,
+        group_design="vol",
+        group_min_count=1,
+        group_min_replicates=1,
+        min_reps_vol=1,
+        assets_top=5,
+        mv_box_hi=1.0,
+        mv_box_lo=-0.25,
+        mv_turnover_bps=0.0,
+        mv_condition_cap=1e6,
+        seed=77,
+        q_max=2,
+        q2_alignment_min_cos=0.6,
+        max_windows=4,
+    )
+    config_off = EvalConfig(
+        out_dir=off_dir,
+        factors_csv=None,
+        prewhiten="off",
+        use_factor_prewhiten=False,
+        **common,
+    )
+    config_on = EvalConfig(
+        out_dir=on_dir,
+        factors_csv=Path(factors_csv),
+        prewhiten="ff5mom",
+        use_factor_prewhiten=True,
+        **common,
+    )
+    run_evaluation(config_off)
+    run_evaluation(config_on)
+    for directory in (off_dir, on_dir):
+        flip_csv = directory / "dm_flip_only.csv"
+        assert flip_csv.exists()
+        flip_df = pd.read_csv(flip_csv)
+        assert {
+            "portfolio",
+            "baseline",
+            "test",
+            "stat",
+            "p_value",
+            "n_effective",
+        } <= set(flip_df.columns)
+    effect_path = Path(tmp_path_factory.mktemp("effect_tmp")) / "prewhiten_effect.csv"
+    subprocess.run(
+        [
+            "python3",
+            str(PROJECT_ROOT / "tools" / "prewhiten_effect.py"),
+            "--off",
+            str(off_dir),
+            "--on",
+            str(on_dir),
+            "--out",
+            str(effect_path),
+        ],
+        check=True,
+        cwd=PROJECT_ROOT,
+    )
+    assert effect_path.exists()
+    effect_df = pd.read_csv(effect_path)
+    expected_cols = {
+        "prewhiten_mode",
+        "detection_rate",
+        "delta_mse_ew",
+        "delta_mse_mv",
+        "es95_error_ew",
+        "es95_error_mv",
+        "sign_p_ew",
+        "sign_p_mv",
+    }
+    assert expected_cols <= set(effect_df.columns)
+    assert effect_df.shape[0] == 3
+
+
+def test_resolve_eval_config_precedence(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
     tmp_dir = tmp_path_factory.mktemp("config_layers")
     thresholds_path = tmp_dir / "thresholds.json"
     thresholds_payload = {
@@ -260,15 +425,15 @@ def test_resolve_eval_config_precedence(tmp_path_factory: pytest.TempPathFactory
     yaml_path = tmp_dir / "config.yaml"
     yaml_path.write_text(
         "\n".join(
-        [
-            "window: 35",
-            "shrinker: lw",
-            "seed: 555",
-            "calm_quantile: 0.2",
-            "assets_top: 90",
-            "overlay_a_grid: 120",
-            "mv_gamma: 0.0015",
-        ]
+            [
+                "window: 35",
+                "shrinker: lw",
+                "seed: 555",
+                "calm_quantile: 0.2",
+                "assets_top: 90",
+                "overlay_a_grid: 120",
+                "mv_gamma: 0.0015",
+            ]
         ),
         encoding="utf-8",
     )
@@ -317,7 +482,9 @@ def test_resolve_eval_config_precedence(tmp_path_factory: pytest.TempPathFactory
     assert resolved.resolved["assets_top"] == 45
 
 
-def test_fpr_guard_for_calibrated_thresholds(tmp_path_factory: pytest.TempPathFactory) -> None:
+def test_fpr_guard_for_calibrated_thresholds(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
     calibration_path = Path("calibration/edge_delta_thresholds.json")
     if not calibration_path.exists():
         pytest.skip("calibration thresholds not present")
@@ -333,7 +500,9 @@ def test_fpr_guard_for_calibrated_thresholds(tmp_path_factory: pytest.TempPathFa
     assert fpr <= 0.02 + 1e-6, f"FPR guard breached: {fpr}"
 
 
-def test_resolve_eval_config_prewhiten_cli(tmp_path_factory: pytest.TempPathFactory) -> None:
+def test_resolve_eval_config_prewhiten_cli(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
     returns_path = Path(_make_returns_csv(tmp_path_factory))
     cli_args = {
         "returns_csv": returns_path,
@@ -345,8 +514,12 @@ def test_resolve_eval_config_prewhiten_cli(tmp_path_factory: pytest.TempPathFact
     assert resolved.resolved["prewhiten"] == "off"
 
 
-@pytest.mark.parametrize("shrinker", ["rie", "lw", "oas", "cc", "quest", "ewma", "factor", "poet"])
-def test_resolve_eval_config_shrinkers(tmp_path_factory: pytest.TempPathFactory, shrinker: str) -> None:
+@pytest.mark.parametrize(
+    "shrinker", ["rie", "lw", "oas", "cc", "quest", "ewma", "factor", "poet"]
+)
+def test_resolve_eval_config_shrinkers(
+    tmp_path_factory: pytest.TempPathFactory, shrinker: str
+) -> None:
     returns_path = Path(_make_returns_csv(tmp_path_factory))
     cli_args = {
         "returns_csv": returns_path,
@@ -357,14 +530,18 @@ def test_resolve_eval_config_shrinkers(tmp_path_factory: pytest.TempPathFactory,
     assert resolved.resolved["shrinker"] == shrinker
 
 
-def test_load_daily_panel_from_parquet(tmp_path_factory: pytest.TempPathFactory) -> None:
+def test_load_daily_panel_from_parquet(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
     dates = pd.date_range("2024-01-02", periods=40, freq="B")
     rng = np.random.default_rng(7)
     rows = []
     tickers = ["A", "B", "C"]
     for date in dates:
         for ticker in tickers:
-            rows.append({"date": date, "ticker": ticker, "ret": float(rng.normal(scale=0.01))})
+            rows.append(
+                {"date": date, "ticker": ticker, "ret": float(rng.normal(scale=0.01))}
+            )
     frame = pd.DataFrame(rows)
     path = Path(tmp_path_factory.mktemp("parquet")) / "returns.parquet"
     frame.to_parquet(path, index=False)
@@ -396,12 +573,42 @@ def test_min_variance_weights_turnover_penalty() -> None:
 def test_dm_alignment_uses_common_windows() -> None:
     metrics = pd.DataFrame(
         [
-            {"window_id": 0, "regime": "full", "portfolio": "ew", "estimator": "overlay", "sq_error": 0.5},
-            {"window_id": 0, "regime": "full", "portfolio": "ew", "estimator": "baseline", "sq_error": 0.7},
-            {"window_id": 1, "regime": "full", "portfolio": "ew", "estimator": "overlay", "sq_error": 0.4},
+            {
+                "window_id": 0,
+                "regime": "full",
+                "portfolio": "ew",
+                "estimator": "overlay",
+                "sq_error": 0.5,
+            },
+            {
+                "window_id": 0,
+                "regime": "full",
+                "portfolio": "ew",
+                "estimator": "baseline",
+                "sq_error": 0.7,
+            },
+            {
+                "window_id": 1,
+                "regime": "full",
+                "portfolio": "ew",
+                "estimator": "overlay",
+                "sq_error": 0.4,
+            },
             # Baseline missing for window 1
-            {"window_id": 2, "regime": "full", "portfolio": "ew", "estimator": "overlay", "sq_error": 0.6},
-            {"window_id": 2, "regime": "full", "portfolio": "ew", "estimator": "baseline", "sq_error": 0.55},
+            {
+                "window_id": 2,
+                "regime": "full",
+                "portfolio": "ew",
+                "estimator": "overlay",
+                "sq_error": 0.6,
+            },
+            {
+                "window_id": 2,
+                "regime": "full",
+                "portfolio": "ew",
+                "estimator": "baseline",
+                "sq_error": 0.55,
+            },
         ]
     )
     dm_stat, p_value, n_eff = _aligned_dm_stat(metrics, "full", "ew")
@@ -410,7 +617,9 @@ def test_dm_alignment_uses_common_windows() -> None:
     assert np.isfinite(p_value)
 
 
-def test_vol_thresholds_use_training_data(tmp_path_factory: pytest.TempPathFactory) -> None:
+def test_vol_thresholds_use_training_data(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
     tmp_dir = tmp_path_factory.mktemp("vol_thresholds")
     cfg = EvalConfig(
         returns_csv=tmp_dir / "returns.csv",
@@ -433,7 +642,9 @@ def test_vol_thresholds_use_training_data(tmp_path_factory: pytest.TempPathFacto
     assert crisis_future > crisis
 
 
-def test_run_evaluation_is_reproducible(tmp_path_factory: pytest.TempPathFactory) -> None:
+def test_run_evaluation_is_reproducible(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
     returns_csv = _make_returns_csv(tmp_path_factory)
     out_one = tmp_path_factory.mktemp("outputs_one")
     out_two = tmp_path_factory.mktemp("outputs_two")
@@ -485,13 +696,17 @@ def test_run_evaluation_is_reproducible(tmp_path_factory: pytest.TempPathFactory
 
     detail_one = pd.read_csv(outputs_one.diagnostics_detail["full"]).sort_index(axis=1)
     detail_two = pd.read_csv(outputs_two.diagnostics_detail["full"]).sort_index(axis=1)
-    detail_workers = pd.read_csv(outputs_workers.diagnostics_detail["full"]).sort_index(axis=1)
+    detail_workers = pd.read_csv(outputs_workers.diagnostics_detail["full"]).sort_index(
+        axis=1
+    )
     detail_cols = [col for col in detail_one.columns if col != "resolved_config_path"]
     pd.testing.assert_frame_equal(detail_one[detail_cols], detail_two[detail_cols])
     pd.testing.assert_frame_equal(detail_one[detail_cols], detail_workers[detail_cols])
 
 
-def test_bootstrap_bands_populate_for_overlay(tmp_path_factory: pytest.TempPathFactory) -> None:
+def test_bootstrap_bands_populate_for_overlay(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
     returns_csv = _make_returns_csv(tmp_path_factory)
     out_dir = tmp_path_factory.mktemp("bootstrap_outputs")
     config = EvalConfig(
@@ -507,6 +722,8 @@ def test_bootstrap_bands_populate_for_overlay(tmp_path_factory: pytest.TempPathF
     )
     outputs = run_evaluation(config)
     summary = pd.read_csv(outputs.metrics["full"])
-    overlay_rows = summary[(summary["estimator"] == "overlay") & (summary["portfolio"] == "ew")]
+    overlay_rows = summary[
+        (summary["estimator"] == "overlay") & (summary["portfolio"] == "ew")
+    ]
     assert overlay_rows["delta_mse_ci_lower"].notna().any()
     assert overlay_rows["delta_mse_ci_upper"].notna().any()

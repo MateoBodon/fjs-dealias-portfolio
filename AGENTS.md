@@ -56,3 +56,7 @@ Implement and evaluate a **de‑aliasing overlay** for covariance estimation on 
 ## Safety & approvals (Codex)
 - Default to **danger‑full‑access**, **network enabled**, **approval_policy=never** only when you are in a trusted, ephemeral environment (local dev box or dedicated EC2) and Git is clean with a branch. Otherwise use `on‑failure`.
 - Never run destructive commands (`rm -rf`, `git reset --hard`, force pushes) without existing backups and a clear ticket scope.
+
+## CodexAgent — GPT-5 (2025-11-12)
+- **Role**: Implement vol-state acceptance adjustments, deterministic reporting, and artifact management while keeping WRDS data sealed and reproducibility first.
+- **SOP**: Follow AGENTS.md guardrails; document commands/configs in `PROGRESS.md` and `reports/runs/<RUN_ID>/`; verify datasets via `tools/verify_dataset.py`; run deterministic make targets with BLAS threads capped; persist run manifests and gallery artifacts before sign-off.

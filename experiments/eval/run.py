@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import argparse
-import random
 import json
 import math
+import random
 import subprocess
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterable, Mapping, Sequence
-
-from concurrent.futures import ThreadPoolExecutor
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -27,24 +27,6 @@ SRC_ROOT = PROJECT_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from baselines import load_observed_factors
-from baselines.covariance import (
-    cc_covariance as baseline_cc_covariance,
-    ewma_covariance as baseline_ewma_covariance,
-    lw_covariance as baseline_lw_covariance,
-    oas_covariance as baseline_oas_covariance,
-    quest_covariance as baseline_quest_covariance,
-    rie_covariance,
-)
-from data.factors import FactorRegistryEntry, FactorRegistryError, load_registered_factors
-from baselines.factors import PrewhitenResult
-from eval.balance import build_balanced_window
-from eval.clean import apply_nan_policy
-from evaluation.factor import observed_factor_covariance, poet_lite_covariance
-from evaluation.dm import dm_test
-from evaluation.evaluate import alignment_diagnostics
-from finance import MinVarMemo, minvar_ridge_box, turnover
-from fjs.overlay import OverlayConfig, apply_overlay, detect_spikes
 from experiments.daily.grouping import (
     GroupingError,
     group_by_day_of_week,
@@ -62,6 +44,39 @@ from experiments.prewhiten import (
     apply_prewhitening,
     write_prewhiten_diagnostics,
 )
+
+from baselines import load_observed_factors
+from baselines.covariance import (
+    cc_covariance as baseline_cc_covariance,
+)
+from baselines.covariance import (
+    ewma_covariance as baseline_ewma_covariance,
+)
+from baselines.covariance import (
+    lw_covariance as baseline_lw_covariance,
+)
+from baselines.covariance import (
+    oas_covariance as baseline_oas_covariance,
+)
+from baselines.covariance import (
+    quest_covariance as baseline_quest_covariance,
+)
+from baselines.covariance import (
+    rie_covariance,
+)
+from baselines.factors import PrewhitenResult
+from data.factors import (
+    FactorRegistryEntry,
+    FactorRegistryError,
+    load_registered_factors,
+)
+from eval.balance import build_balanced_window
+from eval.clean import apply_nan_policy
+from evaluation.dm import dm_test
+from evaluation.evaluate import alignment_diagnostics
+from evaluation.factor import observed_factor_covariance, poet_lite_covariance
+from finance import MinVarMemo, minvar_ridge_box, turnover
+from fjs.overlay import OverlayConfig, apply_overlay, detect_spikes
 from meta import runtime
 
 
@@ -140,6 +155,7 @@ _MONTH_LABELS = {
 try:
     from data.loader import DailyLoaderConfig, DailyPanel, load_daily_panel
 except ModuleNotFoundError:  # pragma: no cover - fallback for minimal environments
+
     @dataclass(slots=True, frozen=True)
     class DailyLoaderConfig:
         winsor_lower: float = 0.005
@@ -236,6 +252,7 @@ class EvalConfig:
     bootstrap_samples: int = 0
     require_isolated: bool = True
     q_max: int = 1
+    q2_alignment_min_cos: float | None = None
     edge_mode: str = "tyler"
     angle_min_cos: float | None = None
     alignment_top_p: int = 3
@@ -262,7 +279,11 @@ class EvalConfig:
     gate_accept_nonisolated: bool = False
     max_windows: int | None = None
     coarse_candidate: bool = False
-def _format_group_label_counts(labels: np.ndarray, design: str) -> tuple[str, dict[int, int]]:
+
+
+def _format_group_label_counts(
+    labels: np.ndarray, design: str
+) -> tuple[str, dict[int, int]]:
     if labels.size == 0:
         return "", {}
     unique, counts = np.unique(labels, return_counts=True)
@@ -271,7 +292,10 @@ def _format_group_label_counts(labels: np.ndarray, design: str) -> tuple[str, di
     design_key = design.lower()
     entries: list[str] = []
     counts_map: dict[int, int] = {}
-    pairs = [(int(raw_label), int(raw_count)) for raw_label, raw_count in zip(unique.tolist(), counts.tolist())]
+    pairs = [
+        (int(raw_label), int(raw_count))
+        for raw_label, raw_count in zip(unique.tolist(), counts.tolist())
+    ]
     for label, count in sorted(pairs, key=lambda pair: pair[0]):
         counts_map[label] = count
         if design_key == "dow":
@@ -324,7 +348,9 @@ def _serialise_config(config: EvalConfig) -> dict[str, Any]:
         "crisis_quantile": config.crisis_quantile,
         "vol_ewma_span": config.vol_ewma_span,
         "config_path": str(config.config_path) if config.config_path else None,
-        "thresholds_path": str(config.thresholds_path) if config.thresholds_path else None,
+        "thresholds_path": (
+            str(config.thresholds_path) if config.thresholds_path else None
+        ),
         "echo_config": config.echo_config,
         "reason_codes": config.reason_codes,
         "workers": config.workers,
@@ -337,6 +363,7 @@ def _serialise_config(config: EvalConfig) -> dict[str, Any]:
         "bootstrap_samples": config.bootstrap_samples,
         "require_isolated": config.require_isolated,
         "q_max": config.q_max,
+        "q2_alignment_min_cos": config.q2_alignment_min_cos,
         "edge_mode": config.edge_mode,
         "angle_min_cos": config.angle_min_cos,
         "alignment_top_p": config.alignment_top_p,
@@ -351,7 +378,11 @@ def _serialise_config(config: EvalConfig) -> dict[str, Any]:
         "ewma_halflife": config.ewma_halflife,
         "gate_mode": config.gate_mode,
         "gate_soft_max": config.gate_soft_max,
-        "gate_delta_calibration": str(config.gate_delta_calibration) if config.gate_delta_calibration else None,
+        "gate_delta_calibration": (
+            str(config.gate_delta_calibration)
+            if config.gate_delta_calibration
+            else None
+        ),
         "gate_delta_frac_min": config.gate_delta_frac_min,
         "gate_delta_frac_max": config.gate_delta_frac_max,
         "gate_stability_min": config.gate_stability_min,
@@ -452,6 +483,58 @@ def _aligned_dm_stat(
     return dm_stat, p_value, n_eff
 
 
+def _apply_multi_alignment_guard(
+    detections: Sequence[dict[str, object]],
+    *,
+    threshold: float | None,
+    max_keep: int | None,
+) -> tuple[list[dict[str, object]], int]:
+    """Drop detections beyond the first if alignment cosine falls below threshold."""
+
+    if threshold is None or max_keep is None or max_keep < 2 or len(detections) <= 1:
+        return list(detections), 0
+    kept: list[dict[str, object]] = []
+    rejected = 0
+    for idx, det in enumerate(detections):
+        if idx == 0:
+            kept.append(det)
+            continue
+        cos_raw = det.get("alignment_cos", float("nan"))
+        try:
+            cos_val = float(cos_raw)
+        except (TypeError, ValueError):
+            cos_val = float("nan")
+        if not np.isfinite(cos_val) or cos_val < float(threshold):
+            rejected += 1
+            continue
+        kept.append(det)
+    return kept, rejected
+
+
+def _sign_test_stat(aligned: pd.DataFrame, comparator: str) -> tuple[float, float, int]:
+    if aligned.empty or comparator not in aligned.columns:
+        return float("nan"), float("nan"), 0
+    overlay = aligned["overlay"].to_numpy(dtype=np.float64)
+    baseline = aligned[comparator].to_numpy(dtype=np.float64)
+    diffs = overlay - baseline
+    mask = np.isfinite(diffs) & (np.abs(diffs) > 1e-12)
+    diffs = diffs[mask]
+    wins = int((diffs < 0.0).sum())
+    losses = int((diffs > 0.0).sum())
+    n_eff = wins + losses
+    if n_eff == 0:
+        return float("nan"), float("nan"), 0
+    center = 0.5 * n_eff
+    denom = math.sqrt(max(n_eff / 4.0, 1e-12))
+    stat = (wins - center) / denom if denom > 0 else float("nan")
+    try:
+        binom_res = stats.binomtest(wins, n_eff, p=0.5, alternative="two-sided")
+        p_value = float(binom_res.pvalue)
+    except AttributeError:  # pragma: no cover - SciPy < 1.7 fallback
+        p_value = float(stats.binom_test(wins, n_eff, p=0.5))
+    return float(stat), p_value, n_eff
+
+
 def _bootstrap_delta_mse(
     diffs: np.ndarray,
     resamples: int,
@@ -502,9 +585,13 @@ def _vol_thresholds(
 
 
 def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str, Any]]:
-    parser = argparse.ArgumentParser(description="Daily overlay evaluation with diagnostics.")
+    parser = argparse.ArgumentParser(
+        description="Daily overlay evaluation with diagnostics."
+    )
     parser.set_defaults(require_isolated=None, prewhiten=None)
-    parser.add_argument("--returns-csv", type=Path, required=True, help="Path to daily returns CSV.")
+    parser.add_argument(
+        "--returns-csv", type=Path, required=True, help="Path to daily returns CSV."
+    )
     parser.add_argument(
         "--factors-csv",
         "--factor-csv",
@@ -520,10 +607,18 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
         default=None,
         help="Require registered FF5+MOM factors when prewhitening (default: 1).",
     )
-    parser.add_argument("--window", type=int, default=None, help="Estimation window (days).")
-    parser.add_argument("--horizon", type=int, default=None, help="Holdout horizon (days).")
-    parser.add_argument("--start", type=str, default=None, help="Optional start date (YYYY-MM-DD).")
-    parser.add_argument("--end", type=str, default=None, help="Optional end date (YYYY-MM-DD).")
+    parser.add_argument(
+        "--window", type=int, default=None, help="Estimation window (days)."
+    )
+    parser.add_argument(
+        "--horizon", type=int, default=None, help="Holdout horizon (days)."
+    )
+    parser.add_argument(
+        "--start", type=str, default=None, help="Optional start date (YYYY-MM-DD)."
+    )
+    parser.add_argument(
+        "--end", type=str, default=None, help="Optional end date (YYYY-MM-DD)."
+    )
     parser.add_argument("--out", type=Path, default=None, help="Output directory.")
     parser.add_argument(
         "--assets-top",
@@ -539,7 +634,12 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
         choices=["rie", "lw", "oas", "cc", "sample", "quest", "ewma", "factor", "poet"],
         help="Baseline shrinker for non-detected directions.",
     )
-    parser.add_argument("--seed", type=int, default=None, help="Deterministic seed for gating utilities.")
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Deterministic seed for gating utilities.",
+    )
     parser.add_argument(
         "--config",
         type=Path,
@@ -683,6 +783,13 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
         type=int,
         default=None,
         help="Maximum detections retained per window.",
+    )
+    parser.add_argument(
+        "--q2-alignment-min-cos",
+        dest="q2_alignment_min_cos",
+        type=float,
+        default=None,
+        help="Minimum alignment cosine required to retain detections beyond the first (q>=2).",
     )
     parser.add_argument(
         "--angle-min-cos",
@@ -879,7 +986,9 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
         help="Maximum missing fraction allowed per replicate row before dropping.",
     )
     args = parser.parse_args(argv)
-    if getattr(args, "mv_box", None) and (args.mv_box_lo is None or args.mv_box_hi is None):
+    if getattr(args, "mv_box", None) and (
+        args.mv_box_lo is None or args.mv_box_hi is None
+    ):
         parts = [part.strip() for part in args.mv_box.split(",")]
         if len(parts) != 2:
             parser.error("--mv-box must be formatted as 'lo,hi'.")
@@ -937,7 +1046,9 @@ def _write_overlay_toggle(path: Path, summary: pd.DataFrame) -> None:
     path.write_text("\n".join(content) + "\n", encoding="utf-8")
 
 
-def _plot_histogram(series: pd.Series, path: Path, *, xlabel: str, title: str, bins: int = 20) -> Path | None:
+def _plot_histogram(
+    series: pd.Series, path: Path, *, xlabel: str, title: str, bins: int = 20
+) -> Path | None:
     if plt is None:
         return None
     values = pd.to_numeric(series, errors="coerce").dropna().to_numpy(dtype=np.float64)
@@ -947,7 +1058,12 @@ def _plot_histogram(series: pd.Series, path: Path, *, xlabel: str, title: str, b
         return None
     path.parent.mkdir(parents=True, exist_ok=True)
     fig, ax = plt.subplots(figsize=(6, 4))
-    ax.hist(values, bins=min(bins, max(int(values.size / 5), 10)), color="C0", edgecolor="black")
+    ax.hist(
+        values,
+        bins=min(bins, max(int(values.size / 5), 10)),
+        color="C0",
+        edgecolor="black",
+    )
     ax.set_xlabel(xlabel)
     ax.set_ylabel("Count")
     ax.set_title(title)
@@ -957,7 +1073,9 @@ def _plot_histogram(series: pd.Series, path: Path, *, xlabel: str, title: str, b
     return path
 
 
-def _plot_acceptance_edge_histograms(diagnostics_df: pd.DataFrame, design: str, out_dir: Path) -> dict[str, Path]:
+def _plot_acceptance_edge_histograms(
+    diagnostics_df: pd.DataFrame, design: str, out_dir: Path
+) -> dict[str, Path]:
     design_key = (design or "unknown").lower()
     outputs: dict[str, Path] = {}
     if diagnostics_df.empty:
@@ -1144,11 +1262,16 @@ def _limit_windows_by_regime(
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     if metrics_df.empty or diagnostics_df.empty:
         return metrics_df, diagnostics_df
-    if "window_id" not in diagnostics_df.columns or "window_id" not in metrics_df.columns:
+    if (
+        "window_id" not in diagnostics_df.columns
+        or "window_id" not in metrics_df.columns
+    ):
         return metrics_df, diagnostics_df
 
     calm_limit = int(calm_limit) if calm_limit is not None and calm_limit > 0 else None
-    crisis_limit = int(crisis_limit) if crisis_limit is not None and crisis_limit > 0 else None
+    crisis_limit = (
+        int(crisis_limit) if crisis_limit is not None and crisis_limit > 0 else None
+    )
     if calm_limit is None and crisis_limit is None:
         return metrics_df, diagnostics_df
 
@@ -1162,8 +1285,12 @@ def _limit_windows_by_regime(
         if regime == "calm" and calm_limit is not None and window_ids.size > calm_limit:
             chosen = rng.choice(window_ids, size=calm_limit, replace=False)
         elif regime == "crisis" and crisis_limit is not None:
-            edge_sorted = frame.assign(edge_sort=frame["edge_margin_mean"].fillna(-np.inf))
-            edge_sorted = edge_sorted.sort_values(["edge_sort", "window_id"], ascending=[False, True])
+            edge_sorted = frame.assign(
+                edge_sort=frame["edge_margin_mean"].fillna(-np.inf)
+            )
+            edge_sorted = edge_sorted.sort_values(
+                ["edge_sort", "window_id"], ascending=[False, True]
+            )
             limited = edge_sorted["window_id"].to_numpy(dtype=int)
             if crisis_limit < limited.size:
                 chosen = limited[:crisis_limit]
@@ -1176,8 +1303,12 @@ def _limit_windows_by_regime(
     if not keep_ids:
         return metrics_df, diagnostics_df
 
-    metrics_filtered = metrics_df[metrics_df["window_id"].isin(keep_ids)].reset_index(drop=True)
-    diagnostics_filtered = diagnostics_df[diagnostics_df["window_id"].isin(keep_ids)].reset_index(drop=True)
+    metrics_filtered = metrics_df[metrics_df["window_id"].isin(keep_ids)].reset_index(
+        drop=True
+    )
+    diagnostics_filtered = diagnostics_df[
+        diagnostics_df["window_id"].isin(keep_ids)
+    ].reset_index(drop=True)
     return metrics_filtered, diagnostics_filtered
 
 
@@ -1190,7 +1321,12 @@ def _window_regime(
     fallback: float | None = None,
 ) -> str:
     if date not in vol_proxy.index:
-        proxy_value = vol_proxy.reindex(vol_proxy.index.union([date])).sort_index().ffill().loc[date]
+        proxy_value = (
+            vol_proxy.reindex(vol_proxy.index.union([date]))
+            .sort_index()
+            .ffill()
+            .loc[date]
+        )
     else:
         proxy_value = vol_proxy.loc[date]
     if np.isnan(proxy_value) and fallback is not None:
@@ -1206,7 +1342,13 @@ def _window_regime(
 
 def _prepare_returns(
     config: EvalConfig,
-) -> tuple[DailyPanel, pd.DataFrame, PrewhitenResult, PrewhitenTelemetry, FactorRegistryEntry | None]:
+) -> tuple[
+    DailyPanel,
+    pd.DataFrame,
+    PrewhitenResult,
+    PrewhitenTelemetry,
+    FactorRegistryEntry | None,
+]:
     loader_kwargs: dict[str, Any] = {"min_history": config.window + config.horizon + 10}
     if config.assets_top is not None:
         loader_kwargs["assets_top"] = int(config.assets_top)
@@ -1240,7 +1382,9 @@ def _prepare_returns(
     if requested_mode != "off":
         if requested_mode == "custom":
             if config.factors_csv is None:
-                raise RuntimeError("Custom prewhitening requires --factors-csv pointing to a factor dataset.")
+                raise RuntimeError(
+                    "Custom prewhitening requires --factors-csv pointing to a factor dataset."
+                )
             try:
                 factors_source, factor_entry = load_registered_factors(
                     str(config.factors_csv),
@@ -1255,7 +1399,9 @@ def _prepare_returns(
             factor_error: FactorRegistryError | None = None
             for candidate in registry_keys:
                 try:
-                    required_cols = FACTOR_SETS.get(candidate, FACTOR_SETS.get(requested_mode, ()))
+                    required_cols = FACTOR_SETS.get(
+                        candidate, FACTOR_SETS.get(requested_mode, ())
+                    )
                     loaded, entry = load_registered_factors(
                         candidate,
                         start=returns_start,
@@ -1304,13 +1450,17 @@ def run_evaluation(
     *,
     resolved_config: Mapping[str, Any] | None = None,
 ) -> EvalOutputs:
-    panel, raw_returns, whitening, prewhiten_meta, factor_entry = _prepare_returns(config)
+    panel, raw_returns, whitening, prewhiten_meta, factor_entry = _prepare_returns(
+        config
+    )
     random.seed(config.seed)
     np.random.seed(config.seed)
     residuals = whitening.residuals.sort_index()
     raw_returns = raw_returns.sort_index()
     residual_index_set = set(residuals.index)
-    factor_tracking_required = bool(config.use_factor_prewhiten and prewhiten_meta.mode_effective != "off")
+    factor_tracking_required = bool(
+        config.use_factor_prewhiten and prewhiten_meta.mode_effective != "off"
+    )
     vol_proxy_full = _compute_vol_proxy(residuals, span=config.vol_ewma_span)
     vol_proxy_past = vol_proxy_full.shift(1)
 
@@ -1319,7 +1469,11 @@ def run_evaluation(
     regime_dirs = {reg: out_dir / reg for reg in _REGIMES}
     for dir_path in regime_dirs.values():
         dir_path.mkdir(parents=True, exist_ok=True)
-    resolved_payload = dict(resolved_config) if resolved_config is not None else _serialise_config(config)
+    resolved_payload = (
+        dict(resolved_config)
+        if resolved_config is not None
+        else _serialise_config(config)
+    )
     resolved_path = out_dir / "resolved_config.json"
     write_prewhiten_diagnostics(out_dir, whitening, prewhiten_meta)
     prewhiten_r2_mean = prewhiten_meta.r2_mean
@@ -1360,9 +1514,11 @@ def run_evaluation(
         ewma_halflife=float(config.ewma_halflife),
         gate_mode=str(config.gate_mode) if config.gate_mode else "strict",
         gate_soft_max=config.gate_soft_max,
-        gate_delta_calibration=str(config.gate_delta_calibration)
-        if config.gate_delta_calibration
-        else None,
+        gate_delta_calibration=(
+            str(config.gate_delta_calibration)
+            if config.gate_delta_calibration
+            else None
+        ),
         gate_delta_frac_min=config.gate_delta_frac_min,
         gate_delta_frac_max=config.gate_delta_frac_max,
         gate_stability_min=config.gate_stability_min,
@@ -1379,7 +1535,9 @@ def run_evaluation(
     mv_cache = MinVarMemo()
     prev_mv_weights: dict[tuple[str, ...], np.ndarray] = {}
 
-    def _evaluate_window(start: int) -> tuple[list[dict[str, object]], dict[str, object] | None]:
+    def _evaluate_window(
+        start: int,
+    ) -> tuple[list[dict[str, object]], dict[str, object] | None]:
         fit_end = start + config.window
         hold_end = fit_end + config.horizon
         if hold_end > raw_returns.shape[0]:
@@ -1395,7 +1553,9 @@ def run_evaluation(
         overlay_allowed = True
         if factor_tracking_required:
             needed_labels = fit_labels + hold_labels
-            overlay_allowed = all(label in residual_index_set for label in needed_labels)
+            overlay_allowed = all(
+                label in residual_index_set for label in needed_labels
+            )
         if overlay_allowed:
             try:
                 fit = residuals.loc[fit_labels]
@@ -1415,7 +1575,11 @@ def run_evaluation(
         train_end = pd.to_datetime(fit_labels[-1])
         calm_cut, crisis_cut = _vol_thresholds(vol_proxy_past, train_end, config)
         train_vol_slice = vol_proxy_past.loc[:train_end].dropna()
-        fallback_vol = float(train_vol_slice.iloc[-1]) if not train_vol_slice.empty else float("nan")
+        fallback_vol = (
+            float(train_vol_slice.iloc[-1])
+            if not train_vol_slice.empty
+            else float("nan")
+        )
         regime = _window_regime(
             vol_proxy_past,
             hold_start,
@@ -1423,8 +1587,16 @@ def run_evaluation(
             crisis_cut,
             fallback=fallback_vol,
         )
-        vol_signal_series = vol_proxy_past.reindex(vol_proxy_past.index.union([hold_start])).sort_index().ffill()
-        vol_signal_value = float(vol_signal_series.loc[hold_start]) if hold_start in vol_signal_series.index else float("nan")
+        vol_signal_series = (
+            vol_proxy_past.reindex(vol_proxy_past.index.union([hold_start]))
+            .sort_index()
+            .ffill()
+        )
+        vol_signal_value = (
+            float(vol_signal_series.loc[hold_start])
+            if hold_start in vol_signal_series.index
+            else float("nan")
+        )
         if np.isnan(vol_signal_value):
             vol_signal_value = fallback_vol
 
@@ -1527,7 +1699,9 @@ def run_evaluation(
         final_assets = int(fit_balanced.shape[1])
 
         assets_drop_pct = (
-            100.0 * max(0, grouped_assets_original - final_assets) / grouped_assets_original
+            100.0
+            * max(0, grouped_assets_original - final_assets)
+            / grouped_assets_original
             if grouped_assets_original > 0
             else 0.0
         )
@@ -1538,7 +1712,9 @@ def run_evaluation(
         )
 
         if group_labels.size > 0:
-            balance_counts_str, counts_map = _format_group_label_counts(group_labels, design)
+            balance_counts_str, counts_map = _format_group_label_counts(
+                group_labels, design
+            )
         else:
             balance_counts_str, counts_map = ("", {})
         if counts_map:
@@ -1555,7 +1731,9 @@ def run_evaluation(
         }
 
         if final_rows == 0 or final_assets == 0 or group_labels.size == 0:
-            reason_value = DiagnosticReason.BALANCE_FAILURE.value if config.reason_codes else ""
+            reason_value = (
+                DiagnosticReason.BALANCE_FAILURE.value if config.reason_codes else ""
+            )
             diag_record = {
                 "regime": regime,
                 "detections": 0,
@@ -1604,7 +1782,9 @@ def run_evaluation(
             return [], diag_record
 
         if balance_reason in {"insufficient_reps", "empty_after_balance"}:
-            reason_value = DiagnosticReason.BALANCE_FAILURE.value if config.reason_codes else ""
+            reason_value = (
+                DiagnosticReason.BALANCE_FAILURE.value if config.reason_codes else ""
+            )
             diag_record = {
                 "regime": regime,
                 "detections": 0,
@@ -1657,7 +1837,9 @@ def run_evaluation(
         hold = hold.loc[:, fit_balanced.columns]
         hold = hold.replace([np.inf, -np.inf], np.nan).dropna(axis=0, how="any")
         if hold.empty:
-            reason_value = DiagnosticReason.HOLDOUT_EMPTY.value if config.reason_codes else ""
+            reason_value = (
+                DiagnosticReason.HOLDOUT_EMPTY.value if config.reason_codes else ""
+            )
             diag_record = {
                 "regime": regime,
                 "detections": 0,
@@ -1734,12 +1916,22 @@ def run_evaluation(
                     config=overlay_cfg,
                     stats=detect_stats,
                 )
-                gating_info = detect_stats.get("gating", {}) if isinstance(detect_stats, dict) else {}
-                reason = DiagnosticReason.ACCEPTED if detections else DiagnosticReason.NO_DETECTIONS
+                gating_info = (
+                    detect_stats.get("gating", {})
+                    if isinstance(detect_stats, dict)
+                    else {}
+                )
+                reason = (
+                    DiagnosticReason.ACCEPTED
+                    if detections
+                    else DiagnosticReason.NO_DETECTIONS
+                )
             except np.linalg.LinAlgError:
                 jitter_scale = max(float(np.nanstd(fit_matrix)) * 1e-6, 1e-8)
                 rng_jitter = np.random.default_rng(config.seed + start + 101)
-                perturbed = fit_matrix + rng_jitter.normal(scale=jitter_scale, size=fit_matrix.shape)
+                perturbed = fit_matrix + rng_jitter.normal(
+                    scale=jitter_scale, size=fit_matrix.shape
+                )
                 detect_stats = {}
                 try:
                     detections = detect_spikes(
@@ -1748,8 +1940,16 @@ def run_evaluation(
                         config=overlay_cfg,
                         stats=detect_stats,
                     )
-                    gating_info = detect_stats.get("gating", {}) if isinstance(detect_stats, dict) else {}
-                    reason = DiagnosticReason.ACCEPTED if detections else DiagnosticReason.NO_DETECTIONS
+                    gating_info = (
+                        detect_stats.get("gating", {})
+                        if isinstance(detect_stats, dict)
+                        else {}
+                    )
+                    reason = (
+                        DiagnosticReason.ACCEPTED
+                        if detections
+                        else DiagnosticReason.NO_DETECTIONS
+                    )
                 except Exception:
                     detections = []
                     reason = DiagnosticReason.DETECTION_ERROR
@@ -1764,9 +1964,14 @@ def run_evaluation(
         alignment_cos_all: list[float] = []
         top_p = max(1, int(config.alignment_top_p))
         raw_detection_count = int(gating_info.get("initial", len(detections)))
+        q_multi_rejections = 0
         if detections:
             filtered: list[dict[str, object]] = []
-            threshold = float(config.angle_min_cos) if config.angle_min_cos is not None else None
+            threshold = (
+                float(config.angle_min_cos)
+                if config.angle_min_cos is not None
+                else None
+            )
             for det in detections:
                 eigvec = det.get("eigvec")
                 angle_deg = float("nan")
@@ -1805,6 +2010,44 @@ def run_evaluation(
             alignment_cos_values = []
             alignment_angle_values = []
             alignment_cos_all = []
+        if detections:
+            q_multi_threshold = (
+                float(config.q2_alignment_min_cos)
+                if config.q2_alignment_min_cos is not None
+                else None
+            )
+            q_multi_max = int(config.q_max) if config.q_max is not None else None
+            detections, q_multi_rejections = _apply_multi_alignment_guard(
+                detections,
+                threshold=q_multi_threshold,
+                max_keep=q_multi_max,
+            )
+            if (
+                q_multi_rejections
+                and not detections
+                and reason == DiagnosticReason.ACCEPTED
+            ):
+                reason = DiagnosticReason.ALIGNMENT_REJECTED
+            if q_multi_rejections:
+                updated_cos: list[float] = []
+                updated_angles: list[float] = []
+                for det in detections:
+                    cos_raw = det.get("alignment_cos", float("nan"))
+                    try:
+                        cos_val = float(cos_raw)
+                    except (TypeError, ValueError):
+                        cos_val = float("nan")
+                    if np.isfinite(cos_val):
+                        updated_cos.append(cos_val)
+                    angle_raw = det.get("alignment_angle_deg", float("nan"))
+                    try:
+                        angle_val = float(angle_raw)
+                    except (TypeError, ValueError):
+                        angle_val = float("nan")
+                    if np.isfinite(angle_val):
+                        updated_angles.append(angle_val)
+                alignment_cos_values = updated_cos
+                alignment_angle_values = updated_angles
         pre_alignment_cos = _top_mean(alignment_cos_all, top_p)
 
         energy_values = [
@@ -1815,8 +2058,12 @@ def run_evaluation(
         residual_energy_mean = float(np.mean(energy_values)) if energy_values else 0.0
         acceptance_delta = float(max(0, raw_detection_count - len(detections)))
 
-        overlay_cov = apply_overlay(sample_cov, detections, observations=fit_matrix, config=overlay_cfg)
-        baseline_cov = apply_overlay(sample_cov, [], observations=fit_matrix, config=overlay_cfg)
+        overlay_cov = apply_overlay(
+            sample_cov, detections, observations=fit_matrix, config=overlay_cfg
+        )
+        baseline_cov = apply_overlay(
+            sample_cov, [], observations=fit_matrix, config=overlay_cfg
+        )
         baseline_cond = _safe_condition_number(baseline_cov)
         overlay_cond = _safe_condition_number(overlay_cov)
         diff_norm = 0.0
@@ -1859,11 +2106,18 @@ def run_evaluation(
                 except Exception as exc:  # pragma: no cover - propagated to diagnostics
                     baseline_errors[name] = str(exc)
 
-            _add_covariance("rie", lambda: rie_covariance(sample_cov, sample_count=sample_count))
+            _add_covariance(
+                "rie", lambda: rie_covariance(sample_cov, sample_count=sample_count)
+            )
             _add_covariance("lw", lambda: baseline_lw_covariance(fit_matrix))
             _add_covariance("oas", lambda: baseline_oas_covariance(fit_matrix))
             _add_covariance("cc", lambda: baseline_cc_covariance(fit_matrix))
-            _add_covariance("quest", lambda: baseline_quest_covariance(sample_cov, sample_count=sample_count))
+            _add_covariance(
+                "quest",
+                lambda: baseline_quest_covariance(
+                    sample_cov, sample_count=sample_count
+                ),
+            )
             _add_covariance(
                 "ewma",
                 lambda: baseline_ewma_covariance(
@@ -1882,7 +2136,9 @@ def run_evaluation(
                     raise ValueError("insufficient factor observations for window")
                 returns_window = fit.loc[factor_window.index].astype(np.float64)
                 factor_window = factor_window.astype(np.float64)
-                return observed_factor_covariance(returns_window, factor_window, add_intercept=True)
+                return observed_factor_covariance(
+                    returns_window, factor_window, add_intercept=True
+                )
 
             _add_covariance("factor", _factor_cov_builder)
 
@@ -1905,7 +2161,9 @@ def run_evaluation(
                 box=mv_box,
                 cache=mv_cache,
             )
-            mv_condition_penalized = float(mv_solver_info.get("cond_penalized", float("nan")))
+            mv_condition_penalized = float(
+                mv_solver_info.get("cond_penalized", float("nan"))
+            )
             if prev_weights is not None and prev_weights.shape == mv_weights.shape:
                 mv_turnover_value = float(turnover(prev_weights, mv_weights))
             else:
@@ -1913,7 +2171,10 @@ def run_evaluation(
             mv_turnover_cost_bps = mv_turnover_value * mv_turnover_bps
             prev_mv_weights[asset_key] = mv_weights.copy()
             weights_map = {"ew": eq_weights, "mv": mv_weights}
-            cond_map = {name: _safe_condition_number(matrix) for name, matrix in covariances.items()}
+            cond_map = {
+                name: _safe_condition_number(matrix)
+                for name, matrix in covariances.items()
+            }
 
             for estimator, cov in covariances.items():
                 for portfolio, weights in weights_map.items():
@@ -1921,15 +2182,27 @@ def run_evaluation(
                     sigma = float(np.sqrt(max(forecast_var, 1e-12)))
                     realised_returns = hold_matrix @ weights
                     realised_var = (
-                        float(np.var(realised_returns, ddof=1)) if realised_returns.size > 1 else float("nan")
+                        float(np.var(realised_returns, ddof=1))
+                        if realised_returns.size > 1
+                        else float("nan")
                     )
                     var95 = float(stats.norm.ppf(0.05) * sigma)
                     es95 = _expected_shortfall(sigma)
                     violations = realised_returns < var95
-                    violation_rate = float(np.mean(violations)) if violations.size else float("nan")
+                    violation_rate = (
+                        float(np.mean(violations)) if violations.size else float("nan")
+                    )
                     realised_es = _realised_tail_mean(realised_returns, var95)
-                    mse = (forecast_var - realised_var) ** 2 if np.isfinite(realised_var) else float("nan")
-                    es_error = (es95 - realised_es) ** 2 if np.isfinite(realised_es) else float("nan")
+                    mse = (
+                        (forecast_var - realised_var) ** 2
+                        if np.isfinite(realised_var)
+                        else float("nan")
+                    )
+                    es_error = (
+                        (es95 - realised_es) ** 2
+                        if np.isfinite(realised_es)
+                        else float("nan")
+                    )
                     qlike_error = _qlike_loss(forecast_var, realised_var)
                     metrics_block.append(
                         {
@@ -1947,8 +2220,12 @@ def run_evaluation(
                             "sq_error_es": es_error,
                             "qlike": qlike_error,
                             "cov_condition": cond_map.get(estimator, float("nan")),
-                            "mv_turnover": mv_turnover_value if portfolio == "mv" else 0.0,
-                            "mv_turnover_cost_bps": mv_turnover_cost_bps if portfolio == "mv" else 0.0,
+                            "mv_turnover": (
+                                mv_turnover_value if portfolio == "mv" else 0.0
+                            ),
+                            "mv_turnover_cost_bps": (
+                                mv_turnover_cost_bps if portfolio == "mv" else 0.0
+                            ),
                         }
                     )
         if detections:
@@ -1961,11 +2238,10 @@ def run_evaluation(
             stability_detail = [
                 float(det.get("stability_margin", float("nan"))) for det in detections
             ]
-            stability = [
-                val if np.isfinite(val) else 0.0 for val in stability_detail
-            ]
+            stability = [val if np.isfinite(val) else 0.0 for val in stability_detail]
             off_component_ratios = [
-                float(det.get("off_component_ratio", float("nan"))) for det in detections
+                float(det.get("off_component_ratio", float("nan")))
+                for det in detections
             ]
             isolation = []
             for ratio in off_component_ratios:
@@ -1979,8 +2255,16 @@ def run_evaluation(
             stability = []
             off_component_ratios = []
             isolation = []
-        alignment_cos_mean = float(np.mean(alignment_cos_values)) if alignment_cos_values else float("nan")
-        alignment_angle_mean = float(np.mean(alignment_angle_values)) if alignment_angle_values else float("nan")
+        alignment_cos_mean = (
+            float(np.mean(alignment_cos_values))
+            if alignment_cos_values
+            else float("nan")
+        )
+        alignment_angle_mean = (
+            float(np.mean(alignment_angle_values))
+            if alignment_angle_values
+            else float("nan")
+        )
 
         mp_edge_margin_value = _safe_nanmean(edge_margin_detail)
         alignment_cos_p50 = _safe_nanmedian(alignment_cos_values)
@@ -1991,7 +2275,9 @@ def run_evaluation(
             else float(overlay_cfg.stability_eta_deg)
         )
         stability_finite = [val for val in stability_detail if np.isfinite(val)]
-        stability_pass = sum(1 for val in stability_finite if val >= stability_threshold)
+        stability_pass = sum(
+            1 for val in stability_finite if val >= stability_threshold
+        )
         stability_eta_share = _safe_share(stability_pass, len(stability_finite))
         solver_tokens = sorted(
             {
@@ -2022,22 +2308,30 @@ def run_evaluation(
         gating_mode = str(gating_info.get("mode", overlay_cfg.gate_mode or "strict"))
         gating_initial = int(gating_info.get("initial", raw_detection_count))
         gating_accepted = int(gating_info.get("accepted", len(detections)))
-        gating_rejected = int(gating_info.get("rejected", gating_initial - gating_accepted))
+        gating_rejected = int(
+            gating_info.get("rejected", gating_initial - gating_accepted)
+        )
         gating_soft_cap = gating_info.get("soft_cap")
         gating_delta_frac = gating_info.get("delta_frac_used")
-        substitution_fraction = (
-            len(detections) / float(p_assets) if p_assets else 0.0
+        substitution_fraction = len(detections) / float(p_assets) if p_assets else 0.0
+        baseline_error_str = (
+            ""
+            if not baseline_errors
+            else ";".join(
+                f"{key}:{value}" for key, value in sorted(baseline_errors.items())
+            )
         )
-        baseline_error_str = "" if not baseline_errors else ";".join(
-            f"{key}:{value}" for key, value in sorted(baseline_errors.items())
+        pre_gate_stats = (
+            detect_stats.get("pre_gate", {}) if isinstance(detect_stats, dict) else {}
         )
-        pre_gate_stats = detect_stats.get("pre_gate", {}) if isinstance(detect_stats, dict) else {}
         raw_outliers_found = int(
             pre_gate_stats.get("raw_outliers_found", raw_detection_count)
         )
         pre_mp_edge_margin = float(pre_gate_stats.get("mp_edge_margin", float("nan")))
         pre_leakage_offcomp = float(pre_gate_stats.get("leakage_offcomp", float("nan")))
-        pre_stability_eta_pass = float(pre_gate_stats.get("stability_eta_pass", float("nan")))
+        pre_stability_eta_pass = float(
+            pre_gate_stats.get("stability_eta_pass", float("nan"))
+        )
         pre_bracket_status = str(pre_gate_stats.get("bracket_status", ""))
         diag_record = {
             "window_id": start,
@@ -2056,8 +2350,13 @@ def run_evaluation(
             "gating_initial": gating_initial,
             "gating_accepted": gating_accepted,
             "gating_rejected": gating_rejected,
-            "gating_soft_cap": int(gating_soft_cap) if gating_soft_cap is not None else np.nan,
-            "gating_delta_frac": float(gating_delta_frac) if gating_delta_frac is not None else np.nan,
+            "gating_soft_cap": (
+                int(gating_soft_cap) if gating_soft_cap is not None else np.nan
+            ),
+            "gating_delta_frac": (
+                float(gating_delta_frac) if gating_delta_frac is not None else np.nan
+            ),
+            "q_multi_rejections": q_multi_rejections,
             "reason_code": reason_value,
             "resolved_config_path": resolved_path_str,
             "calm_threshold": float(calm_cut),
@@ -2135,7 +2434,9 @@ def run_evaluation(
     if worker_setting and worker_setting > 1:
         max_workers = max(1, int(worker_setting))
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            for metrics_block, diag_record in executor.map(_evaluate_window, start_indices):
+            for metrics_block, diag_record in executor.map(
+                _evaluate_window, start_indices
+            ):
                 if metrics_block:
                     window_records.extend(metrics_block)
                 if diag_record is not None:
@@ -2177,9 +2478,13 @@ def run_evaluation(
     if "gating_delta_frac" not in diagnostics_df.columns:
         diagnostics_df["gating_delta_frac"] = np.nan
     if "prewhiten_mode_requested" not in diagnostics_df.columns:
-        diagnostics_df["prewhiten_mode_requested"] = prewhiten_meta.mode_requested if diagnostics_records else ""
+        diagnostics_df["prewhiten_mode_requested"] = (
+            prewhiten_meta.mode_requested if diagnostics_records else ""
+        )
     if "prewhiten_mode_effective" not in diagnostics_df.columns:
-        diagnostics_df["prewhiten_mode_effective"] = prewhiten_meta.mode_effective if diagnostics_records else ""
+        diagnostics_df["prewhiten_mode_effective"] = (
+            prewhiten_meta.mode_effective if diagnostics_records else ""
+        )
     if "prewhiten_factor_count" not in diagnostics_df.columns:
         diagnostics_df["prewhiten_factor_count"] = np.nan
     if "prewhiten_beta_abs_mean" not in diagnostics_df.columns:
@@ -2190,7 +2495,9 @@ def run_evaluation(
         diagnostics_df["prewhiten_beta_abs_median"] = np.nan
     default_factor_str = ",".join(prewhiten_meta.factor_columns)
     if "prewhiten_factors" not in diagnostics_df.columns:
-        diagnostics_df["prewhiten_factors"] = default_factor_str if diagnostics_records else ""
+        diagnostics_df["prewhiten_factors"] = (
+            default_factor_str if diagnostics_records else ""
+        )
     if "prewhiten_r2_median" not in diagnostics_df.columns:
         diagnostics_df["prewhiten_r2_median"] = np.nan
     if "residual_energy_mean" not in diagnostics_df.columns:
@@ -2229,6 +2536,7 @@ def run_evaluation(
         "gating_rejected",
         "gating_soft_cap",
         "gating_delta_frac",
+        "q_multi_rejections",
         "reason_code",
         "resolved_config_path",
         "calm_threshold",
@@ -2292,7 +2600,12 @@ def run_evaluation(
                     "bracket_status",
                 }:
                     diagnostics_df[column] = ""
-                elif column in {"factor_present", "changed_flag", "design_ok"}:
+                elif column in {
+                    "factor_present",
+                    "changed_flag",
+                    "design_ok",
+                    "q_multi_rejections",
+                }:
                     diagnostics_df[column] = 0
                 elif column in {
                     "mp_edge_margin",
@@ -2315,7 +2628,11 @@ def run_evaluation(
         "crisis_threshold",
         "vol_state_label",
     ]
-    regime_df = diagnostics_df[regime_columns].copy() if not diagnostics_df.empty else pd.DataFrame(columns=regime_columns)
+    regime_df = (
+        diagnostics_df[regime_columns].copy()
+        if not diagnostics_df.empty
+        else pd.DataFrame(columns=regime_columns)
+    )
     regime_path = out_dir / "regime.csv"
     regime_df.to_csv(regime_path, index=False)
 
@@ -2349,9 +2666,9 @@ def run_evaluation(
             diag_path = path / "diagnostics.csv"
             empty.to_csv(metrics_path, index=False)
             empty.to_csv(risk_path, index=False)
-            pd.DataFrame(columns=["portfolio", "baseline", "dm_stat", "p_value"]).to_csv(
-                dm_path, index=False
-            )
+            pd.DataFrame(
+                columns=["portfolio", "baseline", "dm_stat", "p_value"]
+            ).to_csv(dm_path, index=False)
             diagnostics_df.to_csv(diag_path, index=False)
             detail_path = path / "diagnostics_detail.csv"
             diagnostics_df.to_csv(detail_path, index=False)
@@ -2364,11 +2681,22 @@ def run_evaluation(
         detail_root_path = out_dir / "diagnostics_detail.csv"
         diagnostics_df.to_csv(detail_root_path, index=False)
         outputs_diag_detail["all"] = detail_root_path
-        return EvalOutputs(outputs_metrics, outputs_risk, outputs_dm, outputs_diag, outputs_plots, outputs_diag_detail)
+        return EvalOutputs(
+            outputs_metrics,
+            outputs_risk,
+            outputs_dm,
+            outputs_diag,
+            outputs_plots,
+            outputs_diag_detail,
+        )
 
     summaries = []
     for regime in _REGIMES:
-        subset = metrics_df[metrics_df["regime"] == regime] if regime != "full" else metrics_df
+        subset = (
+            metrics_df[metrics_df["regime"] == regime]
+            if regime != "full"
+            else metrics_df
+        )
         if subset.empty:
             continue
         summary = (
@@ -2385,9 +2713,15 @@ def run_evaluation(
                 qlike_mean=("qlike", "mean"),
                 mv_turnover_mean=("mv_turnover", "mean"),
                 mv_turnover_cost_bps=("mv_turnover_cost_bps", "mean"),
-                cov_condition_median=("cov_condition", lambda s: float(np.nanmedian(pd.to_numeric(s, errors="coerce")))
+                cov_condition_median=(
+                    "cov_condition",
+                    lambda s: float(np.nanmedian(pd.to_numeric(s, errors="coerce"))),
                 ),
-                cov_condition_p90=("cov_condition", lambda s: float(np.nanquantile(pd.to_numeric(s, errors="coerce"), 0.9))
+                cov_condition_p90=(
+                    "cov_condition",
+                    lambda s: float(
+                        np.nanquantile(pd.to_numeric(s, errors="coerce"), 0.9)
+                    ),
                 ),
             )
             .reset_index()
@@ -2405,9 +2739,15 @@ def run_evaluation(
         }
     )[["regime", "portfolio", "baseline_mse", "baseline_es_mse", "baseline_qlike_mean"]]
     summary_df = summary_df.merge(baseline_df, on=["regime", "portfolio"], how="left")
-    summary_df["delta_mse_vs_baseline"] = summary_df["mse_mean"] - summary_df["baseline_mse"]
-    summary_df["delta_es_vs_baseline"] = summary_df["es_mse_mean"] - summary_df["baseline_es_mse"]
-    summary_df["delta_qlike_vs_baseline"] = summary_df["qlike_mean"] - summary_df["baseline_qlike_mean"]
+    summary_df["delta_mse_vs_baseline"] = (
+        summary_df["mse_mean"] - summary_df["baseline_mse"]
+    )
+    summary_df["delta_es_vs_baseline"] = (
+        summary_df["es_mse_mean"] - summary_df["baseline_es_mse"]
+    )
+    summary_df["delta_qlike_vs_baseline"] = (
+        summary_df["qlike_mean"] - summary_df["baseline_qlike_mean"]
+    )
     summary_df["delta_mse_ci_lower"] = np.nan
     summary_df["delta_mse_ci_upper"] = np.nan
 
@@ -2417,10 +2757,15 @@ def run_evaluation(
                 aligned_table = _aligned_error_table(metrics_df, regime_key, portfolio)
                 if aligned_table.empty:
                     continue
-                diffs = aligned_table["overlay"].to_numpy() - aligned_table["baseline"].to_numpy()
+                diffs = (
+                    aligned_table["overlay"].to_numpy()
+                    - aligned_table["baseline"].to_numpy()
+                )
                 if diffs.size < 2:
                     continue
-                lower, upper = _bootstrap_delta_mse(diffs, bootstrap_samples, rng_bootstrap)
+                lower, upper = _bootstrap_delta_mse(
+                    diffs, bootstrap_samples, rng_bootstrap
+                )
                 bootstrap_bands[(regime_key, portfolio)] = (lower, upper)
         for (regime_key, portfolio), (lower, upper) in bootstrap_bands.items():
             mask_overlay = (
@@ -2485,13 +2830,13 @@ def run_evaluation(
         "pre_stability_eta_pass": ("pre_stability_eta_pass", "mean"),
     }
     available_spec = {
-        key: value for key, value in agg_spec.items() if value[0] in diagnostics_df.columns
+        key: value
+        for key, value in agg_spec.items()
+        if value[0] in diagnostics_df.columns
     }
     if available_spec:
         diagnostics_summary = (
-            diagnostics_df.groupby("regime")
-            .agg(**available_spec)
-            .reset_index()
+            diagnostics_df.groupby("regime").agg(**available_spec).reset_index()
         )
     else:
         diagnostics_summary = pd.DataFrame(columns=["regime"])
@@ -2559,7 +2904,9 @@ def run_evaluation(
             diagnostics_df.groupby("regime")["resolved_config_path"]
             .agg(
                 lambda col: (
-                    col.dropna().iloc[0] if not col.dropna().empty else resolved_path_str
+                    col.dropna().iloc[0]
+                    if not col.dropna().empty
+                    else resolved_path_str
                 )
             )
             .reset_index()
@@ -2569,20 +2916,32 @@ def run_evaluation(
             .agg(_mode_string)
             .reset_index()
         )
-        diagnostics_summary = diagnostics_summary.merge(reason_summary, on="regime", how="left")
-        diagnostics_summary = diagnostics_summary.merge(path_summary, on="regime", how="left")
-        diagnostics_summary = diagnostics_summary.merge(design_summary, on="regime", how="left")
-        gating_mode_summary = (
-            diagnostics_df.groupby("regime")["gating_mode"].agg(_mode_string).reset_index()
+        diagnostics_summary = diagnostics_summary.merge(
+            reason_summary, on="regime", how="left"
         )
-        diagnostics_summary = diagnostics_summary.merge(gating_mode_summary, on="regime", how="left")
+        diagnostics_summary = diagnostics_summary.merge(
+            path_summary, on="regime", how="left"
+        )
+        diagnostics_summary = diagnostics_summary.merge(
+            design_summary, on="regime", how="left"
+        )
+        gating_mode_summary = (
+            diagnostics_df.groupby("regime")["gating_mode"]
+            .agg(_mode_string)
+            .reset_index()
+        )
+        diagnostics_summary = diagnostics_summary.merge(
+            gating_mode_summary, on="regime", how="left"
+        )
         if "group_label_counts" in diagnostics_df.columns:
             label_counts_summary = (
                 diagnostics_df.groupby("regime")["group_label_counts"]
                 .agg(_mode_string)
                 .reset_index()
             )
-            diagnostics_summary = diagnostics_summary.merge(label_counts_summary, on="regime", how="left")
+            diagnostics_summary = diagnostics_summary.merge(
+                label_counts_summary, on="regime", how="left"
+            )
         else:
             diagnostics_summary["group_label_counts"] = ""
         if "reps_by_label" in diagnostics_df.columns:
@@ -2591,7 +2950,9 @@ def run_evaluation(
                 .agg(_mode_string)
                 .reset_index()
             )
-            diagnostics_summary = diagnostics_summary.merge(reps_summary, on="regime", how="left")
+            diagnostics_summary = diagnostics_summary.merge(
+                reps_summary, on="regime", how="left"
+            )
         else:
             diagnostics_summary["reps_by_label"] = ""
         if "vol_state_label" in diagnostics_df.columns:
@@ -2600,7 +2961,9 @@ def run_evaluation(
                 .agg(_mode_string)
                 .reset_index()
             )
-            diagnostics_summary = diagnostics_summary.merge(vol_state_summary, on="regime", how="left")
+            diagnostics_summary = diagnostics_summary.merge(
+                vol_state_summary, on="regime", how="left"
+            )
         else:
             diagnostics_summary["vol_state_label"] = ""
         if "bracket_status" in diagnostics_df.columns:
@@ -2609,7 +2972,9 @@ def run_evaluation(
                 .agg(_mode_string)
                 .reset_index()
             )
-            diagnostics_summary = diagnostics_summary.merge(bracket_summary, on="regime", how="left")
+            diagnostics_summary = diagnostics_summary.merge(
+                bracket_summary, on="regime", how="left"
+            )
         else:
             diagnostics_summary["bracket_status"] = ""
         if "pre_bracket_status" in diagnostics_df.columns:
@@ -2618,7 +2983,9 @@ def run_evaluation(
                 .agg(_mode_string)
                 .reset_index()
             )
-            diagnostics_summary = diagnostics_summary.merge(pre_bracket_summary, on="regime", how="left")
+            diagnostics_summary = diagnostics_summary.merge(
+                pre_bracket_summary, on="regime", how="left"
+            )
         else:
             diagnostics_summary["pre_bracket_status"] = ""
         if "prewhiten_mode_requested" in diagnostics_df.columns:
@@ -2627,7 +2994,9 @@ def run_evaluation(
                 .agg(_mode_string)
                 .reset_index()
             )
-            diagnostics_summary = diagnostics_summary.merge(req_summary, on="regime", how="left")
+            diagnostics_summary = diagnostics_summary.merge(
+                req_summary, on="regime", how="left"
+            )
         else:
             diagnostics_summary["prewhiten_mode_requested"] = ""
         if "prewhiten_mode_effective" in diagnostics_df.columns:
@@ -2636,7 +3005,9 @@ def run_evaluation(
                 .agg(_mode_string)
                 .reset_index()
             )
-            diagnostics_summary = diagnostics_summary.merge(eff_summary, on="regime", how="left")
+            diagnostics_summary = diagnostics_summary.merge(
+                eff_summary, on="regime", how="left"
+            )
         else:
             diagnostics_summary["prewhiten_mode_effective"] = ""
         if "prewhiten_factors" in diagnostics_df.columns:
@@ -2645,7 +3016,9 @@ def run_evaluation(
                 .agg(_mode_string)
                 .reset_index()
             )
-            diagnostics_summary = diagnostics_summary.merge(factors_summary, on="regime", how="left")
+            diagnostics_summary = diagnostics_summary.merge(
+                factors_summary, on="regime", how="left"
+            )
         else:
             diagnostics_summary["prewhiten_factors"] = ""
 
@@ -2691,7 +3064,9 @@ def run_evaluation(
 
     overlay_toggle_path = out_dir / "overlay_toggle.md"
     _write_overlay_toggle(overlay_toggle_path, diagnostics_summary)
-    extra_plots = _plot_acceptance_edge_histograms(diagnostics_df, config.group_design or "", out_dir)
+    extra_plots = _plot_acceptance_edge_histograms(
+        diagnostics_df, config.group_design or "", out_dir
+    )
     regime_hist_config = [
         ("mp_edge_margin", "MP edge margin", "MP edge margin"),
         ("alignment_cos", "Alignment cos (p50)", "Alignment cos"),
@@ -2715,14 +3090,18 @@ def run_evaluation(
             )
         )
 
-    changed_windows_by_regime: dict[str, set[int]] = {regime: set() for regime in _REGIMES}
+    changed_windows_by_regime: dict[str, set[int]] = {
+        regime: set() for regime in _REGIMES
+    }
     changed_windows_by_regime["full"] = set()
     if {"changed_flag", "window_id"}.issubset(diagnostics_df.columns):
         diag_ids = diagnostics_df.dropna(subset=["window_id"]).copy()
         if not diag_ids.empty:
             diag_ids["window_id"] = diag_ids["window_id"].astype(int)
             changed_mask = diag_ids["changed_flag"].fillna(0).astype(int) == 1
-            changed_windows_by_regime["full"] = set(diag_ids.loc[changed_mask, "window_id"])
+            changed_windows_by_regime["full"] = set(
+                diag_ids.loc[changed_mask, "window_id"]
+            )
             for regime_name in _REGIMES:
                 regime_mask = diag_ids["regime"] == regime_name
                 changed_windows_by_regime[regime_name] = set(
@@ -2735,7 +3114,11 @@ def run_evaluation(
         subset_metrics.to_csv(metrics_path, index=False)
         outputs_metrics[regime] = metrics_path
 
-        risk_subset = metrics_df if regime == "full" else metrics_df[metrics_df["regime"] == regime]
+        risk_subset = (
+            metrics_df
+            if regime == "full"
+            else metrics_df[metrics_df["regime"] == regime]
+        )
         risk_path = path / "risk.csv"
         risk_columns = [
             "estimator",
@@ -2805,9 +3188,13 @@ def run_evaluation(
         detail_subset.to_csv(detail_path, index=False)
         outputs_diag_detail[regime] = detail_path
 
-        if plt is not None and not subset_metrics.empty:  # pragma: no cover - plotting smoke
+        if (
+            plt is not None and not subset_metrics.empty
+        ):  # pragma: no cover - plotting smoke
             fig, ax = plt.subplots(figsize=(6, 4))
-            pivot = subset_metrics.pivot(index="estimator", columns="portfolio", values="delta_mse_vs_baseline")
+            pivot = subset_metrics.pivot(
+                index="estimator", columns="portfolio", values="delta_mse_vs_baseline"
+            )
             pivot.plot(kind="bar", ax=ax, rot=0)
             ax.set_ylabel("ΔMSE vs baseline")
             ax.set_title(f"ΔMSE by estimator ({regime})")
@@ -2820,9 +3207,87 @@ def run_evaluation(
         else:
             outputs_plots[regime] = path / "delta_mse.png"
 
+    flip_records: list[dict[str, object]] = []
+    flip_dm_path = out_dir / "dm_flip_only.csv"
+    flip_plot_path: Path | None = None
+    flip_window_ids = changed_windows_by_regime.get("full", set())
+    comparators = ("baseline", "lw", "oas")
+    for portfolio in ("ew", "mv"):
+        for comparator in comparators:
+            aligned = _aligned_error_table(
+                metrics_df,
+                "full",
+                portfolio,
+                column="sq_error",
+                comparator=comparator,
+            )
+            if not aligned.empty and flip_window_ids:
+                aligned = aligned.loc[aligned.index.isin(flip_window_ids)]
+            n_dm = int(aligned.shape[0])
+            if n_dm >= 2:
+                dm_stat_flip, dm_p_flip = dm_test(
+                    aligned["overlay"].to_numpy(),
+                    aligned[comparator].to_numpy(),
+                )
+            else:
+                dm_stat_flip, dm_p_flip = float("nan"), float("nan")
+            flip_records.append(
+                {
+                    "portfolio": portfolio,
+                    "baseline": comparator,
+                    "test": "dm",
+                    "stat": float(dm_stat_flip),
+                    "p_value": float(dm_p_flip),
+                    "n_effective": n_dm,
+                }
+            )
+            sign_stat, sign_p, sign_n = _sign_test_stat(aligned, comparator)
+            flip_records.append(
+                {
+                    "portfolio": portfolio,
+                    "baseline": comparator,
+                    "test": "sign",
+                    "stat": sign_stat,
+                    "p_value": sign_p,
+                    "n_effective": sign_n,
+                }
+            )
+    flip_df = pd.DataFrame(
+        flip_records,
+        columns=["portfolio", "baseline", "test", "stat", "p_value", "n_effective"],
+    )
+    flip_df.to_csv(flip_dm_path, index=False)
+    if plt is not None and not flip_df.empty:
+        fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+        for ax, test_name, title in zip(
+            axes,
+            ("dm", "sign"),
+            ("Flip-set DM statistic", "Flip-set sign statistic"),
+        ):
+            subset = flip_df[flip_df["test"] == test_name]
+            if subset.empty:
+                ax.axis("off")
+                continue
+            pivot = subset.pivot(
+                index="portfolio", columns="baseline", values="stat"
+            ).fillna(0.0)
+            pivot = pivot.reindex(index=["ew", "mv"])
+            pivot.plot(kind="bar", ax=ax, rot=0)
+            ax.set_title(title)
+            ax.set_ylabel("stat")
+            ax.axhline(0.0, color="black", linewidth=0.8)
+            ax.grid(True, axis="y", alpha=0.3)
+        fig.tight_layout()
+        flip_plot_path = out_dir / "flip_dm.png"
+        fig.savefig(flip_plot_path, dpi=200)
+        plt.close(fig)
+        outputs_plots["flip_dm"] = flip_plot_path
+
     plot_paths = _paths_to_strings(outputs_plots)
     if extra_plots:
-        plot_paths.update({f"hist_{name}": str(path) for name, path in extra_plots.items()})
+        plot_paths.update(
+            {f"hist_{name}": str(path) for name, path in extra_plots.items()}
+        )
     run_metadata = {
         "git_sha": _current_git_sha(),
         "out_dir": str(out_dir),
@@ -2832,21 +3297,24 @@ def run_evaluation(
             "thread_caps": runtime.thread_caps_snapshot(),
         },
         "use_factor_prewhiten": bool(config.use_factor_prewhiten),
-        "factors": {
-            "key": factor_entry.key,
-            "path": str(factor_entry.path),
-            "sha256": factor_entry.sha256,
-            "start_date": factor_entry.start_date,
-            "end_date": factor_entry.end_date,
-            "source": factor_entry.source,
-            "note": factor_entry.note,
-        }
-        if factor_entry is not None
-        else None,
+        "factors": (
+            {
+                "key": factor_entry.key,
+                "path": str(factor_entry.path),
+                "sha256": factor_entry.sha256,
+                "start_date": factor_entry.start_date,
+                "end_date": factor_entry.end_date,
+                "source": factor_entry.source,
+                "note": factor_entry.note,
+            }
+            if factor_entry is not None
+            else None
+        ),
         "outputs": {
             "metrics": _paths_to_strings(outputs_metrics),
             "risk": _paths_to_strings(outputs_risk),
             "dm": _paths_to_strings(outputs_dm),
+            "dm_flip_only": str(flip_dm_path),
             "diagnostics": _paths_to_strings(outputs_diag),
             "diagnostics_detail": _paths_to_strings(outputs_diag_detail),
             "plots": plot_paths,

@@ -1,3 +1,22 @@
+## 2025-11-13T04:05Z — vol acceptance tuning + paired AWS runs (feat/vol-acceptance-prewhiten@HEAD)
+- **Data**: `data/returns_daily.csv` (`sha256=96ac7dd318245cf1a8b434bb358a9344bf282992fc9fe66f0282023696563197`) + `data/factors/ff5mom_daily.csv` (`sha256=469d44ad0c5cac556c60c1f258e14245acfcc9f2901ad443f41b64309bf908ca`); both re‑verified via `python tools/verify_dataset.py …`.
+- **Local commands**:
+  1. `python tools/verify_dataset.py data/returns_daily.csv --registry data/registry.json`
+  2. `python tools/verify_dataset.py data/factors/ff5mom_daily.csv --registry data/factors/registry.json`
+  3. `make test-fast` (unit suite: 65 pass / 140 deselected).
+  4. `INSTANCE_DNS=… KEY_PATH=… make aws:rc-vol AWS_ARGS='USE_FACTORS=0 EXEC_MODE=deterministic RC_PROGRESS=1 RC_GATE_DELTA_FRAC_MIN=0.015 RC_VOL_MIN_REPS=10 RC_VOL_GROUP_REPS=6 Q_MAX_VOL=2 RC_VOL_ASSETS=80'`
+  5. `INSTANCE_DNS=… KEY_PATH=… make aws:rc-vol AWS_ARGS='USE_FACTORS=1 EXEC_MODE=deterministic RC_PROGRESS=1 RC_GATE_DELTA_FRAC_MIN=0.015 RC_VOL_MIN_REPS=10 RC_VOL_GROUP_REPS=6 Q_MAX_VOL=2 RC_VOL_ASSETS=80'`
+  6. `python tools/prewhiten_effect.py --off reports/rc-20251113/vol-off --on reports/rc-20251113/vol-ff5mom --mirror`
+  7. `make gallery` and `make memo`
+- **Artifacts**:
+  - Run metadata: `reports/runs/20251112T232711Z/` (vol-off) and `reports/runs/20251113T014417Z/` (vol-ff5mom) with `make_*.log`, telemetry (`metrics*.json[ln]`), `run.json`, etc.
+  - Bounded RC outputs (top‑80, 126×21) under `reports/rc-20251113/{vol-off,vol-ff5mom}/` including `metrics.csv`, `risk.csv`, `diagnostics.csv`, `dm.csv`, `dm_flip_only.csv`, `flip_dm.png`, and mirrored `prewhiten_effect.csv`.
+  - Manifest + doc updates: `reports/rc-20251113/run_manifest.json`, refreshed `reports/memo.md` + timestamped `reports/memo_20251113_040459.md`, README/REPORT sections describing the new knobs + reporting stack.
+- **Results**:
+  - Acceptance (full regime) landed inside the 2–6 % band: off run `acceptance_rate=2.38 %`, FF5+MOM `acceptance_rate=2.26 %` with substitution fractions ≈1.6 % and ≈1.5 % respectively on the top‑80 universe (`reports/rc-20251113/*/full/diagnostics.csv`).
+  - Flip-set telemetry: `reports/rc-20251113/vol-off/dm_flip_only.csv` shows `n_effective=110` (stats are NaN because residuals match baseline), while the prewhitened run logs `n_effective=117` with sign-test stats (`ew vs baseline`: z≈5.57, p≈9.3e‑10; `mv vs baseline`: z≈3.36, p≈9.8e‑4).
+  - `reports/rc-20251113/vol-ff5mom/prewhiten_effect.csv` summarises the paired deltas: detection_rate +3.6 bps, ΔMSE(EW)=+4.1e‑11, ΔMSE(MV)=‑3.0e‑12, ES95 errors tighten by ≈0.88 bps, and the sign-test p‑values above confirm the flip-set improvement.
+
 ## 2025-11-12T10:10Z — prewhiten RC-lite + coverage lift (feat/prewhiten-coverage@baa1a4b)
 - **Data**: `data/returns_daily.csv` (`sha256=96ac7dd318245cf1a8b434bb358a9344bf282992fc9fe66f0282023696563197`) + `data/factors/ff5mom_daily.csv` (`sha256=469d44ad0c5cac556c60c1f258e14245acfcc9f2901ad443f41b64309bf908ca`), revalidated via `tools/verify_dataset.py` before every AWS dispatch.
 - **Commands**:

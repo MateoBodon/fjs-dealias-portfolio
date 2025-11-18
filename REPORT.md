@@ -1,3 +1,14 @@
+## 2025-11-13T04:05Z
+- **Step**: Executed the deterministic AWS pair for vol-state (top‑80, 126×21) with the new gating knobs, captured flip-set deltas, and published manifests + docs.
+- **Decisions**: `rc-vol` defaults to `--allow-non-isolated` plus the q≥2 alignment guard (`VOL_Q2_ALIGNMENT_MIN_COS=0.9`), so we ran one pass with `USE_FACTORS=0` (`run_id=20251112T232711Z`) and one with `USE_FACTORS=1` (`run_id=20251113T014417Z`) using the exact command strings recorded in `reports/runs/<RUN_ID>/run.json`. Outputs were copied into `reports/rc-20251113/{vol-off,vol-ff5mom}/` and summarised via the new `prewhiten_effect.py`.
+- **Checks**: `python tools/verify_dataset.py …` for both returns and factors, `make test-fast`, `make gallery`, `make memo`, plus manual inspection of `reports/runs/20251112T232711Z/metrics_summary.json` and `reports/runs/20251113T014417Z/metrics_summary.json` to ensure telemetry captured steady CPU/RSS and deterministic thread caps.
+- **Highlights**:
+  - Acceptance sits in-band: `reports/rc-20251113/vol-off/full/diagnostics.csv` shows `acceptance_rate=0.0238` (2.38 %) and `percent_changed=12.4 %`; `vol-ff5mom` lands at `acceptance_rate=0.0226` with `percent_changed=13.2 %`.
+  - Flip-set files (`reports/rc-20251113/*/dm_flip_only.csv`) carry nontrivial coverage (`n_effective`≈110–117). The FF5+MOM run yields significant sign-test wins (EW vs baseline: z≈5.57, p≈9.3e‑10; MV vs baseline: z≈3.36, p≈9.8e‑4) while the off run remains neutral (stats = NaN but `n_effective=110`).
+  - `reports/rc-20251113/vol-ff5mom/prewhiten_effect.csv` quantifies the paired delta: detection_rate +3.6 bps, ΔMSE(EW)=+4.1×10⁻¹¹, ΔMSE(MV)=−3.0×10⁻¹², ES95 errors tighten by ≈0.88 bps, and the sign-test p-values above corroborate the flip-set improvement.
+  - Run manifest + provenance live in `reports/rc-20251113/run_manifest.json`, and the AWS logs (`reports/runs/20251112T232711Z/`, `reports/runs/20251113T014417Z/`) capture the exact commands, git SHA (`372d9d1cf4fe…`), dataset hashes, and telemetry for audit.
+- **Next Actions**: None pending for this ticket; future tuning can explore softer δ-frac sweeps or factor toggles now that the reporting/artifact plumbing is in place.
+
 ## 2025-11-02T06:01Z
 - **Step**: Implemented observed-factor prewhitening utilities with FF5/MKT fallback loader and regression residual outputs.
 - **Decisions**: Normalised factor files via alias map and scaled percent inputs; fell back to equal-weight MKT proxy when datasets missing; exposed betas/intercepts/R² via `PrewhitenResult`.
@@ -83,4 +94,3 @@
 - **Decisions**: Emit `roc_null.png`/`roc_power.png` + `calibration_defaults.json`, record `edge_tyler`, `edge_band_min/max`, gating/mv condition flags per window, and expose make targets (`env`, `run:equity_smoke`, `sweep:acceptance`) used by the smoke workflow.
 - **Checks**: `make sweep:acceptance`, `make run:equity_smoke`, `make memo`, `make test`.
 - **Next Actions**: Tidy README sections on calibration sweep, monitor CI smoke runtime, and iterate on acceptance thresholds as WRDS data shifts.
-

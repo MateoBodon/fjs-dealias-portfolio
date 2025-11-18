@@ -1,0 +1,17 @@
+{
+  "samples": 1623,
+  "cpu_process_avg": 0.0,
+  "cpu_process_peak": 0.0,
+  "memory_rss_avg_mb": 265.48014623767716,
+  "memory_rss_peak_mb": 270.47265625,
+  "memory_uss_avg_mb": 256.7612734904498,
+  "memory_uss_peak_mb": 261.359375,
+  "io_read_total_mb": 0.0,
+  "io_write_total_mb": 0.015625,
+  "command": "make rc-vol USE_FACTORS=0 EXEC_MODE=deterministic RC_PROGRESS=1 RC_GATE_DELTA_FRAC_MIN=0.015 RC_VOL_MIN_REPS=10 RC_VOL_GROUP_REPS=6 Q_MAX_VOL=2 RC_VOL_ASSETS=80",
+  "start_utc": "2025-11-12T23:27:16.054506+00:00",
+  "end_utc": "2025-11-13T01:43:49.417636+00:00",
+  "duration_seconds": 8193.36311674118,
+  "return_code": 0,
+  "tag": ""
+}

@@ -7,11 +7,11 @@ Robust variance forecasting over balanced equity panels, with tooling to explore
 ## Current Status — 2025-11-12
 
 - **Prewhitening end-to-end**: `experiments/eval/run.py` and the equity-panel runner now accept `--prewhiten {off,ff5,ff5mom,custom}` plus `--factor-csv/--use-factor-prewhiten` and persist `prewhiten_diagnostics.csv` + `prewhiten_summary.json` (R², betas, intercepts) for every run. `tests/test_equity_prewhiten.py` covers the telemetry wiring and a tiny WRDS slice smoke.
-- **RC-lite (WRDS, deterministic)**: `reports/rc-20251112/` captures the latest DoW + vol-state evaluations fed by real CRSP returns (`sha256=96ac7dd3…3197`) and FF5+MOM factors (`sha256=469d44ad…908ca`). DoW gating now sits at ~3.7% detection coverage with q≤2 substitutions, while the vol-state path is unlocking ≈0.4% coverage after relaxing replicate requirements (still flagged as work-in-progress in `PROGRESS.md`). Each design directory includes diagnostics/metrics/DM CSVs, `prewhiten_*` artefacts, gallery plots, `run_manifest.json`, and `metrics_summary.json`.
+- **RC-lite (WRDS, deterministic)**: `reports/rc-20251113/` captures the latest DoW + vol-state evaluations fed by real CRSP returns (`sha256=96ac7dd3…3197`) and FF5+MOM factors (`sha256=469d44ad…908ca`). DoW gating still sits at ~3.7 % detection coverage with q≤2 substitutions, while the vol-state path (top‑80, 126×21) now lives inside the 2–6 % acceptance band (≈2.3 % with FF5+MOM on/off) thanks to the relaxed replicate/delta knobs. Each design directory includes diagnostics/metrics/DM CSVs, `prewhiten_*` artefacts, gallery plots, `run_manifest.json`, and `metrics_summary.json`.
 - **Docs & briefs**: `README.md` reflects the prewhitening status + RC path, `reports/memo.md` / `reports/brief.md` were regenerated on 2025-11-12, and the AWS specifics moved to `docs/CLOUD.md` so the README only carries the generic workflow.
 - **Next milestones**: close the remaining vol-state coverage gap (target 2–6%), refresh calibration defaults once the queued AWS sweep lands, fold the new run manifest into advisor reporting, and keep `AGENTS.md` aligned with the gating experiments.
 
-Data footprint (local): WRDS snapshots under `data/wrds/*.parquet`, the stitched RC drop under `reports/rc-20251112/`, and generated figures under `figures/` (gitignored).
+Data footprint (local): WRDS snapshots under `data/wrds/*.parquet`, the stitched RC drop under `reports/rc-20251113/`, and generated figures under `figures/` (gitignored).
 
 ---
 
@@ -315,9 +315,9 @@ Figures live under `figures/rc/20251104/` (generate via `make gallery`); rerun `
 
   ```bash
   python tools/prewhiten_effect.py \
-      --off reports/rc-20251112/vol-off \
-      --on reports/rc-20251112/vol-ff5mom \
-      --out reports/rc-20251112/vol-ff5mom/prewhiten_effect.csv \
+      --off reports/rc-20251113/vol-off \
+      --on reports/rc-20251113/vol-ff5mom \
+      --out reports/rc-20251113/vol-ff5mom/prewhiten_effect.csv \
       --mirror
   ```
 

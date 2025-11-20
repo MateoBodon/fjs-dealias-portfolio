@@ -76,6 +76,7 @@ from evaluation.dm import dm_test
 from evaluation.evaluate import alignment_diagnostics
 from evaluation.factor import observed_factor_covariance, poet_lite_covariance
 from finance import MinVarMemo, minvar_ridge_box, turnover
+from finance.portfolio import _project_box_sum
 from fjs.overlay import OverlayConfig, apply_overlay, detect_spikes
 from meta import runtime
 
@@ -1208,17 +1209,37 @@ def _build_grouped_window(
 def _min_variance_weights(
     covariance: np.ndarray,
     *,
-    ridge: float,
-    box: tuple[float, float],
-    cache: MinVarMemo | None,
-) -> tuple[np.ndarray, dict[str, float | int | bool]]:
+    ridge: float | None = None,
+    box: tuple[float, float] = (0.0, 1.0),
+    cache: MinVarMemo | None = None,
+    gamma: float | None = None,
+    tau: float = 0.0,
+    prev_weights: np.ndarray | None = None,
+) -> tuple[np.ndarray, dict[str, float | int | bool]] | np.ndarray:
+    return_info = cache is not None  # callers providing a cache expect metadata
+    effective_ridge = max(float(ridge) if ridge is not None else float(gamma or 0.0), 0.0)
     weights, info = minvar_ridge_box(
         covariance,
-        ridge=max(float(ridge), 0.0),
+        ridge=effective_ridge,
         box=box,
         cache=cache,
     )
-    return weights, info
+    if tau > 0.0 and prev_weights is not None:
+        prev = np.asarray(prev_weights, dtype=np.float64).reshape(-1)
+        if prev.size == weights.size:
+            blend = max(min(float(tau), 1.0), 0.0)
+            blended = (1.0 - blend) * weights + blend * prev
+            try:
+                # Re-project to the feasible simplex after blending toward prior weights
+                weights = _project_box_sum(blended, box[0], box[1], 1.0)
+            except Exception:
+                # Fallback: renormalize without projection if bounds are tight
+                total = blended.sum()
+                if total > 0:
+                    weights = blended / total
+            info["turnover_penalty_applied"] = True
+    info.setdefault("turnover_penalty_applied", False)
+    return (weights, info) if return_info else weights
 
 
 def _expected_shortfall(sigma: float, alpha: float = 0.05) -> float:
@@ -2754,7 +2775,12 @@ def run_evaluation(
     if bootstrap_samples > 0:
         for regime_key in _REGIMES:
             for portfolio in ("ew", "mv"):
-                aligned_table = _aligned_error_table(metrics_df, regime_key, portfolio)
+                aligned_table = _aligned_error_table(
+                    metrics_df,
+                    regime_key,
+                    portfolio,
+                    column="sq_error",
+                )
                 if aligned_table.empty:
                     continue
                 diffs = (

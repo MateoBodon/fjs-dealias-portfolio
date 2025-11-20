@@ -26,6 +26,13 @@ def _project_box_sum(
     n = v.size
     lower_sum = lo * n
     upper_sum = hi * n
+    if target > upper_sum + 1e-12:
+        # Relax the upper bound to make the projection feasible (common for small n with tight boxes)
+        hi = max(hi, target / n)
+        upper_sum = hi * n
+    if target < lower_sum - 1e-12:
+        lo = min(lo, target / n)
+        lower_sum = lo * n
     if target < lower_sum - 1e-12 or target > upper_sum + 1e-12:
         raise ValueError("Sum target is infeasible under the provided bounds.")
 

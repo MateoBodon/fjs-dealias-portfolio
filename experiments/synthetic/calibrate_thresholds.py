@@ -558,6 +558,12 @@ def main(argv: Sequence[str] | None = None) -> Path:
         replicate_values = [int(defaults.replicates)]
 
     out_path = args.out.expanduser().resolve()
+    existing_payload: dict[str, object] | None = None
+    if args.resume and out_path.exists():
+        try:
+            existing_payload = json.loads(out_path.read_text(encoding="utf-8"))
+        except Exception:
+            existing_payload = None
     planned_jobs = build_planned_jobs(
         [int(val) for val in args.p_assets],
         [int(val) for val in args.n_groups],
@@ -687,7 +693,7 @@ def main(argv: Sequence[str] | None = None) -> Path:
 
     payload = {
         "alpha": float(args.alpha),
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": existing_payload.get("generated_at") if existing_payload else datetime.now(timezone.utc).isoformat(),
         "trials_null": int(args.trials_null),
         "trials_alt": int(args.trials_alt),
         "run_id": run_id,

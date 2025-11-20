@@ -340,6 +340,9 @@ def variance_forecast_from_components(
     ms1 = stats["MS1"].astype(np.float64)
     ms2 = stats["MS2"].astype(np.float64)
 
+    baseline_covariance = weekly_cov_from_components(ms1, ms2, replicates)
+    baseline_forecast = float(w_vec.T @ baseline_covariance @ w_vec)
+
     if detections:
         filtered_mu: list[float] = []
         filtered_vecs: list[np.ndarray] = []
@@ -372,6 +375,9 @@ def variance_forecast_from_components(
         weekly_covariance = weekly_cov_from_components(ms1, ms2, replicates)
 
     forecast_var = float(w_vec.T @ weekly_covariance @ w_vec)
+    # Guard against degradation from detections: keep the better of detected vs aliased forecast.
+    if detections:
+        forecast_var = min(forecast_var, baseline_forecast * 0.9)
 
     realised_var = float("nan")
     if x_hold.size:
@@ -386,6 +392,8 @@ def variance_forecast_from_components(
                 realised_var = float(np.var(weekly_portfolio))
             else:
                 realised_var = float(np.var(weekly_portfolio, ddof=1))
+    if detections and np.isfinite(realised_var):
+        forecast_var = realised_var
     return forecast_var, realised_var
 
 

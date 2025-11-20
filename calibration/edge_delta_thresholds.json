@@ -95,7 +95,37 @@
       }
     },
     "tyler": {
+      "80x36": {
+        "fpr": 0.0,
+        "delta": 0.35,
+        "delta_frac": 0.01
+      },
       "G36": {
+        "12-16": {
+          "64-96": {
+            "delta": 0.35,
+            "delta_frac": 0.01,
+            "stability_eta_deg": 0.3,
+            "fpr": 0.0,
+            "power": 1.0,
+            "trials_null": 300,
+            "trials_alt": 200,
+            "replicates": 14,
+            "replicates_bin": "12-16",
+            "replicates_bin_bounds": [
+              12.0,
+              16.0
+            ],
+            "p_assets": 64,
+            "p_bin": "64-96",
+            "p_bin_bounds": [
+              64.0,
+              96.0
+            ],
+            "n_groups": 36,
+            "seed": 1
+          }
+        },
         "r12-16": {
           "p64-96": {
             "delta": 0.35,
@@ -113,6 +143,31 @@
             ],
             "p_assets": 64,
             "p_bin": "p64-96",
+            "p_bin_bounds": [
+              64.0,
+              96.0
+            ],
+            "n_groups": 36,
+            "seed": 1
+          }
+        },
+        "17-22": {
+          "64-96": {
+            "delta": 0.35,
+            "delta_frac": 0.01,
+            "stability_eta_deg": 0.3,
+            "fpr": 0.0,
+            "power": 1.0,
+            "trials_null": 300,
+            "trials_alt": 200,
+            "replicates": 20,
+            "replicates_bin": "17-22",
+            "replicates_bin_bounds": [
+              17.0,
+              22.0
+            ],
+            "p_assets": 64,
+            "p_bin": "64-96",
             "p_bin_bounds": [
               64.0,
               96.0

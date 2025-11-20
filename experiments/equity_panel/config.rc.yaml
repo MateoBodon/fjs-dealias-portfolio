@@ -9,3 +9,5 @@ runs:
     pattern: "*"
   - root: experiments/equity_panel/outputs_crisis_2022
     pattern: "*"
+  - root: experiments/equity_panel/outputs_ablation_smoke
+    pattern: "*"

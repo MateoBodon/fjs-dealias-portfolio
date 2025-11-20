@@ -105,7 +105,7 @@ RC_MV_GAMMA ?= 1e-4
 RC_MV_BOX ?= 0.0,0.1
 RC_MV_TURNOVER_BPS ?= 5
 RC_MV_CONDITION_CAP ?= 1000000
-ABLA_GRID ?= experiments/ablate/ablation_matrix.yaml
+ABLA_GRID ?= experiments/ablate/ablation_matrix_tiny.yaml
 RC_CALM_WINDOW_SAMPLE ?=
 RC_CRISIS_WINDOW_TOPK ?=
 
@@ -144,6 +144,7 @@ rc-eval:
 	$(RC_PY) experiments/eval/run.py --returns-csv $(RC_RETURNS) --factors-csv $(RC_FACTORS) --prewhiten $(RC_PREWHITEN) --use-factor-prewhiten $(RC_USE_FACTOR_PREWHITEN) --overlay-delta $(RC_OVERLAY_DELTA) --coarse-candidate $(RC_COARSE_CANDIDATE) --gate-mode $(RC_GATE_MODE) $(if $(RC_GATE_ACCEPT_NONISOLATED),--gate-accept-nonisolated,) $(if $(RC_GATE_STABILITY_MIN),--gate-stability-min $(RC_GATE_STABILITY_MIN),) --out $(RC_OUT)
 
 rc-ablations:
+	$(RC_PY) experiments/equity_panel/run.py --config experiments/equity_panel/config.ablation.smoke.yaml $(RC_FLAGS) --estimator dealias --ablations
 	$(RC_PY) experiments/ablate/run.py --config $(ABLA_GRID) $(if $(RC_CALM_WINDOW_SAMPLE),--calm-window-sample $(RC_CALM_WINDOW_SAMPLE),) $(if $(RC_CRISIS_WINDOW_TOPK),--crisis-window-topk $(RC_CRISIS_WINDOW_TOPK),)
 
 rc-summary:

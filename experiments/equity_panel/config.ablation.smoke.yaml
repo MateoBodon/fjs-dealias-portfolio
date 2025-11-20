@@ -1,7 +1,7 @@
 data_path: "data/returns_daily.csv"
-start_date: "2022-01-03"
-end_date: "2022-02-18"
-window_weeks: 6
+start_date: "2023-01-03"
+end_date: "2023-02-10"
+window_weeks: 4
 horizon_weeks: 1
 output_dir: "experiments/equity_panel/outputs_ablation_smoke"
 dealias_delta: 0.0
@@ -15,6 +15,8 @@ off_component_leak_cap: 10.0
 energy_min_abs: 0.000001
 partial_week_policy: "drop"
 a_grid: 144
+edge_mode: "tyler"
+ablations: true
 gallery:
   name: rc
 ablation_grid:

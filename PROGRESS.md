@@ -103,3 +103,11 @@
   - Gallery: `figures/rc/**` (new tables/plots incorporate `prewhiten_*` columns).
   - Memo/brief refreshed under `reports/{memo.md,brief.md}` plus timestamped copies.
 - **Notes**: First full rc-lite after ingesting the 20251110 calibration defaults. No runtime errors; diagnostics now show factor baselines + updated Δ thresholds. Ready to mirror on AWS (`make aws:rc-lite`) if we want cloud telemetry.
+
+## 2025-11-20T23:43Z — Nested gating tweak + ablation plumbing (68c1c6d)
+- **Data**: WRDS daily returns `data/returns_daily.csv` and factors `data/factors/ff5mom_daily.csv` (hashes unchanged).
+- **Commands**: 
+  - `.venv` bootstrap (`python3 -m venv .venv && pip install -e .[dev]`), `make test-fast` (65 passed).
+  - Nested smoke reruns: `PYTHONPATH=src OMP_NUM_THREADS=1 python experiments/equity_panel/run.py --config experiments/equity_panel/config.nested.smoke.yaml --no-progress --exec-mode deterministic --factor-csv data/factors/ff5mom_daily.csv --prewhiten ff5mom --use-factor-prewhiten 1 --estimator dealias` (multiple passes after gating relax/threshold tweaks).
+  - Ablation attempts: `make rc-ablations` and `python experiments/ablate/run.py --config experiments/ablate/ablation_matrix_tiny.yaml` (timed out on this host after ≥10 min per attempt; no new ablation artifacts written yet).
+- **Results/Notes**: Nested gating now records non-isolated fallback telemetry and is enabled via config, but the current nested smoke still reports 0/24 detection windows (no candidates emitted by `dealias_search`). Ablation grid defaults switched to the tiny matrix and hooked into `rc-ablations`, but runs remain long locally; expect faster completion on Hetzner once queued. No changes to calibration files. Next steps: run ablate tiny matrix on Hetzner or further shrink window/asset subset; investigate why nested detection remains zero despite relaxed stability/delta and non-isolated fallback.

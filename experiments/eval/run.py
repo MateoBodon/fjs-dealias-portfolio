@@ -1518,7 +1518,7 @@ def run_evaluation(
             "source": factor_entry.source,
             "note": factor_entry.note,
         }
-    resolved_path.write_text(json.dumps(resolved_payload, indent=2, sort_keys=True))
+    resolved_path.write_text(json.dumps(resolved_payload, indent=2, sort_keys=True, default=str))
     resolved_path_str = str(resolved_path)
 
     overlay_cfg = OverlayConfig(

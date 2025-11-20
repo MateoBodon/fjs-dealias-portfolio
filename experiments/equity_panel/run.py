@@ -1371,6 +1371,21 @@ def _run_single_period(
     if gating_q_max < 0:
         gating_q_max = 0
     gating_require_isolated = bool(gating_cfg.get("require_isolated", True))
+    nested_allow_nonisolated = bool(gating_cfg.get("allow_nonisolated_nested", False))
+    try:
+        nested_noniso_q_max = int(gating_cfg.get("nonisolated_q_max", 1))
+    except (TypeError, ValueError):
+        nested_noniso_q_max = 1
+    if nested_noniso_q_max < 1:
+        nested_noniso_q_max = 1
+    try:
+        nested_noniso_stability_min = float(gating_cfg.get("nonisolated_stability_min", 0.5))
+    except (TypeError, ValueError):
+        nested_noniso_stability_min = 0.5
+    try:
+        nested_noniso_edge_min = float(gating_cfg.get("nonisolated_edge_min", 0.0))
+    except (TypeError, ValueError):
+        nested_noniso_edge_min = 0.0
     gating_skip_reasons: dict[str, int] = {}
     gating_discard_log: list[dict[str, Any]] = []
     delta_usage_records: list[dict[str, Any]] = []
@@ -1692,17 +1707,51 @@ def _run_single_period(
         gate_discard_detail: list[dict[str, float]] = []
         isolated_count_raw = count_isolated_outliers(detections, None, None)
 
+        nonisolated_fallback_used = False
         if gating_enabled and detections:
             candidate_pool: list[dict[str, Any]] = [
                 det for det in detections if isinstance(det, dict)
             ]
             if gating_require_isolated:
                 if isolated_count_raw == 0:
-                    window_skip_reason = "no_isolated_spike"
-                    gating_skip_reasons[window_skip_reason] = (
-                        gating_skip_reasons.get(window_skip_reason, 0) + 1
-                    )
-                    candidate_pool = []
+                    if design_mode == "nested" and nested_allow_nonisolated:
+                        filtered_pool: list[dict[str, Any]] = []
+                        for det in candidate_pool:
+                            try:
+                                stability_val = float(det.get("stability_margin", 0.0))
+                            except (TypeError, ValueError):
+                                stability_val = 0.0
+                            try:
+                                edge_val = float(det.get("edge_margin", 0.0))
+                            except (TypeError, ValueError):
+                                edge_val = 0.0
+                            if (
+                                np.isfinite(stability_val)
+                                and stability_val >= nested_noniso_stability_min
+                                and np.isfinite(edge_val)
+                                and edge_val >= nested_noniso_edge_min
+                            ):
+                                filtered_pool.append(det)
+                        if filtered_pool:
+                            nonisolated_fallback_used = True
+                            candidate_pool = sorted(
+                                filtered_pool,
+                                key=lambda det: float(det.get("stability_margin", 0.0)),
+                                reverse=True,
+                            )
+                            candidate_pool = candidate_pool[: nested_noniso_q_max]
+                        else:
+                            window_skip_reason = "no_isolated_spike"
+                            gating_skip_reasons[window_skip_reason] = (
+                                gating_skip_reasons.get(window_skip_reason, 0) + 1
+                            )
+                            candidate_pool = []
+                    else:
+                        window_skip_reason = "no_isolated_spike"
+                        gating_skip_reasons[window_skip_reason] = (
+                            gating_skip_reasons.get(window_skip_reason, 0) + 1
+                        )
+                        candidate_pool = []
                 else:
                     filtered_pool: list[dict[str, Any]] = []
                     for det in candidate_pool:
@@ -1873,6 +1922,7 @@ def _run_single_period(
             "n_detections": len(detections),
             "skip_reason": window_skip_reason or "",
             "isolated_spikes": int(isolated_count_raw),
+            "nested_nonisolated_fallback": bool(nonisolated_fallback_used),
             "gate_discarded_count": len(gate_discard_detail),
             "edge_mode": edge_mode_cfg,
             "gating_mode": gating_mode_value,
@@ -2530,6 +2580,7 @@ def _run_single_period(
                 "isolated_spikes",
                 "gate_discarded_count",
                 "gate_discarded",
+                "nested_nonisolated_fallback",
                 "edge_mode",
                 "gating_mode",
                 "edge_scale",
@@ -2749,6 +2800,20 @@ def _run_single_period(
             )
         ]
         gating_summary["skip_windows"] = int(sum(gating_skip_reasons.values()))
+    if design_mode == "nested" and "nested_nonisolated_fallback" in results_df.columns:
+        try:
+            fallback_count = int(
+                pd.to_numeric(
+                    results_df["nested_nonisolated_fallback"], errors="coerce"
+                )
+                .fillna(0)
+                .astype(int)
+                .sum()
+            )
+        except Exception:
+            fallback_count = 0
+        if fallback_count:
+            gating_summary["nested_nonisolated_fallback"] = fallback_count
     if gating_discard_log:
         total_discarded = sum(len(entry.get("discarded", [])) for entry in gating_discard_log)
         gating_summary["discarded_total"] = int(total_discarded)

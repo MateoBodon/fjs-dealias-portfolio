@@ -111,3 +111,16 @@
   - Nested smoke reruns: `PYTHONPATH=src OMP_NUM_THREADS=1 python experiments/equity_panel/run.py --config experiments/equity_panel/config.nested.smoke.yaml --no-progress --exec-mode deterministic --factor-csv data/factors/ff5mom_daily.csv --prewhiten ff5mom --use-factor-prewhiten 1 --estimator dealias` (multiple passes after gating relax/threshold tweaks).
   - Ablation attempts: `make rc-ablations` and `python experiments/ablate/run.py --config experiments/ablate/ablation_matrix_tiny.yaml` (timed out on this host after ≥10 min per attempt; no new ablation artifacts written yet).
 - **Results/Notes**: Nested gating now records non-isolated fallback telemetry and is enabled via config, but the current nested smoke still reports 0/24 detection windows (no candidates emitted by `dealias_search`). Ablation grid defaults switched to the tiny matrix and hooked into `rc-ablations`, but runs remain long locally; expect faster completion on Hetzner once queued. No changes to calibration files. Next steps: run ablate tiny matrix on Hetzner or further shrink window/asset subset; investigate why nested detection remains zero despite relaxed stability/delta and non-isolated fallback.
+
+## 2025-11-21T02:10Z — Hetzner ablations + nested coverage unlocked (d1b39ed)
+- **Data**: Same WRDS returns/factors as prior entries.
+- **Commands**:
+  - Nested smoke (throughput): `PYTHONPATH=src OMP_NUM_THREADS=4 EXEC_MODE=throughput python experiments/equity_panel/run.py --config experiments/equity_panel/config.nested.smoke.yaml --no-progress --exec-mode throughput --factor-csv data/factors/ff5mom_daily.csv --prewhiten ff5mom --use-factor-prewhiten 1 --estimator dealias`.
+  - Ablation matrix (tiny grid): `EXEC_MODE=throughput python experiments/ablate/run.py --config experiments/ablate/ablation_matrix_tiny.yaml`.
+  - Fast E5 ablation drop (direct call to _run_param_ablation): inline Python snippet loading `data/returns_daily.csv` (2023-01-03→2023-02-10) and writing `experiments/equity_panel/outputs_ablation_smoke/ablation_summary.csv`.
+  - Gallery/memo refresh: `python tools/build_gallery.py --config experiments/equity_panel/config.rc.yaml`; `python tools/build_memo.py --config experiments/equity_panel/config.rc.yaml`.
+  - Tests: `.venv` active; `make test-fast` (65 passed).
+- **Results**:
+  - Nested smoke now logs 7/24 detection windows (29% coverage) with gating skips recorded; edge margin median ~0.023; non-isolated fallback not triggered; summary at `experiments/equity_panel/outputs_nested_smoke/.../summary.json`.
+  - Ablation artifacts: `ablations/ablation_matrix.csv` (4-combo tiny grid) and `experiments/equity_panel/outputs_ablation_smoke/ablation_summary.csv`; gallery/memo pick up the matrix (heatmap/table) and ablation summary directory.
+- **Notes**: Added `use_tvector` toggle (configurable, disabled for nested smoke and ablations) to bypass overly strict t-vector gating; relaxed nested thresholds (delta_frac 0.005, eps 0.01, eta 0.15, q_max 2, require_isolated=false). Equity-panel ablation runner still heavy when invoked via `rc-ablations`; direct `_run_param_ablation` was used to emit the E5 summary for this drop. Next: rerun the full `rc-ablations` target on Hetzner if time permits, or wire timeout/limit guards.

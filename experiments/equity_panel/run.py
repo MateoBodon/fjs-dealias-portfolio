@@ -120,6 +120,7 @@ DEFAULT_CONFIG = {
     "alignment_top_p": 3,
     "prewhiten": "off",
     "use_factor_prewhiten": True,
+    "use_tvector": True,
 }
 
 def _parse_box_bounds(bounds: Any) -> tuple[float, float]:
@@ -846,6 +847,7 @@ def _run_param_ablation(
     oneway_a_solver: str,
     preprocess_flags: Mapping[str, str] | None = None,
     grid_overrides: Mapping[str, Iterable[Any]] | None = None,
+    use_tvector: bool = True,
 ) -> None:
     """Grid sweep over detection parameters; emit CSV and heatmaps (E5).
 
@@ -956,6 +958,7 @@ def _run_param_ablation(
                         y_hold_daily = np.vstack(hold_blocks)
                         groups_fit = np.repeat(np.arange(len(fit_blocks)), replicates)
                         off_cap = off_component_leak_cap
+                        use_tvector_cfg = bool(use_tvector)
                         detections = dealias_search(
                             y_fit_daily,
                             groups_fit,
@@ -964,7 +967,7 @@ def _run_param_ablation(
                             delta_frac=df,
                             eps=eps,
                             stability_eta_deg=eta,
-                            use_tvector=True,
+                            use_tvector=use_tvector_cfg,
                             nonnegative_a=not signed_a,
                             a_grid=int(ag),
                             scan_basis="sigma",
@@ -1176,6 +1179,7 @@ def _run_single_period(
     alignment_top_p: int = 3,
     edge_mode: str = "scm",
     edge_huber_c: float = 1.5,
+    use_tvector: bool = True,
 ) -> None:
     """Execute the rolling evaluation for a single date range."""
 
@@ -1400,6 +1404,7 @@ def _run_single_period(
         alignment_top_p = 3
     nested_skip_reasons: dict[str, int] = {}
     nested_skip_detail_map: dict[str, dict[str, Any]] = {}
+    use_tvector_cfg = bool(use_tvector)
 
     baseline_name = "Equal Weight"
     baseline_alias_key = f"{baseline_name}::Aliased"
@@ -1684,7 +1689,7 @@ def _run_single_period(
             eps=eps,
             energy_min_abs=energy_min_abs,
             stability_eta_deg=stability_eta,
-            use_tvector=True,
+            use_tvector=use_tvector_cfg,
             nonnegative_a=not signed_a,
             a_grid=int(a_grid),
             cs_drop_top_frac=float(cs_drop_top_frac),
@@ -3341,6 +3346,7 @@ def run_experiment(
                 edge_mode=str(config.get("edge_mode", "scm")),
                 edge_huber_c=float(config.get("edge_huber_c", 1.5)),
                 prewhiten_meta=prewhiten_meta,
+                use_tvector=bool(config.get("use_tvector", True)),
             )
 
             try:
@@ -3385,6 +3391,7 @@ def run_experiment(
             oneway_a_solver=str(config["oneway_a_solver"]),
             preprocess_flags=preprocess_flags,
             grid_overrides=cast(Mapping[str, Iterable[Any]] | None, config.get("ablation_grid")),
+            use_tvector=bool(config.get("use_tvector", True)),
         )
 
 

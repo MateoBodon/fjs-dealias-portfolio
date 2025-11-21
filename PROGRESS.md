@@ -104,6 +104,20 @@
   - Memo/brief refreshed under `reports/{memo.md,brief.md}` plus timestamped copies.
 - **Notes**: First full rc-lite after ingesting the 20251110 calibration defaults. No runtime errors; diagnostics now show factor baselines + updated Δ thresholds. Ready to mirror on AWS (`make aws:rc-lite`) if we want cloud telemetry.
 
+## 2025-11-21T08:15Z — Nested guardrails + RC-lite refresh (a94ad00)
+- **Data**: WRDS `data/returns_daily.csv` + `data/factors/ff5mom_daily.csv` (registry hashes unchanged).
+- **Commands**:
+  - Nested smoke (throughput, tuned guard): `.venv/bin/python experiments/equity_panel/run.py --config experiments/equity_panel/config.nested.smoke.yaml --no-progress --workers 32 --assets-top 80 --stride-windows 4 --cache-dir .cache --precompute-panel --drop-partial-weeks --estimator dealias --prewhiten ff5mom --use-factor-prewhiten 1` (detection_rate=1/24).
+  - RC-lite (WRDS): `PATH=.venv/bin:$PATH RC_WORKERS=$(nproc) EXEC_MODE=throughput make rc-lite` followed by `make memo` to rebuild gallery/memos (latest: `reports/memo_20251121_081543.md`).
+  - Acceptance sweep: `PATH=.venv/bin:$PATH EXEC_MODE=throughput HARNESS_TRIALS=400 make sweep:acceptance` (calibration_defaults.json regenerated; ROC figs under `reports/figures/`).
+  - Ablations: `python experiments/ablate/run.py --config experiments/ablate/ablation_matrix_tiny.yaml` (assets_top=60, 2020–2021 slice) and `.venv/bin/python experiments/equity_panel/run.py --config experiments/equity_panel/config.ablation.smoke.yaml --no-progress --workers 8 --assets-top 60 --stride-windows 4 --cache-dir .cache --precompute-panel --drop-partial-weeks --estimator dealias --prewhiten ff5mom --use-factor-prewhiten 1 --ablations`.
+  - Tests: `PATH=.venv/bin:$PATH make test-fast` (65 passed).
+- **Results**:
+  - Nested coverage now in-band: `experiments/equity_panel/outputs_nested_smoke/.../summary.json` shows detection_windows=1/24 (4.17%) with `nested_guard` skips=5 after applying stability/edge floor of 3 bps.
+  - RC-lite artifacts refreshed in place (`figures/rc`, memo at `reports/memo_20251121_081543.md`); nested plots reflect the new guardrails.
+  - Synthetic acceptance defaults re-written (timestamp 2025-11-21T03:30Z) via sweep; thresholds unchanged numerically (delta_frac=0.02, eta=0.4, energy_floor≈0.1012).
+  - Ablation assets/regime aligned to RC (2020–2021 calm+crisis): updated grid in `experiments/ablate/ablation_matrix_tiny.yaml`, matrix at `ablations/ablation_matrix.csv`, and E5 summary at `experiments/equity_panel/outputs_ablation_smoke/oneway_J5.../ablation_summary.csv`.
+
 ## 2025-11-20T23:43Z — Nested gating tweak + ablation plumbing (68c1c6d)
 - **Data**: WRDS daily returns `data/returns_daily.csv` and factors `data/factors/ff5mom_daily.csv` (hashes unchanged).
 - **Commands**: 

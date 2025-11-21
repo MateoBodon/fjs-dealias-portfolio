@@ -1743,8 +1743,7 @@ def _run_single_period(
                                 filtered_pool,
                                 key=lambda det: float(det.get("stability_margin", 0.0)),
                                 reverse=True,
-                            )
-                            candidate_pool = candidate_pool[: nested_noniso_q_max]
+                            )[: nested_noniso_q_max]
                         else:
                             window_skip_reason = "no_isolated_spike"
                             gating_skip_reasons[window_skip_reason] = (
@@ -1768,6 +1767,39 @@ def _run_single_period(
                             filtered_pool.append(det)
                     if filtered_pool:
                         candidate_pool = filtered_pool
+            # Nested guardrails: even when non-isolated detections are allowed,
+            # keep only candidates with reasonable stability/edge margins.
+            if (
+                design_mode == "nested"
+                and nested_allow_nonisolated
+                and not window_skip_reason
+                and candidate_pool
+            ):
+                filtered_pool: list[dict[str, Any]] = []
+                for det in candidate_pool:
+                    try:
+                        stability_val = float(det.get("stability_margin", 0.0))
+                    except (TypeError, ValueError):
+                        stability_val = 0.0
+                    try:
+                        edge_val = float(det.get("edge_margin", 0.0))
+                    except (TypeError, ValueError):
+                        edge_val = 0.0
+                    if (
+                        np.isfinite(stability_val)
+                        and stability_val >= nested_noniso_stability_min
+                        and np.isfinite(edge_val)
+                        and edge_val >= nested_noniso_edge_min
+                    ):
+                        filtered_pool.append(det)
+                if filtered_pool:
+                    candidate_pool = filtered_pool
+                else:
+                    window_skip_reason = "nested_guard"
+                    gating_skip_reasons[window_skip_reason] = (
+                        gating_skip_reasons.get(window_skip_reason, 0) + 1
+                    )
+                    candidate_pool = []
             if candidate_pool and gating_q_max > 0 and len(candidate_pool) > gating_q_max:
                 selected, discarded = select_top_k(candidate_pool, gating_q_max)
                 candidate_pool = list(selected)
@@ -3240,11 +3272,13 @@ def run_experiment(
     except Exception:
         pass
 
+    start_ts = pd.to_datetime(config["start_date"])
+    end_ts = pd.to_datetime(config["end_date"])
     runs: list[dict[str, Any]] = [
         {
             "label": "full",
-            "start": config["start_date"],
-            "end": config["end_date"],
+            "start": start_ts,
+            "end": end_ts,
             "sigma_ablation": sigma_ablation,
             "crisis_label": None,
         }
@@ -3260,6 +3294,12 @@ def run_experiment(
         f"{design_value}_J{nested_reps_cfg}_solver-{solver_value}_est-{estimator_value}_prep-{preprocess_tag}"
     ).replace(" ", "-")
     ablation_only = bool(config.get("ablation_only", False))
+
+    if ablation_only and start_ts is not None and end_ts is not None:
+        try:
+            daily_returns = daily_returns.loc[start_ts:end_ts]
+        except Exception:
+            pass
 
     if crisis:
         try:

@@ -5,15 +5,15 @@ window_weeks: 60
 horizon_weeks: 1
 output_dir: "experiments/equity_panel/outputs_nested_smoke"
 dealias_delta: 0.0
-dealias_delta_frac: 0.005
+dealias_delta_frac: 0.012
 dealias_eps: 0.01
-stability_eta_deg: 0.15
+stability_eta_deg: 0.22
 signed_a: true
 cs_drop_top_frac: 0.1
 a_grid: 72
 cs_sensitivity_frac: 0.0
-off_component_leak_cap: 50.0
-energy_min_abs: 1e-08
+off_component_leak_cap: 25.0
+energy_min_abs: 5e-07
 partial_week_policy: "drop"
 design: "nested"
 nested_replicates: 5
@@ -26,5 +26,6 @@ gating:
   q_max: 2
   require_isolated: false
   allow_nonisolated_nested: true
-  nonisolated_stability_min: 0.35
+  nonisolated_stability_min: 0.03
+  nonisolated_edge_min: 0.03
   nonisolated_q_max: 1

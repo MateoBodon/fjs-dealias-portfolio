@@ -20,7 +20,7 @@ defaults:
   prewhiten: true
   calm_window_sample: 2
   crisis_window_top_k: 3
-  assets_top: 30
+  assets_top: 60
 
 grid:
   panel: [equities]
@@ -35,8 +35,8 @@ grid:
 panels:
   equities:
     returns_csv: data/returns_daily.csv
-    start: 2023-01-01
-    end: 2023-04-01
+    start: 2020-01-01
+    end: 2021-12-31
 
 io:
   cache_dir: ablations/cache

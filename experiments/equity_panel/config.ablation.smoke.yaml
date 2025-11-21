@@ -1,6 +1,6 @@
 data_path: "data/returns_daily.csv"
-start_date: "2023-01-03"
-end_date: "2023-02-10"
+start_date: "2020-03-01"
+end_date: "2020-06-30"
 window_weeks: 4
 horizon_weeks: 1
 output_dir: "experiments/equity_panel/outputs_ablation_smoke"
@@ -20,8 +20,8 @@ ablations: true
 gallery:
   name: rc
 ablation_grid:
-  delta_frac: [0.015, 0.02]
+  delta_frac: [0.012]
   eps: [0.02]
-  eta: [0.3]
-  a_grid: [144]
+  eta: [0.22]
+  a_grid: [120]
 ablation_only: true

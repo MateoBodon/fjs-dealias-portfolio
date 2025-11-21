@@ -1,3 +1,13 @@
+## 2025-11-21T08:15Z
+- **Step**: Added nested guardrails (edge/stability floors) to gating, reran nested smoke + RC-lite on WRDS, refreshed memos/gallery, and regenerated synthetic acceptance + ablations.
+- **Decisions**: Nested config now uses delta_frac=0.012, eta=0.22, energy_min_abs=5e-7, off_component_leak_cap=25, `require_isolated=false` plus a guard of edge_margin/stability_margin ≥3 bps before acceptance. Ablation-only runs now slice the prewhitened panel to the config start/end window; tiny ablation grid trimmed to assets_top=60 and 2020–2021 slice.
+- **Checks**: `PATH=.venv/bin:$PATH make test-fast`; `make rc-lite` + `make memo`; `HARNESS_TRIALS=400 make sweep:acceptance`; `python experiments/ablate/run.py --config experiments/ablate/ablation_matrix_tiny.yaml`; ablation smoke rerun for 2020-03→2020-06 (assets_top=60).
+- **Highlights**:
+  - Nested smoke coverage now 1/24 windows (4.17%) with `nested_guard` skips=5; detection and gating telemetry in `experiments/equity_panel/outputs_nested_smoke/.../summary.json`.
+  - RC-lite artifacts refreshed in place (`figures/rc`, `reports/memo_20251121_081543.md`); DoW/crisis runs unchanged, nested plots reflect the new guard.
+  - Calibration defaults rebuilt at `2025-11-21T03:30Z` (numerics unchanged: delta_frac=0.02, eta=0.4, energy_floor≈0.1012); ROC figures under `reports/figures/`.
+  - Ablations aligned to RC regimes: updated grid (`experiments/ablate/ablation_matrix_tiny.yaml`, assets_top=60, 2020–2021) and equity-panel E5 summary at `experiments/equity_panel/outputs_ablation_smoke/.../ablation_summary.csv`.
+
 ## 2025-11-13T04:05Z
 - **Step**: Executed the deterministic AWS pair for vol-state (top‑80, 126×21) with the new gating knobs, captured flip-set deltas, and published manifests + docs.
 - **Decisions**: `rc-vol` defaults to `--allow-non-isolated` plus the q≥2 alignment guard (`VOL_Q2_ALIGNMENT_MIN_COS=0.9`), so we ran one pass with `USE_FACTORS=0` (`run_id=20251112T232711Z`) and one with `USE_FACTORS=1` (`run_id=20251113T014417Z`) using the exact command strings recorded in `reports/runs/<RUN_ID>/run.json`. Outputs were copied into `reports/rc-20251113/{vol-off,vol-ff5mom}/` and summarised via the new `prewhiten_effect.py`.

@@ -1,62 +1,162 @@
-# AGENTS.md — vNEXT (fjs‑dealias‑portfolio)
+# AGENTS.md — fjs-dealias-portfolio
 
-This file instructs coding agents (e.g., Codex CLI) how to work on this repo.
+## Primary Goals
 
-## Mission
-Implement and evaluate a **de‑aliasing overlay** for covariance estimation on equity panels. Keep acceptance well‑calibrated, compare against strong baselines, and generate advisor‑ready reports.
+- Study FJS-style MANOVA de-aliasing as an overlay on covariance estimators for equity-return panels (DoW, nested, vol-state designs).
+- Calibrate acceptance thresholds under MP null/power and evaluate performance vs strong shrinkage and factor baselines.
+- Produce reproducible RC drops (`reports/rc-YYYYMMDD/`) with memos/briefs that are safe to hand to Prof. Fan.
 
-## Ground rules
-- Never commit secrets. WRDS credentials live in `~/.wrds.cfg` on machines; S3 keys via AWS profile/role. Do not write credentials into code or logs.
-- Prefer **overlay** to full spectrum replacement; non‑accepted directions default to a shrinker (RIE/LW/OAS/CC).
-- **Real data for tests**: Smoke/integration can use the bundled sample, but all RC/ablation runs must read WRDS CSV/Parquet tracked in `data/registry.json`.
-- Determinism first: pin thread caps to 1 for heavy math and record seeds; throughput mode only for exploratory work.
-- Always write artifacts: CSV/PNGs/JSON, plus `run_manifest.json` (git SHA, dataset digest, config, seeds, instance, exec mode).
+---
 
-## Setup commands
-- Create env and install: `make setup`
-- Quick checks: `make fmt && make lint && make test-fast`
-- Full tests: `make test` (slow tests are opt‑in via markers)
-- Smoke run (local): `make run:equity_smoke`
-- RC batch (local): `make rc-lite`
-- AWS provision: `scripts/aws_provision.sh` (export `INSTANCE_TYPE`, `INSTANCE_FAMILY`, `INSTANCE_SIZE` when needed)
-- AWS RC: `EXEC_MODE=deterministic make aws:rc-lite`
-- Calibration sweep (AWS): `EXEC_MODE=deterministic make aws:calibrate-thresholds HARNESS_TRIALS=600`
+## Environment & Setup
 
-## Paths & data contracts
-- Real panels live under `data/wrds/*.parquet` or `data/returns_daily.csv` (long: `date,ticker,ret`); update `data/registry.json` via `tools/update_registry.py` after ingest.
-- Factor files (for prewhitening) are CSV with columns = factors (e.g., `MKT,SMB,HML,RMW,CMA,UMD`). Store path in configs; never commit WRDS raw extracts.
+- Language: Python 3.11+.
+- Install (dev mode):
 
-## Common tasks
-- **Add prewhitening to daily/RC**: plumb `--prewhiten` and `--factor-csv` into runners; persist R² and factor metadata; update memo tables to include factor baselines.
-- **Raise nested coverage**: relax `delta_frac_min`, confirm replicate balancing, ensure `q_max` allows up to 2 substitutions; re‑run nested smoke.
-- **Re‑calibrate acceptance**: run synthetic ROC on AWS; refresh `calibration_defaults.json`; rebuild smoke/RC with the new defaults.
-- **RC (WRDS)**: DoW + vol‑state, top‑N assets, prewhitening on/off; build gallery, memo, brief; attach `kill_criteria.json` and limitations to summary.
+  - `pip install -e .[dev]`
+  - `pre-commit install` (if `.pre-commit-config.yaml` exists).
 
-## Coding conventions
-- Python 3.11+, `black` + `ruff` + `mypy`. Prefer functional helpers for deterministic math. Avoid global state; pass seeds explicitly.
-- Commit style (Conventional Commits):  
-  - `feat(dealias): ...`, `fix(eval): ...`, `chore(ci): ...`, `docs(memo): ...`
-- Branching: `feat/<ticket>` for features, `docs/<ticket>` for documentation. PRs include: problem, approach, tests, artifacts, risks, checklist.
+- Helpful env vars:
+  - `EXEC_MODE={deterministic,throughput}` — execution mode for heavy runners; use `throughput` on Hetzner.:contentReference[oaicite:37]{index=37}  
+  - `MP_CACHE_DIR` — cache directory for MP edge computations when comparing runs.:contentReference[oaicite:38]{index=38}  
 
-## Testing
-- Unit: math utils, MP edges, gating decisions (deterministic).  
-- Integration: smoke slice end‑to‑end (small universe).  
-- Slow: synthetic ROC + ablations (tagged).  
-- Always run `make test` before committing multi‑file changes. Prefer `pytest -q` locally; CI runs unit + smoke.
+---
 
-## Artifacts & telemetry
-- Per run: `metrics.csv`, `dm.csv`, `risk.csv`, `diagnostics*.csv`, plots, and `run_manifest.json`.  
-- RC: gallery under `figures/rc/<tag>/`, memo `reports/memo.md`, brief `reports/brief.md`, plus kill‑criteria and limitations JSON.
+## Data & Secrets
 
-## AWS discipline
-- Use `tools/run_monitor.py` wrappers; keep `MONITOR_INTERVAL` reasonable (e.g., 5–10s).  
-- Prefer `EXEC_MODE=deterministic` for calibration/RC; set BLAS thread caps (OMP/MKL/OPENBLAS/NUMEXPR=1).  
-- Upload artifacts to `s3://<bucket>/reports/<tag>/` via make targets; avoid ad‑hoc copies.
+- WRDS data is **never** committed. Only commit:
+  - Panels derived into `data/returns_daily.csv` / factor CSVs.
+  - Registry metadata in `data/registry.json`.:contentReference[oaicite:39]{index=39}  
 
-## Safety & approvals (Codex)
-- Default to **danger‑full‑access**, **network enabled**, **approval_policy=never** only when you are in a trusted, ephemeral environment (local dev box or dedicated EC2) and Git is clean with a branch. Otherwise use `on‑failure`.
-- Never run destructive commands (`rm -rf`, `git reset --hard`, force pushes) without existing backups and a clear ticket scope.
+- WRDS connection details live outside the repo (e.g. `.pgpass`, env vars); **do not** print credentials or full SQL queries into logs.
 
-## CodexAgent — GPT-5 (2025-11-12)
-- **Role**: Implement vol-state acceptance adjustments, deterministic reporting, and artifact management while keeping WRDS data sealed and reproducibility first.
-- **SOP**: Follow AGENTS.md guardrails; document commands/configs in `PROGRESS.md` and `reports/runs/<RUN_ID>/`; verify datasets via `tools/verify_dataset.py`; run deterministic make targets with BLAS threads capped; persist run manifests and gallery artifacts before sign-off.
+- Use `tools/update_registry.py` to update `data/registry.json` after refreshing WRDS exports. It recomputes hashes and row-counts and will cause loaders to fail fast if the file drifts.:contentReference[oaicite:40]{index=40}  
+
+---
+
+## Typical Commands
+
+### Testing & Linting
+
+- Fast unit tests: `make test-fast`
+- Integration tests: `make test-integration`
+- Full test suite: `make test`
+- Slow/ablations (opt-in): `make test-slow`
+- Format & lint: `make fmt && make lint`:contentReference[oaicite:41]{index=41}  
+
+### Equity Panel Experiments
+
+- Smoke slice (local sanity, small universe):​:contentReference[oaicite:42]{index=42}  
+
+  ```bash
+  PYTHONPATH=src OMP_NUM_THREADS=1 python experiments/equity_panel/run.py \
+      --config experiments/equity_panel/config.smoke.yaml \
+      --no-progress \
+      --workers "$(python -c 'import os; print(os.cpu_count() or 4)')" \
+      --assets-top 80 \
+      --stride-windows 4 \
+      --resume \
+      --cache-dir .cache \
+      --precompute-panel \
+      --drop-partial-weeks \
+      --estimator oas
+Nested design: add --design nested --nested-replicates 5 or use the nested configs under experiments/equity_panel/.
+GitHub
+Crisis slices (2020, 2022): use config.crisis.2020.yaml / config.crisis.2022.yaml with the same CLI skeleton.
+GitHub
+Release Candidate batch (heavy; run on Hetzner):
+make rc — full RC (smoke + nested + crises + gallery + memo/brief).
+make rc-lite — quick RC-lite for {dealias,lw,oas} only.
+make rc-lite-sanity — deterministic DoW/Vol sanity check with telemetry in reports/rc-<DATE>/summary_sanity.json.
+GitHub
++1
+Synthetic Calibration
+Null/power ROC sweep:
+make sweep:acceptance HARNESS_TRIALS=400
+Targeted tweaks:
+bash
+Copy code
+PYTHONPATH=src python experiments/synthetic/null.py \
+    --trials 600 --edge-modes scm tyler \
+    --out reports/synthetic/null_harness --figures-out reports/figures
+
+PYTHONPATH=src python experiments/synthetic/power.py \
+    --trials 600 --mu-values 4 6 8 \
+    --null-scores reports/synthetic/null_harness/null_scores.parquet \
+    --out reports/synthetic/power_harness \
+    --figures-out reports/figures \
+    --defaults-path calibration_defaults.json
+Then use tools/reduce_calibration.py to refresh calibration/edge_delta_thresholds.json.
+GitHub
+Daily Evaluation & Overlay Diagnostics
+Daily overlay run (fast-ish):
+bash
+Copy code
+PYTHONPATH=src python experiments/eval/run.py \
+    --returns-csv data/returns_daily.csv \
+    --window 126 --horizon 21 \
+    --assets-top 80 \
+    --shrinker rie \
+    --gate-delta-calibration calibration/edge_delta_thresholds.json \
+    --gate-delta-frac-min 0.02 \
+    --out reports/rc-YYYYMMDD/
+This writes metrics.csv, risk.csv, dm.csv, diagnostics.csv, and plots like delta_mse.png and flip_dm.png.
+GitHub
++1
+Coding & Style Guidelines
+Python:
+Type hints on public functions.
+Keep functions short and composable; avoid clever one-liners in core logic.
+Use apply_patch-style edits (Codex knows what that means).
+Numerical / stats:
+Prefer vectorized operations and stable numerics.
+Avoid silent changes to calibration defaults; if a behavior change is intentional, update calibration_defaults.json or the relevant config + memo.
+Testing Expectations
+When you change anything in src/, experiments/, or tools/:
+Run make test-fast.
+If your change affects runners/calibration, also run:
+make rc-lite-sanity, and
+the smallest relevant synthetic harness (make sweep:acceptance with reduced trials or a single null/power call).
+For nested or crisis changes, re-run the smallest nested/cisis configs and check:
+detection coverage,
+ΔMSE vs shrinkers,
+DM p-values on the flip set.
+GitHub
+Log heavy test output to reports/ or figures/rc/ as appropriate; don’t spam stdout with massive tables.
+Docs, RCs & Progress Logging
+Use tools/build_gallery.py, tools/build_memo.py, and tools/build_brief.py to generate advisor-facing RC artifacts.
+GitHub
++1
+Every time you run an RC or important calibration:
+Append a bullet to PROGRESS.md with:
+Date, git SHA, machine (local/Hetzner), key configs.
+High-level metrics (detection %, ΔMSE, DM p-values, coverage).
+Paths to metrics_summary.csv, memo, and key figures.
+Git & Branching
+Always work on feature branches, preferably codex/<short-task> for Codex-driven work.
+Commit messages:
+feat:, fix:, refactor:, test:, docs:, perf: prefixes.
+Short, imperative: feat: add nested gating diagnostics.
+For Codex:
+Do not revert unrelated user changes. If you see unexpected diffs, stop and report.
+Prefer small, reviewable commits over massive ones.
+Hetzner & Heavy Jobs
+For heavy calibrations and full RC batches, assume Codex is running on the Hetzner box:
+Use --profile fjs-hetzner (see config.toml).
+Prefer EXEC_MODE=throughput for long sweeps.
+Keep OMP_NUM_THREADS and worker counts reasonable; don’t overload the box.
+If you’re on a local laptop profile, restrict yourself to:
+make test-fast,
+smoke equity/eval runs,
+small synthetic experiments.
+What You Must Do Before Declaring a Task “Done”
+All relevant tests green (make test-fast at minimum).
+If behavior changed:
+Update config files and/or calibration JSONs.
+Update docs (README, PLAN.md, memo templates) as needed.
+Append an entry to PROGRESS.md.
+Commit and, if configured, push your branch.
+In your final message, summarize:
+What changed.
+Which commands you ran.
+Where to find artifacts.

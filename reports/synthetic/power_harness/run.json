@@ -1,7 +1,7 @@
 {
-  "generated_at": "2025-11-05T21:49:57.610948+00:00",
-  "git_sha": "2d235955ce62f5c448dd6cbec7fd929325f73543",
-  "duration_seconds": 4.56381893157959,
+  "generated_at": "2025-11-21T03:30:13.659199+00:00",
+  "git_sha": "a94ad00c094f4707e45d9e645fbda35d9637ca14",
+  "duration_seconds": 4.654713153839111,
   "target_fpr": 0.02,
   "mu_values": [
     4.0,
@@ -17,7 +17,7 @@
   },
   "selection": {
     "edge_mode": "scm",
-    "threshold": 0.10119798178142916,
+    "threshold": 0.10119798178143019,
     "fpr": 0.02,
     "average_power": 1.0,
     "tpr_by_mu": {

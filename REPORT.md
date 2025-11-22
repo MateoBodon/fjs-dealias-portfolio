@@ -1,3 +1,15 @@
+## 2025-11-22T00:56Z
+- **Step**: Validated the Hetzner environment (venv + registry), reran deterministic RC-lite over WRDS DoW/vol designs, refreshed memo/brief, and rebuilt the synthetic ROC sweep at higher trials.
+- **Decisions**: Kept `exec_mode=deterministic` with tyler edges + soft gating (q≤2); capped each eval at the first 200 rolling windows (`--max-windows 200`) to keep runtime reasonable on this host. Calibration stays on the SCM energy-floor rule because Tyler delivered much higher FPR at the same threshold.
+- **Checks**: `make setup`; `make test-fast`; `make rc-lite EXEC_MODE=deterministic`; manual `experiments/eval/run.py` for DoW/vol (workers=24, max_windows=200); `HARNESS_TRIALS=800 EXEC_MODE=deterministic make sweep:acceptance`; `tools/make_summary.py --rc-dir reports/rc-20251121`; `tools/build_memo.py --config experiments/equity_panel/config.rc.yaml`; `tools/build_brief.py --config experiments/equity_panel/config.rc.yaml`; final `make test-fast`.
+- **Highlights**:
+  - RC-lite (DoW/vol, top-60, 126×21, FF5+MOM, 200-window cap): `dow-tyler` detection≈4.32%, acceptance≈4.32%, ΔMSE(EW)=+1.75e-13, ΔMSE(MV)=−2.54e-14, percent_changed≈100% (cap-induced); `vol-tyler` detection≈4.33%, acceptance≈4.33%, ΔMSE(EW)=−1.05e-13, ΔMSE(MV)=−8.64e-14, percent_changed≈100%. Artifacts live in `reports/rc-20251121/` with `run_manifest.json`, `metrics_summary.json`, regime DM/ΔMSE tables, risk metrics, and prewhiten diagnostics per design.
+  - Memo/brief regenerated (see `reports/memo.md`, `reports/brief.md` plus timestamped copies). Gallery already up-to-date from the RC-lite batch.
+- **Calibration (synthetic ROC)**:
+  - Null model: SCM/Tyler MP edges on simulated panels (p=40 assets, n_groups=60, replicates=3, σ²=1, SNR=0.35), 800 trials.
+  - Target band: FPR=2%; SCM hits ~2.0% at energy floor ≈0.108 while Tyler sits at ~8.5% at the same cut, so defaults stay on SCM.
+  - Selected thresholds: energy_floor=0.108129…, delta=0.5, delta_frac=0.02, eps=0.02, stability_eta_deg=0.4; average power = 1.0 at μ ∈ {4,6,8}. Figures refreshed (`reports/figures/roc_null.png`, `roc_power.png`); `calibration_defaults.json` timestamped `2025-11-21T22:07:47Z`.
+
 ## 2025-11-21T08:15Z
 - **Step**: Added nested guardrails (edge/stability floors) to gating, reran nested smoke + RC-lite on WRDS, refreshed memos/gallery, and regenerated synthetic acceptance + ablations.
 - **Decisions**: Nested config now uses delta_frac=0.012, eta=0.22, energy_min_abs=5e-7, off_component_leak_cap=25, `require_isolated=false` plus a guard of edge_margin/stability_margin ≥3 bps before acceptance. Ablation-only runs now slice the prewhitened panel to the config start/end window; tiny ablation grid trimmed to assets_top=60 and 2020–2021 slice.

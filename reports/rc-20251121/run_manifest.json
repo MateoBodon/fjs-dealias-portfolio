@@ -1,0 +1,74 @@
+{
+  "rc_date": "20251121",
+  "generated_at": "2025-11-22T00:52:43.927532+00:00",
+  "datasets": {
+    "returns_csv": {
+      "sha256": "96ac7dd318245cf1a8b434bb358a9344bf282992fc9fe66f0282023696563197",
+      "rows": 892529,
+      "columns": 300,
+      "start_date": "2010-01-05",
+      "end_date": "2024-12-31",
+      "wrds_source": "crsp.dsf",
+      "wrds_query_params": {
+        "start": "2010-01-01",
+        "end": "2024-12-31",
+        "exchanges": [
+          1,
+          2,
+          3
+        ],
+        "share_codes": [
+          10,
+          11
+        ],
+        "min_price": 1.0,
+        "min_volume": 0
+      },
+      "note": "CRSP daily returns ingested via src/io/crsp_daily.py with default filters; tickers aligned to WRDS canonical names."
+    },
+    "factor_csv": {
+      "sha256": "469d44ad0c5cac556c60c1f258e14245acfcc9f2901ad443f41b64309bf908ca",
+      "columns": [
+        "MKT",
+        "SMB",
+        "HML",
+        "RMW",
+        "CMA",
+        "MOM",
+        "RF"
+      ],
+      "frequency": "B",
+      "start_date": "2005-01-03",
+      "end_date": "2025-08-29",
+      "source": "ken_french.ff5_umd_daily",
+      "note": "Alias for ff5mom stored to support path-based registry verification.",
+      "path": "data/factors/ff5mom_daily.csv"
+    }
+  },
+  "runs": [
+    {
+      "design": "dow-tyler",
+      "command": "PYTHONPATH=src:. OMP_NUM_THREADS=1 python3 experiments/eval/run.py --returns-csv data/returns_daily.csv --window 126 --horizon 21 --start 2018-01-01 --end 2024-12-31 --assets-top 60 --group-design dow --group-min-count 5 --group-min-replicates 3 --min-reps-dow 10 --edge-mode tyler --shrinker rie --prewhiten ff5mom --overlay-delta 0.05 --coarse-candidate 1 --gate-mode soft --gate-accept-nonisolated --gate-stability-min 0.0001 --use-factor-prewhiten 1 --gate-delta-calibration calibration/edge_delta_thresholds.json --gate-delta-frac-min 0.02 --require-isolated --q-max 2 --mv-gamma 0.0001 --mv-box 0.0,0.1 --mv-turnover-bps 5 --mv-condition-cap 1000000 --workers 24 --max-windows 200 --exec-mode deterministic --out reports/rc-20251121/dow-tyler"
+    },
+    {
+      "design": "vol-tyler",
+      "command": "PYTHONPATH=src:. OMP_NUM_THREADS=1 python3 experiments/eval/run.py --returns-csv data/returns_daily.csv --window 126 --horizon 21 --start 2018-01-01 --end 2024-12-31 --assets-top 60 --group-design vol --group-min-count 3 --group-min-replicates 6 --min-reps-vol 10 --edge-mode tyler --shrinker oas --prewhiten ff5mom --overlay-delta 0.05 --coarse-candidate 1 --gate-mode soft --gate-accept-nonisolated --gate-stability-min 0.0001 --use-factor-prewhiten 1 --gate-delta-calibration calibration/edge_delta_thresholds.json --gate-delta-frac-min 0.015 --q-max 2 --q2-alignment-min-cos 0.9 --mv-gamma 0.0001 --mv-box 0.0,0.1 --mv-turnover-bps 5 --mv-condition-cap 1000000 --workers 24 --max-windows 200 --exec-mode deterministic --out reports/rc-20251121/vol-tyler"
+    }
+  ],
+  "detection_summary": {
+    "dow-tyler": {
+      "detection_rate": 0.0431992716914086,
+      "acceptance_rate": 0.0431992716914086,
+      "percent_changed": 1.0,
+      "delta_mse_ew": 1.749123263776732e-13,
+      "delta_mse_mv": -2.5377866153688694e-14
+    },
+    "vol-tyler": {
+      "detection_rate": 0.043346108100964724,
+      "acceptance_rate": 0.043346108100964724,
+      "percent_changed": 1.0,
+      "delta_mse_ew": -1.054439874524572e-13,
+      "delta_mse_mv": -8.637974669528799e-14
+    }
+  }
+}

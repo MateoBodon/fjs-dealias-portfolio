@@ -65,6 +65,45 @@ def _pick_dm_row(df: pd.DataFrame, *, regime: str, portfolio: str, baseline: str
     return subset.iloc[0]
 
 
+def _aggregate_row(df: pd.DataFrame, *, regime: str | None, estimator: str | None, portfolio: str | None) -> pd.Series | None:
+    """Aggregate matching rows (mean of numeric columns, first of non-numeric)."""
+    if df.empty:
+        return None
+    mask = pd.Series(True, index=df.index)
+    if regime is not None and "regime" in df.columns:
+        mask &= _normalise(df["regime"], regime)
+    if estimator is not None and "estimator" in df.columns:
+        mask &= _normalise(df["estimator"], estimator)
+    if portfolio is not None and "portfolio" in df.columns:
+        mask &= _normalise(df["portfolio"], portfolio)
+    subset = df[mask]
+    if subset.empty:
+        return None
+    base = subset.iloc[0].copy()
+    numeric_cols = subset.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        base[col] = pd.to_numeric(subset[col], errors="coerce").mean()
+    return base
+
+
+def _aggregate_dm_row(df: pd.DataFrame, *, regime: str, portfolio: str, baseline: str = "baseline") -> pd.Series | None:
+    if df.empty:
+        return None
+    mask = _normalise(df["portfolio"], portfolio)
+    if "regime" in df.columns:
+        mask &= _normalise(df["regime"], regime)
+    if "baseline" in df.columns and baseline:
+        mask &= _normalise(df["baseline"], baseline)
+    subset = df[mask]
+    if subset.empty:
+        return None
+    base = subset.iloc[0].copy()
+    numeric_cols = subset.select_dtypes(include=[np.number]).columns
+    for col in numeric_cols:
+        base[col] = pd.to_numeric(subset[col], errors="coerce").mean()
+    return base
+
+
 def _nan_median(series: pd.Series) -> float:
     cleaned = pd.to_numeric(series, errors="coerce").dropna()
     if cleaned.empty:
@@ -85,6 +124,32 @@ def _count_nonzero(series: pd.Series) -> int:
         return 0
     cleaned = pd.to_numeric(series, errors="coerce")
     return int((cleaned > 0).sum())
+
+
+def _concat_if_exists(paths: Iterable[Path]) -> pd.DataFrame:
+    frames: list[pd.DataFrame] = []
+    for path in paths:
+        df = _read_csv(path)
+        if not df.empty:
+            frames.append(df)
+    if not frames:
+        return pd.DataFrame()
+    return pd.concat(frames, ignore_index=True)
+
+
+def _aggregate_diag_row(df: pd.DataFrame) -> pd.Series:
+    if df.empty:
+        return pd.Series(dtype=float)
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    agg: dict[str, Any] = {}
+    for col in numeric_cols:
+        agg[col] = pd.to_numeric(df[col], errors="coerce").mean()
+    for col in ("reason_code", "resolved_config_path", "gating_mode"):
+        if col in df:
+            series = df[col].dropna().astype(str)
+            if not series.empty:
+                agg[col] = series.mode().iloc[0]
+    return pd.Series(agg)
 
 
 def _numeric(series: pd.Series, key: str) -> float:
@@ -252,6 +317,7 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
         raise ValueError(f"RC directory '{rc_dir}' does not exist or is not a directory.")
 
     root_detail = _read_csv(rc_dir / "diagnostics_detail.csv")
+    design_dirs = [child for child in rc_dir.iterdir() if child.is_dir() and child.name != "summary"]
     perf_records: list[dict[str, object]] = []
     det_records: list[dict[str, object]] = []
 
@@ -260,17 +326,25 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
         dm_path = rc_dir / regime / "dm.csv"
         diag_path = rc_dir / regime / "diagnostics.csv"
 
-        metrics_df = _read_csv(metrics_path)
-        dm_df = _read_csv(dm_path)
-        diag_df = _read_csv(diag_path)
-        detail_df = _load_detail(rc_dir, regime, root_detail)
+        use_design_dirs = not metrics_path.exists() and any((d / regime).exists() for d in design_dirs)
 
-        diag_row = diag_df.iloc[0] if not diag_df.empty else pd.Series(dtype=float)
+        if use_design_dirs:
+            metrics_df = _concat_if_exists(d / regime / "metrics.csv" for d in design_dirs)
+            dm_df = _concat_if_exists(d / regime / "dm.csv" for d in design_dirs)
+            diag_df = _concat_if_exists(d / regime / "diagnostics.csv" for d in design_dirs)
+            detail_df = _concat_if_exists(d / regime / "diagnostics_detail.csv" for d in design_dirs)
+        else:
+            metrics_df = _read_csv(metrics_path)
+            dm_df = _read_csv(dm_path)
+            diag_df = _read_csv(diag_path)
+            detail_df = _load_detail(rc_dir, regime, root_detail)
+
+        diag_row = _aggregate_diag_row(diag_df)
 
         for portfolio in PORTFOLIOS:
-            overlay_row = _pick_row(metrics_df, regime=regime, estimator="overlay", portfolio=portfolio)
-            baseline_row = _pick_row(metrics_df, regime=regime, estimator="baseline", portfolio=portfolio)
-            dm_row = _pick_dm_row(dm_df, regime=regime, portfolio=portfolio)
+            overlay_row = _aggregate_row(metrics_df, regime=regime, estimator="overlay", portfolio=portfolio)
+            baseline_row = _aggregate_row(metrics_df, regime=regime, estimator="baseline", portfolio=portfolio)
+            dm_row = _aggregate_dm_row(dm_df, regime=regime, portfolio=portfolio)
 
             record = {
                 "rc_run": rc_dir.name,

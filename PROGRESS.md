@@ -1,3 +1,17 @@
+## 2025-11-22T00:56Z — Hetzner RC-lite + calibration refresh (git sha 3db9335)
+- **Data**: WRDS daily returns `data/returns_daily.csv` (sha256=96ac7dd3…3197) + FF5+MOM factors `data/factors/ff5mom_daily.csv` (sha256=469d44ad…908ca), verified against registries.
+- **Commands**:
+  - Env/registry: `make setup`; `python - <<'PY' from pathlib import Path; from data.registry import assert_registered_dataset; assert_registered_dataset(Path('data/returns_daily.csv')); PY`.
+  - Fast tests: `make test-fast`.
+  - RC-lite eval (deterministic, capped windows): `PYTHONPATH=src:. OMP_NUM_THREADS=1 python3 experiments/eval/run.py ... --group-design dow --workers 24 --max-windows 200 --out reports/rc-20251121/dow-tyler` and same for `--group-design vol --shrinker oas --gate-delta-frac-min 0.015 --q2-alignment-min-cos 0.9` (see run_manifest for exact commands); `tools/make_summary.py --rc-dir reports/rc-20251121`.
+  - Artifacts: `make rc-lite EXEC_MODE=deterministic` (smoke + crisis panels), `python tools/build_memo.py --config experiments/equity_panel/config.rc.yaml`, `python tools/build_brief.py --config experiments/equity_panel/config.rc.yaml`.
+  - Calibration: `HARNESS_TRIALS=800 EXEC_MODE=deterministic make sweep:acceptance`.
+  - Final tests: `make test-fast`.
+- **Results**:
+  - RC-lite (DoW/vol, top-60, 126×21, FF5+MOM, first 200 windows): `dow-tyler` detection≈4.32%, acceptance≈4.32%, ΔMSE(EW)=+1.75e-13, ΔMSE(MV)=−2.54e-14, percent_changed≈100%; `vol-tyler` detection≈4.33%, acceptance≈4.33%, ΔMSE(EW)=−1.05e-13, ΔMSE(MV)=−8.64e-14, percent_changed≈100%. Artifacts in `reports/rc-20251121/` (`run_manifest.json`, `metrics_summary.json`, DM tables, risk/diagnostics, prewhiten telemetry).
+  - Synthetic ROC sweep (SCM energy-floor): target FPR 2% with threshold ≈0.108 (Tyler FPR≈8.5% at same cut), parameters {delta=0.5, delta_frac=0.02, eps=0.02, stability_eta=0.4}; average power=1.0 at μ ∈ {4,6,8}. Figures refreshed under `reports/figures/`, `calibration_defaults.json` timestamped `2025-11-21T22:07:47Z`.
+  - Memo/brief refreshed (`reports/memo.md`, `reports/brief.md`, `reports/memo_20251122_005614.md`, `reports/brief_20251122_005625.md`); gallery already up-to-date.
+
 ## 2025-11-13T04:05Z — vol acceptance tuning + paired AWS runs (feat/vol-acceptance-prewhiten@HEAD)
 - **Data**: `data/returns_daily.csv` (`sha256=96ac7dd318245cf1a8b434bb358a9344bf282992fc9fe66f0282023696563197`) + `data/factors/ff5mom_daily.csv` (`sha256=469d44ad0c5cac556c60c1f258e14245acfcc9f2901ad443f41b64309bf908ca`); both re‑verified via `python tools/verify_dataset.py …`.
 - **Local commands**:

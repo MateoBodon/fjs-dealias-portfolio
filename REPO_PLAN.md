@@ -18,12 +18,13 @@ What’s already in good shape (don’t break this):
 - **Calibration + gating infrastructure exists.**
   - Synthetic null/power harness (`experiments/synthetic/null.py`, `power.py`, `calibrate_thresholds.py`) plus `make sweep:acceptance` and `make calibrate-thresholds` write ROC tables and `calibration_defaults.json` / `calibration/edge_delta_thresholds.json`.:contentReference[oaicite:2]{index=2}  
   - Gating is wired via `calibration/edge_delta_thresholds.json` and per-window `detection_summary.csv` with skip reasons, edge margins, and alignment stats.:contentReference[oaicite:3]{index=3}  
+  - Calibration defaults frozen at **2025-11-21** (`HARNESS_TRIALS=800`, target FPR 2%) off the latest SCM energy-floor ROC sweep.
 
 - **RC-style equity runs with real metrics exist.**
   - `make rc` / `make rc-lite` orchestrate smoke, nested, and crisis batches; generate gallery + memo + brief under `figures/rc/...` and `reports/rc-YYYYMMDD/`.:contentReference[oaicite:4]{index=4}  
-  - Latest RC telemetry (4 Nov 2025) shows:
-    - DoW design (RIE, FF5+MOM): detection ~3–5%, substitution ~5%, small but nonzero ΔMSE vs shrinkers, reasonably controlled “FPR surrogate”.  
-    - Vol-state design (OAS, no prewhiten): detection ~3–4%, acceptable substitution; VaR95 coverage errors ~±1%.:contentReference[oaicite:5]{index=5}  
+  - Latest RC telemetry (21 Nov 2025, capped at first 200 windows for runtime) shows:
+    - DoW design (Tyler edge, FF5+MOM): detection ≈4.3%, substitution ≈100% because of the cap, ΔMSE(EW) ≈ +1.8e-13, ΔMSE(MV) ≈ −2.5e-14.
+    - Vol-state design (Tyler edge, FF5+MOM): detection ≈4.3%, substitution ≈100% (cap-driven), ΔMSE(EW) ≈ −1.1e-13, ΔMSE(MV) ≈ −8.6e-14.
 
 - **Prewhitening & factor baselines are integrated.**
   - Observed-factor and POET-lite estimators are first-class options (`--estimator factor_obs`, `poet`), with factor CSVs and prewhitening flags, all recorded into rolling results + memos.:contentReference[oaicite:6]{index=6}  
@@ -34,7 +35,7 @@ What’s already in good shape (don’t break this):
 
 Key open issues (based on the README + RC notes):
 
-- Nested design currently has **0% accepted detections** in some slices because guardrails are too strict (memo badges “no accepted detections; check guardrails”).:contentReference[oaicite:8]{index=8}  
+- Nested design coverage improved in the latest smoke (≥4% accepted) but remains fragile and is not yet in the capped 21 Nov RC-lite; guardrails still need a full-length rerun.:contentReference[oaicite:8]{index=8}  
 - 2020 crisis runs show de-aliased ≫ shrinkage MSE even when detections are plentiful — overlay is too aggressive for that regime.:contentReference[oaicite:9]{index=9}  
 - Ablation grid (`config.ablation.smoke.yaml`) is timing out before finishing.:contentReference[oaicite:10]{index=10}  
 - Infra/docs assume AWS; you now also have a Hetzner box and want to lean on it for all heavy calibrations.
@@ -295,4 +296,3 @@ Codex should obey these rules by default:
    - Update `PROGRESS.md` with date, commit, configs used, and key metrics.  
    - Commit on a `codex/<short-task>` branch with a clear message.  
 4. **For heavy calibrations or RCs,** prefer running on the Hetzner profile (`codex --profile fjs-hetzner` on the server).
-

@@ -4,12 +4,13 @@ Robust variance forecasting over balanced equity panels, with tooling to explore
 
 ---
 
-## Current Status — 2025-11-12
+## Current Status — 2025-12-08
 
-- **Prewhitening end-to-end**: `experiments/eval/run.py` and the equity-panel runner now accept `--prewhiten {off,ff5,ff5mom,custom}` plus `--factor-csv/--use-factor-prewhiten` and persist `prewhiten_diagnostics.csv` + `prewhiten_summary.json` (R², betas, intercepts) for every run. `tests/test_equity_prewhiten.py` covers the telemetry wiring and a tiny WRDS slice smoke.
-- **RC-lite (WRDS, deterministic)**: `reports/rc-20251113/` captures the latest DoW + vol-state evaluations fed by real CRSP returns (`sha256=96ac7dd3…3197`) and FF5+MOM factors (`sha256=469d44ad…908ca`). DoW gating still sits at ~3.7 % detection coverage with q≤2 substitutions, while the vol-state path (top‑80, 126×21) now lives inside the 2–6 % acceptance band (≈2.3 % with FF5+MOM on/off) thanks to the relaxed replicate/delta knobs. Each design directory includes diagnostics/metrics/DM CSVs, `prewhiten_*` artefacts, gallery plots, `run_manifest.json`, and `metrics_summary.json`.
-- **Docs & briefs**: `README.md` reflects the prewhitening status + RC path, `reports/memo.md` / `reports/brief.md` were regenerated on 2025-11-12, and the AWS specifics moved to `docs/CLOUD.md` so the README only carries the generic workflow.
-- **Next milestones**: close the remaining vol-state coverage gap (target 2–6%), refresh calibration defaults once the queued AWS sweep lands, fold the new run manifest into advisor reporting, and keep `AGENTS.md` aligned with the gating experiments.
+- **Green tests on Hetzner AX102 (16 vCPU)**: `make test` passes under Python 3.11 (conda `fjs`). Synthetic suite refreshed; artefacts in `figures/synthetic/` with metrics logged to `results/BENCHMARK_S1.md`.
+- **De-aliasing bias reduction**: S3 bias drops aliased→de-aliased by 9.4–17.3 across μ∈{4,6,8} (see `results/BENCHMARK_S1.md`).
+- **Prewhitening & overlays** remain as documented; no behavioural changes since November, but calibration defaults now resume deterministically (`experiments/synthetic/calibrate_thresholds.py` keeps the original timestamp on resume).
+- **Data integrity**: registry hash for `data/returns_daily.csv` is `96ac7dd318245cf1a8b434bb358a9344bf282992fc9fe66f0282023696563197` (validated). Parquet support enabled via `pyarrow`.
+- **Next milestones**: rerun RC-lite on the refreshed host; if factors/WRDS are updated, bump `data/registry.json` and regenerate memos.
 
 Data footprint (local): WRDS snapshots under `data/wrds/*.parquet`, the stitched RC drop under `reports/rc-20251113/`, and generated figures under `figures/` (gitignored).
 
@@ -31,7 +32,7 @@ source .venv/bin/activate
 make setup  # installs the package in editable mode with dev extras
 ```
 
-Optional data: `experiments/equity_panel/config*.yaml` expect `data/returns_daily.csv`. Adjust the config(s) if you want to point at a different dataset.
+Optional data: `experiments/equity_panel/config*.yaml` expect `data/returns_daily.csv` (registry hash above). Adjust the config(s) if you want to point at a different dataset.
 
 ---
 
@@ -104,7 +105,7 @@ All instance-specific details, IAM notes, and bucket policies now live in `docs/
 | `make test-fast` | `pytest -m unit` (deterministic, small fixtures). |
 | `make test-integration` | Smoke-level multi-module tests. |
 | `make test-slow` | Long-running statistics/ablations. |
-| `make test` | Entire pytest suite. |
+| `make test` | Entire pytest suite (now green on AX102). |
 | `make fmt` / `make lint` | Format via `black` + lint (`ruff`, `mypy`). |
 
 Markers (`pytest.ini`):
@@ -190,14 +191,20 @@ Both estimators appear in `metrics_summary.csv`, the aggregate tables, and the m
 Run the null/power ROC harness to calibrate overlay gating:
 
 ```bash
-make sweep:acceptance HARNESS_TRIALS=400
+  make sweep:acceptance HARNESS_TRIALS=400
 ```
 
-The target executes both `experiments/synthetic/null.py` and `experiments/synthetic/power.py`, persisting:
+  The target executes both `experiments/synthetic/null.py` and `experiments/synthetic/power.py`, persisting:
 
 - score tables in `reports/synthetic/null_harness/` and `reports/synthetic/power_harness/`,
 - ROC figures `reports/figures/roc_null.png` and `reports/figures/roc_power.png`,
-- default thresholds + energy floor in `calibration_defaults.json`.
+  - default thresholds + energy floor in `calibration_defaults.json`.
+
+### 5.8 Synthetic benchmark (S1/S3/S4/S5)
+
+- Quick run: `make run-synth` (or `python experiments/synthetic_oneway/run.py`).
+- Outputs: `figures/synthetic/summary.json` plus PNG/PDFs; consolidated metrics in `results/BENCHMARK_S1.md`.
+- Timing: ~37 minutes wall clock on AX102 with 16 threads (python defaults; progress bars off in config).
 
 To tweak parameters manually:
 

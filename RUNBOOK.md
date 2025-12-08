@@ -1,12 +1,11 @@
 # RUNBOOK — Next RC Reproduction
-_Last updated: 2025-11-04_
+_Last updated: 2025-12-08 (Hetzner AX102)_
 
 ## 0. Environment
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e .
+source ~/miniforge3/bin/activate fjs   # Python 3.11, pyarrow installed
 export PYTHONPATH=src
+make setup                             # installs package + dev extras if not yet done
 ```
 
 > Need to burst to the EC2 runner? Follow `docs/CLOUD.md` for the SSH, micromamba, and S3 workflow already provisioned on `i-075b6e3853fe2349e`.
@@ -95,15 +94,12 @@ python experiments/etf_panel/run.py \
 
 ## 6. Testing & Smoke Targets
 ```bash
-pytest \
-  tests/baselines/test_covariance.py \
-  tests/baselines/test_load_factors.py \
-  tests/fjs/test_overlay.py \
-  tests/experiments/test_eval_run.py \
-  tests/experiments/test_daily_grouping.py \
-  tests/synthetic/test_calibration.py
+# full suite (green on AX102, ~85s wall)
+make test
 
-make smoke-daily
+# targeted quick checks
+pytest tests/experiments/test_eval_run.py tests/test_pipeline_smoke.py
+make run-synth
 ```
 
 ## 7. Memo & Gallery Refresh
@@ -120,8 +116,8 @@ open figures/rc-$(date +%Y%m%d)/index.html
 ## 8. Packaging
 ```bash
 git status
-pytest -q
-make smoke-daily
+make test
+make run-synth
 ```
 If clean and green, tag the RC:
 ```bash

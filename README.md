@@ -6,13 +6,13 @@ Robust variance forecasting over balanced equity panels, with tooling to explore
 
 ## Current Status — 2025-12-08
 
-- **Green tests on Hetzner AX102 (16 vCPU)**: `make test` passes under Python 3.11 (conda `fjs`). Synthetic suite refreshed; artefacts in `figures/synthetic/` with metrics logged to `results/BENCHMARK_S1.md`.
-- **De-aliasing bias reduction**: S3 bias drops aliased→de-aliased by 9.4–17.3 across μ∈{4,6,8} (see `results/BENCHMARK_S1.md`).
-- **Prewhitening & overlays** remain as documented; no behavioural changes since November, but calibration defaults now resume deterministically (`experiments/synthetic/calibrate_thresholds.py` keeps the original timestamp on resume).
-- **Data integrity**: registry hash for `data/returns_daily.csv` is `96ac7dd318245cf1a8b434bb358a9344bf282992fc9fe66f0282023696563197` (validated). Parquet support enabled via `pyarrow`.
-- **Next milestones**: rerun RC-lite on the refreshed host; if factors/WRDS are updated, bump `data/registry.json` and regenerate memos.
+- **Tests**: `make test-fast` green on Hetzner (Python 3.12, .venv). Use this before committing; full `make test` is heavier and optional for doc-only changes.
+- **Latest RC-lite (WRDS, deterministic)**: `reports/rc-20251121/` (DoW/vol, Tyler edge, FF5+MOM, 126×21 windows capped to first 200). Detection ≈4.32–4.33%, acceptance≈detection, ΔMSE(EW) ±O(1e-13), ΔMSE(MV) slightly negative, percent_changed≈100% because of the cap. Manifest + regime merged (`run_manifest.json`, `regime.csv`).
+- **Calibration defaults**: refreshed via `HARNESS_TRIALS=800 EXEC_MODE=deterministic make sweep:acceptance` on 2025-11-21. `calibration_defaults.json` selects SCM energy_floor ≈0.108129 (target FPR 2%, power≈1.0 at μ∈{4,6,8}); ROC figs in `reports/figures/`.
+- **Data integrity**: `data/returns_daily.csv` sha256 `96ac7dd318245cf1a8b434bb358a9344bf282992fc9fe66f0282023696563197`; factors `data/factors/ff5mom_daily.csv` sha256 `469d44ad0c5cac556c60c1f258e14245acfcc9f2901ad443f41b64309bf908ca` (both validated against registries).
+- **Docs/memos**: `reports/memo.md` and `reports/brief.md` regenerated from the RC-lite drop (timestamped copies under `reports/memo_20251122_*.md`, `reports/brief_20251122_*.md`).
 
-Data footprint (local): WRDS snapshots under `data/wrds/*.parquet`, the stitched RC drop under `reports/rc-20251113/`, and generated figures under `figures/` (gitignored).
+Data footprint: WRDS CSVs under `data/` (ignored paths keep raw exports out of git); latest RC drop under `reports/rc-20251121/`; calibration artefacts under `reports/synthetic/` and `reports/figures/`.
 
 ---
 
@@ -36,48 +36,20 @@ Optional data: `experiments/equity_panel/config*.yaml` expect `data/returns_dail
 
 ---
 
-## Cloud compute runner (AWS EC2)
+## Compute runners (Hetzner primary, AWS optional)
 
-The production RC + calibration jobs run on a pinned EC2 workstation with deterministic thread caps. The high-level workflow is:
-
-1. **Provision / connect.** Use `scripts/aws_provision.sh` (micromamba, BLAS pins, monitoring hooks) when the host is rebuilt, then tunnel in via the standard SSH key.
-2. **Sync & execute.** `scripts/aws_run.sh <target>` rsyncs the repo, runs the requested `make` target under micromamba with `OMP/MKL/OPENBLAS/NUMEXPR=1`, captures `metrics.jsonl` / `metrics_summary.json` / `progress.jsonl`, and syncs `reports/` back under `reports/aws/<run_id>/`.
-3. **Monitor.** Tail the emitted `reports/aws/<run_id>/runs/<run_id>/run.json` or the `metrics_summary.json` for status, and forward any long-running jobs to `tools/run_monitor.py` (already wired inside `aws_run.sh`).
-4. **Cleanup & upload.** Once artefacts look good, publish them under `reports/rc-$(date +%Y%m%d)/` locally, rebuild the gallery/memo/brief, and push curated bundles to the S3 bucket via `aws s3 sync`.
-
-All instance-specific details, IAM notes, and bucket policies now live in `docs/CLOUD.md`; update that file whenever the ops footprint changes.
+- **Hetzner**: Default host for heavy runs. Use `.venv` + `EXEC_MODE={deterministic,throughput}`. Deterministic caps BLAS/OpenMP to 1 thread; throughput relaxes thread caps to speed sweeps. Example: `EXEC_MODE=deterministic make rc-lite` or `HARNESS_TRIALS=800 EXEC_MODE=deterministic make sweep:acceptance`.
+- **AWS EC2**: Still supported via `scripts/aws_run.sh <target>` (rsync + micromamba + telemetry to `reports/aws/<run_id>/`). Use when Hetzner is busy; IAM/network details remain in `docs/CLOUD.md`.
+- **Monitoring**: `tools/run_monitor.py` tails `metrics.jsonl` / `progress.jsonl` for long jobs. Every run writes `run.json` with git SHA, seeds, thread caps, datasets, and timing.
 
 ---
 
 ## 2. Data & Reproducibility
 
-- **Daily input.** `experiments/equity_panel/run.py` looks for `data/returns_daily.csv` with columns `date,ticker,ret`. The repository ships a compact sample (Sharadar US equities through 2024-12-31) so smoke tests work offline.
-- **Regenerating a mini sample.** If the returns file is missing, the runner will synthesise `data/prices_daily.csv` and derive returns on first use. To refresh the bundled sample explicitly, convert `data/prices_sample.csv` via:
-
-  ```bash
-  python - <<'PY'
-  import pandas as pd
-  from finance.io import load_prices_csv, to_daily_returns
-
-  prices = load_prices_csv("data/prices_sample.csv")
-  returns = to_daily_returns(prices)
-  returns.to_csv("data/returns_daily.csv", index=False)
-  PY
-  ```
-
-- **WRDS registry & hashes.** All loaders validate WRDS panels against `data/registry.json`. After refreshing CRSP data via your ingest pipeline (see `src/io/crsp_daily.py` for the canonical WRDS query), update the registry and commit the new hash:
-
-  ```bash
-  python tools/update_registry.py \
-    --dataset data/returns_daily.csv \
-    --wrds-source crsp.dsf \
-    --note "CRSP daily returns refreshed from WRDS on $(date +%Y-%m-%d)"
-  ```
-
-  The command recomputes the SHA256, row counts, and date span before rewriting `data/registry.json`. `finance.io.load_returns_csv` aborts with a descriptive error if the on-disk file drifts from the recorded digest.
-
-- **Week alignment & timezone.** Balanced panels assume Monday–Friday business weeks in America/New_York. The default `--drop-partial-weeks` policy removes short weeks; switch to `--impute-partial-weeks` if your source includes holidays or alternative sessions.
-- **Run catalogues.** The latest tagged drops live in [`experiments/equity_panel/LATEST.md`](experiments/equity_panel/LATEST.md); browse local outputs with [`tools/list_runs.py`](tools/list_runs.py).
+- **Daily input.** `data/returns_daily.csv` (WRDS CRSP daily returns) is required for equity runs; hash locked in `data/registry.json` (sha256 `96ac7d…3197`). Factor prewhitening uses `data/factors/ff5mom_daily.csv` (sha256 `469d44ad…908ca`) with registry metadata in `data/factors/registry.json`.
+- **Registry maintenance.** After refreshing WRDS exports, run `python tools/update_registry.py --dataset data/returns_daily.csv --wrds-source crsp.dsf --note "<short note>"` (and similarly for factors). The tool recomputes hashes, row counts, and date span; loaders fail fast if digests drift.
+- **Execution defaults.** Runs assume Monday–Friday NYSE weeks; `--drop-partial-weeks` removes short weeks. Override with `--impute-partial-weeks` only if your source carries holiday sessions.
+- **Run catalogues.** Discover local outputs via `tools/list_runs.py` or inspect per-RC manifests under `reports/rc-YYYYMMDD/run_manifest.json`.
 
 ---
 
@@ -203,7 +175,7 @@ Run the null/power ROC harness to calibrate overlay gating:
 ### 5.8 Synthetic benchmark (S1/S3/S4/S5)
 
 - Quick run: `make run-synth` (or `python experiments/synthetic_oneway/run.py`).
-- Outputs: `figures/synthetic/summary.json` plus PNG/PDFs; consolidated metrics in `results/BENCHMARK_S1.md`.
+- Outputs: `figures/synthetic/summary.json` plus PNG/PDFs; if you log consolidated metrics, keep them under `results/` (e.g., `results/BENCHMARK_S1.md`).
 - Timing: ~37 minutes wall clock on AX102 with 16 threads (python defaults; progress bars off in config).
 
 To tweak parameters manually:
@@ -300,20 +272,12 @@ python experiments/etf_panel/run.py \
 
 The ETF wrapper simply forwards options to the daily evaluation harness, emitting the same CSV/PNG diagnostics alongside a short overlay toggle note (`overlay_toggle.md`) that summarises when detections turn on or stay muted.
 
-**Latest RC snapshot (4 Nov 2025)**
+**Latest RC snapshot (21 Nov 2025, deterministic, capped)**
 
-- Bounded DoW/Vol-state runs (126×21, top-80) land in `reports/rc-20251104/{dow-bounded,vol-bounded}/` with the usual metrics, risk, DM, diagnostics, and overlay toggle files.
-- Memo and manifest: `reports/rc-20251104/memo.md`, `reports/rc-20251104/run_manifest.json`.
-- Quick telemetry:
-
-| Design | Regime | Detection rate | Substitution fraction | Median edge margin | Notes |
-| --- | --- | --- | --- | --- | --- |
-| DoW (RIE, FF5+MOM) | Full | 3.4 % | 5.6 % | 0.38 | Overlay beats RIE in calm bins; slight ΔMSE drag in crisis. |
-| DoW (RIE, FF5+MOM) | Crisis | 4.6 % | 5.2 % | 0.41 | Gate held FPR surrogate ≤2 %; monitor late-2020 windows. |
-| Vol-state (OAS, off) | Full | 2.9 % | 3.9 % | 0.33 | No prewhitening; overlay competitive with OAS in calm/mid. |
-| Vol-state (OAS, off) | Crisis | 4.1 % | 3.5 % | 0.35 | Stable VaR95 coverage (±1%). |
-
-Figures live under `figures/rc/20251104/` (generate via `make gallery`); rerun `make rc` after tuning to refresh both graphics and memo content.
+- DoW & Vol-state (Tyler edge, FF5+MOM, top-60, window 126×21) run via `experiments/eval/run.py` with `--max-windows 200` to keep runtime reasonable on Hetzner. Outputs live in `reports/rc-20251121/{dow-tyler,vol-tyler}/` with merged manifest/regime files at the RC root.
+- Headline metrics (full regime): detection≈4.32% (DoW), 4.33% (Vol); acceptance mirrors detection; percent_changed≈100% because all detected windows flipped under the cap; ΔMSE(EW) {+1.75e-13, −1.05e-13}; ΔMSE(MV) {−2.54e-14, −8.64e-14}. See `metrics_summary.json` for exact values.
+- Summary tables/kill criteria rebuilt via `tools/make_summary.py` and surface in `reports/rc-20251121/summary/`. Memos/briefs regenerated (`reports/memo.md`, `reports/brief.md`, timestamped copies under `reports/`), and `regime.csv` merges DoW/Vol states for quick diffing.
+- Caveats: the 200-window cap inflates substitution to 100% and keeps DM effective counts small; rerun without `--max-windows` on Hetzner for production sign-off. Nested design is not included in this capped RC-lite.
 
 #### Conditional DM & prewhiten deltas
 
@@ -349,9 +313,9 @@ Artifacts of interest:
 
 **Action items before the next RC**
 
-- Fix nested detection (0 % coverage) so the memo badge can be retired.
-- Investigate crisis-step tuning: the 2020 slice shows de-aliased ≫ shrinkage MSE and very small edge buffers despite perfect coverage.
-- Either relax runtime limits or shrink the grid further so `experiments/equity_panel/config.ablation.smoke.yaml` emits `ablation_summary.csv` and the gallery plots `ablation_heatmap.png`.
+- Rerun RC-lite without the 200-window cap (include nested) to get production-grade detection/DM coverage and realistic substitution fractions.
+- Fold the nested design into the next RC drop and verify coverage stays inside the 2–6% band with the current guardrails.
+- If ablations remain needed, trim the grid further or run them on Hetzner throughput mode so `ablation_summary.csv` can reappear in the gallery.
 
 ---
 

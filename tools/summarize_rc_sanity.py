@@ -13,7 +13,34 @@ import json
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
+
+
+def _delta_mse(metrics: pd.DataFrame, portfolio: str) -> float | None:
+    if metrics.empty:
+        return None
+    subset = metrics[metrics["regime"] == "full"]
+    overlay = subset[(subset["estimator"] == "overlay") & (subset["portfolio"] == portfolio)]
+    baseline = subset[(subset["estimator"] == "baseline") & (subset["portfolio"] == portfolio)]
+    if overlay.empty or baseline.empty:
+        return None
+    return float(overlay["sq_error"].mean() - baseline["sq_error"].mean())
+
+
+def _effect_label(delta_ew: float | None, delta_mv: float | None) -> str:
+    vals = [val for val in (delta_ew, delta_mv) if val is not None]
+    if not vals:
+        return "unknown"
+    harmful = any(val > 0 for val in vals)
+    helpful = any(val < 0 for val in vals)
+    if harmful and helpful:
+        return "mixed"
+    if harmful:
+        return "harmful"
+    if helpful:
+        return "helpful"
+    return "neutral"
 
 
 def _load_daily(path: Path, label: str) -> tuple[dict[str, Any], pd.DataFrame | None]:
@@ -33,6 +60,10 @@ def _load_daily(path: Path, label: str) -> tuple[dict[str, Any], pd.DataFrame | 
             record["detection_rate"] = float(
                 pd.to_numeric(diag_df.get("detection_rate"), errors="coerce").mean()
             )
+            if "percent_changed" in diag_df.columns:
+                record["percent_changed"] = float(
+                    pd.to_numeric(diag_df.get("percent_changed"), errors="coerce").mean()
+                )
             if "alignment_cos_mean" in diag_df.columns:
                 record["alignment_cos"] = float(
                     pd.to_numeric(diag_df["alignment_cos_mean"], errors="coerce").mean()
@@ -41,6 +72,19 @@ def _load_daily(path: Path, label: str) -> tuple[dict[str, Any], pd.DataFrame | 
                 reasons = diag_df["reason_code"].dropna()
                 if not reasons.empty:
                     record["reason_mode"] = reasons.mode().iloc[0]
+
+    metrics_path = path / "metrics_detail.csv"
+    if metrics_path.exists():
+        try:
+            metrics_df = pd.read_csv(metrics_path)
+        except Exception:
+            metrics_df = pd.DataFrame()
+        if not metrics_df.empty:
+            delta_ew = _delta_mse(metrics_df, "ew")
+            delta_mv = _delta_mse(metrics_df, "mv")
+            record["delta_mse_ew"] = delta_ew
+            record["delta_mse_mv"] = delta_mv
+            record["overlay_effect"] = _effect_label(delta_ew, delta_mv)
 
     if regime_path.exists():
         try:

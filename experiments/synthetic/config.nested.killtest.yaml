@@ -1,0 +1,31 @@
+n_assets: 200
+years: 2
+weeks_options: [6, 7, 8]
+replicates: 5
+trials_per_scenario: 12
+spikes:
+  "null": 0.0
+  moderate: 3.0
+  strong: 6.0
+edge_modes: ["tyler"]
+edge_huber_c: 1.5
+noise_variance: 1.0
+signal_to_noise: 0.35
+delta: 0.35
+delta_frac_min: 0.05
+eps: 0.008
+stability_eta_deg: 0.2
+a_grid: 96
+cs_drop_top_frac: 0.1
+cs_sensitivity_frac: 0.0
+off_component_leak_cap: 25.0
+energy_min_abs: 2e-7
+allow_nonisolated: false
+nonisolated_stability_min: 0.015
+nonisolated_edge_min: 0.015
+nonisolated_q_max: 2
+require_isolated: true
+q_max: 2
+calibration_path: "calibration/edge_delta_thresholds.json"
+seed: 0
+out_dir: "reports/synthetic_nested_killtest"

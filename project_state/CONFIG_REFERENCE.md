@@ -28,6 +28,10 @@ CLI notable flags: `--design`, `--edge-mode`, `--gating-mode {fixed,calibrated}`
 - `calibration_defaults.json` — top-level `parameters` (delta, delta_frac, eps, stability_eta_deg, energy_floor, edge_mode), `selection` stats, `config` metadata, `generated_at`.
 - `calibration/edge_delta_thresholds.json` — `thresholds.{edge_mode}.{p}x{t}.delta_frac` entries used by `fjs.gating.lookup_calibrated_delta`.
 
+## Nested synthetic kill-test (`experiments/synthetic/config.nested.killtest.yaml`)
+- Keys: `n_assets`, `years`, `weeks_options`, `replicates`, `trials_per_scenario`, `spikes` map (null/moderate/strong μ), `edge_modes {tyler,huber}`, `delta`, `delta_frac_min`, `eps`, `stability_eta_deg`, `a_grid`, `cs_drop_top_frac`, `off_component_leak_cap`, `energy_min_abs`, `allow_nonisolated`, `nonisolated_*` gates, `require_isolated`, `q_max`, `calibration_path`, `seed`, `out_dir`.
+- Script: `experiments/synthetic/nested_killtest.py` reads this YAML, simulates nested year⊃week panels, logs skip reasons/detection coverage, and writes `reports/synthetic_nested_killtest/`.
+
 ## Make targets / env vars (excerpt)
 - **Shared**: `EXEC_MODE`, `RC_RETURNS`, `RC_FACTORS`, `RC_GATE_DELTA_FRAC_MIN{_VOL}`, `RC_Q_MAX`, `VOL_Q2_ALIGNMENT_MIN_COS`, `RC_OVERLAY_DELTA`, `RC_COARSE_CANDIDATE`, `RC_GATE_MODE`, `RC_GATE_ACCEPT_NONISOLATED`, `RC_GATE_STABILITY_MIN`, `RC_MV_GAMMA`, `RC_MV_BOX`, `RC_MV_TURNOVER_BPS`, `RC_MV_CONDITION_CAP`, `RC_PREWHITEN`, `RC_USE_FACTOR_PREWHITEN`, `RC_WORKERS`.
 - **rc-lite-sanity specific**: `RC_DOW_GROUP_MIN`, `RC_DOW_GROUP_REPS`, `RC_VOL_GROUP_MIN`, `RC_VOL_GROUP_REPS`, `RC_DOW_MIN_REPS`, `RC_VOL_MIN_REPS`, `RC_DOW_SHRINKER`, `RC_VOL_SHRINKER`, `RC_LITE_BASE`, `RC_LITE_CACHE`, `RC_OUT_SANITY`.

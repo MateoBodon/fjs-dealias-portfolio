@@ -732,6 +732,51 @@ def _prepare_window_stats(
         None,
     )
 
+
+def _infer_skip_reason(
+    diag_local: Mapping[str, Any] | None,
+    *,
+    calibration_missing: bool,
+    isolated_spikes: int | None,
+) -> str:
+    """Best-effort categorisation for windows with no accepted detections."""
+
+    if calibration_missing:
+        return "calibration_missing_p_T"
+
+    reason_priority = [
+        ("edge_buffer", "no_outliers_above_edge"),
+        ("stability_fail", "instability_in_a_neighborhood"),
+        ("off_component_ratio", "off_component_leak"),
+        ("energy_floor", "energy_below_floor"),
+        ("neg_mu", "invalid_mu"),
+        ("other", "diagnostic_failure"),
+    ]
+    counts: dict[str, int] = {}
+    if diag_local:
+        for key, _ in reason_priority:
+            try:
+                counts[key] = int(diag_local.get(key, 0))
+            except (TypeError, ValueError):
+                counts[key] = 0
+    total = sum(counts.values())
+    if total > 0:
+        alias_lookup = {key: alias for key, alias in reason_priority}
+        best_key = None
+        best_count = -1
+        for key, _ in reason_priority:
+            count = counts.get(key, 0)
+            if count > best_count:
+                best_key = key
+                best_count = count
+        if best_key:
+            return alias_lookup[best_key]
+
+    if isolated_spikes is not None and isolated_spikes == 0:
+        return "no_isolated_spike"
+
+    return "no_outliers_above_edge"
+
 def load_config(path: Path | str) -> dict[str, Any]:
     """Load experiment configuration, falling back to defaults."""
 
@@ -1659,6 +1704,7 @@ def _run_single_period(
             edge_scale_used = 1.0
 
         base_delta_frac_val = float(delta_frac_config) if delta_frac_config is not None else 0.0
+        calibration_missing = False
         delta_frac_calibrated = None
         if gating_mode_value == "calibrated" and p_dim > 0 and n_fit_samples > 0:
             delta_frac_calibrated = lookup_calibrated_delta(
@@ -1668,6 +1714,7 @@ def _run_single_period(
                 calibration_path=calibration_path,
             )
             if delta_frac_calibrated is None:
+                calibration_missing = True
                 miss_key = (edge_mode_cfg, p_dim, n_fit_samples)
                 if miss_key not in calibration_misses:
                     calibration_misses.add(miss_key)
@@ -1890,6 +1937,17 @@ def _run_single_period(
                 detections = []
             else:
                 detections = candidate_pool
+
+        if not detections and not window_skip_reason:
+            inferred_reason = _infer_skip_reason(
+                diag_local,
+                calibration_missing=calibration_missing,
+                isolated_spikes=int(isolated_count_raw) if isolated_count_raw is not None else None,
+            )
+            window_skip_reason = inferred_reason
+            gating_skip_reasons[inferred_reason] = (
+                gating_skip_reasons.get(inferred_reason, 0) + 1
+            )
 
         if detections:
             detection_windows += 1
@@ -2753,6 +2811,19 @@ def _run_single_period(
         elif isolated_series and all(count == 0 for count in isolated_series):
             de_scoped_equity = True
 
+    skip_reason_counts: list[dict[str, Any]] = []
+    skip_reason_mode: str | None = None
+    if records:
+        skip_series = pd.Series([str(item.get("skip_reason", "")) for item in records])
+        skip_series = skip_series.replace("", np.nan).dropna()
+        if not skip_series.empty:
+            counts = skip_series.value_counts()
+            skip_reason_mode = str(counts.index[0])
+            skip_reason_counts = [
+                {"reason": str(reason), "count": int(count)}
+                for reason, count in counts.items()
+            ]
+
     summary_payload: dict[str, Any] = {
         "label": label,
         "start_date": str(start_ts.date()),
@@ -2786,6 +2857,10 @@ def _run_single_period(
         "alignment_top_p": int(alignment_top_p),
         "gating_mode": gating_mode_value,
     }
+    if skip_reason_mode:
+        summary_payload["skip_reason_mode"] = skip_reason_mode
+    if skip_reason_counts:
+        summary_payload["skip_reasons"] = skip_reason_counts
     summary_payload["prewhiten"] = {
         "mode_requested": prewhiten_meta.mode_requested,
         "mode_effective": prewhiten_meta.mode_effective,

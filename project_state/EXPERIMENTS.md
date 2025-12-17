@@ -24,6 +24,12 @@
 - **Purpose**: Calibrate δ/η/energy thresholds for MP edge gating; produce ROC curves and defaults JSON.
 - **Outputs**: Score tables (`reports/synthetic/null_harness`, `power_harness`), ROC figures under `reports/figures/`, `calibration_defaults.json`, `calibration/edge_delta_thresholds.json`.
 
+## Nested Synthetic Kill-test
+- **Script**: `experiments/synthetic/nested_killtest.py`.
+- **Config**: `experiments/synthetic/config.nested.killtest.yaml` (p≈200, years=2, weeks 6–8, reps=5, delta=0.35, delta_frac_min configurable, tyler/huber edge, calibrated lookup).
+- **Purpose**: Stress-test nested gating (FPR/Power + skip reasons) on year⊃week structure matched to weekly smoke windows.
+- **Outputs**: `reports/synthetic_nested_killtest/{nested_killtest_trials.csv,summary.csv,summary.md,run.json}`.
+
 ## Synthetic Benchmarks (one-way)
 - **Script**: `experiments/synthetic_oneway/run.py` (Make: `run-synth`).
 - **Configs**: YAML at `experiments/synthetic_oneway/config.yaml` (S1/S3/S4/S5 knobs).

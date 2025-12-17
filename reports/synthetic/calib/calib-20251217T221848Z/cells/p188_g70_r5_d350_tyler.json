@@ -1,0 +1,115 @@
+{
+  "cell_id": "p188_g70_r5_d350_tyler",
+  "config": {
+    "p_assets": 188,
+    "n_groups": 70,
+    "replicates": 5,
+    "delta_abs": 0.35,
+    "edge_mode": "tyler",
+    "seed": 2
+  },
+  "entries": [
+    {
+      "p_assets": 188,
+      "n_groups": 70,
+      "replicates": 5,
+      "edge_mode": "tyler",
+      "delta": 0.35,
+      "delta_frac": 0.01,
+      "stability_eta_deg": 0.3,
+      "fpr": 0.0,
+      "power": 1.0,
+      "trials_null": 60,
+      "trials_alt": 40,
+      "seed": 2
+    },
+    {
+      "p_assets": 188,
+      "n_groups": 70,
+      "replicates": 5,
+      "edge_mode": "tyler",
+      "delta": 0.35,
+      "delta_frac": 0.02,
+      "stability_eta_deg": 0.3,
+      "fpr": 0.0,
+      "power": 1.0,
+      "trials_null": 60,
+      "trials_alt": 40,
+      "seed": 2
+    },
+    {
+      "p_assets": 188,
+      "n_groups": 70,
+      "replicates": 5,
+      "edge_mode": "tyler",
+      "delta": 0.35,
+      "delta_frac": 0.01,
+      "stability_eta_deg": 0.4,
+      "fpr": 0.0,
+      "power": 1.0,
+      "trials_null": 60,
+      "trials_alt": 40,
+      "seed": 2
+    },
+    {
+      "p_assets": 188,
+      "n_groups": 70,
+      "replicates": 5,
+      "edge_mode": "tyler",
+      "delta": 0.35,
+      "delta_frac": 0.02,
+      "stability_eta_deg": 0.4,
+      "fpr": 0.0,
+      "power": 1.0,
+      "trials_null": 60,
+      "trials_alt": 40,
+      "seed": 2
+    }
+  ],
+  "grid": [
+    {
+      "edge_mode": "tyler",
+      "delta": 0.35,
+      "delta_frac": 0.01,
+      "stability_eta_deg": 0.3,
+      "fpr": 0.0,
+      "power": 1.0,
+      "p_assets": 188,
+      "n_groups": 70,
+      "replicates": 5
+    },
+    {
+      "edge_mode": "tyler",
+      "delta": 0.35,
+      "delta_frac": 0.02,
+      "stability_eta_deg": 0.3,
+      "fpr": 0.0,
+      "power": 1.0,
+      "p_assets": 188,
+      "n_groups": 70,
+      "replicates": 5
+    },
+    {
+      "edge_mode": "tyler",
+      "delta": 0.35,
+      "delta_frac": 0.01,
+      "stability_eta_deg": 0.4,
+      "fpr": 0.0,
+      "power": 1.0,
+      "p_assets": 188,
+      "n_groups": 70,
+      "replicates": 5
+    },
+    {
+      "edge_mode": "tyler",
+      "delta": 0.35,
+      "delta_frac": 0.02,
+      "stability_eta_deg": 0.4,
+      "fpr": 0.0,
+      "power": 1.0,
+      "p_assets": 188,
+      "n_groups": 70,
+      "replicates": 5
+    }
+  ]
+}

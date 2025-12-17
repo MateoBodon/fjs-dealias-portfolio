@@ -1,0 +1,65 @@
+{
+  "cell_id": "p188_g70_r5_d350_huber",
+  "config": {
+    "p_assets": 188,
+    "n_groups": 70,
+    "replicates": 5,
+    "delta_abs": 0.35,
+    "edge_mode": "huber",
+    "seed": 3
+  },
+  "entries": [
+    {
+      "p_assets": 188,
+      "n_groups": 70,
+      "replicates": 5,
+      "edge_mode": "huber",
+      "delta": 0.35,
+      "delta_frac": 0.015,
+      "stability_eta_deg": 0.3,
+      "fpr": 0.0,
+      "power": 1.0,
+      "trials_null": 30,
+      "trials_alt": 15,
+      "seed": 3
+    },
+    {
+      "p_assets": 188,
+      "n_groups": 70,
+      "replicates": 5,
+      "edge_mode": "huber",
+      "delta": 0.35,
+      "delta_frac": 0.02,
+      "stability_eta_deg": 0.3,
+      "fpr": 0.0,
+      "power": 1.0,
+      "trials_null": 30,
+      "trials_alt": 15,
+      "seed": 3
+    }
+  ],
+  "grid": [
+    {
+      "edge_mode": "huber",
+      "delta": 0.35,
+      "delta_frac": 0.015,
+      "stability_eta_deg": 0.3,
+      "fpr": 0.0,
+      "power": 1.0,
+      "p_assets": 188,
+      "n_groups": 70,
+      "replicates": 5
+    },
+    {
+      "edge_mode": "huber",
+      "delta": 0.35,
+      "delta_frac": 0.02,
+      "stability_eta_deg": 0.3,
+      "fpr": 0.0,
+      "power": 1.0,
+      "p_assets": 188,
+      "n_groups": 70,
+      "replicates": 5
+    }
+  ]
+}

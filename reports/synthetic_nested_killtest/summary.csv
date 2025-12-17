@@ -1,0 +1,4 @@
+edge_mode,scenario,trials,detection_rate,weeks_mean,n_obs_mean,skip_reason_top,skip_reason_counts,calibration_missing_share
+tyler,moderate,12,1.0,6.916666666666667,69.16666666666667,,{},0.0
+tyler,null,12,1.0,7.416666666666667,74.16666666666667,,{},0.0
+tyler,strong,12,1.0,7.5,75.0,,{},0.0

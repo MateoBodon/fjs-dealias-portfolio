@@ -1,0 +1,40 @@
+{
+  "cell_id": "p188_g60_r3_d500_huber",
+  "config": {
+    "p_assets": 188,
+    "n_groups": 60,
+    "replicates": 3,
+    "delta_abs": 0.5,
+    "edge_mode": "huber",
+    "seed": 1
+  },
+  "entries": [
+    {
+      "p_assets": 188,
+      "n_groups": 60,
+      "replicates": 3,
+      "edge_mode": "huber",
+      "delta": 0.5,
+      "delta_frac": 0.02,
+      "stability_eta_deg": 0.3,
+      "fpr": 0.0,
+      "power": null,
+      "trials_null": 5,
+      "trials_alt": 0,
+      "seed": 1
+    }
+  ],
+  "grid": [
+    {
+      "edge_mode": "huber",
+      "delta": 0.5,
+      "delta_frac": 0.02,
+      "stability_eta_deg": 0.3,
+      "fpr": 0.0,
+      "power": null,
+      "p_assets": 188,
+      "n_groups": 60,
+      "replicates": 3
+    }
+  ]
+}

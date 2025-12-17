@@ -1,0 +1,120 @@
+{
+  "alpha": 0.02,
+  "generated_at": "2025-12-17T22:50:50.090544+00:00",
+  "thresholds_source": "/root/fjs-dealias-portfolio/reports/synthetic/calib_nested_20251217.json",
+  "defaults": {
+    "huber": {
+      "G60": {
+        "r5": {
+          "p188": {
+            "delta": 0.35,
+            "delta_frac": 0.015,
+            "stability_eta_deg": 0.3,
+            "fpr": 0.0,
+            "replicates": 5
+          },
+          "p200": {
+            "delta": 0.35,
+            "delta_frac": 0.015,
+            "stability_eta_deg": 0.3,
+            "fpr": 0.0,
+            "replicates": 5
+          }
+        }
+      },
+      "G70": {
+        "r5": {
+          "p188": {
+            "delta": 0.35,
+            "delta_frac": 0.015,
+            "stability_eta_deg": 0.3,
+            "fpr": 0.0,
+            "replicates": 5
+          },
+          "p200": {
+            "delta": 0.35,
+            "delta_frac": 0.015,
+            "stability_eta_deg": 0.3,
+            "fpr": 0.0,
+            "replicates": 5
+          }
+        }
+      },
+      "G80": {
+        "r5": {
+          "p188": {
+            "delta": 0.35,
+            "delta_frac": 0.015,
+            "stability_eta_deg": 0.3,
+            "fpr": 0.0,
+            "replicates": 5
+          },
+          "p200": {
+            "delta": 0.35,
+            "delta_frac": 0.015,
+            "stability_eta_deg": 0.3,
+            "fpr": 0.0,
+            "replicates": 5
+          }
+        }
+      }
+    },
+    "tyler": {
+      "G60": {
+        "r5": {
+          "p188": {
+            "delta": 0.35,
+            "delta_frac": 0.015,
+            "stability_eta_deg": 0.3,
+            "fpr": 0.0,
+            "replicates": 5
+          },
+          "p200": {
+            "delta": 0.35,
+            "delta_frac": 0.015,
+            "stability_eta_deg": 0.3,
+            "fpr": 0.0,
+            "replicates": 5
+          }
+        }
+      },
+      "G70": {
+        "r5": {
+          "p188": {
+            "delta": 0.35,
+            "delta_frac": 0.015,
+            "stability_eta_deg": 0.3,
+            "fpr": 0.0,
+            "replicates": 5
+          },
+          "p200": {
+            "delta": 0.35,
+            "delta_frac": 0.015,
+            "stability_eta_deg": 0.3,
+            "fpr": 0.0,
+            "replicates": 5
+          }
+        }
+      },
+      "G80": {
+        "r5": {
+          "p188": {
+            "delta": 0.35,
+            "delta_frac": 0.015,
+            "stability_eta_deg": 0.3,
+            "fpr": 0.0,
+            "replicates": 5
+          },
+          "p200": {
+            "delta": 0.35,
+            "delta_frac": 0.015,
+            "stability_eta_deg": 0.3,
+            "fpr": 0.0,
+            "replicates": 5
+          }
+        }
+      }
+    }
+  },
+  "notes": "Lookup of (edge_mode, n_groups, replicates_bin, p_bin) to (delta, delta_frac, eta) filtered to FPR \u2264 alpha."
+}

@@ -1,11 +1,17 @@
 # Roadmap
 
-## Short-term (1–2 weeks)
-- Debug rc-lite-sanity: reduce percent_changed and eliminate positive ΔMSE (check gate/Δ aggregation, coarse-candidate effect); incorporate vol-state run into summary/kill_criteria.
-- Investigate December weekly smoke/nested 0 detections; test loosened η/δ_frac/energy_min_abs and use_tvector toggles on p≈188, T≈60–80.
-- Finish ablation grid regeneration (tiny matrix) and re-enable gallery ablation section; ensure make rc-ablations completes on Hetzner.
-- Add guard in make_summary/summarize_rc_sanity to flag partial runs (e.g., reports/rc-20251208).
-- Refresh README/REPORT “Current Status” to point at rc-lite-sanity 20251209 results.
+**Short-term focus (Dec 2025, next 1–2 sprints)**
+
+- Treat `make rc-lite-sanity` as the main sanity RC for now. The latest run (2023H1, 50 assets) shows:
+  - daily DoW detection ≈ 5.36% with ~100% flips and **ΔMSE>0** vs Ledoit–Wolf,
+  - daily vol-state detection ≈ 5.22% with ~94% flips and no clear ΔMSE benefit,
+  - weekly DoW and nested smokes with **0 accepted windows**.
+- Short-term work therefore focuses on:
+  - (i) completing Tyler/Huber edge calibration for p≈190, T≈60–80 and improving reason logging for empty detections,  
+  - (ii) running a minimal nested synthetic kill-test to decide whether nested is viable at all, and  
+  - (iii) making rc-lite-sanity summaries explicitly report when overlay harms risk (ΔMSE>0), so we do not misinterpret the current state.
+- Nested is considered **guilty until proven useful**: if the calibration + synthetic kill-tests do not yield nontrivial coverage and some performance benefit, nested will be demoted to an exploratory side note rather than a main design in the eventual paper.
+
 
 ## Medium-term (3–5 weeks)
 - Calibrate edge thresholds for Tyler/Huber modes separately and extend p×t coverage to nested regimes; rerun synthetic sweeps.

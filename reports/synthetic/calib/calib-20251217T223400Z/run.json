@@ -1,0 +1,57 @@
+{
+  "run_id": "calib-20251217T223400Z",
+  "exec_mode": "throughput",
+  "workers": 8,
+  "batch_size": 10,
+  "alpha": 0.02,
+  "edge_modes": [
+    "tyler",
+    "huber"
+  ],
+  "p_grid": [
+    188,
+    200
+  ],
+  "n_grid": [
+    60,
+    70,
+    80
+  ],
+  "replicates": [
+    5
+  ],
+  "delta_grid": [
+    0.35
+  ],
+  "delta_frac_grid": [
+    0.015,
+    0.02
+  ],
+  "stability_grid": [
+    0.3
+  ],
+  "trials_null": 30,
+  "trials_alt": 15,
+  "shard_id": null,
+  "shard_manifest": null,
+  "mp_cache_dir": ".cache/mp_edges",
+  "cells_dir": "reports/synthetic/calib/calib-20251217T223400Z/cells",
+  "generated_at": "2025-12-17T22:50:50.090679+00:00",
+  "started_at": "2025-12-17T22:44:46.686530+00:00",
+  "duration_seconds": 363.4041465339251,
+  "jobs_planned": 12,
+  "git_sha": "ba8e20b54d4d43ba37a602f66d2093e090686ca2",
+  "blas": {},
+  "thread_caps": {
+    "OMP_NUM_THREADS": "4",
+    "OPENBLAS_NUM_THREADS": "4",
+    "MKL_NUM_THREADS": "4",
+    "NUMEXPR_NUM_THREADS": "4",
+    "BLIS_NUM_THREADS": "4",
+    "VECLIB_MAXIMUM_THREADS": "4"
+  },
+  "instance": {
+    "hostname": "Ubuntu-2404-noble-amd64-base",
+    "platform": "Linux-6.8.0-85-generic-x86_64-with-glibc2.39"
+  }
+}

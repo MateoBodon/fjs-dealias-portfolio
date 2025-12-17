@@ -8,4 +8,4 @@
 - **Plotting**: use `matplotlib.use("Agg")` in non-interactive contexts; create parent dirs before saving; close figures promptly.
 - **Testing expectations**: run `make test-fast` before commits; mark heavier tests with `slow`/`heavy` to keep CI lean.
 - **Git/branching**: feature branches `codex/<task>`; commits prefixed `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `perf:` per AGENTS.
-- **Documentation**: update PROGRESS.md after RC/calibration; keep memos/briefs reproducible; prefer apply_patch for edits.
+- **Documentation**: update PROGRESS.md after RC/calibration; keep memos/briefs reproducible; prefer apply_patch for edits; treat `Long_Term_Plan.md` and `project_state/` as sources of truth when adding new experiments.

@@ -59,6 +59,14 @@ RC_WORKERS := $(shell python3 -c 'import os;print(os.cpu_count() or 4)')
 RC_RETURNS := data/returns_daily.csv
 RC_DATE := $(shell python3 -c 'import datetime as _dt; print(_dt.datetime.utcnow().strftime("%Y%m%d"))')
 RC_OUT := reports/rc-$(RC_DATE)
+RC_LITE_STAMP := $(shell date +%Y%m%d_%H%M%S)
+RC_LITE_BASE := experiments/equity_panel/outputs_rc-lite-$(RC_DATE)_$(RC_LITE_STAMP)
+RC_LITE_CACHE := .cache/rc-lite
+RC_OUT_SANITY := $(RC_OUT)-sanity-$(RC_LITE_STAMP)
+RC_WEEKLY_DOW_OUT := $(RC_LITE_BASE)/dow-weekly
+RC_WEEKLY_NESTED_OUT := $(RC_LITE_BASE)/nested
+RC_SMOKE_CONFIG := experiments/equity_panel/config.smoke.yaml
+RC_NESTED_SMOKE_CONFIG := experiments/equity_panel/config.nested.smoke.yaml
 RC_REGISTRY := data/registry.json
 RC_VERIFY_DATASET := python tools/verify_dataset.py $(RC_RETURNS) --registry $(RC_REGISTRY)
 RC_FACTORS ?= data/factors/ff5mom_daily.csv
@@ -148,7 +156,7 @@ rc-ablations:
 	$(RC_PY) experiments/ablate/run.py --config $(ABLA_GRID) $(if $(RC_CALM_WINDOW_SAMPLE),--calm-window-sample $(RC_CALM_WINDOW_SAMPLE),) $(if $(RC_CRISIS_WINDOW_TOPK),--crisis-window-topk $(RC_CRISIS_WINDOW_TOPK),)
 
 rc-summary:
-	$(RC_PY) tools/make_summary.py --rc-dir $(RC_OUT)
+	$(RC_PY) tools/make_summary.py --rc-dir $(RC_OUT_SANITY)
 
 rc: rc-data rc-eval
 	$(MAKE) rc-ablations
@@ -169,49 +177,101 @@ rc-lite:
 
 .PHONY: rc-lite-sanity
 rc-lite-sanity:
-	$(MAKE) rc-dow
-	$(MAKE) rc-vol
-	$(RC_PY) tools/make_summary.py --rc-dir $(RC_OUT)
-	python3 - <<'PY'
-	import json
-	from pathlib import Path
-
-	import pandas as pd
-
-	root = Path("$(RC_OUT)").resolve()
-	entries = {
-	    "dow": Path("$(RC_DOW_OUT)").resolve(),
-	    "vol": Path("$(RC_VOL_OUT)").resolve(),
-	}
-	summary = {"rc_dir": str(root), "entries": {}}
-	regime_frames = []
-	for label, subdir in entries.items():
-	    diag_path = subdir / "diagnostics.csv"
-	    record = {"path": str(subdir)}
-	    if diag_path.exists():
-	        diag_df = pd.read_csv(diag_path)
-	        if not diag_df.empty:
-	            row = diag_df.iloc[0]
-	            record["detection_rate"] = float(row.get("detection_rate", float("nan")))
-	            record["alignment_cos"] = float(row.get("alignment_cos_mean", float("nan")))
-	            record["reason_code"] = row.get("reason_code", "")
-	    summary["entries"][label] = record
-	    regime_path = subdir / "regime.csv"
-	    if regime_path.exists():
-	        regime_df = pd.read_csv(regime_path)
-	        regime_df.insert(0, "design", label)
-	        regime_frames.append(regime_df)
-
-	regime_out = root / "regime.csv"
-	if regime_frames:
-	    pd.concat(regime_frames, ignore_index=True).to_csv(regime_out, index=False)
-	else:
-	    pd.DataFrame(columns=["design"]).to_csv(regime_out, index=False)
-	summary_path = root / "summary_sanity.json"
-	summary_path.write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
-	print(f"[rc-lite-sanity] Wrote {summary_path}")
-		print(f"[rc-lite-sanity] Wrote {regime_out}")
-	PY
+	$(RC_VERIFY_DATASET)
+	$(RC_VERIFY_FACTORS)
+	mkdir -p $(RC_OUT_SANITY) $(RC_LITE_BASE) $(RC_LITE_CACHE)
+	$(RC_PY) experiments/eval/run.py \
+		--returns-csv $(RC_RETURNS) \
+		--window 60 \
+		--horizon 10 \
+		--start 2023-01-01 \
+		--end 2023-06-30 \
+		--assets-top 50 \
+		--group-design dow \
+		--group-min-count $(RC_DOW_GROUP_MIN) \
+		--group-min-replicates $(RC_DOW_GROUP_REPS) \
+		--min-reps-dow 6 \
+		--edge-mode $(DOW_EDGE) \
+		--shrinker $(RC_DOW_SHRINKER) \
+		--prewhiten $(RC_PREWHITEN) \
+		--overlay-delta $(RC_OVERLAY_DELTA) \
+		--coarse-candidate $(RC_COARSE_CANDIDATE) \
+		--gate-mode $(RC_GATE_MODE) \
+		$(if $(RC_GATE_ACCEPT_NONISOLATED),--gate-accept-nonisolated,) \
+		--gate-delta-calibration $(RC_GATE_CALIB) \
+		--gate-delta-frac-min $(RC_GATE_DELTA_FRAC_MIN) \
+		--require-isolated \
+		--q-max $(RC_Q_MAX) \
+		--mv-gamma $(RC_MV_GAMMA) \
+		--mv-box $(RC_MV_BOX) \
+		--mv-turnover-bps $(RC_MV_TURNOVER_BPS) \
+		--mv-condition-cap $(RC_MV_CONDITION_CAP) \
+		--use-factor-prewhiten $(RC_USE_FACTOR_PREWHITEN) \
+		--factor-csv $(RC_FACTORS) \
+		--out $(RC_DOW_SANITY)
+	$(RC_PY) experiments/eval/run.py \
+		--returns-csv $(RC_RETURNS) \
+		--window 60 \
+		--horizon 10 \
+		--start 2023-01-01 \
+		--end 2023-06-30 \
+		--assets-top 50 \
+		--group-design vol \
+		--group-min-count $(RC_VOL_GROUP_MIN) \
+		--group-min-replicates $(RC_VOL_GROUP_REPS) \
+		--min-reps-vol 6 \
+		--edge-mode $(VOL_EDGE) \
+		--shrinker $(RC_VOL_SHRINKER) \
+		--prewhiten $(RC_PREWHITEN) \
+		--overlay-delta $(RC_OVERLAY_DELTA) \
+		--coarse-candidate $(RC_COARSE_CANDIDATE) \
+		--gate-mode $(RC_GATE_MODE) \
+		$(if $(RC_GATE_ACCEPT_NONISOLATED),--gate-accept-nonisolated,) \
+		--gate-delta-calibration $(RC_GATE_CALIB) \
+		--gate-delta-frac-min $(RC_GATE_DELTA_FRAC_MIN_VOL) \
+		--q-max $(Q_MAX_VOL) \
+		--mv-gamma $(RC_MV_GAMMA) \
+		--mv-box $(RC_MV_BOX) \
+		--mv-turnover-bps $(RC_MV_TURNOVER_BPS) \
+		--mv-condition-cap $(RC_MV_CONDITION_CAP) \
+		--use-factor-prewhiten $(RC_USE_FACTOR_PREWHITEN) \
+		--factor-csv $(RC_FACTORS) \
+		--out $(RC_VOL_SANITY)
+	$(RC_PY) experiments/equity_panel/run.py \
+		--config $(RC_SMOKE_CONFIG) \
+		--design dow \
+		--estimator dealias \
+		--output-dir $(RC_WEEKLY_DOW_OUT) \
+		--cache-dir $(RC_LITE_CACHE) \
+		--resume \
+		--precompute-panel \
+		--gating-mode calibrated \
+		--gating-calibration $(RC_GATE_CALIB) \
+		--edge-mode tyler \
+		--prewhiten $(RC_PREWHITEN) \
+		--use-factor-prewhiten $(RC_USE_FACTOR_PREWHITEN) \
+		--factor-csv $(RC_FACTORS)
+	$(RC_PY) experiments/equity_panel/run.py \
+		--config $(RC_NESTED_SMOKE_CONFIG) \
+		--design nested \
+		--estimator dealias \
+		--output-dir $(RC_WEEKLY_NESTED_OUT) \
+		--cache-dir $(RC_LITE_CACHE) \
+		--resume \
+		--precompute-panel \
+		--gating-mode calibrated \
+		--gating-calibration $(RC_GATE_CALIB) \
+		--edge-mode tyler \
+		--prewhiten $(RC_PREWHITEN) \
+		--use-factor-prewhiten $(RC_USE_FACTOR_PREWHITEN) \
+		--factor-csv $(RC_FACTORS)
+	$(RC_PY) tools/make_summary.py --rc-dir $(RC_OUT_SANITY)
+	$(RC_PY) tools/summarize_rc_sanity.py \
+		--rc-dir $(RC_OUT_SANITY) \
+		--dow-dir $(RC_DOW_SANITY) \
+		--vol-dir $(RC_VOL_SANITY) \
+		--weekly-dow-dir $(RC_WEEKLY_DOW_OUT) \
+		--nested-dir $(RC_WEEKLY_NESTED_OUT)
 
 .PHONY: aws\:rc-lite aws\:rc aws\:sweep-calibration aws\:rc-sensitivity
 AWS_ARGS ?=
@@ -221,8 +281,10 @@ aws\:%:
 
 DOW_EDGE := $(if $(EDGE),$(EDGE),tyler)
 VOL_EDGE := $(if $(EDGE),$(EDGE),tyler)
-RC_DOW_OUT := $(RC_OUT)/dow-$(DOW_EDGE)
-RC_VOL_OUT := $(RC_OUT)/vol-$(VOL_EDGE)
+RC_DOW_OUT = $(RC_OUT)/dow-$(DOW_EDGE)
+RC_VOL_OUT = $(RC_OUT)/vol-$(VOL_EDGE)
+RC_DOW_SANITY := $(RC_OUT_SANITY)/dow-$(DOW_EDGE)
+RC_VOL_SANITY := $(RC_OUT_SANITY)/vol-$(VOL_EDGE)
 RC_DOW_ASSETS ?= 60
 RC_VOL_ASSETS ?= 60
 RC_DOW_SHRINKER ?= rie

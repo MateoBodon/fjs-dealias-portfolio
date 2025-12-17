@@ -33,3 +33,6 @@
 - Balanced assumption is strict; partial weeks are dropped or imputed—guardrails may over-restrict nested runs when sample sizes thin.
 - Cs estimation drops top eigenvalues; `scan_basis` sigma vs ms changes scaling of MP inputs (auto α based on Σ̂ mean). Might bias thresholds if spectra highly skewed.
 - Overlay enforces PSD via eigenvalue clipping/ridge; strong clipping could mask deleterious detections—metrics currently cap by min forecast vs aliased baseline in `variance_forecast_from_components` (keeps min of overlay and 0.9×baseline when detections present).
+- rc-lite-sanity shows moderate detection (~5%) but overlay touches ~94–100% of windows, yielding positive ΔMSE and failing kill criteria—suggests coarse-candidate + gate-soft combination may over-apply substitutions once any detection exists.
+- Daily summary aggregates only DoW; vol-state run remains outside summary, obscuring cross-design comparison.
+- Weekly smoke/nested runs still emit zero detections at tyler edges despite relaxed guardrails and calibrated δ—may stem from balanced-week filtering or still-too-tight t-vector/edge buffers for p≈188, T≈60–80.

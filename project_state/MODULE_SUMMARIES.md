@@ -1,100 +1,97 @@
 # Module Summaries
 
-## src/fjs
-- `balanced.py` — Balanced one-way MANOVA utilities: input validation, group means, mean square estimators (`mean_squares`), balanced config dataclass, placeholder balanced weight solver.
-- `balanced_nested.py` — Nested Year⊃Week MANOVA mean squares, metadata capture (d,c,N,I,J,replicates), validation of balanced hierarchical labels.
-- `mp.py` — Closed-form Marčenko–Pastur transforms: edge/root finders (`mp_edge`, `m_edge`, `admissible_m_from_lambda`), t-vector evaluation (`t_vec`), Cs plug-in estimation, in-memory/on-disk MP edge cache, derivatives z′/z″ utilities.
-- `dealias.py` — Algorithm 1 spike search and covariance substitution: grid of a-vectors, MP edge buffering, t-vector filtering, stability checks, off-component leakage caps, optional Cs sensitivity bands, theta root finder integration, merging of near-duplicate detections, `dealias_covariance` replacer.
-- `gating.py` — Post-detection gates: isolate outlier count, rank top-k detections, lookup calibrated δ_frac from JSON tables.
-- `overlay.py` — Overlay wrapper: config dataclass, optional coarse candidates, shrinkage/factor baseline selection, spike detection (`detect_spikes`), gating (strict/soft), delta calibration resolution, and substitution (`apply_overlay`).
-- `robust.py` — Tyler and Huber scatter estimators plus MP edge scaling helper `edge_from_scatter`.
-- `spectra.py` — Eigen diagnostics: top-k eigensolver, projection alignment, spectrum/edge plots, spike time-series plots, spectrum sorter.
-- `theta_solver.py` — For k=2 designs, root-find θ such that off-component t2=0 with stability checks.
+## src/fjs (MANOVA core)
+- `balanced.py` — Balanced one-way MANOVA utilities: input validation, group means, mean square estimators (`mean_squares`), `BalancedConfig`, placeholder `compute_balanced_weights`.
+- `balanced_nested.py` — Nested Year⊃Week mean squares with `NestedDesignMetadata` (d, c, N, order, replicates) and label validation.
+- `mp.py` — Marčenko–Pastur machinery: edge/root finders (`mp_edge`, `m_edge`, `marchenko_pastur_edges`), admissible root (`admissible_m_from_lambda`), t-vector (`t_vec`), Cs plug-in estimation (`estimate_Cs_from_MS`), cache controls (`configure_mp_cache`, `clear_mp_cache`), z′/z″ utilities, PDF stub.
+- `dealias.py` — Algorithm 1 spike search & substitution (`dealias_search`, `dealias_covariance`); helper design defaults, input validation, admissible root checks, angular grid/rotation, merge duplicate detections, design params TypedDicts, result dataclass.
+- `gating.py` — Post-detection gating: outlier counting, top-k selection, calibrated δ_frac lookup (`lookup_calibrated_delta`), scoring helpers.
+- `overlay.py` — Overlay wrapper: `OverlayConfig` dataclass, coarse candidates, baseline covariance chooser, `detect_spikes`, gating (strict/soft), calibrated/relative delta handling, `apply_overlay` (PSD-guarded substitution).
+- `robust.py` — Tyler/Huber scatter estimators and MP edge scaling helper (`edge_from_scatter`).
+- `spectra.py` — Eigen diagnostics: `topk_eigh`, `project_alignment`, spectrum plots (`plot_spectrum_with_edges`), spike time-series plots, spectrum estimation.
+- `theta_solver.py` — `ThetaSolverParams` + `solve_theta_for_t2_zero` root finder for k=2 designs with stability probes.
 
-## src/finance
+## src/finance (covariance, portfolios, IO)
 - `design.py` — Build combined return+factor design matrices; week grouping labels.
-- `eval.py` — Rolling window generator, risk metrics, variance forecast wrappers for multiple estimators (dealias, LW/OAS/CC, factor, Tyler, factor_obs, POET), weekly covariance reconstruction from MANOVA components, portfolio evaluation, alignment of detections.
-- `factors.py` — Observed-factor covariance via cross-sectional OLS; design alignment; handles industry factors.
+- `eval.py` — Rolling windows; risk metrics; `oos_variance_forecast`, `weekly_cov_from_components`, `variance_forecast_from_components`, `evaluate_portfolio`.
+- `factors.py` — Observed-factor covariance via cross-sectional OLS; design alignment; industry factor handling.
 - `ledoit.py` — Ledoit–Wolf shrinkage wrapper with PSD checks.
-- `portfolio.py` — Projected-gradient min-var with ridge/box constraints (`minvar_ridge_box`), turnover utilities, memoised penalised covariances.
-- `portfolios.py` — cvxpy-based min-var solvers (long-only/box) with equal-weight fallback.
-- `returns.py` — Log-return computation; weekly aggregation; balanced Week×Day construction with `balance_weeks`.
-- `robust.py` — Winsorize/huberize returns; Tyler M-estimator with ridge.
-- `shrinkage.py` — OAS and constant-correlation shrinkage implementations plus helpers for PSD/finite handling.
-- `io.py` — CSV loaders for prices/returns with registry validation; conversion to wide matrices.
-- `loader.py` — Balanced weekly panel loader from daily prices, rolling windows with fixed universe enforcement.
+- `portfolio.py` — PGD min-var with ridge/box (`minvar_ridge_box`), turnover and cost utilities, memoised penalised covariances.
+- `portfolios.py` — cvxpy-based min-var solvers (box/long-only) with EW fallback.
+- `returns.py` — Log-return computation; weekly aggregation; balanced Week×Day construction (`balance_weeks`, `weekly_panel`).
+- `robust.py` — Winsorize/huberize returns; Tyler shrinkage covariance.
+- `shrinkage.py` — OAS and constant-correlation shrinkage with PSD/finite guards.
+- `io.py` — Price/return CSV loaders with registry validation, long→wide conversion.
+- `loader.py` — Balanced weekly panel loader from daily prices; rolling windows with fixed universe enforcement.
 
-## src/baselines
-- `covariance.py` — Convenience wrappers: sample covariance, LW/OAS/CC shrinkage, RIE, QuEST clipping, EWMA covariance.
-- `factors.py` — Load observed factors (FF5/MOM), construct market proxy, prewhiten returns; data classes for prewhiten result.
+## src/baselines (shrinkers & prewhitening)
+- `covariance.py` — Sample covariance; LW/OAS/CC shrinkage; RIE, QuEST clipping, EWMA covariance with PSD symmetrisation.
+- `factors.py` — Load observed factors (FF5/MOM, market proxy); `PrewhitenResult`; prewhiten returns; percent-scale detection.
 
-## src/data
-- `panels.py` — Build balanced Week×Day panels, compute/manipulate manifests, hashing utilities, save/load panel pickles.
-- `registry.py` — Dataset registry loader/validator with SHA256 checking and exceptions.
-- `factors.py` — Factor registry validation/loading with optional env override; returns entry metadata.
+## src/data (registries/panels)
+- `panels.py` — `PanelManifest`, `BalancedPanel`, hash utilities, balanced Week×Day builder, save/load manifest/panel pickles.
+- `registry.py` — Dataset registry loader/validator with SHA256 checking (`assert_registered_dataset`).
+- `factors.py` — Factor registry loader/validator (`load_registered_factors`), SHA checks, timestamp coercion.
 
-## src/eval (clean/balance helpers used by experiments.eval)
-- `clean.py` — NaN filtering policy for per-window panels, telemetry capture.
-- `balance.py` — Enforce balanced replicates per group with optional asset intersection; reasons/telemetry included.
+## src/eval (helpers for daily eval)
+- `clean.py` — NaN filtering policy with `NaNPolicyTelemetry/Result`.
+- `balance.py` — Balance per-group replicates (`BalanceResult/Telemetry`), asset intersection controls.
 
-## src/evaluation
-- `dm.py` — Diebold–Mariano test with Newey–West long-run variance.
-- `evaluate.py` — ΔMSE/QLIKE/VaR/ES metrics, sign test, block-bootstrap CI, coverage tests, alignment diagnostics, plotting helpers, metrics summary aggregation.
-- `factor.py` — Observed-factor covariance and POET-lite estimator with IC selection.
+## src/evaluation (metrics & diagnostics)
+- `dm.py` — Diebold–Mariano test with Newey–West variance.
+- `evaluate.py` — ΔMSE/QLIKE/VaR/ES metrics, sign test, bootstrap CI, coverage tests, alignment diagnostics, plotting helpers, `DeltaSummary`, metrics summary aggregation.
+- `factor.py` — Observed-factor covariance, POET-lite estimator with IC selection (`POETResult`).
 
-## src/meta
-- `cache.py` — Hash key generator for per-window cache, save/load split between JSON scalars and NPZ arrays.
-- `run_meta.py` — Run metadata dataclass; code signature hash; helper to write `run_meta.json` including detection counts and figure hashes.
-- `runtime.py` — Execution mode resolution (deterministic/throughput), thread caps application, worker scaling.
+## src/meta (runtime/cache/metadata)
+- `cache.py` — `window_key`, save/load window payloads (JSON + NPZ).
+- `run_meta.py` — `RunMeta` dataclass; `code_signature` hashing; Git SHA helper; PDF hash collector; detection counting; `write_run_meta`.
+- `runtime.py` — `ExecModeSettings`, thread-cap application, exec-mode resolution, worker count helpers, metadata snapshot.
 
-## src/report / plotting
-- `report.gather` — Load run artifacts, discover tagged runs, aggregate estimator panels, DM stats extraction.
-- `report.tables` — Table builders for estimators, rejections, ablations (CSV/MD/TeX outputs).
-- `report.plots` — Plot generators (detection, DM p-values, isolation bars, stability scatter, histograms, ablation heatmaps).
-- `plotting.utils` — Shared plot styling and save helpers.
+## src/report & plotting
+- `report.gather` — Run loader, run discovery, detection/edge extraction, estimator panel aggregation.
+- `report.tables` — Estimator/rejection/ablation table writers (CSV/MD/TeX).
+- `report.plots` — Detection rates, edge histograms, alignment angles, DM bars, ablation heatmaps.
+- `plotting.utils` — Figure roots, E1–E4 plot builders, guardrail plots.
 
 ## src/synthetic
-- `calibration.py` — Threshold calibration helpers for MP edge delta, ROC construction.
-- `threshold_eval.py` — Evaluate calibrated thresholds against null/power score tables.
+- `calibration.py` — Calibration sweep config/result dataclasses, panel simulation, seed batching, threshold selection/writing.
+- `threshold_eval.py` — Evaluate calibrated thresholds vs score tables; `DetectionArrays`.
 
 ## src/io
-- `crsp_daily.py` — CRSP-specific loader utilities (returns panel creation).
+- `crsp_daily.py` — CRSP snapshot fetch with rowcount probe, cleaning, DoW/vol labels, parquet writer.
 - `wrds_connect.py` — WRDS connection helper (credential-aware).
 
 ## src/utils
-- `credentials.py` — Stub for retrieving secrets (kept minimal to avoid leakage).
+- `credentials.py` — WRDS credential stubs; keychain lookup placeholder.
 
-## experiments
-- `equity_panel/run.py` — Weekly MANOVA experiment driver: config parsing, data loading/balancing, prewhitening, per-window detection (with caching, nested/oneway/DoW/vol designs), overlay gating, portfolio evaluation (EW, min-var), plotting (E1–E4), ablation grid support, crisis slices, run metadata writing.
-- `equity_panel/sweep_acceptance.py` — Small synthetic sweep around acceptance thresholds.
-- Configs (`config*.yaml`) — smoke, crisis, nested, ablation, gallery, rc presets.
-- `eval/run.py` — Daily overlay runner: load daily panel, prewhiten, group by design (week, DoW, vol-state, month), apply overlay per window with risk metrics, per-regime outputs, optional plots, writes resolved_config and diagnostics.
-- `eval/config.py`/`diagnostics.py`/`inject_spike.py`/`sensitivity.py` — Eval config resolver, diagnostic reason codes, spike injection for tests, sensitivity utilities.
-- `daily/*.py` — Grouping utilities for daily panels (DoW, vol-state), config data classes.
-- `synthetic/null.py`, `power.py`, `calibrate_thresholds.py`, `power_null.py`, `harness_utils.py` — Synthetic ROC sweeps, score simulation, threshold calibration CLI, run metadata writing.
-- `synthetic_oneway/run.py` — Lightweight synthetic benchmarks (S1/S3/S4/S5 grid) driven by YAML config.
-- `ablate/run.py` — Parameter ablation runner reading YAML matrices.
-- `etf_panel/run.py` — ETF demo wrapper atop daily evaluation harness.
-- `prewhiten.py` — Shared prewhitening selection/telemetry writer for experiments.
+## experiments (pipelines & helpers)
+- `equity_panel/run.py` — Weekly MANOVA runner: config parsing/defaults, data loading/balancing, prewhitening, caching (`meta.cache`), detection (`dealias_search`), gating (calibrated/fixed), overlay baseline selection, portfolio evaluation, plots (E1–E4), ablation support, crisis slices, run metadata.
+- `equity_panel/sweep_acceptance.py` — Small synthetic sweep near acceptance thresholds.
+- Configs (`config*.yaml`) — smoke, crisis, nested, rc, rc-lite/gallery, ablation, acceptance, calibration.
+- `eval/run.py` — Daily overlay runner: config resolution, grouping (week/DoW/vol/dow_month/dowxvol), NaN/balance policies, prewhitening, overlay detection, risk metrics, diagnostics/plots, resolved config echo.
+- `eval/config.py` / `diagnostics.py` / `inject_spike.py` / `sensitivity.py` — Config deep-merge & thresholds loader, diagnostic enums, spike injection harness, gating sensitivity sweeps.
+- `daily/grouping.py` / `config.py` / `run.py` — Grouping utilities (week, DoW, vol-state, DoW×vol, DoW×month) with error reporting and CLI wrapper.
+- `synthetic/null.py`, `power.py`, `power_null.py`, `calibrate_thresholds.py`, `harness_utils.py` — Synthetic ROC sweeps, score simulation, calibration CLI, cache/meta helpers, plotting and default writer.
+- `synthetic_oneway/run.py` — Synthetic S1/S3/S4/S5 benchmarks, bias/recall plots, summary JSON, multi-spike support.
+- `ablate/run.py` — YAML-driven parameter sweep; E5-style summary extraction; supports calm/crisis sampling.
+- `etf_panel/run.py` — ETF demo atop daily eval defaults, writes overlay_toggle markdown.
+- `prewhiten.py` — Prewhitening selection, telemetry computation, diagnostics writers (`PrewhitenTelemetry`).
 
-## tools
-- `build_gallery.py` — Generate gallery tables/plots from run directories (YAML-driven).
-- `build_memo.py` — Assemble memo markdown from runs + summary artifacts.
-- `build_brief.py` — One-page advisor brief using gallery inputs.
-- `make_summary.py` — Cross-run summary tables (detection, performance, kill criteria).
-- `summarize_run.py` — Print/summarise run directories (detection, ΔMSE, DM, gallery links).
-- `clean_outputs.py` — Move/clean legacy experiment outputs.
-- `aggregate_runs.py` — Combine multiple run directories into aggregated CSVs.
-- `prewhiten_effect.py` — Compare prewhiten on/off runs for deltas.
-- `reduce_calibration.py` — Consolidate calibration shards into threshold JSONs/plots.
-- `shard_grid.py` — Shard calibration grids for distributed runs.
-- `run_monitor.py` — Tail metrics/progress JSONL during long runs.
-- `update_registry.py` / `verify_dataset.py` — Refresh/check dataset registry digests.
-- `list_runs.py` — Enumerate available runs with metadata.
+## tools (reporting, maintenance, monitoring)
+- `build_gallery.py`, `build_memo.py`, `build_brief.py` — Gallery/ memo/brief generation from YAML manifests and run dirs.
+- `make_summary.py` — Cross-run summary (detection/perf/kill criteria) with `SummaryArtifacts`.
+- `summarize_run.py`, `summarize_rc_sanity.py` — Text/CSV summaries for run dirs and rc-lite-sanity batch.
+- `aggregate_runs.py`, `list_runs.py` — Run discovery and aggregation.
+- `prewhiten_effect.py` — Compare prewhiten on/off runs.
+- `reduce_calibration.py`, `shard_grid.py` — Calibration sharding/reduction.
+- `run_monitor.py` — Progress/metrics tailer with resource telemetry.
+- `clean_outputs.py` — Targeted clean/archival of legacy outputs.
+- `update_registry.py`, `verify_dataset.py` — Dataset/factor registry refresh and validation.
+- `plot_rc_hist.py` — RC histogram plot helper.
 
 ## scripts
-- `scripts/data/*.py` — Fetch WRDS/Sharadar data, build balanced weekly panels, summarise returns.
-- `scripts/run_calibration.sh`, `scripts/manual/run_daily_rc_smoke.sh`, `scripts/manual/merge_calibration_thresholds.py`, `scripts/manual/run_calibration_p200.sh` — Convenience wrappers for sweeps/RC smoke.
-- `scripts/aws_run.sh`, `scripts/aws_provision.sh` — AWS dispatch/provision helpers with micromamba + telemetry.
-- `scripts/bench_linalg.py` — Quick linalg perf test for BLAS sizing.
-- `scripts/secrets/setup_wrds_keychain.sh` — WRDS credential setup (no secrets in repo).
+- `scripts/data/*.py` — WRDS/Sharadar ingestion, balanced weekly builders, return summaries.
+- `scripts/manual/*.sh|*.py` — Calibration and RC smoke wrappers, merge calibration shards.
+- `scripts/aws_run.sh` / `scripts/aws_provision.sh` — AWS dispatch/provision helpers (micromamba + telemetry).
+- `scripts/bench_linalg.py` — BLAS sizing probe.
+- `scripts/secrets/setup_wrds_keychain.sh` — WRDS credential setup (no secrets committed).

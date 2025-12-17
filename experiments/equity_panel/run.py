@@ -1404,6 +1404,7 @@ def _run_single_period(
         alignment_top_p = 3
     nested_skip_reasons: dict[str, int] = {}
     nested_skip_detail_map: dict[str, dict[str, Any]] = {}
+    nested_prep_events: list[dict[str, Any]] = []
     use_tvector_cfg = bool(use_tvector)
 
     baseline_name = "Equal Weight"
@@ -1550,6 +1551,26 @@ def _run_single_period(
                         int(prep_info.get("replicates_observed", 0)),
                         int(detail.get("replicates_observed", 0)),
                     )
+                nested_prep_events.append(
+                    {
+                        "window_index": int(window_idx),
+                        "fit_start": fit.index[0],
+                        "fit_end": fit.index[-1],
+                        "hold_start": hold.index[0],
+                        "hold_end": hold.index[-1] if not hold.empty else fit.index[-1],
+                        "reason": reason_value,
+                        "years_kept": int(prep_info.get("years_kept", 0)),
+                        "weeks_common": int(prep_info.get("weeks_common", 0)),
+                        "replicates_expected": int(nested_reps_value),
+                        "replicates_used": int(
+                            prep_info.get("replicates_used", nested_reps_value)
+                        ),
+                        "replicates_observed": int(prep_info.get("replicates_observed", 0)),
+                        "years_dropped": ",".join(
+                            str(val) for val in prep_info.get("years_dropped", []) or []
+                        ),
+                    }
+                )
             continue
 
         y_fit_daily = prepared.y_fit
@@ -1961,6 +1982,13 @@ def _run_single_period(
             "isolated_spikes": int(isolated_count_raw),
             "nested_nonisolated_fallback": bool(nonisolated_fallback_used),
             "gate_discarded_count": len(gate_discard_detail),
+            "nested_years": int(stats_local.get("I", 0)) if design_mode == "nested" else 0,
+            "nested_weeks_common": int(stats_local.get("J", 0)) if design_mode == "nested" else 0,
+            "nested_replicates_effective": (
+                int(stats_local.get("replicates", nested_reps_value))
+                if design_mode == "nested"
+                else 0
+            ),
             "edge_mode": edge_mode_cfg,
             "gating_mode": gating_mode_value,
             "edge_scale": float(edge_scale_used),
@@ -2601,6 +2629,9 @@ def _run_single_period(
             "isolated_spikes": 0,
             "gate_discarded_count": 0,
             "gate_discarded": "[]",
+            "nested_years": 0,
+            "nested_weeks_common": 0,
+            "nested_replicates_effective": 0,
             "angle_min_deg": float("nan"),
             "energy_mu": float("nan"),
         }.items():
@@ -2618,6 +2649,9 @@ def _run_single_period(
                 "gate_discarded_count",
                 "gate_discarded",
                 "nested_nonisolated_fallback",
+                "nested_years",
+                "nested_weeks_common",
+                "nested_replicates_effective",
                 "edge_mode",
                 "gating_mode",
                 "edge_scale",
@@ -2803,6 +2837,11 @@ def _run_single_period(
                     key=lambda item: (-int(item[1].get("windows", 0)), item[0]),
                 )
             ]
+        if nested_prep_events:
+            summary_payload["nested_preparation_events"] = int(len(nested_prep_events))
+            pd.DataFrame(nested_prep_events).to_csv(
+                output_dir / "nested_preparation.csv", index=False
+            )
     summary_payload["rejection_stats"] = rejection_totals
     gating_summary: dict[str, Any] = {
         "enabled": bool(gating_enabled),
@@ -3002,6 +3041,7 @@ def _run_sigma_ablation(
 def run_experiment(
     config_path: Path | str | None = None,
     *,
+    output_dir_override: str | None = None,
     sigma_ablation: bool = False,
     crisis: str | None = None,
     delta_frac_override: float | None = None,
@@ -3047,6 +3087,8 @@ def run_experiment(
         else Path(__file__).with_name("config.yaml")
     )
     config = load_config(path)
+    if output_dir_override is not None:
+        config["output_dir"] = str(output_dir_override)
     if delta_frac_override is not None:
         config["dealias_delta_frac"] = float(delta_frac_override)
     if signed_a_override is not None:
@@ -3675,6 +3717,12 @@ def main() -> None:
         help="Directory for per-window cache artifacts (JSON/NPZ).",
     )
     parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=None,
+        help="Override output directory for experiment artifacts.",
+    )
+    parser.add_argument(
         "--resume",
         action="store_true",
         help="Reuse cached per-window statistics when available.",
@@ -3713,6 +3761,7 @@ def main() -> None:
 
     run_experiment(
         args.config,
+        output_dir_override=args.output_dir,
         sigma_ablation=args.sigma_ablation,
         crisis=args.crisis,
         delta_frac_override=args.delta_frac,

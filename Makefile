@@ -28,10 +28,11 @@ test-fast:
 gpt-bundle:
 	@if [ -z "$(TICKET)" ]; then echo "TICKET is required (e.g., TICKET=ticket-02)"; exit 1; fi
 	@if [ -z "$(RUN_NAME)" ]; then echo "RUN_NAME is required (e.g., RUN_NAME=20251218_070342_ticket-01_nested-null-fpr)"; exit 1; fi
-	@BUNDLE_TS=$$(date +%Y%m%d_%H%M%S); \
+	@ROOT=$$PWD; \
+	 BUNDLE_TS=$$(date +%Y%m%d_%H%M%S); \
 	 TMP=$$(mktemp -d); \
-	 mkdir -p $$TMP/docs/agent_runs $$TMP/docs/gpt_bundles; \
-	 mkdir -p docs/gpt_bundles; \
+	 mkdir -p $$TMP/docs/agent_runs; \
+	 mkdir -p $$ROOT/docs/gpt_bundles; \
 	 cp -v AGENTS.md $$TMP/; \
 	 cp -v docs/PLAN_OF_RECORD.md $$TMP/; \
 	 cp -v docs/DOCS_AND_LOGGING_SYSTEM.md $$TMP/; \
@@ -40,13 +41,13 @@ gpt-bundle:
 	 cp -v project_state/KNOWN_ISSUES.md $$TMP/; \
 	 cp -v project_state/CONFIG_REFERENCE.md $$TMP/; \
 	 cp -v PROGRESS.md $$TMP/; \
-	 if [ -d "docs/agent_runs/$(RUN_NAME)" ]; then cp -rv "docs/agent_runs/$(RUN_NAME)" $$TMP/docs/agent_runs/; fi; \
+	 if [ -d "$$ROOT/docs/agent_runs/$(RUN_NAME)" ]; then cp -rv "$$ROOT/docs/agent_runs/$(RUN_NAME)" $$TMP/docs/agent_runs/; fi; \
 	 git diff HEAD~1..HEAD > $$TMP/DIFF.patch || true; \
 	 git log -1 --stat > $$TMP/LAST_COMMIT.txt || true; \
 	 BUNDLE_NAME="docs/gpt_bundles/$${BUNDLE_TS}_$(TICKET)_$(RUN_NAME).zip"; \
-	 (cd $$TMP && zip -qr "$$PWD/$${BUNDLE_NAME}" .); \
+	 (cd $$TMP && zip -qr "$$ROOT/$${BUNDLE_NAME}" .); \
 	 rm -rf $$TMP; \
-	 echo "Wrote bundle to $$BUNDLE_NAME"
+	 echo "Wrote bundle to $$ROOT/$$BUNDLE_NAME"
 
 test-integration:
 	pytest -m "integration"

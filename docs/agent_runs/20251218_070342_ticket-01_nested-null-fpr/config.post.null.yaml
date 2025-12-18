@@ -2,11 +2,9 @@ n_assets: 200
 years: 2
 weeks_options: [6, 7, 8]
 replicates: 5
-trials_per_scenario: 12
+trials_per_scenario: 220
 spikes:
   "null": 0.0
-  moderate: 3.0
-  strong: 6.0
 edge_modes: ["tyler"]
 edge_huber_c: 1.5
 noise_variance: 1.0
@@ -28,5 +26,5 @@ require_isolated: true
 use_tvector: true
 q_max: 2
 calibration_path: "calibration/edge_delta_thresholds.json"
-seed: 0
-out_dir: "reports/synthetic_nested_killtest"
+seed: 1
+out_dir: "reports/synthetic_nested_killtest/post_null_20251218"

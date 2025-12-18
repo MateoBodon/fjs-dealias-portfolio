@@ -1,0 +1,32 @@
+data_path: "data/returns_daily.csv"
+start_date: "2022-01-01"
+end_date: "2023-06-30"
+window_weeks: 52
+horizon_weeks: 1
+output_dir: "experiments/equity_panel/outputs_nested_smoke_postfix"
+dealias_delta: 0.35
+dealias_delta_frac: 0.05
+dealias_eps: 1.0
+stability_eta_deg: 0.3
+signed_a: true
+cs_drop_top_frac: 0.1
+a_grid: 72
+cs_sensitivity_frac: 0.0
+off_component_leak_cap: 0.3
+energy_min_abs: 2e-07
+partial_week_policy: "drop"
+design: "nested"
+nested_replicates: 5
+oneway_a_solver: "auto"
+target_component: 0
+edge_mode: "tyler"
+use_tvector: true
+gating:
+  enable: true
+  mode: calibrated
+  q_max: 2
+  require_isolated: true
+  allow_nonisolated_nested: false
+  nonisolated_stability_min: 0.015
+  nonisolated_edge_min: 0.015
+  nonisolated_q_max: 2

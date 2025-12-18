@@ -1,0 +1,10 @@
+- python3 -m venv .venv
+- source .venv/bin/activate && pip install -U pip setuptools wheel
+- source .venv/bin/activate && pip install -e .
+- source .venv/bin/activate && EXEC_MODE=deterministic python experiments/synthetic/nested_killtest.py --config experiments/synthetic/config.nested.killtest.yaml --out reports/synthetic_nested_killtest/smoke_20251218
+- source .venv/bin/activate && EXEC_MODE=deterministic python experiments/synthetic/nested_killtest.py --config docs/agent_runs/20251218_070342_ticket-01_nested-null-fpr/config.pre.null.yaml --out reports/synthetic_nested_killtest/pre_null_20251218
+- source .venv/bin/activate && pytest tests/test_gating.py tests/test_nested_killtest_regression.py
+- source .venv/bin/activate && EXEC_MODE=deterministic python experiments/synthetic/nested_killtest.py --config docs/agent_runs/20251218_070342_ticket-01_nested-null-fpr/config.post.null.yaml --out reports/synthetic_nested_killtest/post_null_20251218
+- source .venv/bin/activate && EXEC_MODE=deterministic python experiments/synthetic/nested_killtest.py --config experiments/synthetic/config.nested.killtest.yaml --out reports/synthetic_nested_killtest/post_smoke_20251218
+- source .venv/bin/activate && EXEC_MODE=deterministic python experiments/equity_panel/run.py --config docs/agent_runs/20251218_070342_ticket-01_nested-null-fpr/config.real.smoke.yaml --design nested --exec-mode deterministic
+- source .venv/bin/activate && make test-fast

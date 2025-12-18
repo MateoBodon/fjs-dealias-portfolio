@@ -39,20 +39,21 @@ DEFAULT_CONFIG = {
     "signal_to_noise": 0.35,
     "edge_modes": ["tyler"],
     "edge_huber_c": 1.5,
-    "delta": 0.0,
-    "delta_frac_min": 0.01,
-    "eps": 0.008,
-    "stability_eta_deg": 0.2,
+    "delta": 0.35,
+    "delta_frac_min": 0.05,
+    "eps": 1.0,
+    "stability_eta_deg": 0.3,
     "a_grid": 96,
     "cs_drop_top_frac": 0.1,
     "cs_sensitivity_frac": 0.0,
-    "off_component_leak_cap": 25.0,
+    "off_component_leak_cap": 0.3,
     "energy_min_abs": 2e-7,
-    "allow_nonisolated": True,
+    "allow_nonisolated": False,
     "nonisolated_stability_min": 0.015,
     "nonisolated_edge_min": 0.015,
     "nonisolated_q_max": 2,
-    "require_isolated": False,
+    "require_isolated": True,
+    "use_tvector": True,
     "q_max": 2,
     "calibration_path": "calibration/edge_delta_thresholds.json",
     "seed": 0,
@@ -271,6 +272,7 @@ def run_trials(config: Mapping[str, Any]) -> tuple[list[TrialResult], dict[str, 
                     if delta_frac_calib is None
                     else max(base_delta_frac, float(delta_frac_calib))
                 )
+                use_tvector = bool(config.get("use_tvector", config.get("require_isolated", False)))
 
                 edge_scale, edge_scm_val, edge_sel_val = _edge_scale(
                     observations, edge_mode=edge_mode, edge_huber_c=float(config["edge_huber_c"])
@@ -286,7 +288,7 @@ def run_trials(config: Mapping[str, Any]) -> tuple[list[TrialResult], dict[str, 
                     eps=float(config["eps"]),
                     energy_min_abs=float(config["energy_min_abs"]),
                     stability_eta_deg=float(config["stability_eta_deg"]),
-                    use_tvector=False,
+                    use_tvector=use_tvector,
                     nonnegative_a=False,
                     a_grid=int(config["a_grid"]),
                     cs_drop_top_frac=float(config["cs_drop_top_frac"]),
@@ -305,9 +307,28 @@ def run_trials(config: Mapping[str, Any]) -> tuple[list[TrialResult], dict[str, 
                 candidate_pool = list(detections)
 
                 allow_noniso = bool(config["allow_nonisolated"])
-                if bool(config["require_isolated"]) and isolated_count == 0:
-                    window_skip_reason = "no_isolated_spike"
-                    candidate_pool = []
+                require_isolated = bool(config.get("require_isolated", False))
+
+                if require_isolated:
+                    if isolated_count == 0:
+                        window_skip_reason = "no_isolated_spike"
+                        candidate_pool = []
+                    else:
+                        filtered_iso: list[dict[str, Any]] = []
+                        for det in candidate_pool:
+                            if not isinstance(det, Mapping):
+                                continue
+                            try:
+                                pre_val = int(det.get("pre_outlier_count", 0))
+                            except (TypeError, ValueError):
+                                pre_val = 0
+                            if pre_val == 1:
+                                filtered_iso.append(det)
+                        if filtered_iso:
+                            candidate_pool = filtered_iso
+                        else:
+                            window_skip_reason = "no_isolated_spike"
+                            candidate_pool = []
 
                 if allow_noniso and candidate_pool:
                     filtered = []

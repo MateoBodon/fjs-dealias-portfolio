@@ -1,0 +1,53 @@
+{
+  "generated_at": "2025-12-18T07:12:45.604733+00:00",
+  "elapsed_seconds": 528.3620069026947,
+  "config": {
+    "n_assets": 200,
+    "years": 2,
+    "weeks_options": [
+      6,
+      7,
+      8
+    ],
+    "replicates": 5,
+    "trials_per_scenario": 220,
+    "spikes": {
+      "null": 0.0
+    },
+    "noise_variance": 1.0,
+    "signal_to_noise": 0.35,
+    "edge_modes": [
+      "tyler"
+    ],
+    "edge_huber_c": 1.5,
+    "delta": 0.35,
+    "delta_frac_min": 0.05,
+    "eps": 1.0,
+    "stability_eta_deg": 0.3,
+    "a_grid": 96,
+    "cs_drop_top_frac": 0.1,
+    "cs_sensitivity_frac": 0.0,
+    "off_component_leak_cap": 0.3,
+    "energy_min_abs": "2e-7",
+    "allow_nonisolated": false,
+    "nonisolated_stability_min": 0.015,
+    "nonisolated_edge_min": 0.015,
+    "nonisolated_q_max": 2,
+    "require_isolated": true,
+    "use_tvector": true,
+    "q_max": 2,
+    "calibration_path": "calibration/edge_delta_thresholds.json",
+    "seed": 1,
+    "out_dir": "reports/synthetic_nested_killtest/post_null_20251218"
+  },
+  "diagnostics": {
+    "tyler": {
+      "no_isolated_spike": 220
+    }
+  },
+  "artifacts": {
+    "trials": "reports/synthetic_nested_killtest/post_null_20251218/nested_killtest_trials.csv",
+    "summary": "reports/synthetic_nested_killtest/post_null_20251218/summary.csv",
+    "summary_md": "reports/synthetic_nested_killtest/post_null_20251218/summary.md"
+  }
+}

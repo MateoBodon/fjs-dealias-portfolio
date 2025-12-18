@@ -1,3 +1,16 @@
+## 2025-12-18T07:17Z — Nested null FPR fix (ticket-01-nested-null-fpr)
+- **Data**: synthetic only plus `data/returns_daily.csv` (sha256=96ac7dd318245cf1a8b434bb358a9344bf282992fc9fe66f0282023696563197) for the real-data smoke.
+- **Commands**: `EXEC_MODE=deterministic python experiments/synthetic/nested_killtest.py --config docs/agent_runs/20251218_070342_ticket-01_nested-null-fpr/config.pre.null.yaml --out reports/synthetic_nested_killtest/pre_null_20251218`; post-fix rerun with `config.post.null.yaml`; post-smoke sanity `--config experiments/synthetic/config.nested.killtest.yaml --out reports/synthetic_nested_killtest/post_smoke_20251218`; real-data nested weekly smoke `python experiments/equity_panel/run.py --config docs/agent_runs/20251218_070342_ticket-01_nested-null-fpr/config.real.smoke.yaml --design nested --exec-mode deterministic`; tests via `pytest tests/test_gating.py tests/test_nested_killtest_regression.py` and `make test-fast`.
+- **Artifacts**:
+  - Pre-fix null: `reports/synthetic_nested_killtest/pre_null_20251218/run.json` (null-only, 220 trials).
+  - Post-fix null: `reports/synthetic_nested_killtest/post_null_20251218/run.json` (null-only, 220 trials).
+  - Post-fix smoke: `reports/synthetic_nested_killtest/post_smoke_20251218/run.json` (null/moderate/strong, 12 each).
+  - Real-data nested weekly smoke: `experiments/equity_panel/outputs_nested_smoke_postfix/` (`run_meta.json`, detection_summary.csv, manifest).
+- **Results**:
+  - Null FPR collapsed: detection_rate 0.8545 → 0.0 on 220 null trials (`summary.csv` in pre_null_20251218 vs post_null_20251218; skip_reason `no_isolated_spike` recorded, calibration present).
+  - Power retained: strong spike detection_rate=1.0, moderate≈0.42 on post_smoke_20251218 (null still 0).
+  - Real-data smoke conservative: 0 detections across 10 windows (skip_reason `no_isolated_spike`) using tightened gates (use_tvector on, eps=1.0, off_leak=0.3).
+
 ## 2025-11-22T00:56Z — Hetzner RC-lite + calibration refresh (git sha 3db9335)
 - **Data**: WRDS daily returns `data/returns_daily.csv` (sha256=96ac7dd3…3197) + FF5+MOM factors `data/factors/ff5mom_daily.csv` (sha256=469d44ad…908ca), verified against registries.
 - **Commands**:

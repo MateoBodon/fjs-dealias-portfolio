@@ -88,7 +88,28 @@ def count_isolated_outliers(
 
     # Prefer explicit counts from detections when available.
     if any(count is not None for count in pre_counts):
-        return sum(1 for count in pre_counts if count == 1)
+        isolated_lambdas: list[float] = []
+        for item, pre_val in zip(items, pre_counts):
+            if pre_val != 1 or not isinstance(item, Mapping):
+                continue
+            lam_val = _as_float(item.get("lambda_hat"))
+            if np.isfinite(lam_val):
+                isolated_lambdas.append(lam_val)
+
+        if not isolated_lambdas:
+            return 0
+
+        # Deduplicate nearly-identical isolated spikes that arise from
+        # scanning multiple orientations of the same underlying eigenvalue.
+        isolated_lambdas.sort()
+        unique_count = 1
+        prev = isolated_lambdas[0]
+        rel_tol = 1e-3  # tolerate 0.1% differences
+        for lam_val in isolated_lambdas[1:]:
+            if lam_val - prev > rel_tol * max(abs(prev), abs(lam_val), 1.0):
+                unique_count += 1
+                prev = lam_val
+        return unique_count
 
     edge_val = _as_float(edge)
     eig_array = np.asarray(eig_values, dtype=np.float64)

@@ -1,0 +1,18 @@
+{
+  "git_sha": "03d4c03cc386ab315b6ec03714871849b0109e5c",
+  "branch": "ticket-01-nested-null-fpr",
+  "config_hashes": {
+    "config.pre.null": "d5c7146b2c035d9284975d8358682394be2b71c2a0c00a054cbacefe5ebdf77e",
+    "config.post.null": "3087151da7ef8ed597fc1710ce32d0ec320357b7b869db44b1f1753bd14e90a8",
+    "config.real.smoke": "d8e553ba450e84b59738c0ef8c433440f5b7dbf252b6405daa579c04f3667e6d",
+    "config.nested.killtest.yaml": "87c933f25b2c94357feff987ca8c28f048e68845e99d81565309f83c38589b5a"
+  },
+  "dataset_ids": {
+    "data/returns_daily.csv": "sha256:96ac7dd318245cf1a8b434bb358a9344bf282992fc9fe66f0282023696563197"
+  },
+  "exec_mode": "deterministic",
+  "host": "local",
+  "start_time": "2025-12-18T07:03:42Z",
+  "end_time": "2025-12-18T07:22:15Z",
+  "failures": []
+}

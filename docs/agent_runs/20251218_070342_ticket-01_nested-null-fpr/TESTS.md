@@ -1,0 +1,2 @@
+- source .venv/bin/activate && pytest tests/test_gating.py tests/test_nested_killtest_regression.py  # pass (6 passed)
+- source .venv/bin/activate && make test-fast  # pass (65 passed, 147 deselected)

@@ -16,6 +16,15 @@ def test_count_isolated_outliers_zero_when_missing_isolated() -> None:
     assert count_isolated_outliers(detections, None, None) == 0
 
 
+def test_count_isolated_outliers_deduplicates_close_lambdas() -> None:
+    detections = [
+        {"lambda_hat": 1.0, "pre_outlier_count": 1, "stability_margin": 0.4},
+        {"lambda_hat": 1.0005, "pre_outlier_count": 1, "stability_margin": 0.3},
+        {"lambda_hat": 2.0, "pre_outlier_count": 2, "stability_margin": 0.5},
+    ]
+    assert count_isolated_outliers(detections, None, None) == 1
+
+
 def test_select_top_k_prefers_high_score_and_edge_margin() -> None:
     detections = [
         {

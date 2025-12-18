@@ -1,0 +1,2 @@
+edge_mode,scenario,trials,detection_rate,weeks_mean,n_obs_mean,skip_reason_top,skip_reason_counts,calibration_missing_share
+tyler,null,220,0.0,7.136363636363637,71.36363636363636,no_isolated_spike,{'no_isolated_spike': 220},0.0

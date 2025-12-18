@@ -1,0 +1,15 @@
+- Goal: bring nested synthetic kill-test null FPR under control and add regression coverage.
+- Summary outcome: null acceptance collapsed from ~0.85 to 0 on 220 null trials; strong spikes still pass; moderate spikes now partially accepted; real-data nested smoke shows no trivial acceptance.
+- Artifacts:
+  - reports/synthetic_nested_killtest/pre_null_20251218 (null-only, 220 trials, pre-fix)
+  - reports/synthetic_nested_killtest/post_null_20251218 (null-only, 220 trials, post-fix)
+  - reports/synthetic_nested_killtest/post_smoke_20251218 (null/moderate/strong, 12 trials each, post-fix)
+  - reports/synthetic_nested_killtest/smoke_20251218 (baseline config, 12 trials each, pre-fix)
+  - experiments/equity_panel/outputs_nested_smoke_postfix (real-data nested weekly smoke, 10 windows)
+- Key metrics:
+  - pre-null detection_rate=0.8545 over 220 null trials (isolated_spikes mean >1)
+  - post-null detection_rate=0.0 over 220 null trials (all skipped: no_isolated_spike)
+  - post-smoke: null detection_rate=0.0; moderate=0.4167; strong=1.0
+  - real-data smoke: n_detections=0 / 10 windows; skip_reason=no_isolated_spike throughout (conservative, no silent fallbacks)
+- Failures / warnings: none; real-data smoke is intentionally conservative (0 detections).
+- Follow-ups: monitor moderate power after tightening gates; consider tuning delta_frac/eta if moderate recall needs to rise without lifting null FPR.

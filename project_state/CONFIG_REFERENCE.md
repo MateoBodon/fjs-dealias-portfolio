@@ -29,7 +29,7 @@ CLI notable flags: `--design`, `--edge-mode`, `--gating-mode {fixed,calibrated}`
 - `calibration/edge_delta_thresholds.json` — `thresholds.{edge_mode}.{p}x{t}.delta_frac` entries used by `fjs.gating.lookup_calibrated_delta`.
 
 ## Nested synthetic kill-test (`experiments/synthetic/config.nested.killtest.yaml`)
-- Keys: `n_assets`, `years`, `weeks_options`, `replicates`, `trials_per_scenario`, `spikes` map (null/moderate/strong μ), `edge_modes {tyler,huber}`, `delta`, `delta_frac_min`, `eps`, `stability_eta_deg`, `a_grid`, `cs_drop_top_frac`, `off_component_leak_cap`, `energy_min_abs`, `allow_nonisolated`, `nonisolated_*` gates, `require_isolated`, `q_max`, `calibration_path`, `seed`, `out_dir`.
+- Keys: `n_assets`, `years`, `weeks_options`, `replicates`, `trials_per_scenario`, `spikes` map (null/moderate/strong μ), `edge_modes {tyler,huber}`, `delta`, `delta_frac_min`, `eps`, `stability_eta_deg`, `a_grid`, `cs_drop_top_frac`, `off_component_leak_cap`, `energy_min_abs`, `allow_nonisolated`, `nonisolated_*` gates, `require_isolated`, `use_tvector`, `q_max`, `calibration_path`, `seed`, `out_dir`.
 - Script: `experiments/synthetic/nested_killtest.py` reads this YAML, simulates nested year⊃week panels, logs skip reasons/detection coverage, and writes `reports/synthetic_nested_killtest/`.
 
 ## Make targets / env vars (excerpt)

@@ -193,6 +193,69 @@ def test_run_evaluation_emits_artifacts(
     )
 
 
+@pytest.mark.unit
+def test_run_manifest_records_uncapped_windows(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    returns_csv = _make_returns_csv(tmp_path_factory)
+    out_dir = tmp_path_factory.mktemp("uncapped_manifest")
+    config = EvalConfig(
+        returns_csv=Path(returns_csv),
+        factors_csv=None,
+        window=10,
+        horizon=2,
+        out_dir=Path(out_dir),
+        shrinker="rie",
+        seed=11,
+        use_factor_prewhiten=False,
+        group_min_count=1,
+        group_min_replicates=1,
+        min_reps_dow=1,
+        min_reps_vol=1,
+        mv_box_hi=1.0,
+    )
+    run_evaluation(config)
+    manifest_path = Path(out_dir) / "run_manifest.json"
+    assert manifest_path.exists()
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["cap_active"] is False
+    assert manifest["windows_total"] == manifest["windows_evaluated"]
+    coverage = manifest.get("window_coverage")
+    assert coverage is None or coverage >= 0.999
+
+
+@pytest.mark.unit
+def test_run_manifest_records_capped_windows(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    returns_csv = _make_returns_csv(tmp_path_factory)
+    out_dir = tmp_path_factory.mktemp("capped_manifest")
+    config = EvalConfig(
+        returns_csv=Path(returns_csv),
+        factors_csv=None,
+        window=10,
+        horizon=2,
+        out_dir=Path(out_dir),
+        shrinker="rie",
+        seed=12,
+        use_factor_prewhiten=False,
+        group_min_count=1,
+        group_min_replicates=1,
+        min_reps_dow=1,
+        min_reps_vol=1,
+        mv_box_hi=1.0,
+        max_windows=2,
+    )
+    run_evaluation(config)
+    manifest_path = Path(out_dir) / "run_manifest.json"
+    assert manifest_path.exists()
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["cap_active"] is True
+    assert manifest["windows_total"] > manifest["windows_evaluated"]
+    assert manifest.get("window_coverage") is None or manifest["window_coverage"] < 1.0
+    assert any("max_windows" in src for src in manifest.get("cap_sources", []))
+
+
 def test_run_evaluation_prewhiten_off(tmp_path_factory: pytest.TempPathFactory) -> None:
     returns_csv = _make_returns_csv(tmp_path_factory)
     out_dir = tmp_path_factory.mktemp("outputs_off")

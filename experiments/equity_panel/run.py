@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
+from datetime import datetime, timezone
 from collections import defaultdict
 from dataclasses import dataclass
 from math import comb
@@ -59,7 +61,13 @@ from plotting import (
 )
 from meta.cache import load_window, save_window, window_key
 from meta import runtime
-from meta.run_meta import code_signature, write_run_meta
+from meta.run_meta import (
+    code_signature,
+    config_hash_from_path,
+    dataset_identity,
+    write_manifest_json,
+    write_run_meta,
+)
 from evaluation import check_dealiased_applied
 from evaluation.evaluate import (
     iqr as eval_iqr,
@@ -143,6 +151,18 @@ def _parse_box_bounds(bounds: Any) -> tuple[float, float]:
 
 
 CODE_SIGNATURE = code_signature()
+
+
+def _current_git_sha() -> str:
+    try:
+        output = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=PROJECT_ROOT,
+            stderr=subprocess.DEVNULL,
+        )
+        return output.decode("utf-8").strip()
+    except Exception:
+        return "unknown"
 
 
 @dataclass
@@ -3388,6 +3408,21 @@ def run_experiment(
             yaml.safe_dump(config, fh, sort_keys=True)
     except Exception:
         pass
+    resolved_config_path = output_dir / "config_resolved.yaml"
+    config_hash = config_hash_from_path(resolved_config_path)
+
+    dataset_meta = dataset_identity(
+        Path(config["data_path"]),
+        registry_paths=[PROJECT_ROOT / "data" / "registry.json"],
+    )
+    if dataset_meta is None or dataset_meta.get("sha256") is None:
+        raise FileNotFoundError(f"returns dataset missing or unreadable: {config['data_path']}")
+    factors_meta = None
+    if factor_csv_path is not None:
+        factors_meta = dataset_identity(
+            factor_csv_path,
+            registry_paths=[PROJECT_ROOT / "data" / "factors" / "registry.json"],
+        )
 
     start_ts = pd.to_datetime(config["start_date"])
     end_ts = pd.to_datetime(config["end_date"])
@@ -3462,6 +3497,7 @@ def run_experiment(
             label_with_suffix = (
                 f"{run_cfg['label']}_{run_suffix}" if run_suffix else str(run_cfg["label"])
             )
+            run_start = datetime.now(timezone.utc)
             _run_single_period(
                 daily_returns,
                 start=run_cfg["start"],
@@ -3505,7 +3541,76 @@ def run_experiment(
                 prewhiten_meta=prewhiten_meta,
                 use_tvector=bool(config.get("use_tvector", True)),
             )
+            run_end = datetime.now(timezone.utc)
 
+            summary_path = run_output_dir / "summary.json"
+            try:
+                summary_payload = json.loads(summary_path.read_text()) if summary_path.exists() else {}
+            except Exception:
+                summary_payload = {}
+            rolling_windows_eval = int(summary_payload.get("rolling_windows_evaluated", 0) or 0)
+            gating_summary = summary_payload.get("gating") or {}
+            gating_skips = int(gating_summary.get("skip_windows", 0) or 0)
+            nested_skips = int(summary_payload.get("nested_windows_skipped", 0) or 0)
+            windows_total = int(rolling_windows_eval + gating_skips + nested_skips)
+            windows_evaluated = int(rolling_windows_eval)
+            coverage = (
+                float(windows_evaluated) / float(windows_total) if windows_total > 0 else None
+            )
+            incomplete_parts: list[str] = []
+            if windows_total == 0:
+                incomplete_parts.append("no_windows")
+            if gating_skips:
+                incomplete_parts.append(f"gating_skip={gating_skips}")
+            if nested_skips:
+                incomplete_parts.append(f"nested_skip={nested_skips}")
+            if windows_total > 0 and windows_evaluated < windows_total and not incomplete_parts:
+                incomplete_parts.append("windows_dropped")
+            outputs_payload = {
+                "summary": str(summary_path) if summary_path.exists() else None,
+                "detection_summary": str(run_output_dir / "detection_summary.csv"),
+            }
+            manifest_payload = {
+                "git_sha": _current_git_sha(),
+                "out_dir": str(run_output_dir),
+                "config_path": str(path),
+                "resolved_config_path": str(resolved_config_path),
+                "config_hash": config_hash,
+                "dataset": dataset_meta,
+                "factors": factors_meta,
+                "exec_mode": config.get("exec_mode"),
+                "execution": {
+                    "mode": config.get("exec_mode"),
+                    "thread_caps": runtime.thread_caps_snapshot(),
+                    "start_time": run_start.isoformat(),
+                    "end_time": run_end.isoformat(),
+                },
+                "start_time": run_start.isoformat(),
+                "end_time": run_end.isoformat(),
+                "max_windows": None,
+                "cap_active": False,
+                "cap_applied": False,
+                "cap_configured": False,
+                "cap_sources": [],
+                "cap_configured_sources": [],
+                "windows_total": windows_total,
+                "windows_requested": windows_total,
+                "windows_completed": windows_evaluated,
+                "windows_after_regime": windows_evaluated,
+                "windows_evaluated": windows_evaluated,
+                "windows_failed": max(0, windows_total - windows_evaluated),
+                "rolling_windows_evaluated": rolling_windows_eval,
+                "gating_skip_windows": gating_skips,
+                "nested_windows_skipped": nested_skips,
+                "window_coverage": coverage,
+                "incomplete_reason": (
+                    ";".join(dict.fromkeys(incomplete_parts)) if incomplete_parts else None
+                ),
+                "label": label_with_suffix,
+                "crisis_label": str(crisis_tag) if crisis_tag else None,
+                "outputs": outputs_payload,
+            }
+            write_manifest_json(run_output_dir / "run_manifest.json", manifest_payload)
             try:
                 write_run_meta(
                     run_output_dir,

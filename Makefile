@@ -141,6 +141,7 @@ RC_MV_CONDITION_CAP ?= 1000000
 ABLA_GRID ?= experiments/ablate/ablation_matrix_tiny.yaml
 RC_CALM_WINDOW_SAMPLE ?=
 RC_CRISIS_WINDOW_TOPK ?=
+RC_MAX_WINDOWS ?=
 
 CALIB_P_ASSETS ?= 64 80 96
 CALIB_N_GROUPS ?= 36
@@ -233,6 +234,7 @@ rc-lite-sanity:
 		--mv-condition-cap $(RC_MV_CONDITION_CAP) \
 		--use-factor-prewhiten $(RC_USE_FACTOR_PREWHITEN) \
 		--factor-csv $(RC_FACTORS) \
+		$(if $(RC_MAX_WINDOWS),--max-windows $(RC_MAX_WINDOWS),) \
 		--out $(RC_DOW_SANITY)
 	$(RC_PY) experiments/eval/run.py \
 		--returns-csv $(RC_RETURNS) \
@@ -261,6 +263,7 @@ rc-lite-sanity:
 		--mv-condition-cap $(RC_MV_CONDITION_CAP) \
 		--use-factor-prewhiten $(RC_USE_FACTOR_PREWHITEN) \
 		--factor-csv $(RC_FACTORS) \
+		$(if $(RC_MAX_WINDOWS),--max-windows $(RC_MAX_WINDOWS),) \
 		--out $(RC_VOL_SANITY)
 	$(RC_PY) experiments/equity_panel/run.py \
 		--config $(RC_SMOKE_CONFIG) \

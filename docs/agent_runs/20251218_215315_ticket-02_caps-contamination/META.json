@@ -1,0 +1,23 @@
+{
+  "git_sha": "f2b0b8d6665e9e1a889b34ac63fc2467e0a36024",
+  "branch": "ticket-02-caps-contamination",
+  "config_hashes": [
+    "c779fb909998945d46d78dafb7b30658bacbcab402c325e7a92ac6fc66b8e0a7",
+    "2b64d4598af4ee56f479af48388e33cd385a7b5dd744fb13aaa0ec4bd18258a9",
+    "5548099195d5476d08261e5b6d82977c113020123a19d4f9466d020b2ae05279",
+    "5835a39b1ba2e818cef2599a20f57c29b6cce543f09bb6dd91d802b38c859dbc"
+  ],
+  "dataset_ids": [
+    "96ac7dd318245cf1a8b434bb358a9344bf282992fc9fe66f0282023696563197",
+    "469d44ad0c5cac556c60c1f258e14245acfcc9f2901ad443f41b64309bf908ca"
+  ],
+  "exec_mode": "deterministic",
+  "host": "local",
+  "start_time": "2025-12-18T21:53:15Z",
+  "end_time": "2025-12-18T22:08:37Z",
+  "failures": [
+    "Initial make test-fast failed (pytest not on PATH before creating .venv).",
+    "make rc-lite-sanity (cap off) timed out twice; completed by rerunning components with stamp 20251218_223414.",
+    "First vol rerun for rc-20251218-sanity-20251218_223414 timed out; reran after cleaning directory."
+  ]
+}

@@ -5,6 +5,7 @@ import json
 import math
 import random
 import subprocess
+from datetime import datetime, timezone
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -79,6 +80,7 @@ from finance import MinVarMemo, minvar_ridge_box, turnover
 from finance.portfolio import _project_box_sum
 from fjs.overlay import OverlayConfig, apply_overlay, detect_spikes
 from meta import runtime
+from meta.run_meta import config_hash_from_path, dataset_identity, write_manifest_json
 
 
 @dataclass(slots=True, frozen=True)
@@ -1471,6 +1473,7 @@ def run_evaluation(
     *,
     resolved_config: Mapping[str, Any] | None = None,
 ) -> EvalOutputs:
+    start_time = datetime.now(timezone.utc)
     panel, raw_returns, whitening, prewhiten_meta, factor_entry = _prepare_returns(
         config
     )
@@ -1516,10 +1519,28 @@ def run_evaluation(
             "start_date": factor_entry.start_date,
             "end_date": factor_entry.end_date,
             "source": factor_entry.source,
-            "note": factor_entry.note,
-        }
+        "note": factor_entry.note,
+    }
     resolved_path.write_text(json.dumps(resolved_payload, indent=2, sort_keys=True, default=str))
     resolved_path_str = str(resolved_path)
+    resolved_config_hash = config_hash_from_path(resolved_path)
+    returns_identity = dataset_identity(
+        config.returns_csv,
+        registry_paths=[PROJECT_ROOT / "data" / "registry.json"],
+    )
+    factors_identity = None
+    if factor_entry is not None:
+        factors_identity = dataset_identity(
+            factor_entry.path,
+            registry_paths=[PROJECT_ROOT / "data" / "factors" / "registry.json"],
+        )
+    elif config.factors_csv is not None:
+        factors_identity = dataset_identity(
+            config.factors_csv,
+            registry_paths=[PROJECT_ROOT / "data" / "factors" / "registry.json"],
+        )
+    if returns_identity is None or returns_identity.get("sha256") is None:
+        raise FileNotFoundError(f"returns dataset missing or unreadable: {config.returns_csv}")
 
     overlay_cfg = OverlayConfig(
         shrinker=config.shrinker,
@@ -2444,11 +2465,19 @@ def run_evaluation(
     diagnostics_records: list[dict[str, object]] = []
 
     total_days = raw_returns.shape[0]
-    start_indices: Iterable[int]
-    start_indices = range(0, total_days - config.window - config.horizon + 1)
+    start_indices_range = range(0, total_days - config.window - config.horizon + 1)
+    windows_total = len(start_indices_range)
+    start_indices: Iterable[int] = start_indices_range
+    windows_requested = windows_total
+    cap_sources: list[str] = []
     if config.max_windows is not None:
         max_windows = max(0, int(config.max_windows))
-        start_indices = list(start_indices)[:max_windows]
+        if max_windows < windows_total:
+            start_indices = list(start_indices_range)[:max_windows]
+            windows_requested = len(start_indices)
+            cap_sources.append(f"max_windows={max_windows}")
+        else:
+            windows_requested = windows_total
     worker_setting = config.workers
     if mv_tau > 0.0:
         worker_setting = 1
@@ -2474,6 +2503,12 @@ def run_evaluation(
     metrics_detail_path = out_dir / "metrics_detail.csv"
     metrics_df.to_csv(metrics_detail_path, index=False)
     diagnostics_df = pd.DataFrame(diagnostics_records)
+    windows_completed = int(diagnostics_df.shape[0])
+    regime_counts_pre = (
+        diagnostics_df["regime"].value_counts().to_dict()
+        if "regime" in diagnostics_df.columns
+        else {}
+    )
     if "group_label_counts" not in diagnostics_df.columns:
         diagnostics_df["group_label_counts"] = ""
     if "group_observations" not in diagnostics_df.columns:
@@ -2531,6 +2566,12 @@ def run_evaluation(
         calm_limit=config.calm_window_sample,
         crisis_limit=config.crisis_window_top_k,
         seed=config.seed,
+    )
+    windows_after_regime = int(diagnostics_df.shape[0])
+    regime_counts_post = (
+        diagnostics_df["regime"].value_counts().to_dict()
+        if "regime" in diagnostics_df.columns
+        else {}
     )
     bootstrap_samples = max(0, int(config.bootstrap_samples))
     rng_bootstrap = np.random.default_rng(config.seed + 97)
@@ -3314,14 +3355,130 @@ def run_evaluation(
         plot_paths.update(
             {f"hist_{name}": str(path) for name, path in extra_plots.items()}
         )
+    windows_trimmed_regime = max(0, windows_completed - windows_after_regime)
+    regime_limit_configured = (
+        config.calm_window_sample is not None or config.crisis_window_top_k is not None
+    )
+    cap_configured_sources: list[str] = []
+    if config.max_windows is not None:
+        cap_configured_sources.append("max_windows")
+    if regime_limit_configured:
+        cap_configured_sources.append("regime_window_sampling")
+    if windows_trimmed_regime > 0 and regime_limit_configured:
+        cap_sources.append("regime_window_sampling")
+    cap_configured = bool(config.max_windows is not None or regime_limit_configured)
+    cap_applied = bool(cap_sources)
+    cap_active = cap_applied
+    windows_failed = max(0, windows_requested - windows_completed)
+    window_coverage = (
+        float(windows_after_regime) / float(windows_total) if windows_total > 0 else None
+    )
+    incomplete_reasons: list[str] = []
+    if windows_total > windows_after_regime:
+        if cap_applied:
+            incomplete_reasons.extend(cap_sources)
+        if windows_failed > 0:
+            incomplete_reasons.append(f"dropped_windows={windows_failed}")
+        if windows_trimmed_regime > 0 and "regime_window_sampling" not in cap_sources:
+            incomplete_reasons.append("regime_window_sampling")
+    incomplete_reason = (
+        "; ".join(dict.fromkeys(incomplete_reasons)) if incomplete_reasons else None
+    )
+    end_time = datetime.now(timezone.utc)
+    windows_by_regime_pre = {str(key): int(val) for key, val in regime_counts_pre.items()}
+    windows_by_regime_post = {str(key): int(val) for key, val in regime_counts_post.items()}
+    regime_limit_values = {
+        "calm_window_sample": int(config.calm_window_sample)
+        if config.calm_window_sample is not None
+        else None,
+        "crisis_window_top_k": int(config.crisis_window_top_k)
+        if config.crisis_window_top_k is not None
+        else None,
+    }
+    execution_info = {
+        "mode": resolved_payload.get("exec_mode", "deterministic"),
+        "thread_caps": runtime.thread_caps_snapshot(),
+        "start_time": start_time.isoformat(),
+        "end_time": end_time.isoformat(),
+    }
+    windows_info = {
+        "total": int(windows_total),
+        "requested": int(windows_requested),
+        "completed": int(windows_completed),
+        "after_regime": int(windows_after_regime),
+        "evaluated": int(windows_after_regime),
+        "failed": int(windows_failed),
+        "coverage": window_coverage,
+        "by_regime": windows_by_regime_post,
+        "by_regime_pre_limit": windows_by_regime_pre,
+        "max_windows": int(config.max_windows) if config.max_windows is not None else None,
+        "regime_limits": regime_limit_values,
+        "cap_active": bool(cap_active),
+        "cap_configured": bool(cap_configured),
+        "cap_applied": bool(cap_applied),
+        "cap_configured_sources": cap_configured_sources,
+        "cap_sources": cap_sources,
+        "incomplete_reason": incomplete_reason,
+    }
+    outputs_payload = {
+        "metrics": _paths_to_strings(outputs_metrics),
+        "risk": _paths_to_strings(outputs_risk),
+        "dm": _paths_to_strings(outputs_dm),
+        "dm_flip_only": str(flip_dm_path),
+        "diagnostics": _paths_to_strings(outputs_diag),
+        "diagnostics_detail": _paths_to_strings(outputs_diag_detail),
+        "plots": plot_paths,
+        "overlay_toggle": str(overlay_toggle_path),
+    }
+    run_manifest = {
+        "git_sha": _current_git_sha(),
+        "out_dir": str(out_dir),
+        "config_path": str(config.config_path) if config.config_path else None,
+        "resolved_config_path": resolved_path_str,
+        "config_hash": resolved_config_hash,
+        "dataset": returns_identity,
+        "factors": factors_identity,
+        "exec_mode": execution_info["mode"],
+        "execution": execution_info,
+        "start_time": execution_info["start_time"],
+        "end_time": execution_info["end_time"],
+        "max_windows": windows_info["max_windows"],
+        "regime_window_limits": regime_limit_values,
+        "cap_active": windows_info["cap_active"],
+        "cap_applied": windows_info["cap_applied"],
+        "cap_configured": windows_info["cap_configured"],
+        "cap_configured_sources": cap_configured_sources,
+        "cap_sources": cap_sources,
+        "windows_total": windows_info["total"],
+        "windows_requested": windows_info["requested"],
+        "windows_completed": windows_info["completed"],
+        "windows_after_regime": windows_info["after_regime"],
+        "windows_evaluated": windows_info["evaluated"],
+        "windows_failed": windows_info["failed"],
+        "windows_by_regime": windows_by_regime_post,
+        "windows_by_regime_pre_limit": windows_by_regime_pre,
+        "window_coverage": window_coverage,
+        "incomplete_reason": incomplete_reason,
+        "seed": int(config.seed),
+        "threads": execution_info["thread_caps"],
+        "outputs": outputs_payload,
+    }
     run_metadata = {
         "git_sha": _current_git_sha(),
         "out_dir": str(out_dir),
         "config": resolved_payload,
-        "execution": {
-            "mode": resolved_payload.get("exec_mode", "deterministic"),
-            "thread_caps": runtime.thread_caps_snapshot(),
-        },
+        "config_path": str(config.config_path) if config.config_path else None,
+        "resolved_config_path": resolved_path_str,
+        "config_hash": resolved_config_hash,
+        "dataset": returns_identity,
+        "factors_dataset": factors_identity,
+        "execution": execution_info,
+        "windows": windows_info,
+        "cap_active": bool(cap_active),
+        "cap_configured": bool(cap_configured),
+        "cap_configured_sources": cap_configured_sources,
+        "cap_sources": cap_sources,
+        "manifest_path": str(out_dir / "run_manifest.json"),
         "use_factor_prewhiten": bool(config.use_factor_prewhiten),
         "factors": (
             {
@@ -3336,18 +3493,11 @@ def run_evaluation(
             if factor_entry is not None
             else None
         ),
-        "outputs": {
-            "metrics": _paths_to_strings(outputs_metrics),
-            "risk": _paths_to_strings(outputs_risk),
-            "dm": _paths_to_strings(outputs_dm),
-            "dm_flip_only": str(flip_dm_path),
-            "diagnostics": _paths_to_strings(outputs_diag),
-            "diagnostics_detail": _paths_to_strings(outputs_diag_detail),
-            "plots": plot_paths,
-            "overlay_toggle": str(overlay_toggle_path),
-        },
+        "outputs": outputs_payload,
+        "manifest": run_manifest,
     }
     _write_run_metadata(out_dir / "run.json", run_metadata)
+    write_manifest_json(out_dir / "run_manifest.json", run_manifest)
 
     detail_root_path = out_dir / "diagnostics_detail.csv"
     diagnostics_df.to_csv(detail_root_path, index=False)

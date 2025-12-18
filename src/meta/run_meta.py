@@ -5,7 +5,7 @@ import json
 import subprocess
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Mapping, Sequence
 
 import pandas as pd
 
@@ -127,6 +127,12 @@ def _sha256_of_file(path: Path) -> str:
     return h.hexdigest()
 
 
+def sha256_of_file(path: Path) -> str:
+    """Public helper to compute the sha256 of a file."""
+
+    return _sha256_of_file(path)
+
+
 def _collect_pdf_hashes(directory: Path) -> dict[str, str]:
     hashes: dict[str, str] = {}
     if not directory.exists():
@@ -147,6 +153,98 @@ def _load_optional_json(path: Path) -> dict[str, Any] | None:
     except Exception:
         return None
     return None
+
+
+def _load_registry(registry_path: Path) -> Mapping[str, Any]:
+    with registry_path.open("r", encoding="utf-8") as fh:
+        payload = json.load(fh)
+    datasets = payload.get("datasets")
+    if not isinstance(datasets, Mapping):
+        raise ValueError(f"registry '{registry_path}' missing 'datasets' mapping")
+    return datasets
+
+
+def _registry_entry_for(
+    dataset_path: Path, registry_paths: Sequence[Path] | None = None
+) -> tuple[str, Mapping[str, Any]] | None:
+    if registry_paths is None:
+        return None
+    resolved_dataset = dataset_path.resolve()
+    for registry_path in registry_paths:
+        if not registry_path.exists():
+            continue
+        try:
+            datasets = _load_registry(registry_path)
+        except Exception:
+            continue
+        for key, record in datasets.items():
+            if not isinstance(record, Mapping):
+                continue
+            candidate_path = Path(str(record.get("path", key))).expanduser().resolve()
+            if candidate_path == resolved_dataset or Path(key).expanduser().resolve() == resolved_dataset:
+                return str(registry_path), record
+    return None
+
+
+def dataset_identity(
+    dataset_path: Path | None, registry_paths: Sequence[Path] | None = None
+) -> dict[str, Any] | None:
+    """Return a structured identity record for a dataset.
+
+    The returned mapping includes the path, sha256 (computed), optional registry
+    location/key, and the registry sha256 if available. A mismatch between the
+    registry hash and the computed hash raises ``ValueError`` to avoid silent
+    fallbacks.
+    """
+
+    if dataset_path is None:
+        return None
+    resolved = Path(dataset_path).expanduser()
+    identity: dict[str, Any] = {
+        "path": str(resolved),
+        "registry_path": None,
+        "registry_key": None,
+        "registry_sha256": None,
+        "sha256": None,
+        "verified": False,
+    }
+    registry_entry = _registry_entry_for(resolved, registry_paths or [])
+    registry_sha: str | None = None
+    if registry_entry is not None:
+        registry_path, record = registry_entry
+        identity["registry_path"] = registry_path
+        identity["registry_key"] = str(record.get("path", resolved))
+        registry_sha = record.get("sha256")
+        if registry_sha:
+            identity["registry_sha256"] = str(registry_sha)
+    if resolved.exists():
+        computed_sha = _sha256_of_file(resolved)
+        identity["sha256"] = computed_sha
+        if registry_sha and computed_sha != registry_sha:
+            raise ValueError(
+                f"sha256 mismatch for dataset '{resolved}': registry={registry_sha}, computed={computed_sha}"
+            )
+        identity["verified"] = bool(registry_sha is None or computed_sha == registry_sha)
+    return identity
+
+
+def config_hash_from_path(path: Path | None) -> str | None:
+    """Compute the sha256 hash for a resolved config file, if present."""
+
+    if path is None:
+        return None
+    if not path.exists():
+        return None
+    return _sha256_of_file(path)
+
+
+def write_manifest_json(path: Path, payload: Mapping[str, Any]) -> Path:
+    """Write a manifest JSON file with stable formatting."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as fh:
+        json.dump(payload, fh, indent=2, sort_keys=True, default=str)
+    return path
 
 
 def _count_detections(det_summary_path: Path) -> tuple[int, int]:

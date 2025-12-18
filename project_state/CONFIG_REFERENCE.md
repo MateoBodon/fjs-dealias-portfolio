@@ -8,6 +8,7 @@ Common keys (defaults in `run.py:DEFAULT_CONFIG` unless overridden):
 - Edge/gating: `edge_mode {scm,tyler,huber}`, `edge_huber_c`, `gating.enable`, `gating.q_max`, `gating.require_isolated`, `gating.mode {fixed,calibrated}`, `gating.calibration_path` (default `calibration/edge_delta_thresholds.json`), `alignment_top_p`, `require_isolated` CLI flag, `gate_mode`/`gate_soft_max` overrides via CLI.
 - Overlay/baselines: `estimator {dealias,lw,oas,cc,factor,tyler_shrink,poet}`, `minvar_ridge`, `minvar_box [lo,hi]`, `minvar_condition_cap`, `turnover_cost_bps`, `use_factor_prewhiten`, `prewhiten {off,ff5,ff5mom,custom}`, `factor_csv`.
 - Paths: `output_dir`, `cache_dir`, `resume`, `precompute_panel`, `label`, `crisis_label`, `ablations`.
+- Manifests: every run writes `config_resolved.yaml`, `run_meta.json`, and `run_manifest.json` (config hash, dataset/factor hashes, exec mode + thread caps, start/end, window coverage = `rolling_windows_evaluated` plus any gating/nested skips). `cap_active` stays `false` (no `max_windows`), but `window_coverage<1`/`incomplete_reason` flags skipped windows that summaries will exclude.
 
 CLI notable flags: `--design`, `--edge-mode`, `--gating-mode {fixed,calibrated}`, `--gating-calibration <json>`, `--oneway-a-solver`, `--allow-non-isolated/--require-isolated`, `--coarse-candidate`, `--use-tvector`, `--target-component`, `--cs-drop-top-frac`, `--energy-min-abs`, `--off-component-leak-cap`, `--output-dir`, `--cache-dir`.
 
@@ -18,6 +19,8 @@ CLI notable flags: `--design`, `--edge-mode`, `--gating-mode {fixed,calibrated}`
 - Gating: `gate_mode {strict,soft}`, `gate_soft_max`, `gate_delta_calibration`, `gate_delta_frac_min/max`, `gate_stability_min`, `gate_alignment_min`, `gate_accept_nonisolated`.
 - Portfolios: `mv_gamma`, `mv_tau`, `mv_box_lo/hi`, `mv_turnover_bps`, `mv_condition_cap`, `mv_seed`.
 - Outputs: `out_dir`, `echo_config`, `reason_codes`, `bootstrap_samples`, `seed`, `max_windows`, `workers`.
+  - `max_windows` defaults to `null` (off). When set, the runner truncates to the first `K` windows; `run_manifest.json` records `max_windows`, `windows_total`, `windows_evaluated`, `cap_active`, `cap_sources`, `window_coverage`, and `incomplete_reason`. Summary tools drop runs with `cap_active=true` or `window_coverage<1`.
+  - Each eval run also emits `run_manifest.json` (mirrors `run.json`) with `config_hash=sha256(resolved_config.json)`, dataset/factor hashes (registry verified), exec mode, thread caps, start/end timestamps, and window counts (total/requested/completed/after_regime).
 
 ## Synthetic calibration (`experiments/synthetic/calibrate_thresholds.py`)
 - Grids: `--delta-abs-grid`, `--delta-frac-grid`, `--stability-grid`, `--energy-floor-grid`, `--edge-modes`, `--p-assets`, `--n-groups`, `--replicates`, `--trials-null/alt`.

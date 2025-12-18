@@ -3,12 +3,169 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterable, Sequence
 
 import numpy as np
 import pandas as pd
+
+
+def _load_manifest_payload(run_dir: Path) -> dict[str, Any] | None:
+    """Load run manifest (prefers run_manifest.json, falls back to run.json/run_meta.json)."""
+
+    for name in ("run_manifest.json", "run.json", "run_meta.json"):
+        candidate = run_dir / name
+        if not candidate.exists():
+            continue
+        try:
+            return json.loads(candidate.read_text())
+        except Exception:
+            continue
+    for child in run_dir.iterdir():
+        if not child.is_dir():
+            continue
+        for name in ("run_manifest.json", "run.json", "run_meta.json"):
+            candidate = child / name
+            if not candidate.exists():
+                continue
+            try:
+                return json.loads(candidate.read_text())
+            except Exception:
+                continue
+    return None
+
+
+def _int_or_none(value: Any) -> int | None:
+    try:
+        if value is None:
+            return None
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _window_meta(run_dir: Path) -> dict[str, Any]:
+    manifest = _load_manifest_payload(run_dir)
+    if manifest is None:
+        return {
+            "windows_total": None,
+            "windows_evaluated": None,
+            "window_coverage": None,
+            "max_windows": None,
+            "cap_active": True,
+            "cap_sources": ["manifest_missing"],
+            "incomplete_reason": "manifest_missing",
+            "included": False,
+        }
+    base = manifest.get("manifest", manifest)
+    windows_section = base.get("windows", {})
+
+    def pick(key: str) -> Any:
+        if key in base and base[key] is not None:
+            return base[key]
+        return windows_section.get(key)
+
+    windows_total = _int_or_none(
+        pick("windows_total") or pick("total") or pick("windows")
+    )
+    windows_evaluated = _int_or_none(
+        pick("windows_evaluated")
+        or pick("evaluated")
+        or pick("after_regime")
+        or pick("completed")
+    )
+    max_windows = _int_or_none(pick("max_windows"))
+    coverage = pick("window_coverage") or pick("coverage")
+    cap_active = bool(pick("cap_active"))
+    cap_sources = pick("cap_sources") or []
+    reason = pick("incomplete_reason")
+
+    if coverage is None and windows_total is not None and windows_evaluated is not None:
+        if windows_total > 0:
+            coverage = float(windows_evaluated) / float(windows_total)
+        else:
+            coverage = None
+
+    included = True
+    if windows_total is None or windows_evaluated is None:
+        included = False
+        reason = reason or "missing_window_counts"
+    if cap_active:
+        included = False
+    if coverage is not None and coverage < 0.9999:
+        included = False
+        reason = reason or "window_coverage_lt_1"
+
+    return {
+        "windows_total": windows_total,
+        "windows_evaluated": windows_evaluated,
+        "window_coverage": coverage,
+        "max_windows": max_windows,
+        "cap_active": cap_active,
+        "cap_sources": cap_sources if isinstance(cap_sources, list) else [cap_sources],
+        "incomplete_reason": reason,
+        "included": included,
+    }
+
+
+def _aggregate_window_meta(metas: Iterable[dict[str, Any]]) -> dict[str, Any]:
+    meta_list = list(metas)
+    if not meta_list:
+        return {
+            "windows_total": None,
+            "windows_evaluated": None,
+            "window_coverage": None,
+            "max_windows": None,
+            "cap_active": True,
+            "cap_sources": ["manifest_missing"],
+            "incomplete_reason": "manifest_missing",
+            "included": False,
+        }
+    totals = [m.get("windows_total") for m in meta_list]
+    evals = [m.get("windows_evaluated") for m in meta_list]
+    if any(val is None for val in totals) or any(val is None for val in evals):
+        total_windows = None
+        eval_windows = None
+    else:
+        total_windows = int(sum(int(val) for val in totals)) if totals else None
+        eval_windows = int(sum(int(val) for val in evals)) if evals else None
+    coverage = None
+    if total_windows is not None and eval_windows is not None and total_windows > 0:
+        coverage = float(eval_windows) / float(total_windows)
+    cap_active = any(bool(m.get("cap_active")) for m in meta_list)
+    cap_sources: list[str] = []
+    for meta in meta_list:
+        cap_sources.extend(meta.get("cap_sources") or [])
+    cap_sources = list(dict.fromkeys(cap_sources))
+    reason_parts = [
+        meta.get("incomplete_reason") for meta in meta_list if meta.get("incomplete_reason")
+    ]
+    max_windows = max(
+        [mw for mw in (m.get("max_windows") for m in meta_list) if mw is not None],
+        default=None,
+    )
+    included = all(meta.get("included", True) for meta in meta_list)
+    if total_windows is None or eval_windows is None:
+        included = False
+        reason_parts.append("missing_window_counts")
+    if cap_active:
+        included = False
+    if coverage is not None and coverage < 0.9999:
+        included = False
+        reason_parts.append("window_coverage_lt_1")
+    reason = ";".join(dict.fromkeys([r for r in reason_parts if r])) or None
+    return {
+        "windows_total": total_windows,
+        "windows_evaluated": eval_windows,
+        "window_coverage": coverage,
+        "max_windows": max_windows,
+        "cap_active": cap_active,
+        "cap_sources": cap_sources,
+        "incomplete_reason": reason,
+        "included": included,
+    }
 
 REGIMES: Sequence[str] = ("full", "calm", "crisis")
 PORTFOLIOS: Sequence[str] = ("ew", "mv")
@@ -215,6 +372,10 @@ def _evaluate_kill_criteria(
     rc_run: str,
     regime: str = "full",
 ) -> tuple[dict[str, Any], list[str]]:
+    if "included_in_summary" in perf_df.columns:
+        perf_df = perf_df[perf_df["included_in_summary"] != False]
+    if "included_in_summary" in det_df.columns:
+        det_df = det_df[det_df["included_in_summary"] != False]
     ew_row = _row_for(perf_df, regime, "ew")
     mv_row = _row_for(perf_df, regime, "mv")
     det_row = _row_for(det_df, regime)
@@ -320,6 +481,7 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
     design_dirs = [child for child in rc_dir.iterdir() if child.is_dir() and child.name != "summary"]
     perf_records: list[dict[str, object]] = []
     det_records: list[dict[str, object]] = []
+    meta_logged = False
 
     for regime in REGIMES:
         metrics_path = rc_dir / regime / "metrics.csv"
@@ -327,6 +489,15 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
         diag_path = rc_dir / regime / "diagnostics.csv"
 
         use_design_dirs = not metrics_path.exists() and any((d / regime).exists() for d in design_dirs)
+        window_meta = _aggregate_window_meta(
+            (_window_meta(d) for d in design_dirs) if use_design_dirs else (_window_meta(rc_dir),)
+        )
+        if not window_meta["included"] and not meta_logged:
+            print(
+                f"[make_summary] excluding {rc_dir.name} metrics from aggregates: {window_meta['incomplete_reason']}",
+                file=sys.stderr,
+            )
+            meta_logged = True
 
         if use_design_dirs:
             metrics_df = _concat_if_exists(d / regime / "metrics.csv" for d in design_dirs)
@@ -398,6 +569,38 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
                     }
                 )
 
+            record.update(
+                {
+                    "windows_total": window_meta["windows_total"],
+                    "windows_evaluated": window_meta["windows_evaluated"],
+                    "window_coverage": window_meta["window_coverage"],
+                    "max_windows": window_meta["max_windows"],
+                    "cap_active": window_meta["cap_active"],
+                    "cap_sources": ";".join(window_meta["cap_sources"]),
+                    "incomplete_reason": window_meta["incomplete_reason"],
+                    "included_in_summary": window_meta["included"],
+                }
+            )
+            if not window_meta["included"]:
+                for key in (
+                    "delta_mse_vs_baseline",
+                    "delta_mse_ci_lower",
+                    "delta_mse_ci_upper",
+                    "delta_es_vs_baseline",
+                    "var95_overlay",
+                    "var95_baseline",
+                    "es95_overlay",
+                    "es95_baseline",
+                    "realised_var_overlay",
+                    "realised_var_baseline",
+                    "realised_es_overlay",
+                    "realised_es_baseline",
+                    "dm_stat",
+                    "dm_p_value",
+                    "n_effective",
+                ):
+                    record[key] = float("nan")
+
             perf_records.append(record)
 
         detail_windows = detail_df.copy()
@@ -465,6 +668,49 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
             "vol_signal_mean": _numeric(diag_row, "vol_signal"),
             "resolved_config_path": _string(diag_row, "resolved_config_path"),
         }
+        det_record.update(
+            {
+                "windows_total": window_meta["windows_total"],
+                "windows_evaluated": window_meta["windows_evaluated"],
+                "window_coverage": window_meta["window_coverage"],
+                "max_windows": window_meta["max_windows"],
+                "cap_active": window_meta["cap_active"],
+                "cap_sources": ";".join(window_meta["cap_sources"]),
+                "incomplete_reason": window_meta["incomplete_reason"],
+                "included_in_summary": window_meta["included"],
+            }
+        )
+        if not window_meta["included"]:
+            for key in (
+                "windows",
+                "detection_windows",
+                "detections_mean",
+                "detection_rate_mean",
+                "detection_rate_median",
+                "isolation_share_mean",
+                "isolation_share_median",
+                "edge_margin_mean",
+                "edge_margin_median",
+                "edge_margin_p10",
+                "edge_margin_p90",
+                "stability_margin_mean",
+                "stability_margin_median",
+                "stability_margin_p10",
+                "stability_margin_p90",
+                "isolation_share_p10",
+                "isolation_share_p90",
+                "alignment_cos_mean",
+                "alignment_cos_median",
+                "alignment_cos_p10",
+                "alignment_cos_p90",
+                "alignment_angle_mean",
+                "alignment_angle_median",
+                "reason_code_mode",
+                "calm_threshold_mean",
+                "crisis_threshold_mean",
+                "vol_signal_mean",
+            ):
+                det_record[key] = float("nan")
         det_records.append(det_record)
 
     perf_df = pd.DataFrame(perf_records)

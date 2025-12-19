@@ -167,3 +167,6 @@ PY
 2025-12-19 05:21:10 | git commit -m "chore: update run log entries" -m "Tests:\n- not run (log update only)\n\nArtifacts:\n- docs/agent_runs/20251219_044404_ticket-05_rc-sanity-summary-hardening/COMMANDS.md"
 2025-12-19 05:24:10 | zip -rq bundles/20251219_044404_ticket-05_rc-sanity-summary-hardening-gpt-bundle.zip <same payload as tar>
 2025-12-19 05:24:20 | du -h bundles/20251219_044404_ticket-05_rc-sanity-summary-hardening-gpt-bundle.zip
+2025-12-19 05:24:40 | git add bundles/20251219_044404_ticket-05_rc-sanity-summary-hardening-gpt-bundle.zip docs/agent_runs/20251219_044404_ticket-05_rc-sanity-summary-hardening/RESULTS.md docs/agent_runs/20251219_044404_ticket-05_rc-sanity-summary-hardening/COMMANDS.md
+2025-12-19 05:24:50 | git commit -m "chore: add gpt-bundle zip artifact" -m "Tests:\n- not run (artifact packaging only)\n\nArtifacts:\n- bundles/20251219_044404_ticket-05_rc-sanity-summary-hardening-gpt-bundle.zip"
+2025-12-19 05:25:10 | git push origin ticket-05-rc-sanity-summary-hardening

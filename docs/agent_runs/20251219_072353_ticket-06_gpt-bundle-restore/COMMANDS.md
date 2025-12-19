@@ -61,3 +61,5 @@ git add docs/PLAN_OF_RECORD.md docs/DOCS_AND_LOGGING_SYSTEM.md docs/CODEX_SPRINT
 git commit -m 'docs: restore bundle docs and log ticket-06' -m 'Tests: source .venv/bin/activate && make test-fast\nArtifacts: docs/gpt_bundles/20251219_073746_ticket-06_20251219_072353_ticket-06_gpt-bundle-restore.zip'
 git add tests/test_gpt_bundle.py
 git commit -m 'test: guard gpt-bundle target' -m 'Tests: source .venv/bin/activate && make test-fast\nArtifacts: docs/gpt_bundles/20251219_073746_ticket-06_20251219_072353_ticket-06_gpt-bundle-restore.zip'
+git add .gitignore docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/COMMANDS.md
+git commit -m 'chore: ignore bundle outputs' -m 'Tests: source .venv/bin/activate && make test-fast\nArtifacts: docs/gpt_bundles/20251219_073746_ticket-06_20251219_072353_ticket-06_gpt-bundle-restore.zip'

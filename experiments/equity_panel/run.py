@@ -117,6 +117,9 @@ DEFAULT_CONFIG = {
         "mode": "fixed",
         "calibration_path": "calibration/edge_delta_thresholds.json",
     },
+    "diagnostics": {
+        "gating_trace": False,
+    },
     "alignment_top_p": 3,
     "prewhiten": "off",
     "use_factor_prewhiten": True,
@@ -792,6 +795,11 @@ def load_config(path: Path | str) -> dict[str, Any]:
         raise ValueError("gating configuration must be a mapping when provided.")
     # Ensure a copy so per-run mutation doesn't affect defaults
     merged["gating"] = {**default_gating, **user_gating}
+    default_diag = DEFAULT_CONFIG.get("diagnostics", {}) or {}
+    user_diag = data.get("diagnostics") or {}
+    if not isinstance(user_diag, dict):
+        raise ValueError("diagnostics configuration must be a mapping when provided.")
+    merged["diagnostics"] = {**default_diag, **user_diag}
     return merged
 
 
@@ -1225,6 +1233,7 @@ def _run_single_period(
     edge_mode: str = "scm",
     edge_huber_c: float = 1.5,
     use_tvector: bool = True,
+    diagnostics: Mapping[str, Any] | None = None,
 ) -> None:
     """Execute the rolling evaluation for a single date range."""
 
@@ -1440,6 +1449,9 @@ def _run_single_period(
     delta_usage_records: list[dict[str, Any]] = []
     delta_used_values: list[float] = []
     calibration_misses: set[tuple[str, int, int]] = set()
+    diagnostics_cfg = dict(diagnostics or {})
+    gating_diag_enabled = bool(diagnostics_cfg.get("gating_trace", False))
+    gating_diag_records: list[dict[str, Any]] = []
     design_logged = False
     try:
         alignment_top_p = int(alignment_top_p)
@@ -1640,6 +1652,7 @@ def _run_single_period(
         edge_scm_val = float("nan")
         edge_tyler_val = float("nan")
         edge_selected_val = float("nan")
+        eigvals_scm: list[float] = []
         n_fit_samples = int(y_fit_daily.shape[0])
         p_dim = int(y_fit_daily.shape[1]) if y_fit_daily.ndim == 2 else 0
         if p_dim > 0 and n_fit_samples > 0:
@@ -1647,6 +1660,10 @@ def _run_single_period(
                 scatter_scm = np.cov(y_fit_daily, rowvar=False, ddof=1)
                 scatter_scm = 0.5 * (scatter_scm + scatter_scm.T)
                 edge_scm_val = edge_from_scatter(scatter_scm, p_dim, n_fit_samples)
+                try:
+                    eigvals_scm = np.linalg.eigvalsh(scatter_scm).tolist()
+                except Exception:
+                    eigvals_scm = []
             except Exception:
                 scatter_scm = None
                 edge_scm_val = float("nan")
@@ -1776,6 +1793,17 @@ def _run_single_period(
         for key, value in diag_local.items():
             rejection_totals[key] = rejection_totals.get(key, 0) + int(value)
         detections = list(detections or [])
+        raw_detection_count = len(detections)
+        candidate_pool_size = raw_detection_count
+        top_diag: dict[str, Any] = {
+            "lambda_hat": float("nan"),
+            "mu_hat": float("nan"),
+            "edge_margin": float("nan"),
+            "stability_margin": float("nan"),
+            "target_energy": float("nan"),
+            "off_component_ratio": float("nan"),
+            "delta_frac": float("nan"),
+        }
         window_skip_reason: str | None = None
         gate_discard_detail: list[dict[str, float]] = []
         isolated_count_raw = count_isolated_outliers(detections, None, None)
@@ -1933,6 +1961,7 @@ def _run_single_period(
                         f"(lambda={lambda_str or 'n/a'})",
                         file=sys.stderr,
                     )
+            candidate_pool_size = len(candidate_pool)
             if window_skip_reason:
                 detections = []
             else:
@@ -2159,6 +2188,36 @@ def _run_single_period(
                 if buffer_margin_val is not None
                 else float("nan")
             )
+            top_diag["lambda_hat"] = (
+                float(top.get("lambda_hat", np.nan))
+                if isinstance(top, Mapping)
+                else float("nan")
+            )
+            top_diag["mu_hat"] = (
+                float(top.get("mu_hat", np.nan))
+                if isinstance(top, Mapping)
+                else float("nan")
+            )
+            top_diag["edge_margin"] = (
+                float(edge_margin_val) if edge_margin_val is not None else float("nan")
+            )
+            top_diag["stability_margin"] = (
+                float(top.get("stability_margin", np.nan))
+                if isinstance(top, Mapping)
+                else float("nan")
+            )
+            target_energy_val = _safe_num(top.get("target_energy")) if isinstance(top, Mapping) else None
+            off_component_val = _safe_num(top.get("off_component_ratio")) if isinstance(top, Mapping) else None
+            delta_frac_val = _safe_num(top.get("delta_frac")) if isinstance(top, Mapping) else None
+            top_diag["target_energy"] = (
+                float(target_energy_val) if target_energy_val is not None else float("nan")
+            )
+            top_diag["off_component_ratio"] = (
+                float(off_component_val) if off_component_val is not None else float("nan")
+            )
+            top_diag["delta_frac"] = (
+                float(delta_frac_val) if delta_frac_val is not None else float("nan")
+            )
             top_t_vals = top.get("t_values") if isinstance(top, dict) else None
             window_record["top_t_vector_abs"] = json.dumps(
                 [float(val) for val in (top_t_vals or [])]
@@ -2254,6 +2313,80 @@ def _run_single_period(
             window_record["top_sigma1_eigval"] = float("nan")
 
         window_record["window_index"] = int(window_idx)
+
+        if gating_diag_enabled:
+            eigvals_sorted = [float(val) for val in eigvals_scm if np.isfinite(val)]
+            eigvals_sorted.sort()
+            lambda_top_val = float(eigvals_sorted[-1]) if eigvals_sorted else float("nan")
+            lambda_top5 = eigvals_sorted[-5:] if eigvals_sorted else []
+            lambda_ratio = float("nan")
+            if np.isfinite(lambda_top_val) and np.isfinite(edge_selected_val) and edge_selected_val != 0.0:
+                lambda_ratio = float(lambda_top_val / edge_selected_val)
+            diag_skip_reason = window_skip_reason or ""
+            if not detections and not diag_skip_reason:
+                diag_skip_reason = "unknown"
+            diag_row = {
+                "window_index": int(window_idx),
+                "fit_start": fit.index[0],
+                "fit_end": fit.index[-1],
+                "hold_start": hold.index[0],
+                "hold_end": hold.index[-1] if not hold.empty else fit.index[-1],
+                "label": label,
+                "design": design_mode,
+                "estimator": estimator_mode,
+                "edge_mode": edge_mode_cfg,
+                "p": int(p_dim),
+                "t": int(n_fit_samples),
+                "edge_used": float(edge_selected_val),
+                "edge_scm": float(edge_scm_val),
+                "edge_tyler": float(edge_tyler_val),
+                "edge_band_min": float(edge_band_min),
+                "edge_band_max": float(edge_band_max),
+                "edge_scale": float(edge_scale_used),
+                "lambda_top": lambda_top_val,
+                "lambda_top_over_edge": lambda_ratio,
+                "lambda_top5": json.dumps(lambda_top5),
+                "delta_frac_used": float(delta_frac_used_value),
+                "delta_frac_config": float(base_delta_frac_val),
+                "delta_frac_calibrated": (
+                    float(delta_frac_calibrated) if delta_frac_calibrated is not None else float("nan")
+                ),
+                "eps": float(eps),
+                "stability_eta_deg": float(stability_eta),
+                "off_component_cap": (
+                    float(off_component_leak_cap)
+                    if off_component_leak_cap is not None
+                    else float("nan")
+                ),
+                "gating_q_max": int(gating_q_max),
+                "gating_require_isolated": bool(gating_require_isolated),
+                "gating_mode": gating_mode_value,
+                "calibration_missing": bool(calibration_missing),
+                "isolated_spikes": int(isolated_count_raw),
+                "nonisolated_fallback": bool(nonisolated_fallback_used),
+                "raw_detections": int(raw_detection_count),
+                "candidate_pool": int(candidate_pool_size),
+                "accepted_count": int(len(detections)),
+                "accepted": bool(bool(detections)),
+                "skip_reason": diag_skip_reason,
+                "gate_discarded": int(len(gate_discard_detail)),
+                "guard_edge_buffer": int(diag_local.get("edge_buffer", 0)),
+                "guard_off_component_ratio": int(diag_local.get("off_component_ratio", 0)),
+                "guard_stability_fail": int(diag_local.get("stability_fail", 0)),
+                "guard_energy_floor": int(diag_local.get("energy_floor", 0)),
+                "guard_neg_mu": int(diag_local.get("neg_mu", 0)),
+                "guard_eps": int(diag_local.get("eps", 0)),
+                "guard_other": int(diag_local.get("other", 0)),
+                "diag_payload": json.dumps({k: int(v) for k, v in diag_local.items()}),
+                "top_lambda_hat": float(top_diag.get("lambda_hat", float("nan"))),
+                "top_mu_hat": float(top_diag.get("mu_hat", float("nan"))),
+                "top_edge_margin": float(top_diag.get("edge_margin", float("nan"))),
+                "top_stability_margin": float(top_diag.get("stability_margin", float("nan"))),
+                "top_target_energy": float(top_diag.get("target_energy", float("nan"))),
+                "top_off_component_ratio": float(top_diag.get("off_component_ratio", float("nan"))),
+                "top_delta_frac": float(top_diag.get("delta_frac", float("nan"))),
+            }
+            gating_diag_records.append(diag_row)
 
         for strategy_label, cfg in strategies.items():
             if not cfg.get("available", True):
@@ -2678,6 +2811,68 @@ def _run_single_period(
     metrics_summary.to_csv(output_dir / "metrics_summary.csv", index=False)
 
     results_df = pd.DataFrame(records)
+    if gating_diag_enabled:
+        diag_columns = [
+            "window_index",
+            "fit_start",
+            "fit_end",
+            "hold_start",
+            "hold_end",
+            "label",
+            "design",
+            "estimator",
+            "edge_mode",
+            "p",
+            "t",
+            "edge_used",
+            "edge_scm",
+            "edge_tyler",
+            "edge_band_min",
+            "edge_band_max",
+            "edge_scale",
+            "lambda_top",
+            "lambda_top_over_edge",
+            "lambda_top5",
+            "delta_frac_used",
+            "delta_frac_config",
+            "delta_frac_calibrated",
+            "eps",
+            "stability_eta_deg",
+            "off_component_cap",
+            "gating_q_max",
+            "gating_require_isolated",
+            "gating_mode",
+            "calibration_missing",
+            "isolated_spikes",
+            "nonisolated_fallback",
+            "raw_detections",
+            "candidate_pool",
+            "accepted_count",
+            "accepted",
+            "skip_reason",
+            "gate_discarded",
+            "guard_edge_buffer",
+            "guard_off_component_ratio",
+            "guard_stability_fail",
+            "guard_energy_floor",
+            "guard_neg_mu",
+            "guard_eps",
+            "guard_other",
+            "diag_payload",
+            "top_lambda_hat",
+            "top_mu_hat",
+            "top_edge_margin",
+            "top_stability_margin",
+            "top_target_energy",
+            "top_off_component_ratio",
+            "top_delta_frac",
+        ]
+        diag_df = pd.DataFrame(gating_diag_records)
+        if diag_df.empty:
+            diag_df = pd.DataFrame(columns=diag_columns)
+        else:
+            diag_df = diag_df.reindex(columns=diag_columns)
+        diag_df.to_csv(output_dir / "gating_diagnostics.csv", index=False)
     results_df.to_csv(output_dir / "rolling_results.csv", index=False)
 
     # Persist detection summary and spike timeseries (E2)
@@ -3152,6 +3347,7 @@ def run_experiment(
     edge_huber_c_override: float | None = None,
     gating_mode_override: str | None = None,
     gating_calibration_override: str | None = None,
+    gating_diagnostics: bool | None = None,
     exec_mode: str | None = None,
 ) -> None:
     """Execute the rolling equity forecasting experiment."""
@@ -3223,6 +3419,10 @@ def run_experiment(
         gating_cfg_overrides["calibration_path"] = str(gating_calibration_override)
     if gating_cfg_overrides:
         config["gating"] = gating_cfg_overrides
+    diagnostics_cfg_overrides = dict(config.get("diagnostics", {}) or {})
+    if gating_diagnostics is not None:
+        diagnostics_cfg_overrides["gating_trace"] = bool(gating_diagnostics)
+    config["diagnostics"] = diagnostics_cfg_overrides
     panel_policy = str(
         partial_week_policy
         if partial_week_policy is not None
@@ -3504,6 +3704,7 @@ def run_experiment(
                 edge_huber_c=float(config.get("edge_huber_c", 1.5)),
                 prewhiten_meta=prewhiten_meta,
                 use_tvector=bool(config.get("use_tvector", True)),
+                diagnostics=cast(Mapping[str, Any] | None, config.get("diagnostics")),
             )
 
             try:
@@ -3641,6 +3842,11 @@ def main() -> None:
         type=str,
         default=None,
         help="Path to calibrated delta thresholds JSON (used when gating mode is calibrated).",
+    )
+    parser.add_argument(
+        "--gating-diagnostics",
+        action="store_true",
+        help="Emit per-window gating_diagnostics.csv for debugging gate decisions.",
     )
     parser.add_argument(
         "--minvar-ridge",
@@ -3872,6 +4078,7 @@ def main() -> None:
         edge_huber_c_override=args.edge_huber_c,
         gating_mode_override=args.gating_mode,
         gating_calibration_override=args.gating_calibration,
+        gating_diagnostics=args.gating_diagnostics,
         exec_mode=exec_settings.mode,
     )
 

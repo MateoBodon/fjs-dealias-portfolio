@@ -596,3 +596,39 @@ figures: ## regenerate all figures (synthetic + equity)
 .PHONY: bench-linalg
 bench-linalg:
 	python scripts/bench_linalg.py
+
+.PHONY: gpt-bundle
+gpt-bundle:
+	@set -eu; \
+	if [ -z "$(TICKET)" ]; then echo "TICKET is required: make gpt-bundle TICKET=<ticket> RUN_NAME=<run name>" >&2; exit 1; fi; \
+	if [ -z "$(RUN_NAME)" ]; then echo "RUN_NAME is required: make gpt-bundle TICKET=$(TICKET) RUN_NAME=<run name>" >&2; exit 1; fi; \
+	run_dir="docs/agent_runs/$(RUN_NAME)"; \
+	if [ ! -d "$$run_dir" ]; then echo "Run log $$run_dir is required but missing." >&2; exit 1; fi; \
+	required_files="AGENTS.md docs/PLAN_OF_RECORD.md docs/DOCS_AND_LOGGING_SYSTEM.md docs/CODEX_SPRINT_TICKETS.md project_state/CURRENT_RESULTS.md project_state/KNOWN_ISSUES.md project_state/CONFIG_REFERENCE.md PROGRESS.md"; \
+	missing=""; \
+	for f in $$required_files; do \
+		if [ ! -e "$$f" ]; then missing="$$missing $$f"; fi; \
+	done; \
+	if [ -n "$$missing" ]; then echo "Missing required files:$$missing" >&2; exit 1; fi; \
+	tmp=$$(mktemp -d); \
+	repo_root=$$(pwd); \
+	mkdir -p "$$tmp/docs" "$$tmp/project_state" "$$tmp/docs/agent_runs"; \
+	cp AGENTS.md "$$tmp/"; \
+	cp PROGRESS.md "$$tmp/"; \
+	cp docs/PLAN_OF_RECORD.md "$$tmp/docs/"; \
+	cp docs/DOCS_AND_LOGGING_SYSTEM.md "$$tmp/docs/"; \
+	cp docs/CODEX_SPRINT_TICKETS.md "$$tmp/docs/"; \
+	cp project_state/CURRENT_RESULTS.md "$$tmp/project_state/"; \
+	cp project_state/KNOWN_ISSUES.md "$$tmp/project_state/"; \
+	cp project_state/CONFIG_REFERENCE.md "$$tmp/project_state/"; \
+	cp -r "$$run_dir" "$$tmp/docs/agent_runs/"; \
+	if git rev-parse --verify main >/dev/null 2>&1; then diff_range="main...HEAD"; else diff_range="HEAD"; fi; \
+	git diff $$diff_range > "$$tmp/DIFF.patch"; \
+	git log -1 --stat > "$$tmp/LAST_COMMIT.txt"; \
+	bundle_dir="$$repo_root/docs/gpt_bundles"; \
+	mkdir -p "$$bundle_dir"; \
+	stamp=$$(date +%Y%m%d_%H%M%S); \
+	out="$$bundle_dir/$${stamp}_$(TICKET)_$(RUN_NAME).zip"; \
+	(cd "$$tmp" && zip -r "$$out" . >/dev/null); \
+	echo "$$out"; \
+	rm -rf "$$tmp"

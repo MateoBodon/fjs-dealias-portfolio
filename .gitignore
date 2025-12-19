@@ -48,6 +48,10 @@ scripts/secrets/
 !figures/synthetic_fast/
 !figures/synthetic_fast/*.png
 
+# Review bundles
+bundles/
+docs/gpt_bundles/
+
 # Local data drops
 data/*.csv
 data/*.parquet

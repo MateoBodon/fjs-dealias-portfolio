@@ -17,7 +17,7 @@
 - `factors.py` — Observed-factor covariance via cross-sectional OLS; design alignment; industry factor handling.
 - `ledoit.py` — Ledoit–Wolf shrinkage wrapper with PSD checks.
 - `portfolio.py` — PGD min-var with ridge/box (`minvar_ridge_box`), turnover and cost utilities, memoised penalised covariances.
-- `portfolios.py` — cvxpy-based min-var solvers (box/long-only) with EW fallback.
+- `portfolios.py` — cvxpy-based min-var solvers (box/long-only); fail-loud on missing cvxpy, optional skip flag (no EW fallback).
 - `returns.py` — Log-return computation; weekly aggregation; balanced Week×Day construction (`balance_weeks`, `weekly_panel`).
 - `robust.py` — Winsorize/huberize returns; Tyler shrinkage covariance.
 - `shrinkage.py` — OAS and constant-correlation shrinkage with PSD/finite guards.

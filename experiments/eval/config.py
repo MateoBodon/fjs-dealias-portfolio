@@ -71,6 +71,9 @@ DEFAULTS: dict[str, Any] = {
     "mv_box_hi": 0.1,
     "mv_turnover_bps": 5.0,
     "mv_condition_cap": 1e6,
+    "mv_solver": "projgrad",
+    "mv_skip_on_missing_solver": False,
+    "mv_solver_name": None,
     "bootstrap_samples": 0,
     "require_isolated": True,
     "q_max": 1,
@@ -309,6 +312,25 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
     )
     if mv_condition_cap_val <= 0.0:
         raise ValueError("mv_condition_cap must be positive.")
+    mv_solver_raw = merged.get("mv_solver", DEFAULTS["mv_solver"])
+    mv_solver_val = str(mv_solver_raw or DEFAULTS["mv_solver"]).lower()
+    if mv_solver_val not in {"projgrad", "cvxpy"}:
+        raise ValueError("mv_solver must be 'projgrad' or 'cvxpy'.")
+    mv_skip_raw = merged.get(
+        "mv_skip_on_missing_solver", DEFAULTS["mv_skip_on_missing_solver"]
+    )
+    if isinstance(mv_skip_raw, str):
+        mv_skip_val = mv_skip_raw.strip().lower() not in {"0", "false", "off"}
+    else:
+        mv_skip_val = bool(mv_skip_raw)
+    mv_solver_name_raw = merged.get(
+        "mv_solver_name", DEFAULTS["mv_solver_name"]
+    )
+    mv_solver_name_val = (
+        str(mv_solver_name_raw).strip()
+        if mv_solver_name_raw is not None and str(mv_solver_name_raw).strip() != ""
+        else None
+    )
 
     overlay_delta_raw = merged.get("overlay_delta")
     if overlay_delta_raw is None or str(overlay_delta_raw).strip() == "":
@@ -375,6 +397,9 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         mv_box_hi=mv_box_hi_val,
         mv_turnover_bps=mv_turnover_bps_val,
         mv_condition_cap=mv_condition_cap_val,
+        mv_solver=mv_solver_val,
+        mv_skip_on_missing_solver=mv_skip_val,
+        mv_solver_name=mv_solver_name_val,
         bootstrap_samples=int(
             merged.get("bootstrap_samples", DEFAULTS["bootstrap_samples"])
         ),
@@ -454,6 +479,9 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         "mv_box_hi": config.mv_box_hi,
         "mv_turnover_bps": config.mv_turnover_bps,
         "mv_condition_cap": config.mv_condition_cap,
+        "mv_solver": config.mv_solver,
+        "mv_skip_on_missing_solver": config.mv_skip_on_missing_solver,
+        "mv_solver_name": config.mv_solver_name,
         "bootstrap_samples": config.bootstrap_samples,
         "require_isolated": require_isolated,
         "q_max": config.q_max,

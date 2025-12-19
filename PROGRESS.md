@@ -1,3 +1,77 @@
+## 2025-12-19T20:25Z — MV solver missing-proof (ticket-08 @ a4451969)
+- **Branch/Run**: `codex/ticket-08-solver-missing-proof` (RUN_NAME=`20251219_202301_ticket-08_solver-missing-proof`), git sha `a44519691f94010993176f74949485f68b9a44f0`.
+- **Commands**:
+  - Tests: `source .venv/bin/activate && make test-fast` (first attempt timed out at 10 s; reran successfully: 68 passed, 151 deselected).
+  - Smokes: `source .venv/bin/activate && EXEC_MODE=deterministic python -m experiments.eval.run --returns-csv data/returns_daily.csv --out reports/eval-smoke-ticket08-proof/normal --max-windows 2 --assets-top 50 --overlay-delta 0.2 --mv-box-lo 0.0 --mv-box-hi 0.1 --mv-solver cvxpy`; `source .venv/bin/activate && FJS_FORCE_MISSING_CVXPY=1 EXEC_MODE=deterministic python -m experiments.eval.run --returns-csv data/returns_daily.csv --out reports/eval-smoke-ticket08-proof/missing-skip --max-windows 2 --assets-top 50 --overlay-delta 0.2 --mv-box-lo 0.0 --mv-box-hi 0.1 --mv-solver cvxpy --mv-skip-on-missing-solver`.
+- **Changes**:
+  - `finance/portfolios`: add `skip_reason/solver_used`, support `FJS_FORCE_MISSING_CVXPY`, remove success-shaped fallback when solver missing, allow ridge/box passthrough in `optimize_portfolio`.
+  - `experiments/eval`: new `mv_solver`/`mv_skip_on_missing_solver` knobs, propagate `skipped/skip_reason/solver_status` into metrics + diagnostics, and add regression tests covering forced-missing cvxpy.
+  - Docs: `project_state/CONFIG_REFERENCE.md` documents the new solver knob + env flag; run artifacts written under `reports/eval-smoke-ticket08-proof/`.
+- **Results**:
+  - Normal cvxpy smoke: `reports/eval-smoke-ticket08-proof/normal/metrics_detail.csv` shows MV rows with `solver_status=optimal`, `skipped=False`.
+  - Forced missing (skip flag): `reports/eval-smoke-ticket08-proof/missing-skip/full/diagnostics.csv` logs `mv_skipped_share=1.0`; `metrics_detail.csv` rows carry `skipped=True`, `skip_reason=missing_solver`, `solver_status=missing_solver`.
+  - Default path remains fail-loud via `MissingSolverError` (unit tests cover) with no equal-weight fallback.
+  - Bundle: `docs/gpt_bundles/20251219_204908_ticket-08_20251219_202301_ticket-08_solver-missing-proof.zip`.
+
+## 2025-12-19T19:30Z — MV solver fail-loud (ticket-08 @ 3820c1fb85)
+- **Branch/Run**: `ticket-08-solver-fallback-fail-loud` (RUN_NAME=`20251219_192721_ticket-08_solver-fallback-fail-loud`), git sha `3820c1fb850968718b43e1c4a3f00aa3b6f872c0`.
+- **Commands**:
+  - Env/tests: `python3 -m venv .venv && source .venv/bin/activate && pip install --upgrade pip && pip install -e .[dev]`; `source .venv/bin/activate && make test-fast` (pass).
+  - Smoke: `source .venv/bin/activate && EXEC_MODE=deterministic python -m experiments.eval.run --returns-csv data/returns_daily.csv --out reports/eval-smoke-ticket08 --max-windows 2 --assets-top 50 --overlay-delta 0.2 --mv-box-lo 0.0 --mv-box-hi 0.1`.
+- **Changes**:
+  - Added explicit `MissingSolverError` for cvxpy absence; `optimize_portfolio` now fails loud by default and exposes `skip_on_missing_solver` escape hatch that returns flagged, empty-weight results (no EW fallback). `OptimizationResult` carries `solver_status` and `skipped`.
+  - New unit tests simulate missing solver and assert no equal-weight fallback.
+  - Docs: removed silent-fallback issue from `project_state/KNOWN_ISSUES.md`; noted skip knob in `project_state/CONFIG_REFERENCE.md`.
+- **Artifacts**:
+  - Smoke output: `reports/eval-smoke-ticket08/`.
+  - Run log: `docs/agent_runs/20251219_192721_ticket-08_solver-fallback-fail-loud/` (PROMPT/COMMANDS/RESULTS/TESTS/META).
+  - Bundle: `docs/gpt_bundles/20251219_194020_ticket-08_20251219_192721_ticket-08_solver-fallback-fail-loud.zip`.
+
+## 2025-12-19T18:02Z — weekly gating diagnostics (ticket-07 @ 2e0fd573b5)
+- **Branch/Run**: `codex/ticket-07-weekly-drought-diagnostics` (RUN_NAME=`20251219_173231_ticket-07_weekly-drought-diagnostics`), git sha `2e0fd573b509173c456923ced807be5525b38df0`.
+- **Commands**:
+  - Tests: `source .venv/bin/activate && make test-fast`.
+  - Smokes: `source .venv/bin/activate && python -m experiments.equity_panel.run --config docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/config.synthetic.yaml --gating-diagnostics --exec-mode deterministic`; `source .venv/bin/activate && python -m experiments.equity_panel.run --config experiments/equity_panel/config.smoke.yaml --gating-diagnostics --output-dir experiments/equity_panel/outputs_smoke_ticket07_20251219_173231 --exec-mode deterministic`.
+  - Bundle: `make gpt-bundle TICKET=ticket-07 RUN_NAME=20251219_173231_ticket-07_weekly-drought-diagnostics`.
+- **Findings**:
+  - DoW weekly smoke (2023Q1, window=6, horizon=1, edge=scm) now shows detection_rate=0.75 (3/4) with a single skip_reason `no_isolated_spike`; guardrail tallies dominated by `guard_other`=1148 despite fixed delta_frac_used=0.02. Summary: `experiments/equity_panel/outputs_smoke_ticket07_20251219_173231/oneway_J5_solver-auto_est-dealias_prep-prewhiten_modeoff/weekly_diagnostics.md`.
+  - Synthetic micro smoke on generated returns (config.synthetic.yaml) records detection_rate=0 with skip_reason `diagnostic_failure` on all 6 windows; `guard_other`=18. Indicates diagnostic/guardrail “other” path still active on tiny panels.
+- **Artifacts**:
+  - Real run: `experiments/equity_panel/outputs_smoke_ticket07_20251219_173231/oneway_J5_solver-auto_est-dealias_prep-prewhiten_modeoff/{gating_diagnostics.csv,weekly_diagnostics.md}`.
+  - Synthetic run: `experiments/equity_panel/outputs_ticket07_synth_20251219_173231/oneway_J5_solver-auto_est-dealias_prep-prewhiten_modeoff/{gating_diagnostics.csv,weekly_diagnostics.md}`.
+  - Bundle: `docs/gpt_bundles/20251219_180641_ticket-07_20251219_173231_ticket-07_weekly-drought-diagnostics.zip` (listed in `docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/bundle_contents.txt`).
+
+## 2025-12-19T07:37Z — gpt-bundle restore + regression guard (ticket-06 @ d6c09b0027)
+- **Branch/Run**: `ticket-06-gpt-bundle-restore` (RUN_NAME=`20251219_072353_ticket-06_gpt-bundle-restore`), git sha `d6c09b0027`.
+- **Commands**:
+  - Env: `python3 -m venv .venv && source .venv/bin/activate && pip install --upgrade pip && pip install -e .[dev]`.
+  - Tests: `source .venv/bin/activate && make test-fast` (68 passed, 144 deselected; DeprecationWarning from utcnow remains).
+  - Bundle: `make gpt-bundle TICKET=ticket-06 RUN_NAME=20251219_072353_ticket-06_gpt-bundle-restore`; listing via `unzip -l docs/gpt_bundles/*ticket-06*20251219_072353_ticket-06_gpt-bundle-restore*.zip | tee docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/bundle_contents.txt`.
+- **Changes**:
+  - Added fail-loud `gpt-bundle` target (POSIX shell) emitting DIFF.patch, LAST_COMMIT.txt, required docs, and run log into `docs/gpt_bundles/<stamp>_<ticket>_<RUN_NAME>.zip`.
+  - Restored required docs (`docs/PLAN_OF_RECORD.md`, `docs/DOCS_AND_LOGGING_SYSTEM.md`, `docs/CODEX_SPRINT_TICKETS.md`) describing plan-of-record and logging/bundle rules.
+  - Added regression test `tests/test_gpt_bundle.py` asserting Makefile lists the gpt-bundle target and required file paths; updated .gitignore for `bundles/` and `docs/gpt_bundles/`, untracked legacy bundles/.
+- **Artifacts**:
+  - Bundle: `docs/gpt_bundles/20251219_074334_ticket-06_20251219_072353_ticket-06_gpt-bundle-restore.zip` (contents logged in `docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/bundle_contents.txt`).
+  - Run log: `docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/` (PROMPT, COMMANDS, RESULTS, TESTS, META).
+
+## 2025-12-19T05:17Z — rc-lite-sanity completeness hardening (ticket-05 @ 03d4c03c)
+- **Branch/Run**: `ticket-05-rc-sanity-summary-hardening` (RUN_NAME=`20251219_044404_ticket-05_rc-sanity-summary-hardening`), git sha `03d4c03c`.
+- **Data**: WRDS daily returns `data/returns_daily.csv` (sha256=96ac7dd3…3197) and FF5+MOM factors `data/factors/ff5mom_daily.csv` (sha256=469d44ad…908ca); verified via `tools/verify_dataset.py` inside `make rc-lite-sanity`.
+- **Commands**:
+  - Env/tests: `.venv` bootstrap + `pip install -e .[dev]`; `source .venv/bin/activate && make test-fast`; `source .venv/bin/activate && pytest -m unit -k "summary or summarize_rc_sanity or run_meta"`.
+  - RC-lite sanity (deterministic): `source .venv/bin/activate && EXEC_MODE=deterministic make rc-lite-sanity`.
+  - Summary regen with completeness: `source .venv/bin/activate && PYTHONPATH=src:. python3 tools/make_summary.py --rc-dir reports/rc-20251219-sanity-20251219_050735` and `python3 tools/summarize_rc_sanity.py --rc-dir reports/rc-20251219-sanity-20251219_050735 --dow-dir .../dow-tyler --vol-dir .../vol-tyler --weekly-dow-dir .../dow-weekly --nested-dir .../nested`.
+- **Artifacts**:
+  - RC root: `reports/rc-20251219-sanity-20251219_050735/` with refreshed `summary_sanity.json`, `regime.csv`, and `summary/{summary_perf.csv,summary_detection.csv,kill_criteria.json,limitations.md,completeness.json}`.
+  - Weekly outputs: `experiments/equity_panel/outputs_rc-lite-20251219_20251219_050735/{dow-weekly,nested}/`.
+  - Run log: `docs/agent_runs/20251219_044404_ticket-05_rc-sanity-summary-hardening/`.
+- **Results**:
+  - Completeness surfaced in summaries; `incomplete_runs` is empty for this drop. Aggregate includes only complete, uncapped runs.
+  - Daily DoW: detection_rate≈0.055, ΔMSE(EW)=+1.24e-10, ΔMSE(MV)=+4.52e-11, overlay_effect=harmful.
+  - Daily vol: detection_rate≈0.052, ΔMSE(EW)=+3.67e-11, ΔMSE(MV)=+1.24e-13, overlay_effect=harmful.
+  - Weekly DoW & nested: detection_rate=0, accept_share=0 (smoke still non-detecting under current guardrails).
+
 ## 2025-11-22T00:56Z — Hetzner RC-lite + calibration refresh (git sha 3db9335)
 - **Data**: WRDS daily returns `data/returns_daily.csv` (sha256=96ac7dd3…3197) + FF5+MOM factors `data/factors/ff5mom_daily.csv` (sha256=469d44ad…908ca), verified against registries.
 - **Commands**:

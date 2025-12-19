@@ -55,3 +55,12 @@
 - git add src/finance/portfolios.py experiments/eval/config.py experiments/eval/run.py tests/test_portfolios_missing_solver.py tests/test_eval_missing_solver.py project_state/CONFIG_REFERENCE.md
 - git commit -m "feat: enforce explicit mv solver handling" -m "- add skip_reason/solver_used to OptimizationResult and fail loud when cvxpy is missing\n- add mv_solver/mv_skip_on_missing_solver to eval runner with telemetry + skip propagation\n- document new knobs and add regression tests for forced-missing solver" -m "Tests: make test-fast"
 - git status -sb
+- git add PROGRESS.md docs/CODEX_SPRINT_TICKETS.md docs/agent_runs/20251219_202301_ticket-08_solver-missing-proof reports/eval-smoke-ticket08-proof docs/gpt_bundles/20251219_204908_ticket-08_20251219_202301_ticket-08_solver-missing-proof.zip  # ignored bundle per .gitignore
+- git add PROGRESS.md docs/CODEX_SPRINT_TICKETS.md docs/agent_runs/20251219_202301_ticket-08_solver-missing-proof reports/eval-smoke-ticket08-proof
+- git status -sb
+- git commit -m "chore: record ticket-08 missing-solver run" -m "- add run log + smoke artifacts for ticket-08 solver proof\n- update PROGRESS and CODEX_SPRINT_TICKETS with new run/bundle\n- bundle path recorded in run log" -m "Tests: make test-fast"
+- git status -sb
+- git add docs/agent_runs/20251219_202301_ticket-08_solver-missing-proof/COMMANDS.md
+- git add docs/agent_runs/20251219_202301_ticket-08_solver-missing-proof/COMMANDS.md
+- git add docs/agent_runs/20251219_202301_ticket-08_solver-missing-proof/COMMANDS.md
+- git add docs/agent_runs/20251219_202301_ticket-08_solver-missing-proof/COMMANDS.md  # final stage after log edits

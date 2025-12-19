@@ -67,3 +67,13 @@ git add docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/COMMANDS.md
 git commit -m 'docs: update agent run logs' -m 'Tests: source .venv/bin/activate && make test-fast\nArtifacts: docs/gpt_bundles/20251219_073746_ticket-06_20251219_072353_ticket-06_gpt-bundle-restore.zip'
 git add docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/COMMANDS.md
 git commit -m 'docs: finalize ticket-06 command log' -m 'Tests: source .venv/bin/activate && make test-fast\nArtifacts: docs/gpt_bundles/20251219_073746_ticket-06_20251219_072353_ticket-06_gpt-bundle-restore.zip'
+make gpt-bundle TICKET=ticket-06 RUN_NAME=20251219_072353_ticket-06_gpt-bundle-restore
+unzip -l docs/gpt_bundles/*ticket-06*20251219_072353_ticket-06_gpt-bundle-restore*.zip | tee docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/bundle_contents.txt
+unzip -l docs/gpt_bundles/20251219_074334_ticket-06_20251219_072353_ticket-06_gpt-bundle-restore.zip
+unzip -l docs/gpt_bundles/20251219_074334_ticket-06_20251219_072353_ticket-06_gpt-bundle-restore.zip | tee docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/bundle_contents.txt
+echo "Final bundle regenerated: /root/fjs-dealias-portfolio/docs/gpt_bundles/20251219_074334_ticket-06_20251219_072353_ticket-06_gpt-bundle-restore.zip (bundle_contents.txt updated)." >> docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/RESULTS.md
+rg -n "gpt_bundles" PROGRESS.md
+sed -n '1,40p' PROGRESS.md
+apply_patch PROGRESS.md update bundle path
+git add PROGRESS.md docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/bundle_contents.txt docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/RESULTS.md docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/COMMANDS.md
+git commit -m 'chore: refresh ticket-06 bundle artifacts' -m 'Tests: source .venv/bin/activate && make test-fast\nArtifacts: docs/gpt_bundles/20251219_074334_ticket-06_20251219_072353_ticket-06_gpt-bundle-restore.zip'

@@ -7,3 +7,4 @@ reports/ outputs already tracked historically; left untouched for now to avoid m
 gpt-bundle: initial attempts failed (dash array + pipefail); fixed POSIX shell usage and succeeded. Output: /root/fjs-dealias-portfolio/docs/gpt_bundles/20251219_073746_ticket-06_20251219_072353_ticket-06_gpt-bundle-restore.zip
 Bundle contents verified (see docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/bundle_contents.txt); required files present. Bundle path: /root/fjs-dealias-portfolio/docs/gpt_bundles/20251219_073746_ticket-06_20251219_072353_ticket-06_gpt-bundle-restore.zip
 Tests: source .venv/bin/activate && make test-fast (68 passed, 144 deselected).
+Final bundle regenerated: /root/fjs-dealias-portfolio/docs/gpt_bundles/20251219_074334_ticket-06_20251219_072353_ticket-06_gpt-bundle-restore.zip (bundle_contents.txt updated).

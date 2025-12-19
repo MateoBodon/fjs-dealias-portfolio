@@ -9,7 +9,7 @@
   - Restored required docs (`docs/PLAN_OF_RECORD.md`, `docs/DOCS_AND_LOGGING_SYSTEM.md`, `docs/CODEX_SPRINT_TICKETS.md`) describing plan-of-record and logging/bundle rules.
   - Added regression test `tests/test_gpt_bundle.py` asserting Makefile lists the gpt-bundle target and required file paths; updated .gitignore for `bundles/` and `docs/gpt_bundles/`, untracked legacy bundles/.
 - **Artifacts**:
-  - Bundle: `docs/gpt_bundles/20251219_073746_ticket-06_20251219_072353_ticket-06_gpt-bundle-restore.zip` (contents logged in `docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/bundle_contents.txt`).
+  - Bundle: `docs/gpt_bundles/20251219_074334_ticket-06_20251219_072353_ticket-06_gpt-bundle-restore.zip` (contents logged in `docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/bundle_contents.txt`).
   - Run log: `docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/` (PROMPT, COMMANDS, RESULTS, TESTS, META).
 
 ## 2025-12-19T05:17Z — rc-lite-sanity completeness hardening (ticket-05 @ 03d4c03c)

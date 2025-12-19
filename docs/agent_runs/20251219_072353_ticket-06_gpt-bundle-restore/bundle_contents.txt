@@ -1,24 +1,25 @@
-Archive:  docs/gpt_bundles/20251219_073746_ticket-06_20251219_072353_ticket-06_gpt-bundle-restore.zip
+Archive:  docs/gpt_bundles/20251219_074334_ticket-06_20251219_072353_ticket-06_gpt-bundle-restore.zip
   Length      Date    Time    Name
 ---------  ---------- -----   ----
-    63580  2025-12-19 07:37   DIFF.patch
-    11316  2025-12-19 07:37   AGENTS.md
-        0  2025-12-19 07:37   docs/
-     1475  2025-12-19 07:37   docs/DOCS_AND_LOGGING_SYSTEM.md
-      705  2025-12-19 07:37   docs/CODEX_SPRINT_TICKETS.md
-        0  2025-12-19 07:37   docs/agent_runs/
-        0  2025-12-19 07:37   docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/
-      130  2025-12-19 07:37   docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/META.json
-      212  2025-12-19 07:37   docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/TESTS.md
-     5805  2025-12-19 07:37   docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/PROMPT.md
-      817  2025-12-19 07:37   docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/RESULTS.md
-     4183  2025-12-19 07:37   docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/COMMANDS.md
-     1040  2025-12-19 07:37   docs/PLAN_OF_RECORD.md
-      575  2025-12-19 07:37   LAST_COMMIT.txt
-    28668  2025-12-19 07:37   PROGRESS.md
-        0  2025-12-19 07:37   project_state/
-     5525  2025-12-19 07:37   project_state/CONFIG_REFERENCE.md
-     3951  2025-12-19 07:37   project_state/CURRENT_RESULTS.md
-     2878  2025-12-19 07:37   project_state/KNOWN_ISSUES.md
+    90714  2025-12-19 07:43   DIFF.patch
+    11316  2025-12-19 07:43   AGENTS.md
+        0  2025-12-19 07:43   docs/
+     1475  2025-12-19 07:43   docs/DOCS_AND_LOGGING_SYSTEM.md
+      705  2025-12-19 07:43   docs/CODEX_SPRINT_TICKETS.md
+        0  2025-12-19 07:43   docs/agent_runs/
+        0  2025-12-19 07:43   docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/
+      130  2025-12-19 07:43   docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/META.json
+     1506  2025-12-19 07:43   docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/bundle_contents.txt
+      212  2025-12-19 07:43   docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/TESTS.md
+     5805  2025-12-19 07:43   docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/PROMPT.md
+     1395  2025-12-19 07:43   docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/RESULTS.md
+     7149  2025-12-19 07:43   docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/COMMANDS.md
+     1040  2025-12-19 07:43   docs/PLAN_OF_RECORD.md
+      448  2025-12-19 07:43   LAST_COMMIT.txt
+    30359  2025-12-19 07:43   PROGRESS.md
+        0  2025-12-19 07:43   project_state/
+     5525  2025-12-19 07:43   project_state/CONFIG_REFERENCE.md
+     3951  2025-12-19 07:43   project_state/CURRENT_RESULTS.md
+     2878  2025-12-19 07:43   project_state/KNOWN_ISSUES.md
 ---------                     -------
-   130860                     19 files
+   164608                     20 files

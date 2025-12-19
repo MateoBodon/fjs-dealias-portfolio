@@ -75,7 +75,7 @@ from eval.clean import apply_nan_policy
 from evaluation.dm import dm_test
 from evaluation.evaluate import alignment_diagnostics
 from evaluation.factor import observed_factor_covariance, poet_lite_covariance
-from finance import MinVarMemo, minvar_ridge_box, turnover
+from finance import MinVarMemo, minvar_ridge_box, optimize_portfolio, turnover
 from finance.portfolio import _project_box_sum
 from fjs.overlay import OverlayConfig, apply_overlay, detect_spikes
 from meta import runtime
@@ -250,6 +250,9 @@ class EvalConfig:
     mv_box_hi: float = 0.1
     mv_turnover_bps: float = 5.0
     mv_condition_cap: float = 1e6
+    mv_solver: str = "projgrad"
+    mv_skip_on_missing_solver: bool = False
+    mv_solver_name: str | None = None
     bootstrap_samples: int = 0
     require_isolated: bool = True
     q_max: int = 1
@@ -361,6 +364,13 @@ def _serialise_config(config: EvalConfig) -> dict[str, Any]:
         "overlay_delta_frac": config.overlay_delta_frac,
         "mv_gamma": config.mv_gamma,
         "mv_tau": config.mv_tau,
+        "mv_box_lo": config.mv_box_lo,
+        "mv_box_hi": config.mv_box_hi,
+        "mv_turnover_bps": config.mv_turnover_bps,
+        "mv_condition_cap": config.mv_condition_cap,
+        "mv_solver": config.mv_solver,
+        "mv_skip_on_missing_solver": config.mv_skip_on_missing_solver,
+        "mv_solver_name": config.mv_solver_name,
         "bootstrap_samples": config.bootstrap_samples,
         "require_isolated": config.require_isolated,
         "q_max": config.q_max,
@@ -762,6 +772,27 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
         type=float,
         default=None,
         help="Drop windows whose covariance condition number exceeds this cap.",
+    )
+    parser.add_argument(
+        "--mv-solver",
+        dest="mv_solver",
+        type=str,
+        choices=["projgrad", "cvxpy"],
+        default=None,
+        help="Backend for minimum-variance weights (default projgrad; use cvxpy for exact solver).",
+    )
+    parser.add_argument(
+        "--mv-solver-name",
+        dest="mv_solver_name",
+        type=str,
+        default=None,
+        help="Optional cvxpy solver name to pass through when mv-solver=cvxpy.",
+    )
+    parser.add_argument(
+        "--mv-skip-on-missing-solver",
+        dest="mv_skip_on_missing_solver",
+        action="store_true",
+        help="If set with mv-solver=cvxpy, skip MV metrics when cvxpy is missing instead of failing.",
     )
     parser.add_argument(
         "--ewma-halflife",
@@ -1215,16 +1246,54 @@ def _min_variance_weights(
     gamma: float | None = None,
     tau: float = 0.0,
     prev_weights: np.ndarray | None = None,
+    solver: str = "projgrad",
+    solver_name: str | None = None,
+    skip_on_missing_solver: bool = False,
 ) -> tuple[np.ndarray, dict[str, float | int | bool]] | np.ndarray:
-    return_info = cache is not None  # callers providing a cache expect metadata
+    solver_key = (solver or "projgrad").lower()
+    return_info = cache is not None or solver_key == "cvxpy"
     effective_ridge = max(float(ridge) if ridge is not None else float(gamma or 0.0), 0.0)
-    weights, info = minvar_ridge_box(
-        covariance,
-        ridge=effective_ridge,
-        box=box,
-        cache=cache,
-    )
-    if tau > 0.0 and prev_weights is not None:
+
+    if solver_key == "cvxpy":
+        result = optimize_portfolio(
+            covariance,
+            allow_short=box[0] < 0.0,
+            skip_on_missing_solver=skip_on_missing_solver,
+            box=box,
+            ridge=effective_ridge,
+            solver=solver_name,
+        )
+        weights = result.weights
+        info: dict[str, float | int | bool | str | None] = {
+            "objective": float(result.objective),
+            "converged": bool(result.converged),
+            "solver_status": result.solver_status or "",
+            "solver_used": result.solver_used or "cvxpy",
+            "skipped": bool(result.skipped),
+            "skip_reason": result.skip_reason,
+            "cond_penalized": float("nan"),
+            "cond_original": float("nan"),
+        }
+    elif solver_key == "projgrad":
+        weights, info = minvar_ridge_box(
+            covariance,
+            ridge=effective_ridge,
+            box=box,
+            cache=cache,
+        )
+        info = dict(info)
+        info.update(
+            {
+                "solver_status": "ok" if info.get("converged") else "not_converged",
+                "solver_used": "projgrad",
+                "skipped": False,
+                "skip_reason": None,
+            }
+        )
+    else:
+        raise ValueError("mv solver must be one of {'projgrad', 'cvxpy'}.")
+
+    if tau > 0.0 and prev_weights is not None and not bool(info.get("skipped", False)):
         prev = np.asarray(prev_weights, dtype=np.float64).reshape(-1)
         if prev.size == weights.size:
             blend = max(min(float(tau), 1.0), 0.0)
@@ -1553,6 +1622,9 @@ def run_evaluation(
     mv_box = (float(config.mv_box_lo), float(config.mv_box_hi))
     mv_turnover_bps = float(config.mv_turnover_bps)
     mv_condition_cap = float(config.mv_condition_cap)
+    mv_solver = str(config.mv_solver or "projgrad").lower()
+    mv_skip_on_missing_solver = bool(config.mv_skip_on_missing_solver)
+    mv_solver_name = config.mv_solver_name
     mv_cache = MinVarMemo()
     prev_mv_weights: dict[tuple[str, ...], np.ndarray] = {}
 
@@ -2105,6 +2177,10 @@ def run_evaluation(
         mv_turnover_value = float("nan")
         mv_turnover_cost_bps = float("nan")
         mv_condition_penalized = float("nan")
+        mv_skipped = False
+        mv_skip_reason = ""
+        mv_solver_status = ""
+        mv_solver_info: dict[str, object] = {}
 
         if not condition_flag:
             covariances = {
@@ -2181,74 +2257,173 @@ def run_evaluation(
                 ridge=mv_gamma,
                 box=mv_box,
                 cache=mv_cache,
+                tau=mv_tau,
+                prev_weights=prev_weights,
+                solver=mv_solver,
+                solver_name=mv_solver_name,
+                skip_on_missing_solver=mv_skip_on_missing_solver,
             )
+            mv_skipped = bool(mv_solver_info.get("skipped", False))
+            mv_skip_reason = str(mv_solver_info.get("skip_reason", "") or "")
+            mv_solver_status = str(mv_solver_info.get("solver_status", "") or "")
             mv_condition_penalized = float(
                 mv_solver_info.get("cond_penalized", float("nan"))
             )
-            if prev_weights is not None and prev_weights.shape == mv_weights.shape:
+            if (
+                not mv_skipped
+                and prev_weights is not None
+                and prev_weights.shape == mv_weights.shape
+            ):
                 mv_turnover_value = float(turnover(prev_weights, mv_weights))
+            elif mv_skipped:
+                mv_turnover_value = float("nan")
             else:
                 mv_turnover_value = 0.0
-            mv_turnover_cost_bps = mv_turnover_value * mv_turnover_bps
+            mv_turnover_cost_bps = (
+                mv_turnover_value * mv_turnover_bps
+                if np.isfinite(mv_turnover_value)
+                else float("nan")
+            )
             prev_mv_weights[asset_key] = mv_weights.copy()
-            weights_map = {"ew": eq_weights, "mv": mv_weights}
+            weights_map = {"ew": eq_weights}
+            if not mv_skipped and mv_weights.size:
+                weights_map["mv"] = mv_weights
             cond_map = {
                 name: _safe_condition_number(matrix)
                 for name, matrix in covariances.items()
             }
 
             for estimator, cov in covariances.items():
-                for portfolio, weights in weights_map.items():
-                    forecast_var = float(weights.T @ cov @ weights)
-                    sigma = float(np.sqrt(max(forecast_var, 1e-12)))
-                    realised_returns = hold_matrix @ weights
-                    realised_var = (
-                        float(np.var(realised_returns, ddof=1))
-                        if realised_returns.size > 1
-                        else float("nan")
-                    )
-                    var95 = float(stats.norm.ppf(0.05) * sigma)
-                    es95 = _expected_shortfall(sigma)
-                    violations = realised_returns < var95
-                    violation_rate = (
-                        float(np.mean(violations)) if violations.size else float("nan")
-                    )
-                    realised_es = _realised_tail_mean(realised_returns, var95)
-                    mse = (
-                        (forecast_var - realised_var) ** 2
-                        if np.isfinite(realised_var)
-                        else float("nan")
-                    )
-                    es_error = (
-                        (es95 - realised_es) ** 2
-                        if np.isfinite(realised_es)
-                        else float("nan")
-                    )
-                    qlike_error = _qlike_loss(forecast_var, realised_var)
+                # Equal-weight metrics always computed
+                ew_forecast_var = float(eq_weights.T @ cov @ eq_weights)
+                ew_sigma = float(np.sqrt(max(ew_forecast_var, 1e-12)))
+                ew_realised_returns = hold_matrix @ eq_weights
+                ew_realised_var = (
+                    float(np.var(ew_realised_returns, ddof=1))
+                    if ew_realised_returns.size > 1
+                    else float("nan")
+                )
+                ew_var95 = float(stats.norm.ppf(0.05) * ew_sigma)
+                ew_es95 = _expected_shortfall(ew_sigma)
+                ew_violations = ew_realised_returns < ew_var95
+                ew_violation_rate = (
+                    float(np.mean(ew_violations)) if ew_violations.size else float("nan")
+                )
+                ew_realised_es = _realised_tail_mean(ew_realised_returns, ew_var95)
+                ew_mse = (
+                    (ew_forecast_var - ew_realised_var) ** 2
+                    if np.isfinite(ew_realised_var)
+                    else float("nan")
+                )
+                ew_es_error = (
+                    (ew_es95 - ew_realised_es) ** 2
+                    if np.isfinite(ew_realised_es)
+                    else float("nan")
+                )
+                ew_qlike_error = _qlike_loss(ew_forecast_var, ew_realised_var)
+                metrics_block.append(
+                    {
+                        "window_id": start,
+                        "regime": regime,
+                        "estimator": estimator,
+                        "portfolio": "ew",
+                        "forecast_var": ew_forecast_var,
+                        "realised_var": ew_realised_var,
+                        "vaR95": ew_var95,
+                        "es95": ew_es95,
+                        "violation_rate": ew_violation_rate,
+                        "realised_es": ew_realised_es,
+                        "sq_error": ew_mse,
+                        "sq_error_es": ew_es_error,
+                        "qlike": ew_qlike_error,
+                        "cov_condition": cond_map.get(estimator, float("nan")),
+                        "mv_turnover": 0.0,
+                        "mv_turnover_cost_bps": 0.0,
+                        "skipped": False,
+                        "skip_reason": "",
+                        "solver_status": "",
+                        "solver_used": "",
+                    }
+                )
+
+                if mv_skipped or "mv" not in weights_map:
                     metrics_block.append(
                         {
                             "window_id": start,
                             "regime": regime,
                             "estimator": estimator,
-                            "portfolio": portfolio,
-                            "forecast_var": forecast_var,
-                            "realised_var": realised_var,
-                            "vaR95": var95,
-                            "es95": es95,
-                            "violation_rate": violation_rate,
-                            "realised_es": realised_es,
-                            "sq_error": mse,
-                            "sq_error_es": es_error,
-                            "qlike": qlike_error,
+                            "portfolio": "mv",
+                            "forecast_var": float("nan"),
+                            "realised_var": float("nan"),
+                            "vaR95": float("nan"),
+                            "es95": float("nan"),
+                            "violation_rate": float("nan"),
+                            "realised_es": float("nan"),
+                            "sq_error": float("nan"),
+                            "sq_error_es": float("nan"),
+                            "qlike": float("nan"),
                             "cov_condition": cond_map.get(estimator, float("nan")),
-                            "mv_turnover": (
-                                mv_turnover_value if portfolio == "mv" else 0.0
-                            ),
-                            "mv_turnover_cost_bps": (
-                                mv_turnover_cost_bps if portfolio == "mv" else 0.0
-                            ),
+                            "mv_turnover": float("nan"),
+                            "mv_turnover_cost_bps": float("nan"),
+                            "skipped": True,
+                            "skip_reason": mv_skip_reason or "missing_solver",
+                            "solver_status": mv_solver_status,
+                            "solver_used": mv_solver_info.get("solver_used", ""),
                         }
                     )
+                    continue
+
+                weights = weights_map["mv"]
+                forecast_var = float(weights.T @ cov @ weights)
+                sigma = float(np.sqrt(max(forecast_var, 1e-12)))
+                realised_returns = hold_matrix @ weights
+                realised_var = (
+                    float(np.var(realised_returns, ddof=1))
+                    if realised_returns.size > 1
+                    else float("nan")
+                )
+                var95 = float(stats.norm.ppf(0.05) * sigma)
+                es95 = _expected_shortfall(sigma)
+                violations = realised_returns < var95
+                violation_rate = (
+                    float(np.mean(violations)) if violations.size else float("nan")
+                )
+                realised_es = _realised_tail_mean(realised_returns, var95)
+                mse = (
+                    (forecast_var - realised_var) ** 2
+                    if np.isfinite(realised_var)
+                    else float("nan")
+                )
+                es_error = (
+                    (es95 - realised_es) ** 2
+                    if np.isfinite(realised_es)
+                    else float("nan")
+                )
+                qlike_error = _qlike_loss(forecast_var, realised_var)
+                metrics_block.append(
+                    {
+                        "window_id": start,
+                        "regime": regime,
+                        "estimator": estimator,
+                        "portfolio": "mv",
+                        "forecast_var": forecast_var,
+                        "realised_var": realised_var,
+                        "vaR95": var95,
+                        "es95": es95,
+                        "violation_rate": violation_rate,
+                        "realised_es": realised_es,
+                        "sq_error": mse,
+                        "sq_error_es": es_error,
+                        "qlike": qlike_error,
+                        "cov_condition": cond_map.get(estimator, float("nan")),
+                        "mv_turnover": mv_turnover_value,
+                        "mv_turnover_cost_bps": mv_turnover_cost_bps,
+                        "skipped": False,
+                        "skip_reason": "",
+                        "solver_status": mv_solver_status or "ok",
+                        "solver_used": mv_solver_info.get("solver_used", mv_solver),
+                    }
+                )
         if detections:
             edge_margin_detail = [
                 float(det.get("edge_margin", float("nan"))) for det in detections
@@ -2411,6 +2586,10 @@ def run_evaluation(
             "mv_condition_flag": bool(condition_flag),
             "mv_turnover": mv_turnover_value,
             "mv_turnover_cost_bps": mv_turnover_cost_bps,
+            "mv_solver_status": mv_solver_status,
+            "mv_skip_reason": mv_skip_reason,
+            "mv_skipped": int(mv_skipped),
+            "mv_solver_used": mv_solver_info.get("solver_used", mv_solver),
             "baseline_errors": baseline_error_str,
             "factor_present": bool(factor_present),
             "changed_flag": int(changed_flag),
@@ -2498,6 +2677,14 @@ def run_evaluation(
         diagnostics_df["gating_soft_cap"] = np.nan
     if "gating_delta_frac" not in diagnostics_df.columns:
         diagnostics_df["gating_delta_frac"] = np.nan
+    if "mv_solver_status" not in diagnostics_df.columns:
+        diagnostics_df["mv_solver_status"] = ""
+    if "mv_skip_reason" not in diagnostics_df.columns:
+        diagnostics_df["mv_skip_reason"] = ""
+    if "mv_skipped" not in diagnostics_df.columns:
+        diagnostics_df["mv_skipped"] = 0
+    if "mv_solver_used" not in diagnostics_df.columns:
+        diagnostics_df["mv_solver_used"] = ""
     if "prewhiten_mode_requested" not in diagnostics_df.columns:
         diagnostics_df["prewhiten_mode_requested"] = (
             prewhiten_meta.mode_requested if diagnostics_records else ""
@@ -2590,6 +2777,10 @@ def run_evaluation(
         "mv_condition_flag",
         "mv_turnover",
         "mv_turnover_cost_bps",
+        "mv_solver_status",
+        "mv_skip_reason",
+        "mv_skipped",
+        "mv_solver_used",
         "baseline_errors",
         "factor_present",
         "changed_flag",
@@ -2679,6 +2870,10 @@ def run_evaluation(
                     "realised_es",
                     "sq_error",
                     "sq_error_es",
+                    "skipped",
+                    "skip_reason",
+                    "solver_status",
+                    "solver_used",
                 ]
             )
             metrics_path = path / "metrics.csv"
@@ -2846,6 +3041,7 @@ def run_evaluation(
         "mv_condition_flag": ("mv_condition_flag", "mean"),
         "mv_turnover": ("mv_turnover", "mean"),
         "mv_turnover_cost_bps": ("mv_turnover_cost_bps", "mean"),
+        "mv_skipped_share": ("mv_skipped", "mean"),
         "percent_changed": ("changed_flag", "mean"),
         "factor_present_share": ("factor_present", "mean"),
         "design_ok": ("design_ok", "mean"),

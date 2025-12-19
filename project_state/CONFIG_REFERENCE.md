@@ -16,7 +16,7 @@ CLI notable flags: `--design`, `--edge-mode`, `--gating-mode {fixed,calibrated}`
 - Grouping: `group_design {week,dow,dow_vol,dow_month,vol,dowxvol}`, `group_min_count`, `group_min_replicates`, `min_reps_dow`, `min_reps_vol`, `calm_quantile`, `crisis_quantile`, `vol_ewma_span`.
 - Overlay: `overlay_delta`, `overlay_delta_frac`, `overlay_a_grid`, `edge_mode`, `require_isolated`, `q_max`, `q2_alignment_min_cos`, `angle_min_cos`, `alignment_top_p`, `cs_drop_top_frac`, `coarse_candidate`.
 - Gating: `gate_mode {strict,soft}`, `gate_soft_max`, `gate_delta_calibration`, `gate_delta_frac_min/max`, `gate_stability_min`, `gate_alignment_min`, `gate_accept_nonisolated`.
-- Portfolios: `mv_gamma`, `mv_tau`, `mv_box_lo/hi`, `mv_turnover_bps`, `mv_condition_cap`, `mv_seed`.
+- Portfolios: `mv_gamma`, `mv_tau`, `mv_box_lo/hi`, `mv_turnover_bps`, `mv_condition_cap`, `mv_solver {projgrad,cvxpy}`, `mv_skip_on_missing_solver` (default **False**, raises if cvxpy missing), `mv_solver_name` (optional cvxpy backend string). When `mv_solver=cvxpy` and solver is missing, metrics are skipped with `skip_reason=missing_solver` only if the skip flag is set; otherwise the run fails loud.
 - Outputs: `out_dir`, `echo_config`, `reason_codes`, `bootstrap_samples`, `seed`, `max_windows`, `workers`.
 
 ## Synthetic calibration (`experiments/synthetic/calibrate_thresholds.py`)
@@ -34,6 +34,7 @@ CLI notable flags: `--design`, `--edge-mode`, `--gating-mode {fixed,calibrated}`
 
 ## Make targets / env vars (excerpt)
 - **Shared**: `EXEC_MODE`, `RC_RETURNS`, `RC_FACTORS`, `RC_GATE_DELTA_FRAC_MIN{_VOL}`, `RC_Q_MAX`, `VOL_Q2_ALIGNMENT_MIN_COS`, `RC_OVERLAY_DELTA`, `RC_COARSE_CANDIDATE`, `RC_GATE_MODE`, `RC_GATE_ACCEPT_NONISOLATED`, `RC_GATE_STABILITY_MIN`, `RC_MV_GAMMA`, `RC_MV_BOX`, `RC_MV_TURNOVER_BPS`, `RC_MV_CONDITION_CAP`, `RC_PREWHITEN`, `RC_USE_FACTOR_PREWHITEN`, `RC_WORKERS`.
+- **MV / solver forcing**: `FJS_FORCE_MISSING_CVXPY=1` forces `finance.portfolios` to behave as if cvxpy is absent (useful for smoke + tests). Pair with `mv_skip_on_missing_solver=true` to produce flagged skips; default remains fail-loud.
 - **rc-lite-sanity specific**: `RC_DOW_GROUP_MIN`, `RC_DOW_GROUP_REPS`, `RC_VOL_GROUP_MIN`, `RC_VOL_GROUP_REPS`, `RC_DOW_MIN_REPS`, `RC_VOL_MIN_REPS`, `RC_DOW_SHRINKER`, `RC_VOL_SHRINKER`, `RC_LITE_BASE`, `RC_LITE_CACHE`, `RC_OUT_SANITY`.
 - **Synthetic**: `HARNESS_TRIALS`, `CALIB_TRIALS_NULL/ALT`, `CALIB_P_ASSETS`, `CALIB_REPLICATES`, `MP_CACHE_DIR`.
 
@@ -45,4 +46,4 @@ CLI notable flags: `--design`, `--edge-mode`, `--gating-mode {fixed,calibrated}`
 - Manual scripts under `scripts/manual/` call rc-lite/rc/calibration targets with explicit env overrides.
 
 ## Library (finance.portfolios)
-- `optimize_portfolio(..., skip_on_missing_solver=True)` — when `cvxpy` is missing, mark the result as `skipped` with `solver_status="missing_dependency"` and empty weights; default is fail-loud via `MissingSolverError` (no equal-weight fallback).
+- `optimize_portfolio(..., skip_on_missing_solver=True)` — when `cvxpy` is missing, returns a flagged result (`skipped=True`, `skip_reason="missing_solver"`, `solver_status="missing_solver"`, empty weights, NaN objective). Default is fail-loud via `MissingSolverError` (no equal-weight fallback). `FJS_FORCE_MISSING_CVXPY` simulates the missing dependency without uninstalling packages.

@@ -64,3 +64,10 @@
 - git add docs/agent_runs/20251219_202301_ticket-08_solver-missing-proof/COMMANDS.md
 - git add docs/agent_runs/20251219_202301_ticket-08_solver-missing-proof/COMMANDS.md
 - git add docs/agent_runs/20251219_202301_ticket-08_solver-missing-proof/COMMANDS.md  # final stage after log edits
+- git status -sb
+- git push origin codex/ticket-08-solver-missing-proof
+- git checkout main
+- git pull --ff-only origin main
+- git merge --no-ff codex/ticket-08-solver-missing-proof
+- git push origin main
+- git status -sb

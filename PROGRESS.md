@@ -1,3 +1,17 @@
+## 2025-12-19T07:37Z — gpt-bundle restore + regression guard (ticket-06 @ d6c09b0027)
+- **Branch/Run**: `ticket-06-gpt-bundle-restore` (RUN_NAME=`20251219_072353_ticket-06_gpt-bundle-restore`), git sha `d6c09b0027`.
+- **Commands**:
+  - Env: `python3 -m venv .venv && source .venv/bin/activate && pip install --upgrade pip && pip install -e .[dev]`.
+  - Tests: `source .venv/bin/activate && make test-fast` (68 passed, 144 deselected; DeprecationWarning from utcnow remains).
+  - Bundle: `make gpt-bundle TICKET=ticket-06 RUN_NAME=20251219_072353_ticket-06_gpt-bundle-restore`; listing via `unzip -l docs/gpt_bundles/*ticket-06*20251219_072353_ticket-06_gpt-bundle-restore*.zip | tee docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/bundle_contents.txt`.
+- **Changes**:
+  - Added fail-loud `gpt-bundle` target (POSIX shell) emitting DIFF.patch, LAST_COMMIT.txt, required docs, and run log into `docs/gpt_bundles/<stamp>_<ticket>_<RUN_NAME>.zip`.
+  - Restored required docs (`docs/PLAN_OF_RECORD.md`, `docs/DOCS_AND_LOGGING_SYSTEM.md`, `docs/CODEX_SPRINT_TICKETS.md`) describing plan-of-record and logging/bundle rules.
+  - Added regression test `tests/test_gpt_bundle.py` asserting Makefile lists the gpt-bundle target and required file paths; updated .gitignore for `bundles/` and `docs/gpt_bundles/`, untracked legacy bundles/.
+- **Artifacts**:
+  - Bundle: `docs/gpt_bundles/20251219_073746_ticket-06_20251219_072353_ticket-06_gpt-bundle-restore.zip` (contents logged in `docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/bundle_contents.txt`).
+  - Run log: `docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/` (PROMPT, COMMANDS, RESULTS, TESTS, META).
+
 ## 2025-12-19T05:17Z — rc-lite-sanity completeness hardening (ticket-05 @ 03d4c03c)
 - **Branch/Run**: `ticket-05-rc-sanity-summary-hardening` (RUN_NAME=`20251219_044404_ticket-05_rc-sanity-summary-hardening`), git sha `03d4c03c`.
 - **Data**: WRDS daily returns `data/returns_daily.csv` (sha256=96ac7dd3…3197) and FF5+MOM factors `data/factors/ff5mom_daily.csv` (sha256=469d44ad…908ca); verified via `tools/verify_dataset.py` inside `make rc-lite-sanity`.

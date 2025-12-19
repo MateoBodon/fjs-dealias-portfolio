@@ -1,0 +1,7957 @@
+{
+  "pairing.py": {
+    "module": "pairing",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_normalize_rows",
+        "lineno": 8,
+        "doc": "",
+        "args": [
+          "mat"
+        ]
+      },
+      {
+        "name": "align_spikes",
+        "lineno": 18,
+        "doc": "Compute an assignment that pairs estimated spike directions to true ones.",
+        "args": [
+          "true_vecs",
+          "est_vecs"
+        ]
+      }
+    ]
+  },
+  "src/synthetic/threshold_eval.py": {
+    "module": "synthetic.threshold_eval",
+    "classes": [
+      {
+        "name": "DetectionArrays",
+        "lineno": 15,
+        "doc": ""
+      }
+    ],
+    "functions": [
+      {
+        "name": "_extract_detection_arrays",
+        "lineno": 28,
+        "doc": "",
+        "args": [
+          "detections"
+        ]
+      },
+      {
+        "name": "_evaluate_delta_grid",
+        "lineno": 99,
+        "doc": "",
+        "args": [
+          "arrays"
+        ]
+      },
+      {
+        "name": "evaluate_threshold_grid",
+        "lineno": 127,
+        "doc": "",
+        "args": [
+          "observations",
+          "groups"
+        ]
+      }
+    ]
+  },
+  "src/synthetic/__init__.py": {
+    "module": "synthetic",
+    "classes": [],
+    "functions": []
+  },
+  "src/synthetic/calibration.py": {
+    "module": "synthetic.calibration",
+    "classes": [
+      {
+        "name": "CalibrationConfig",
+        "lineno": 26,
+        "doc": "Configuration for synthetic calibration of overlay thresholds."
+      },
+      {
+        "name": "ThresholdEntry",
+        "lineno": 48,
+        "doc": ""
+      },
+      {
+        "name": "GridStat",
+        "lineno": 70,
+        "doc": ""
+      },
+      {
+        "name": "CalibrationResult",
+        "lineno": 94,
+        "doc": ""
+      }
+    ],
+    "functions": [
+      {
+        "name": "_simulate_panel",
+        "lineno": 122,
+        "doc": "",
+        "args": [
+          "config",
+          "rng"
+        ]
+      },
+      {
+        "name": "_select_entry",
+        "lineno": 145,
+        "doc": "",
+        "args": [
+          "candidates",
+          "alpha"
+        ]
+      },
+      {
+        "name": "calibrate_thresholds",
+        "lineno": 163,
+        "doc": "",
+        "args": [
+          "config"
+        ]
+      },
+      {
+        "name": "write_thresholds",
+        "lineno": 244,
+        "doc": "",
+        "args": [
+          "result",
+          "path"
+        ]
+      },
+      {
+        "name": "_run_seed_batches",
+        "lineno": 252,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "_seed_batch_worker",
+        "lineno": 299,
+        "doc": "",
+        "args": [
+          "payload"
+        ]
+      }
+    ]
+  },
+  "src/eval/clean.py": {
+    "module": "eval.clean",
+    "classes": [
+      {
+        "name": "NaNPolicyTelemetry",
+        "lineno": 13,
+        "doc": ""
+      },
+      {
+        "name": "NaNPolicyResult",
+        "lineno": 23,
+        "doc": ""
+      }
+    ],
+    "functions": [
+      {
+        "name": "apply_nan_policy",
+        "lineno": 29,
+        "doc": "",
+        "args": [
+          "frame",
+          "group_labels"
+        ]
+      }
+    ]
+  },
+  "src/eval/__init__.py": {
+    "module": "eval",
+    "classes": [],
+    "functions": []
+  },
+  "src/eval/balance.py": {
+    "module": "eval.balance",
+    "classes": [
+      {
+        "name": "BalanceTelemetry",
+        "lineno": 13,
+        "doc": ""
+      },
+      {
+        "name": "BalanceResult",
+        "lineno": 25,
+        "doc": ""
+      }
+    ],
+    "functions": [
+      {
+        "name": "build_balanced_window",
+        "lineno": 32,
+        "doc": "",
+        "args": [
+          "frame",
+          "group_labels"
+        ]
+      }
+    ]
+  },
+  "src/evaluation/evaluate.py": {
+    "module": "evaluation.evaluate",
+    "classes": [
+      {
+        "name": "DeltaSummary",
+        "lineno": 367,
+        "doc": ""
+      }
+    ],
+    "functions": [
+      {
+        "name": "iqr",
+        "lineno": 32,
+        "doc": "Interquartile range (75th - 25th percentile).",
+        "args": [
+          "values"
+        ]
+      },
+      {
+        "name": "sign_test_pvalue",
+        "lineno": 53,
+        "doc": "Two-sided sign test p-value for paired differences.",
+        "args": [
+          "differences"
+        ]
+      },
+      {
+        "name": "qlike",
+        "lineno": 86,
+        "doc": "Quasi-likelihood (QLIKE) loss for variance forecasts.",
+        "args": [
+          "forecasts",
+          "realised"
+        ]
+      },
+      {
+        "name": "block_bootstrap_ci_median",
+        "lineno": 102,
+        "doc": "Moving block bootstrap CI for the median of a time series.",
+        "args": [
+          "series"
+        ]
+      },
+      {
+        "name": "_clip_prob",
+        "lineno": 163,
+        "doc": "",
+        "args": [
+          "value",
+          "eps"
+        ]
+      },
+      {
+        "name": "kupiec_pof_test",
+        "lineno": 167,
+        "doc": "Return the Kupiec proportion-of-failures p-value.",
+        "args": [
+          "violations",
+          "alpha"
+        ]
+      },
+      {
+        "name": "christoffersen_independence_test",
+        "lineno": 184,
+        "doc": "Return the Christoffersen independence test p-value.",
+        "args": [
+          "violations"
+        ]
+      },
+      {
+        "name": "expected_shortfall_test",
+        "lineno": 214,
+        "doc": "Approximate two-sided t-test comparing realised losses and ES forecasts.",
+        "args": [
+          "losses",
+          "es_forecasts",
+          "violations"
+        ]
+      },
+      {
+        "name": "alignment_diagnostics",
+        "lineno": 239,
+        "doc": "Return (angle_deg, energy_mu) between detection direction and PCA subspace.",
+        "args": [
+          "covariance",
+          "direction"
+        ]
+      },
+      {
+        "name": "plot_variance_error_panel",
+        "lineno": 274,
+        "doc": "Plot E3: variance MSE mean and distribution by method.",
+        "args": [
+          "errors",
+          "base_path"
+        ]
+      },
+      {
+        "name": "plot_coverage_error",
+        "lineno": 330,
+        "doc": "Plot E4: VaR(95%) coverage errors by method.",
+        "args": [
+          "coverage_errors",
+          "base_path"
+        ]
+      },
+      {
+        "name": "summarize_deltas",
+        "lineno": 375,
+        "doc": "Return robust summary statistics and CI for paired deltas.",
+        "args": [
+          "deltas"
+        ]
+      },
+      {
+        "name": "build_metrics_summary",
+        "lineno": 402,
+        "doc": "Aggregate window-level errors into a metrics summary DataFrame.",
+        "args": []
+      }
+    ]
+  },
+  "src/evaluation/factor.py": {
+    "module": "evaluation.factor",
+    "classes": [
+      {
+        "name": "POETResult",
+        "lineno": 42,
+        "doc": ""
+      }
+    ],
+    "functions": [
+      {
+        "name": "observed_factor_covariance",
+        "lineno": 13,
+        "doc": "Estimate \u03a3 = B \u03a3_f B\u1d40 + \u03a3_\u03b5 from observed factor returns via cross-sectional OLS.",
+        "args": [
+          "returns",
+          "factors"
+        ]
+      },
+      {
+        "name": "_poet_ic",
+        "lineno": 47,
+        "doc": "",
+        "args": [
+          "residual_var",
+          "k",
+          "p",
+          "n"
+        ]
+      },
+      {
+        "name": "poet_lite_covariance",
+        "lineno": 53,
+        "doc": "Estimate a POET-lite covariance using PCA loadings with simple residual shrinkage.",
+        "args": [
+          "returns"
+        ]
+      }
+    ]
+  },
+  "src/evaluation/dm.py": {
+    "module": "evaluation.dm",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_newey_west_long_run_variance",
+        "lineno": 10,
+        "doc": "",
+        "args": [
+          "diffs",
+          "lags"
+        ]
+      },
+      {
+        "name": "dm_test",
+        "lineno": 27,
+        "doc": "Diebold\u2013Mariano test for equal predictive accuracy.",
+        "args": [
+          "err1",
+          "err2"
+        ]
+      }
+    ]
+  },
+  "src/evaluation/__init__.py": {
+    "module": "evaluation",
+    "classes": [],
+    "functions": [
+      {
+        "name": "check_dealiased_applied",
+        "lineno": 21,
+        "doc": "Assert de-aliased forecasts differ from aliased when detections exist.",
+        "args": [
+          "estimates"
+        ]
+      }
+    ]
+  },
+  "src/report/gather.py": {
+    "module": "report.gather",
+    "classes": [],
+    "functions": [
+      {
+        "name": "load_run",
+        "lineno": 28,
+        "doc": "Load core artifacts for a single run directory.",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "find_runs",
+        "lineno": 72,
+        "doc": "Discover run directories, preferring tagged folders.",
+        "args": [
+          "root",
+          "pattern"
+        ]
+      },
+      {
+        "name": "_extract_detection",
+        "lineno": 98,
+        "doc": "",
+        "args": [
+          "summary_df"
+        ]
+      },
+      {
+        "name": "_extract_edge_stats",
+        "lineno": 104,
+        "doc": "",
+        "args": [
+          "summary_df"
+        ]
+      },
+      {
+        "name": "_dm_values",
+        "lineno": 119,
+        "doc": "",
+        "args": [
+          "de_row",
+          "estimator"
+        ]
+      },
+      {
+        "name": "_dm_values_qlike",
+        "lineno": 130,
+        "doc": "",
+        "args": [
+          "de_row",
+          "estimator"
+        ]
+      },
+      {
+        "name": "_ci_bounds",
+        "lineno": 141,
+        "doc": "",
+        "args": [
+          "de_row",
+          "estimator"
+        ]
+      },
+      {
+        "name": "collect_estimator_panel",
+        "lineno": 164,
+        "doc": "Combine estimator diagnostics across runs into a single table.",
+        "args": [
+          "run_paths"
+        ]
+      }
+    ]
+  },
+  "src/report/plots.py": {
+    "module": "report.plots",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_single_run_tag",
+        "lineno": 23,
+        "doc": "",
+        "args": [
+          "df"
+        ]
+      },
+      {
+        "name": "_ensure_dir",
+        "lineno": 29,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "plot_dm_bars",
+        "lineno": 33,
+        "doc": "",
+        "args": [
+          "df"
+        ]
+      },
+      {
+        "name": "plot_edge_margin_hist",
+        "lineno": 73,
+        "doc": "",
+        "args": [
+          "df"
+        ]
+      },
+      {
+        "name": "plot_detection_rate",
+        "lineno": 102,
+        "doc": "",
+        "args": [
+          "df"
+        ]
+      },
+      {
+        "name": "plot_alignment_angles",
+        "lineno": 127,
+        "doc": "",
+        "args": [
+          "df"
+        ]
+      },
+      {
+        "name": "plot_ablation_heatmap",
+        "lineno": 157,
+        "doc": "",
+        "args": [
+          "df"
+        ]
+      }
+    ]
+  },
+  "src/report/__init__.py": {
+    "module": "report",
+    "classes": [],
+    "functions": []
+  },
+  "src/report/tables.py": {
+    "module": "report.tables",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_single_run_tag",
+        "lineno": 19,
+        "doc": "",
+        "args": [
+          "df"
+        ]
+      },
+      {
+        "name": "_ensure_dir",
+        "lineno": 25,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "_format_float",
+        "lineno": 29,
+        "doc": "",
+        "args": [
+          "value"
+        ]
+      },
+      {
+        "name": "_write_markdown",
+        "lineno": 37,
+        "doc": "",
+        "args": [
+          "df",
+          "path"
+        ]
+      },
+      {
+        "name": "_find_strategy_row",
+        "lineno": 51,
+        "doc": "",
+        "args": [
+          "group",
+          "candidates"
+        ]
+      },
+      {
+        "name": "table_estimators_panel",
+        "lineno": 62,
+        "doc": "Create estimator panel comparison tables and return paths to CSV, Markdown, and LaTeX outputs.",
+        "args": [
+          "df"
+        ]
+      },
+      {
+        "name": "table_rejections",
+        "lineno": 191,
+        "doc": "Generate a rejection reason summary table.",
+        "args": [
+          "df"
+        ]
+      },
+      {
+        "name": "table_ablation",
+        "lineno": 236,
+        "doc": "Summarise ablation grids when available.",
+        "args": [
+          "df"
+        ]
+      }
+    ]
+  },
+  "src/io/wrds_connect.py": {
+    "module": "io.wrds_connect",
+    "classes": [],
+    "functions": [
+      {
+        "name": "wrds_conn",
+        "lineno": 8,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "src/io/crsp_daily.py": {
+    "module": "io.crsp_daily",
+    "classes": [
+      {
+        "name": "CrspQueryParams",
+        "lineno": 23,
+        "doc": "Configuration for the CRSP daily snapshot."
+      }
+    ],
+    "functions": [
+      {
+        "name": "explain_rowcount",
+        "lineno": 76,
+        "doc": "Return the planner's estimated rowcount for the provided query.",
+        "args": [
+          "sql"
+        ]
+      },
+      {
+        "name": "_clean_snapshot",
+        "lineno": 97,
+        "doc": "",
+        "args": [
+          "frame"
+        ]
+      },
+      {
+        "name": "fetch_crsp_daily_snapshot",
+        "lineno": 137,
+        "doc": "Fetch CRSP daily snapshot and persist to parquet.",
+        "args": [
+          "out_path"
+        ]
+      },
+      {
+        "name": "build_dow_vol_labels",
+        "lineno": 154,
+        "doc": "Compute day-of-week and volatility-state labels.",
+        "args": [
+          "returns"
+        ]
+      },
+      {
+        "name": "write_labels_parquet",
+        "lineno": 202,
+        "doc": "",
+        "args": [
+          "labels",
+          "out_path"
+        ]
+      }
+    ]
+  },
+  "src/baselines/factors.py": {
+    "module": "baselines.factors",
+    "classes": [
+      {
+        "name": "PrewhitenResult",
+        "lineno": 44,
+        "doc": ""
+      }
+    ],
+    "functions": [
+      {
+        "name": "_normalise_columns",
+        "lineno": 53,
+        "doc": "",
+        "args": [
+          "frame"
+        ]
+      },
+      {
+        "name": "_detect_percentage_scale",
+        "lineno": 61,
+        "doc": "",
+        "args": [
+          "frame"
+        ]
+      },
+      {
+        "name": "_load_candidate",
+        "lineno": 74,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "load_observed_factors",
+        "lineno": 105,
+        "doc": "Load observed factor returns, preferring FF5+MOM datasets when available.",
+        "args": []
+      },
+      {
+        "name": "_prepare_design_matrix",
+        "lineno": 158,
+        "doc": "",
+        "args": [
+          "index",
+          "factors"
+        ]
+      },
+      {
+        "name": "_align_returns_factors",
+        "lineno": 174,
+        "doc": "",
+        "args": [
+          "returns",
+          "factors"
+        ]
+      },
+      {
+        "name": "prewhiten_returns",
+        "lineno": 206,
+        "doc": "Regress asset returns on observed factors and return residual series.",
+        "args": [
+          "returns",
+          "factors"
+        ]
+      }
+    ]
+  },
+  "src/baselines/__init__.py": {
+    "module": "baselines",
+    "classes": [],
+    "functions": []
+  },
+  "src/baselines/covariance.py": {
+    "module": "baselines.covariance",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_symmetrize",
+        "lineno": 21,
+        "doc": "",
+        "args": [
+          "matrix"
+        ]
+      },
+      {
+        "name": "sample_covariance",
+        "lineno": 25,
+        "doc": "Sample covariance with Bessel correction.",
+        "args": [
+          "observations"
+        ]
+      },
+      {
+        "name": "lw_covariance",
+        "lineno": 38,
+        "doc": "Ledoit\u2013Wolf shrinkage covariance estimator.",
+        "args": [
+          "observations"
+        ]
+      },
+      {
+        "name": "oas_covariance",
+        "lineno": 44,
+        "doc": "Oracle Approximating Shrinkage (OAS) estimator.",
+        "args": [
+          "observations"
+        ]
+      },
+      {
+        "name": "cc_covariance",
+        "lineno": 50,
+        "doc": "Ledoit\u2013Wolf constant-correlation shrinkage estimator.",
+        "args": [
+          "observations"
+        ]
+      },
+      {
+        "name": "rie_covariance",
+        "lineno": 56,
+        "doc": "Rotationally-invariant estimator (RIE) shrinkage towards the spectrum mean.",
+        "args": [
+          "sample_covariance"
+        ]
+      },
+      {
+        "name": "quest_covariance",
+        "lineno": 81,
+        "doc": "QuEST-style spectral clipping based on Marchenko\u2013Pastur support.",
+        "args": [
+          "sample_covariance"
+        ]
+      },
+      {
+        "name": "ewma_covariance",
+        "lineno": 112,
+        "doc": "Exponentially weighted moving-average covariance estimate.",
+        "args": [
+          "observations"
+        ]
+      }
+    ]
+  },
+  "src/meta/run_meta.py": {
+    "module": "meta.run_meta",
+    "classes": [
+      {
+        "name": "RunMeta",
+        "lineno": 14,
+        "doc": "Lightweight metadata summary for a single run."
+      }
+    ],
+    "functions": [
+      {
+        "name": "code_signature",
+        "lineno": 74,
+        "doc": "Compute a SHA-256 signature over core de-aliasing code.",
+        "args": [
+          "targets"
+        ]
+      },
+      {
+        "name": "_git_sha",
+        "lineno": 112,
+        "doc": "Return the short git SHA for the current repository, or 'unknown'.",
+        "args": []
+      },
+      {
+        "name": "_sha256_of_file",
+        "lineno": 122,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "_collect_pdf_hashes",
+        "lineno": 130,
+        "doc": "",
+        "args": [
+          "directory"
+        ]
+      },
+      {
+        "name": "_load_optional_json",
+        "lineno": 142,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "_count_detections",
+        "lineno": 152,
+        "doc": "Return (detections_total, L_max) from detection_summary.csv if present.",
+        "args": [
+          "det_summary_path"
+        ]
+      },
+      {
+        "name": "write_run_meta",
+        "lineno": 168,
+        "doc": "Create a run_meta.json artifact in ``output_dir``.",
+        "args": [
+          "output_dir"
+        ]
+      }
+    ]
+  },
+  "src/meta/cache.py": {
+    "module": "meta.cache",
+    "classes": [],
+    "functions": [
+      {
+        "name": "window_key",
+        "lineno": 13,
+        "doc": "Stable hash identifying a per-window cache entry.",
+        "args": [
+          "manifest",
+          "week_list",
+          "tickers",
+          "replicates"
+        ]
+      },
+      {
+        "name": "save_window",
+        "lineno": 52,
+        "doc": "Persist cached per-window statistics.",
+        "args": [
+          "cache_dir",
+          "key",
+          "payload"
+        ]
+      },
+      {
+        "name": "load_window",
+        "lineno": 77,
+        "doc": "Load cached per-window statistics if available.",
+        "args": [
+          "cache_dir",
+          "key"
+        ]
+      }
+    ]
+  },
+  "src/meta/completeness.py": {
+    "module": "meta.completeness",
+    "classes": [
+      {
+        "name": "CompletenessResult",
+        "lineno": 38,
+        "doc": ""
+      }
+    ],
+    "functions": [
+      {
+        "name": "_load_json",
+        "lineno": 9,
+        "doc": "Read JSON from ``path`` if it exists; otherwise return an empty mapping.",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "_coerce_int",
+        "lineno": 21,
+        "doc": "",
+        "args": [
+          "value"
+        ]
+      },
+      {
+        "name": "_first",
+        "lineno": 30,
+        "doc": "",
+        "args": [
+          "mapping",
+          "keys"
+        ]
+      },
+      {
+        "name": "_window_stats_from_manifest",
+        "lineno": 72,
+        "doc": "",
+        "args": [
+          "manifest"
+        ]
+      },
+      {
+        "name": "evaluate_eval_run",
+        "lineno": 96,
+        "doc": "Assess completeness for a daily overlay evaluation (rc-lite/rc) run directory.",
+        "args": [
+          "run_dir"
+        ]
+      },
+      {
+        "name": "_locate_payload_dir",
+        "lineno": 154,
+        "doc": "Return the most likely payload directory (handles tagged weekly outputs).",
+        "args": [
+          "base"
+        ]
+      },
+      {
+        "name": "evaluate_weekly_run",
+        "lineno": 167,
+        "doc": "Assess completeness for a weekly equity_panel run directory.",
+        "args": [
+          "run_dir"
+        ]
+      }
+    ]
+  },
+  "src/meta/runtime.py": {
+    "module": "meta.runtime",
+    "classes": [
+      {
+        "name": "ExecModeSettings",
+        "lineno": 26,
+        "doc": "Resolved execution-mode settings shared across runners."
+      }
+    ],
+    "functions": [
+      {
+        "name": "_set_threadpool_limits",
+        "lineno": 34,
+        "doc": "",
+        "args": [
+          "max_threads"
+        ]
+      },
+      {
+        "name": "_apply_thread_caps",
+        "lineno": 49,
+        "doc": "",
+        "args": [
+          "max_threads"
+        ]
+      },
+      {
+        "name": "resolve_exec_mode",
+        "lineno": 56,
+        "doc": "Return the execution-mode settings without mutating global state.",
+        "args": [
+          "mode"
+        ]
+      },
+      {
+        "name": "configure_exec_mode",
+        "lineno": 72,
+        "doc": "Resolve and apply execution-mode thread caps.",
+        "args": [
+          "mode"
+        ]
+      },
+      {
+        "name": "effective_worker_count",
+        "lineno": 80,
+        "doc": "Return the worker count respecting the resolved execution mode.",
+        "args": [
+          "settings",
+          "requested_workers",
+          "cpu_count"
+        ]
+      },
+      {
+        "name": "thread_caps_snapshot",
+        "lineno": 98,
+        "doc": "Return the current BLAS/OpenMP thread caps for logging.",
+        "args": []
+      },
+      {
+        "name": "exec_mode_metadata",
+        "lineno": 104,
+        "doc": "Helper to expose execution-mode metadata for run.json payloads.",
+        "args": [
+          "settings"
+        ]
+      }
+    ]
+  },
+  "src/finance/loader.py": {
+    "module": "finance.loader",
+    "classes": [
+      {
+        "name": "WeeklyLoadResult",
+        "lineno": 14,
+        "doc": ""
+      }
+    ],
+    "functions": [
+      {
+        "name": "_balanced_weekly_from_daily",
+        "lineno": 20,
+        "doc": "Internal helper: balanced weekly panel with a fixed universe.",
+        "args": [
+          "daily_returns",
+          "replicates"
+        ]
+      },
+      {
+        "name": "load_weekly_from_daily_csv",
+        "lineno": 77,
+        "doc": "Load daily prices CSV, build balanced weekly panel, and print counters.",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "rolling_windows_fixed_universe",
+        "lineno": 108,
+        "doc": "Yield (fit, hold) windows with per-window fixed-universe enforcement.",
+        "args": [
+          "weekly"
+        ]
+      }
+    ]
+  },
+  "src/finance/portfolios.py": {
+    "module": "finance.portfolios",
+    "classes": [
+      {
+        "name": "MissingSolverError",
+        "lineno": 10,
+        "doc": "Raised when a required optimisation solver dependency is unavailable."
+      },
+      {
+        "name": "OptimizationResult",
+        "lineno": 31,
+        "doc": "Result container for portfolio optimisation routines."
+      }
+    ],
+    "functions": [
+      {
+        "name": "_get_cvxpy",
+        "lineno": 14,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "equal_weight",
+        "lineno": 43,
+        "doc": "Return the equal-weight vector for ``p`` assets.",
+        "args": [
+          "p"
+        ]
+      },
+      {
+        "name": "_solve_min_variance_cvxpy",
+        "lineno": 62,
+        "doc": "Solve the minimum-variance problem using cvxpy.",
+        "args": [
+          "covariance"
+        ]
+      },
+      {
+        "name": "minimum_variance",
+        "lineno": 130,
+        "doc": "Solve the minimum-variance problem using cvxpy (if available).",
+        "args": [
+          "covariance"
+        ]
+      },
+      {
+        "name": "min_variance_box",
+        "lineno": 148,
+        "doc": "Solve the minimum-variance problem with box constraints.",
+        "args": [
+          "covariance",
+          "lb",
+          "ub"
+        ]
+      },
+      {
+        "name": "optimize_portfolio",
+        "lineno": 169,
+        "doc": "Return the minimum-variance portfolio; fail loud if solver is missing by default.",
+        "args": [
+          "covariance",
+          "target_return"
+        ]
+      }
+    ]
+  },
+  "src/finance/factors.py": {
+    "module": "finance.factors",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_align_frames",
+        "lineno": 10,
+        "doc": "Align inputs on their shared date index and drop factor-side NaNs.",
+        "args": [
+          "returns",
+          "factors",
+          "industry"
+        ]
+      },
+      {
+        "name": "_prepare_design",
+        "lineno": 43,
+        "doc": "Combine factor and industry data into a single numeric design matrix.",
+        "args": [
+          "factors",
+          "industry"
+        ]
+      },
+      {
+        "name": "factor_covariance",
+        "lineno": 64,
+        "doc": "Estimate an observed-factor covariance matrix via cross-sectional OLS.",
+        "args": [
+          "R_df",
+          "F_df"
+        ]
+      }
+    ]
+  },
+  "src/finance/design.py": {
+    "module": "finance.design",
+    "classes": [],
+    "functions": [
+      {
+        "name": "build_design_matrix",
+        "lineno": 7,
+        "doc": "Join returns with factor realisations on their common timeline.",
+        "args": [
+          "returns",
+          "factors"
+        ]
+      },
+      {
+        "name": "groups_from_weeks",
+        "lineno": 34,
+        "doc": "Assign an integer group id to each timestamp based on its week.",
+        "args": [
+          "index"
+        ]
+      }
+    ]
+  },
+  "src/finance/__init__.py": {
+    "module": "finance",
+    "classes": [],
+    "functions": []
+  },
+  "src/finance/shrinkage.py": {
+    "module": "finance.shrinkage",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_validate_input",
+        "lineno": 13,
+        "doc": "",
+        "args": [
+          "R"
+        ]
+      },
+      {
+        "name": "_sample_covariance",
+        "lineno": 22,
+        "doc": "",
+        "args": [
+          "X"
+        ]
+      },
+      {
+        "name": "_symmetrize",
+        "lineno": 28,
+        "doc": "",
+        "args": [
+          "matrix"
+        ]
+      },
+      {
+        "name": "_warn_and_fill_nonfinite",
+        "lineno": 32,
+        "doc": "",
+        "args": [
+          "name",
+          "data"
+        ]
+      },
+      {
+        "name": "_assert_psd_and_symmetric",
+        "lineno": 50,
+        "doc": "",
+        "args": [
+          "name",
+          "matrix"
+        ]
+      },
+      {
+        "name": "oas_covariance",
+        "lineno": 58,
+        "doc": "Oracle Approximating Shrinkage covariance targeting the identity matrix.",
+        "args": [
+          "R"
+        ]
+      },
+      {
+        "name": "cc_covariance",
+        "lineno": 70,
+        "doc": "Ledoit\u2013Wolf constant-correlation shrinkage covariance estimator.",
+        "args": [
+          "R"
+        ]
+      }
+    ]
+  },
+  "src/finance/eval.py": {
+    "module": "finance.eval",
+    "classes": [],
+    "functions": [
+      {
+        "name": "rolling_windows",
+        "lineno": 21,
+        "doc": "Yield expanding fit/hold windows over the weekly panel.",
+        "args": [
+          "panel",
+          "window_weeks",
+          "horizon_weeks"
+        ]
+      },
+      {
+        "name": "risk_metrics",
+        "lineno": 52,
+        "doc": "Compute mean squared error and 95% VaR coverage error.",
+        "args": [
+          "forecasts",
+          "realised"
+        ]
+      },
+      {
+        "name": "oos_variance_forecast",
+        "lineno": 84,
+        "doc": "Compute out-of-sample variance forecasts and realised variance.",
+        "args": [
+          "y_fit",
+          "y_hold",
+          "w",
+          "estimator"
+        ]
+      },
+      {
+        "name": "weekly_cov_from_components",
+        "lineno": 223,
+        "doc": "Construct the weekly covariance of summed daily returns from MANOVA components.",
+        "args": [
+          "ms1",
+          "ms2",
+          "replicates",
+          "mu_hats",
+          "vecs",
+          "clip_top"
+        ]
+      },
+      {
+        "name": "variance_forecast_from_components",
+        "lineno": 298,
+        "doc": "Forecast portfolio variance from balanced MANOVA components and compare to realised.",
+        "args": [
+          "y_fit",
+          "y_hold",
+          "replicates",
+          "w",
+          "detections"
+        ]
+      },
+      {
+        "name": "evaluate_portfolio",
+        "lineno": 400,
+        "doc": "Compute realised return and volatility for the supplied weights.",
+        "args": [
+          "returns",
+          "weights"
+        ]
+      }
+    ]
+  },
+  "src/finance/io.py": {
+    "module": "finance.io",
+    "classes": [],
+    "functions": [
+      {
+        "name": "load_prices_csv",
+        "lineno": 15,
+        "doc": "Load a tidy price history CSV with canonical dtypes.",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "to_daily_returns",
+        "lineno": 52,
+        "doc": "Convert tidy prices to a wide matrix of daily log returns.",
+        "args": [
+          "price_frame"
+        ]
+      },
+      {
+        "name": "load_market_data",
+        "lineno": 79,
+        "doc": "Backward-compatible alias for :func:`load_prices_csv`.",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "load_returns_csv",
+        "lineno": 99,
+        "doc": "Load a tidy daily returns CSV into a wide date-indexed matrix.",
+        "args": [
+          "path"
+        ]
+      }
+    ]
+  },
+  "src/finance/portfolio.py": {
+    "module": "finance.portfolio",
+    "classes": [
+      {
+        "name": "MinVarMemo",
+        "lineno": 58,
+        "doc": "Cache penalised covariance factorizations per window."
+      }
+    ],
+    "functions": [
+      {
+        "name": "_symmetrize",
+        "lineno": 11,
+        "doc": "",
+        "args": [
+          "matrix"
+        ]
+      },
+      {
+        "name": "_project_box_sum",
+        "lineno": 15,
+        "doc": "",
+        "args": [
+          "v",
+          "lo",
+          "hi",
+          "target"
+        ]
+      },
+      {
+        "name": "minvar_ridge_box",
+        "lineno": 88,
+        "doc": "Projected-gradient minimum-variance solver with ridge and box bounds.",
+        "args": [
+          "Sigma"
+        ]
+      },
+      {
+        "name": "turnover",
+        "lineno": 164,
+        "doc": "Compute one-way turnover between consecutive portfolios.",
+        "args": [
+          "w_prev",
+          "w_new"
+        ]
+      },
+      {
+        "name": "apply_turnover_cost",
+        "lineno": 174,
+        "doc": "Apply turnover costs (in basis points) to a variance or PnL series.",
+        "args": [
+          "var_series",
+          "w_series",
+          "bps"
+        ]
+      }
+    ]
+  },
+  "src/finance/ledoit.py": {
+    "module": "finance.ledoit",
+    "classes": [],
+    "functions": [
+      {
+        "name": "lw_cov",
+        "lineno": 10,
+        "doc": "Compute the Ledoit\u2013Wolf covariance estimate.",
+        "args": [
+          "x"
+        ]
+      },
+      {
+        "name": "ledoit_wolf_shrinkage",
+        "lineno": 35,
+        "doc": "Backward-compatible alias for :func:`lw_cov`.",
+        "args": [
+          "x"
+        ]
+      }
+    ]
+  },
+  "src/finance/returns.py": {
+    "module": "finance.returns",
+    "classes": [],
+    "functions": [
+      {
+        "name": "compute_log_returns",
+        "lineno": 11,
+        "doc": "Compute log returns for a wide price DataFrame.",
+        "args": [
+          "prices"
+        ]
+      },
+      {
+        "name": "weekly_panel",
+        "lineno": 35,
+        "doc": "Aggregate daily log returns into weekly (Monday-start) log returns.",
+        "args": [
+          "daily_returns",
+          "start",
+          "end"
+        ]
+      },
+      {
+        "name": "balance_weeks",
+        "lineno": 80,
+        "doc": "Create a balanced week/day design from daily returns.",
+        "args": [
+          "panel"
+        ]
+      }
+    ]
+  },
+  "src/finance/robust.py": {
+    "module": "finance.robust",
+    "classes": [],
+    "functions": [
+      {
+        "name": "winsorize",
+        "lineno": 7,
+        "doc": "Clip each column of ``returns_df`` to its [q, 1-q] empirical quantiles.",
+        "args": [
+          "returns_df",
+          "q"
+        ]
+      },
+      {
+        "name": "huberize",
+        "lineno": 20,
+        "doc": "Apply column-wise Huber clipping using median and MAD scale.",
+        "args": [
+          "returns_df",
+          "c"
+        ]
+      },
+      {
+        "name": "tyler_shrink_covariance",
+        "lineno": 41,
+        "doc": "Return a Tyler M-estimator with ridge regularisation for positive definiteness.",
+        "args": [
+          "observations"
+        ]
+      }
+    ]
+  },
+  "src/fjs/balanced.py": {
+    "module": "fjs.balanced",
+    "classes": [
+      {
+        "name": "BalancedConfig",
+        "lineno": 11,
+        "doc": "Configuration for the balanced risk contribution solver."
+      }
+    ],
+    "functions": [
+      {
+        "name": "_validate_balanced_inputs",
+        "lineno": 30,
+        "doc": "Return validated observations and grouping assignments for a balanced design.",
+        "args": [
+          "y",
+          "groups"
+        ]
+      },
+      {
+        "name": "_compute_group_means",
+        "lineno": 56,
+        "doc": "Accumulate per-group means using the grouping inverse index.",
+        "args": [
+          "observations",
+          "inverse",
+          "counts"
+        ]
+      },
+      {
+        "name": "group_means",
+        "lineno": 69,
+        "doc": "Compute per-group and overall means for a balanced one-way MANOVA design.",
+        "args": [
+          "y",
+          "groups"
+        ]
+      },
+      {
+        "name": "mean_squares",
+        "lineno": 95,
+        "doc": "Estimate balanced one-way MANOVA mean squares and covariance components.",
+        "args": [
+          "y",
+          "groups"
+        ]
+      },
+      {
+        "name": "compute_balanced_weights",
+        "lineno": 152,
+        "doc": "Compute portfolio weights that balance the contribution of estimated MANOVA spikes.",
+        "args": [
+          "returns",
+          "config"
+        ]
+      }
+    ]
+  },
+  "src/fjs/overlay.py": {
+    "module": "fjs.overlay",
+    "classes": [
+      {
+        "name": "OverlayConfig",
+        "lineno": 24,
+        "doc": ""
+      }
+    ],
+    "functions": [
+      {
+        "name": "_bracket_status_label",
+        "lineno": 52,
+        "doc": "",
+        "args": [
+          "detections"
+        ]
+      },
+      {
+        "name": "_summarise_pre_gate",
+        "lineno": 73,
+        "doc": "",
+        "args": [
+          "detections",
+          "cfg"
+        ]
+      },
+      {
+        "name": "_coarse_candidates",
+        "lineno": 108,
+        "doc": "",
+        "args": [
+          "observations",
+          "cfg"
+        ]
+      },
+      {
+        "name": "_baseline_covariance",
+        "lineno": 193,
+        "doc": "",
+        "args": [
+          "sample_covariance"
+        ]
+      },
+      {
+        "name": "_resolve_delta_frac",
+        "lineno": 236,
+        "doc": "",
+        "args": [
+          "cfg",
+          "observations",
+          "groups"
+        ]
+      },
+      {
+        "name": "_gate_detections",
+        "lineno": 256,
+        "doc": "",
+        "args": [
+          "detections",
+          "cfg",
+          "soft_cap",
+          "delta_frac_used"
+        ]
+      },
+      {
+        "name": "detect_spikes",
+        "lineno": 324,
+        "doc": "",
+        "args": [
+          "observations",
+          "groups"
+        ]
+      },
+      {
+        "name": "apply_overlay",
+        "lineno": 400,
+        "doc": "",
+        "args": [
+          "sample_covariance",
+          "detections"
+        ]
+      }
+    ]
+  },
+  "src/fjs/mp.py": {
+    "module": "fjs.mp",
+    "classes": [
+      {
+        "name": "MarchenkoPasturModel",
+        "lineno": 94,
+        "doc": "Summary statistics for a Marchenko\u2013Pastur limiting law."
+      }
+    ],
+    "functions": [
+      {
+        "name": "configure_mp_cache",
+        "lineno": 27,
+        "doc": "Configure the on-disk MP edge cache directory at runtime.",
+        "args": [
+          "directory"
+        ]
+      },
+      {
+        "name": "clear_mp_cache",
+        "lineno": 40,
+        "doc": "Clear the in-memory MP edge cache.",
+        "args": []
+      },
+      {
+        "name": "_cache_get",
+        "lineno": 46,
+        "doc": "",
+        "args": [
+          "key"
+        ]
+      },
+      {
+        "name": "_cache_set",
+        "lineno": 67,
+        "doc": "",
+        "args": [
+          "key",
+          "value"
+        ]
+      },
+      {
+        "name": "_hash_arrays",
+        "lineno": 81,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "_prepare_inputs",
+        "lineno": 112,
+        "doc": "",
+        "args": [
+          "a",
+          "C",
+          "d",
+          "N"
+        ]
+      },
+      {
+        "name": "_prepare_cs",
+        "lineno": 133,
+        "doc": "",
+        "args": [
+          "Cs",
+          "template"
+        ]
+      },
+      {
+        "name": "estimate_Cs_from_MS",
+        "lineno": 147,
+        "doc": "Estimate trace-based noise plug-ins C_s from the supplied mean squares.",
+        "args": [
+          "MS_list",
+          "d_list",
+          "c_list",
+          "drop_top"
+        ]
+      },
+      {
+        "name": "_k_values",
+        "lineno": 211,
+        "doc": "",
+        "args": [
+          "a",
+          "C",
+          "d",
+          "N"
+        ]
+      },
+      {
+        "name": "z_of_m",
+        "lineno": 220,
+        "doc": "Evaluate the closed-form Mar\u010denko\u2013Pastur z(m) transform.",
+        "args": [
+          "m",
+          "a",
+          "C",
+          "d",
+          "N",
+          "Cs"
+        ]
+      },
+      {
+        "name": "z0",
+        "lineno": 254,
+        "doc": "Balanced one-way z0(m) in closed form.",
+        "args": [
+          "m",
+          "a",
+          "C",
+          "d",
+          "N",
+          "Cs"
+        ]
+      },
+      {
+        "name": "_dz_dm",
+        "lineno": 277,
+        "doc": "",
+        "args": [
+          "m",
+          "k_vals",
+          "numerators"
+        ]
+      },
+      {
+        "name": "_d2z_dm2",
+        "lineno": 290,
+        "doc": "",
+        "args": [
+          "m",
+          "k_vals",
+          "numerators"
+        ]
+      },
+      {
+        "name": "z0_prime",
+        "lineno": 303,
+        "doc": "Closed-form first derivative z0'(m) for balanced one-way design.",
+        "args": [
+          "m",
+          "a",
+          "C",
+          "d",
+          "N",
+          "Cs"
+        ]
+      },
+      {
+        "name": "z0_double_prime",
+        "lineno": 325,
+        "doc": "Closed-form second derivative z0''(m) for balanced one-way design.",
+        "args": [
+          "m",
+          "a",
+          "C",
+          "d",
+          "N",
+          "Cs"
+        ]
+      },
+      {
+        "name": "_logspace_grid",
+        "lineno": 346,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "_augment_with_singularities",
+        "lineno": 351,
+        "doc": "",
+        "args": [
+          "grid",
+          "k_vals"
+        ]
+      },
+      {
+        "name": "_newton_refine",
+        "lineno": 367,
+        "doc": "One-step Newton refinement with simple safeguards.",
+        "args": [
+          "x0",
+          "f",
+          "fp"
+        ]
+      },
+      {
+        "name": "_stationary_points",
+        "lineno": 398,
+        "doc": "Locate stationary points of z(m) by bracketing zeros of z'(m).",
+        "args": [
+          "k_vals",
+          "numerators"
+        ]
+      },
+      {
+        "name": "_bisect",
+        "lineno": 428,
+        "doc": "",
+        "args": [
+          "func",
+          "left",
+          "right"
+        ]
+      },
+      {
+        "name": "_crosses_pole",
+        "lineno": 479,
+        "doc": "Return True if the interval [m1, m2] crosses a pole 1 + k m = 0.",
+        "args": [
+          "m1",
+          "m2",
+          "k_vals"
+        ]
+      },
+      {
+        "name": "_root_brackets",
+        "lineno": 491,
+        "doc": "",
+        "args": [
+          "func",
+          "points",
+          "k_vals"
+        ]
+      },
+      {
+        "name": "_brackets_sign_change",
+        "lineno": 525,
+        "doc": "Find sign-change brackets while guarding against poles.",
+        "args": [
+          "func",
+          "points",
+          "k_vals"
+        ]
+      },
+      {
+        "name": "mp_edge",
+        "lineno": 558,
+        "doc": "Locate the upper bulk edge of the Mar\u010denko--Pastur distribution.",
+        "args": [
+          "a",
+          "C",
+          "d",
+          "N",
+          "Cs"
+        ]
+      },
+      {
+        "name": "_mp_edge_impl",
+        "lineno": 579,
+        "doc": "",
+        "args": [
+          "a_arr",
+          "c_arr",
+          "d_arr",
+          "n_float",
+          "cs_arr"
+        ]
+      },
+      {
+        "name": "m_edge",
+        "lineno": 617,
+        "doc": "Return m_plus where z'(m_plus)=0 and z''(m_plus)<0 (upper edge).",
+        "args": [
+          "a",
+          "C",
+          "d",
+          "N",
+          "Cs"
+        ]
+      },
+      {
+        "name": "admissible_m_from_lambda",
+        "lineno": 644,
+        "doc": "Recover the admissible real root of z(m) = \u03bb with positive slope.",
+        "args": [
+          "lam",
+          "a",
+          "C",
+          "d",
+          "N",
+          "Cs"
+        ]
+      },
+      {
+        "name": "_admissible_m_from_lambda_impl",
+        "lineno": 669,
+        "doc": "",
+        "args": [
+          "lam_val",
+          "a_arr",
+          "c_arr",
+          "d_arr",
+          "n_float",
+          "cs_arr"
+        ]
+      },
+      {
+        "name": "_normalise_order",
+        "lineno": 735,
+        "doc": "",
+        "args": [
+          "order",
+          "n_strata"
+        ]
+      },
+      {
+        "name": "t_vec",
+        "lineno": 760,
+        "doc": "Evaluate the t-vector associated with \u03bb using the admissible root m(\u03bb).",
+        "args": [
+          "lam",
+          "a",
+          "C",
+          "d",
+          "N",
+          "c",
+          "order",
+          "Cs"
+        ]
+      },
+      {
+        "name": "marchenko_pastur_edges",
+        "lineno": 800,
+        "doc": "Compute the theoretical support edges for a Marchenko\u2013Pastur distribution.",
+        "args": [
+          "model"
+        ]
+      },
+      {
+        "name": "marchenko_pastur_pdf",
+        "lineno": 817,
+        "doc": "Evaluate the Marchenko\u2013Pastur density over a grid.",
+        "args": [
+          "model",
+          "grid"
+        ]
+      },
+      {
+        "name": "scale_Cs",
+        "lineno": 839,
+        "doc": "Return a scaled copy of the Cs plug-ins by factor ``alpha``.",
+        "args": [
+          "Cs",
+          "alpha"
+        ]
+      }
+    ]
+  },
+  "src/fjs/dealias.py": {
+    "module": "fjs.dealias",
+    "classes": [
+      {
+        "name": "DesignParams",
+        "lineno": 16,
+        "doc": ""
+      },
+      {
+        "name": "Detection",
+        "lineno": 24,
+        "doc": ""
+      },
+      {
+        "name": "DealiasingResult",
+        "lineno": 61,
+        "doc": "Container for the results of spectral de-aliasing."
+      }
+    ],
+    "functions": [
+      {
+        "name": "_compute_admissible_root",
+        "lineno": 69,
+        "doc": "",
+        "args": [
+          "lam_val",
+          "a_vec",
+          "C_for_mp",
+          "d_vec",
+          "n_total",
+          "cs_vec"
+        ]
+      },
+      {
+        "name": "_orthonormal_tangent_basis",
+        "lineno": 91,
+        "doc": "Return an orthonormal basis for the tangent space at ``a_vec`` on the sphere.",
+        "args": [
+          "a_vec"
+        ]
+      },
+      {
+        "name": "_rotate_on_sphere",
+        "lineno": 119,
+        "doc": "",
+        "args": [
+          "base",
+          "tangent",
+          "angle"
+        ]
+      },
+      {
+        "name": "_generate_unit_vectors",
+        "lineno": 131,
+        "doc": "",
+        "args": [
+          "component_count",
+          "a_grid"
+        ]
+      },
+      {
+        "name": "_normalise_angle",
+        "lineno": 182,
+        "doc": "",
+        "args": [
+          "theta"
+        ]
+      },
+      {
+        "name": "_angle_key",
+        "lineno": 190,
+        "doc": "",
+        "args": [
+          "theta"
+        ]
+      },
+      {
+        "name": "_sigma_of_a_from_MS",
+        "lineno": 195,
+        "doc": "Return \u03a3\u0302(a)=\u2211_s a_s MS_s (balanced design).",
+        "args": [
+          "a",
+          "MS_list"
+        ]
+      },
+      {
+        "name": "dealias_covariance",
+        "lineno": 216,
+        "doc": "Remove aliasing artefacts from a sample covariance matrix.",
+        "args": [
+          "covariance",
+          "spectrum"
+        ]
+      },
+      {
+        "name": "_validate_inputs",
+        "lineno": 310,
+        "doc": "",
+        "args": [
+          "y",
+          "groups"
+        ]
+      },
+      {
+        "name": "_default_design",
+        "lineno": 324,
+        "doc": "",
+        "args": [
+          "stats"
+        ]
+      },
+      {
+        "name": "_merge_detections",
+        "lineno": 343,
+        "doc": "",
+        "args": [
+          "detections",
+          "eps_factor"
+        ]
+      },
+      {
+        "name": "dealias_search",
+        "lineno": 394,
+        "doc": "Perform Algorithm 1 de-aliasing search for one-way balanced designs.",
+        "args": [
+          "y",
+          "groups",
+          "target_r"
+        ]
+      }
+    ]
+  },
+  "src/fjs/__init__.py": {
+    "module": "fjs",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_missing_matplotlib",
+        "lineno": 12,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "src/fjs/spectra.py": {
+    "module": "fjs.spectra",
+    "classes": [],
+    "functions": [
+      {
+        "name": "topk_eigh",
+        "lineno": 16,
+        "doc": "Return the largest ``k`` eigenpairs of a symmetric matrix.",
+        "args": [
+          "matrix",
+          "k"
+        ]
+      },
+      {
+        "name": "project_alignment",
+        "lineno": 48,
+        "doc": "Compute the projection norm of ``vector`` onto the span of ``subspace``.",
+        "args": [
+          "vector",
+          "subspace"
+        ]
+      },
+      {
+        "name": "_ensure_path",
+        "lineno": 80,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "plot_spectrum_with_edges",
+        "lineno": 86,
+        "doc": "Plot an empirical spectrum together with optional reference edge lines.",
+        "args": [
+          "eigenvalues",
+          "edges",
+          "out_path"
+        ]
+      },
+      {
+        "name": "plot_spike_timeseries",
+        "lineno": 161,
+        "doc": "Plot aliased and de-aliased spike estimates against a time index.",
+        "args": [
+          "time_index",
+          "aliased_series",
+          "dealiased_series",
+          "out_path"
+        ]
+      },
+      {
+        "name": "estimate_spectrum",
+        "lineno": 219,
+        "doc": "Return a sorted copy of ``eigenvalues`` (placeholder estimator).",
+        "args": [
+          "eigenvalues"
+        ]
+      }
+    ]
+  },
+  "src/fjs/robust.py": {
+    "module": "fjs.robust",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_ensure_2d",
+        "lineno": 20,
+        "doc": "",
+        "args": [
+          "x"
+        ]
+      },
+      {
+        "name": "_symmetrize",
+        "lineno": 28,
+        "doc": "",
+        "args": [
+          "matrix"
+        ]
+      },
+      {
+        "name": "_initial_scatter",
+        "lineno": 32,
+        "doc": "",
+        "args": [
+          "x"
+        ]
+      },
+      {
+        "name": "tyler_scatter",
+        "lineno": 47,
+        "doc": "Return the Tyler fixed-point scatter estimate with optional ridge regularisation.",
+        "args": [
+          "observations"
+        ]
+      },
+      {
+        "name": "huber_scatter",
+        "lineno": 109,
+        "doc": "Compute a Huber-type reweighted scatter estimator.",
+        "args": [
+          "observations",
+          "c"
+        ]
+      },
+      {
+        "name": "edge_from_scatter",
+        "lineno": 178,
+        "doc": "Estimate the upper Mar\u010denko\u2013Pastur edge from a scatter matrix.",
+        "args": [
+          "scatter",
+          "n_features",
+          "n_samples"
+        ]
+      }
+    ]
+  },
+  "src/fjs/balanced_nested.py": {
+    "module": "fjs.balanced_nested",
+    "classes": [
+      {
+        "name": "NestedDesignMetadata",
+        "lineno": 11,
+        "doc": "Balanced nested Year\u2283Week design metadata."
+      }
+    ],
+    "functions": [
+      {
+        "name": "_validate_labels",
+        "lineno": 24,
+        "doc": "",
+        "args": [
+          "labels",
+          "name",
+          "expected_length"
+        ]
+      },
+      {
+        "name": "mean_squares_nested",
+        "lineno": 37,
+        "doc": "Compute balanced nested Year\u2283Week MANOVA mean squares.",
+        "args": [
+          "y",
+          "year_labels",
+          "week_of_year_labels",
+          "replicates"
+        ]
+      }
+    ]
+  },
+  "src/fjs/theta_solver.py": {
+    "module": "fjs.theta_solver",
+    "classes": [
+      {
+        "name": "ThetaSolverParams",
+        "lineno": 12,
+        "doc": "Closed-form parameters required for the \u03b8 root-finding routine."
+      }
+    ],
+    "functions": [
+      {
+        "name": "_normalise_angle",
+        "lineno": 28,
+        "doc": "Return \u03b8 reduced to the principal interval [0, 2\u03c0).",
+        "args": [
+          "theta"
+        ]
+      },
+      {
+        "name": "solve_theta_for_t2_zero",
+        "lineno": 34,
+        "doc": "Solve for \u03b8 such that t\u2082(\u03bb\u0302, \u03b8) = 0 for k=2 balanced designs.",
+        "args": [
+          "lambda_hat",
+          "params"
+        ]
+      }
+    ]
+  },
+  "src/fjs/gating.py": {
+    "module": "fjs.gating",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_as_float",
+        "lineno": 15,
+        "doc": "Best-effort conversion to float with NaN fallback.",
+        "args": [
+          "value"
+        ]
+      },
+      {
+        "name": "_score_detection",
+        "lineno": 31,
+        "doc": "Return score tuple (primary score, edge margin, lambda) for ordering.",
+        "args": [
+          "det"
+        ]
+      },
+      {
+        "name": "count_isolated_outliers",
+        "lineno": 51,
+        "doc": "Count isolated spikes relative to the MP edge and stability.",
+        "args": [
+          "eigs",
+          "edge",
+          "stability"
+        ]
+      },
+      {
+        "name": "select_top_k",
+        "lineno": 109,
+        "doc": "Select the top-k detections ranked by score = energy * stability.",
+        "args": [
+          "detections",
+          "k"
+        ]
+      },
+      {
+        "name": "_load_delta_thresholds",
+        "lineno": 136,
+        "doc": "Load the calibrated delta thresholds JSON with basic validation.",
+        "args": [
+          "path_str"
+        ]
+      },
+      {
+        "name": "lookup_calibrated_delta",
+        "lineno": 149,
+        "doc": "Return the calibrated delta_frac for the given (edge_mode, p, t) combo.",
+        "args": [
+          "edge_mode",
+          "p",
+          "t"
+        ]
+      }
+    ]
+  },
+  "src/plotting/__init__.py": {
+    "module": "plotting",
+    "classes": [],
+    "functions": []
+  },
+  "src/plotting/utils.py": {
+    "module": "plotting.utils",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_figures_dir_for_run",
+        "lineno": 19,
+        "doc": "Return figures directory for a given run under experiments/<run>/figures.",
+        "args": [
+          "run"
+        ]
+      },
+      {
+        "name": "e1_plot_spectrum_with_mp",
+        "lineno": 27,
+        "doc": "E1: Plot spectrum with MP edge and mark outliers.",
+        "args": [
+          "eigenvalues",
+          "mp_edges"
+        ]
+      },
+      {
+        "name": "e2_plot_spike_timeseries",
+        "lineno": 62,
+        "doc": "E2: Plot aliased vs de-aliased spike time-series.",
+        "args": [
+          "time_index",
+          "aliased_series",
+          "dealiased_series"
+        ]
+      },
+      {
+        "name": "e3_plot_var_mse",
+        "lineno": 101,
+        "doc": "E3: Single-chart Var-MSE comparison across methods (bar of means).",
+        "args": [
+          "errors_by_method"
+        ]
+      },
+      {
+        "name": "e4_plot_var_coverage",
+        "lineno": 150,
+        "doc": "E4: VaR(95%) coverage error plot.",
+        "args": [
+          "coverage_errors"
+        ]
+      },
+      {
+        "name": "s4_plot_guardrails_from_csv",
+        "lineno": 167,
+        "doc": "S4: Plot guardrail false-positive comparison from a CSV.",
+        "args": [
+          "csv_path"
+        ]
+      }
+    ]
+  },
+  "src/utils/credentials.py": {
+    "module": "utils.credentials",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_kc",
+        "lineno": 3,
+        "doc": "",
+        "args": [
+          "service",
+          "account"
+        ]
+      },
+      {
+        "name": "wrds_user",
+        "lineno": 13,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "wrds_password",
+        "lineno": 16,
+        "doc": "",
+        "args": [
+          "user"
+        ]
+      },
+      {
+        "name": "wrds_creds",
+        "lineno": 20,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tools/make_summary.py": {
+    "module": "make_summary",
+    "classes": [
+      {
+        "name": "SummaryArtifacts",
+        "lineno": 20,
+        "doc": ""
+      }
+    ],
+    "functions": [
+      {
+        "name": "_read_csv",
+        "lineno": 26,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "_normalise",
+        "lineno": 35,
+        "doc": "",
+        "args": [
+          "series",
+          "value"
+        ]
+      },
+      {
+        "name": "_pick_row",
+        "lineno": 41,
+        "doc": "",
+        "args": [
+          "df"
+        ]
+      },
+      {
+        "name": "_pick_dm_row",
+        "lineno": 57,
+        "doc": "",
+        "args": [
+          "df"
+        ]
+      },
+      {
+        "name": "_aggregate_row",
+        "lineno": 71,
+        "doc": "Aggregate matching rows (mean of numeric columns, first of non-numeric).",
+        "args": [
+          "df"
+        ]
+      },
+      {
+        "name": "_aggregate_dm_row",
+        "lineno": 92,
+        "doc": "",
+        "args": [
+          "df"
+        ]
+      },
+      {
+        "name": "_nan_median",
+        "lineno": 110,
+        "doc": "",
+        "args": [
+          "series"
+        ]
+      },
+      {
+        "name": "_nan_quantile",
+        "lineno": 117,
+        "doc": "",
+        "args": [
+          "series",
+          "q"
+        ]
+      },
+      {
+        "name": "_count_nonzero",
+        "lineno": 125,
+        "doc": "",
+        "args": [
+          "series"
+        ]
+      },
+      {
+        "name": "_concat_if_exists",
+        "lineno": 132,
+        "doc": "",
+        "args": [
+          "paths"
+        ]
+      },
+      {
+        "name": "_aggregate_diag_row",
+        "lineno": 143,
+        "doc": "",
+        "args": [
+          "df"
+        ]
+      },
+      {
+        "name": "_numeric",
+        "lineno": 158,
+        "doc": "",
+        "args": [
+          "series",
+          "key"
+        ]
+      },
+      {
+        "name": "_string",
+        "lineno": 167,
+        "doc": "",
+        "args": [
+          "series",
+          "key",
+          "default"
+        ]
+      },
+      {
+        "name": "_load_detail",
+        "lineno": 173,
+        "doc": "",
+        "args": [
+          "rc_dir",
+          "regime",
+          "root_detail"
+        ]
+      },
+      {
+        "name": "_row_for",
+        "lineno": 187,
+        "doc": "",
+        "args": [
+          "perf_df",
+          "regime",
+          "portfolio"
+        ]
+      },
+      {
+        "name": "_criterion_entry",
+        "lineno": 199,
+        "doc": "",
+        "args": [
+          "key",
+          "label",
+          "value",
+          "passed",
+          "threshold"
+        ]
+      },
+      {
+        "name": "_evaluate_kill_criteria",
+        "lineno": 215,
+        "doc": "",
+        "args": [
+          "perf_df",
+          "det_df",
+          "rc_run",
+          "regime"
+        ]
+      },
+      {
+        "name": "summarise_rc_directory",
+        "lineno": 318,
+        "doc": "",
+        "args": [
+          "rc_dir"
+        ]
+      },
+      {
+        "name": "_discover_rc_dirs",
+        "lineno": 485,
+        "doc": "",
+        "args": [
+          "root",
+          "patterns",
+          "all_runs",
+          "rc_dir"
+        ]
+      },
+      {
+        "name": "_display_path",
+        "lineno": 504,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "write_summaries",
+        "lineno": 511,
+        "doc": "",
+        "args": [
+          "rc_dirs"
+        ]
+      },
+      {
+        "name": "parse_args",
+        "lineno": 560,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      },
+      {
+        "name": "main",
+        "lineno": 588,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      }
+    ]
+  },
+  "tools/shard_grid.py": {
+    "module": "shard_grid",
+    "classes": [],
+    "functions": [
+      {
+        "name": "parse_args",
+        "lineno": 14,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      },
+      {
+        "name": "_shard_jobs",
+        "lineno": 62,
+        "doc": "",
+        "args": [
+          "jobs",
+          "shard_count",
+          "strategy"
+        ]
+      },
+      {
+        "name": "main",
+        "lineno": 79,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      }
+    ]
+  },
+  "tools/verify_dataset.py": {
+    "module": "verify_dataset",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_sha256",
+        "lineno": 11,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "_normalise_key",
+        "lineno": 19,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "_load_registry",
+        "lineno": 27,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "verify_dataset",
+        "lineno": 38,
+        "doc": "",
+        "args": [
+          "dataset_path",
+          "registry_path"
+        ]
+      },
+      {
+        "name": "main",
+        "lineno": 64,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tools/aggregate_runs.py": {
+    "module": "aggregate_runs",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_resolve_runs",
+        "lineno": 14,
+        "doc": "",
+        "args": [
+          "patterns"
+        ]
+      },
+      {
+        "name": "_load_run_metadata",
+        "lineno": 26,
+        "doc": "",
+        "args": [
+          "run_dir"
+        ]
+      },
+      {
+        "name": "aggregate_runs",
+        "lineno": 48,
+        "doc": "",
+        "args": [
+          "run_dirs"
+        ]
+      },
+      {
+        "name": "parse_args",
+        "lineno": 79,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "main",
+        "lineno": 102,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tools/run_monitor.py": {
+    "module": "run_monitor",
+    "classes": [
+      {
+        "name": "MetricSample",
+        "lineno": 44,
+        "doc": ""
+      }
+    ],
+    "functions": [
+      {
+        "name": "_now_iso",
+        "lineno": 32,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "_safe_json",
+        "lineno": 36,
+        "doc": "",
+        "args": [
+          "line"
+        ]
+      },
+      {
+        "name": "_aggregate_process_metrics",
+        "lineno": 56,
+        "doc": "",
+        "args": [
+          "proc"
+        ]
+      },
+      {
+        "name": "_io_counters",
+        "lineno": 83,
+        "doc": "",
+        "args": [
+          "proc"
+        ]
+      },
+      {
+        "name": "_monitor_loop",
+        "lineno": 107,
+        "doc": "",
+        "args": [
+          "proc",
+          "interval",
+          "metrics_path",
+          "progress_queue",
+          "stop_event",
+          "hostname",
+          "samples"
+        ]
+      },
+      {
+        "name": "_summarise",
+        "lineno": 215,
+        "doc": "",
+        "args": [
+          "samples"
+        ]
+      },
+      {
+        "name": "main",
+        "lineno": 239,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tools/clean_outputs.py": {
+    "module": "clean_outputs",
+    "classes": [],
+    "functions": [
+      {
+        "name": "is_tagged_directory",
+        "lineno": 12,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "unique_destination",
+        "lineno": 16,
+        "doc": "",
+        "args": [
+          "base"
+        ]
+      },
+      {
+        "name": "collect_legacy",
+        "lineno": 29,
+        "doc": "",
+        "args": [
+          "root"
+        ]
+      },
+      {
+        "name": "clean_outputs",
+        "lineno": 40,
+        "doc": "",
+        "args": [
+          "root"
+        ]
+      },
+      {
+        "name": "parse_args",
+        "lineno": 78,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "main",
+        "lineno": 101,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tools/summarize_rc_sanity.py": {
+    "module": "summarize_rc_sanity",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_delta_mse",
+        "lineno": 22,
+        "doc": "",
+        "args": [
+          "metrics",
+          "portfolio"
+        ]
+      },
+      {
+        "name": "_effect_label",
+        "lineno": 33,
+        "doc": "",
+        "args": [
+          "delta_ew",
+          "delta_mv"
+        ]
+      },
+      {
+        "name": "_load_daily_payload",
+        "lineno": 48,
+        "doc": "Best-effort loader for daily diagnostics/metrics.",
+        "args": [
+          "path",
+          "label"
+        ]
+      },
+      {
+        "name": "_load_weekly_payload",
+        "lineno": 103,
+        "doc": "Best-effort loader for weekly summary + detection.",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "_merge_completeness",
+        "lineno": 148,
+        "doc": "",
+        "args": [
+          "entry",
+          "comp"
+        ]
+      },
+      {
+        "name": "_build_daily_entry",
+        "lineno": 165,
+        "doc": "",
+        "args": [
+          "label",
+          "path"
+        ]
+      },
+      {
+        "name": "_build_weekly_entry",
+        "lineno": 178,
+        "doc": "",
+        "args": [
+          "label",
+          "path"
+        ]
+      },
+      {
+        "name": "_aggregate_entries",
+        "lineno": 187,
+        "doc": "",
+        "args": [
+          "entries"
+        ]
+      },
+      {
+        "name": "main",
+        "lineno": 207,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tools/summarize_weekly_diagnostics.py": {
+    "module": "summarize_weekly_diagnostics",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_format_skip_summary",
+        "lineno": 12,
+        "doc": "",
+        "args": [
+          "df",
+          "top_k"
+        ]
+      },
+      {
+        "name": "_render_stat_table",
+        "lineno": 28,
+        "doc": "",
+        "args": [
+          "df",
+          "columns"
+        ]
+      },
+      {
+        "name": "_guardrail_totals",
+        "lineno": 42,
+        "doc": "",
+        "args": [
+          "df"
+        ]
+      },
+      {
+        "name": "summarize",
+        "lineno": 52,
+        "doc": "",
+        "args": [
+          "input_path",
+          "output_path",
+          "top_k"
+        ]
+      },
+      {
+        "name": "main",
+        "lineno": 94,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tools/plot_rc_hist.py": {
+    "module": "plot_rc_hist",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_load_series",
+        "lineno": 11,
+        "doc": "",
+        "args": [
+          "path",
+          "metric",
+          "regime"
+        ]
+      },
+      {
+        "name": "plot_histogram",
+        "lineno": 20,
+        "doc": "",
+        "args": [
+          "diagnostics_path",
+          "metric",
+          "out_path"
+        ]
+      },
+      {
+        "name": "main",
+        "lineno": 49,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tools/reduce_calibration.py": {
+    "module": "reduce_calibration",
+    "classes": [],
+    "functions": [
+      {
+        "name": "parse_args",
+        "lineno": 14,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      },
+      {
+        "name": "main",
+        "lineno": 58,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      }
+    ]
+  },
+  "tools/update_registry.py": {
+    "module": "update_registry",
+    "classes": [],
+    "functions": [
+      {
+        "name": "compute_sha256",
+        "lineno": 15,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "summarise_returns",
+        "lineno": 23,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "load_registry",
+        "lineno": 33,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "main",
+        "lineno": 43,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tools/prewhiten_effect.py": {
+    "module": "prewhiten_effect",
+    "classes": [
+      {
+        "name": "RunSummary",
+        "lineno": 53,
+        "doc": ""
+      }
+    ],
+    "functions": [
+      {
+        "name": "_read_csv_rows",
+        "lineno": 13,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "_scalar",
+        "lineno": 26,
+        "doc": "",
+        "args": [
+          "value"
+        ]
+      },
+      {
+        "name": "_mode_from_resolved",
+        "lineno": 33,
+        "doc": "",
+        "args": [
+          "run_dir"
+        ]
+      },
+      {
+        "name": "_portfolio_value",
+        "lineno": 62,
+        "doc": "",
+        "args": [
+          "rows",
+          "portfolio",
+          "column"
+        ]
+      },
+      {
+        "name": "_sign_p_value",
+        "lineno": 73,
+        "doc": "",
+        "args": [
+          "path",
+          "portfolio"
+        ]
+      },
+      {
+        "name": "_load_run_summary",
+        "lineno": 85,
+        "doc": "",
+        "args": [
+          "run_dir"
+        ]
+      },
+      {
+        "name": "_build_effect_rows",
+        "lineno": 117,
+        "doc": "",
+        "args": [
+          "off",
+          "on",
+          "label_off",
+          "label_on"
+        ]
+      },
+      {
+        "name": "parse_args",
+        "lineno": 150,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      },
+      {
+        "name": "main",
+        "lineno": 172,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      }
+    ]
+  },
+  "tools/build_brief.py": {
+    "module": "build_brief",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_format_percent",
+        "lineno": 31,
+        "doc": "",
+        "args": [
+          "value"
+        ]
+      },
+      {
+        "name": "_safe_float",
+        "lineno": 37,
+        "doc": "",
+        "args": [
+          "value"
+        ]
+      },
+      {
+        "name": "_aggregate_reason_table",
+        "lineno": 44,
+        "doc": "",
+        "args": [
+          "reason_df"
+        ]
+      },
+      {
+        "name": "build_brief",
+        "lineno": 69,
+        "doc": "",
+        "args": [
+          "config_path"
+        ]
+      },
+      {
+        "name": "parse_args",
+        "lineno": 232,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "main",
+        "lineno": 243,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tools/build_gallery.py": {
+    "module": "build_gallery",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_load_config",
+        "lineno": 31,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "_discover_run_paths",
+        "lineno": 37,
+        "doc": "",
+        "args": [
+          "entries"
+        ]
+      },
+      {
+        "name": "_gather_rejections",
+        "lineno": 66,
+        "doc": "",
+        "args": [
+          "summary_df",
+          "run_tag"
+        ]
+      },
+      {
+        "name": "_load_ablation",
+        "lineno": 80,
+        "doc": "",
+        "args": [
+          "run_path"
+        ]
+      },
+      {
+        "name": "_edge_dataframe",
+        "lineno": 91,
+        "doc": "",
+        "args": [
+          "rolling_df",
+          "run_tag"
+        ]
+      },
+      {
+        "name": "build_gallery",
+        "lineno": 106,
+        "doc": "",
+        "args": [
+          "config_path"
+        ]
+      },
+      {
+        "name": "parse_args",
+        "lineno": 177,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "main",
+        "lineno": 188,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tools/generate_project_state.py": {
+    "module": "generate_project_state",
+    "classes": [],
+    "functions": [
+      {
+        "name": "rel_path",
+        "lineno": 56,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "should_skip_dir",
+        "lineno": 60,
+        "doc": "",
+        "args": [
+          "relative_dir"
+        ]
+      },
+      {
+        "name": "categorize",
+        "lineno": 79,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "collect_files",
+        "lineno": 101,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "module_name_from_path",
+        "lineno": 134,
+        "doc": "",
+        "args": [
+          "py_path"
+        ]
+      },
+      {
+        "name": "get_py_files",
+        "lineno": 146,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "parse_symbols",
+        "lineno": 163,
+        "doc": "",
+        "args": [
+          "py_files"
+        ]
+      },
+      {
+        "name": "extract_make_targets",
+        "lineno": 241,
+        "doc": "",
+        "args": [
+          "makefile"
+        ]
+      },
+      {
+        "name": "main",
+        "lineno": 268,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tools/build_memo.py": {
+    "module": "build_memo",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_load_config",
+        "lineno": 30,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "_discover_run_paths",
+        "lineno": 35,
+        "doc": "",
+        "args": [
+          "entries"
+        ]
+      },
+      {
+        "name": "_latest_summary_dir",
+        "lineno": 64,
+        "doc": "",
+        "args": [
+          "root"
+        ]
+      },
+      {
+        "name": "_load_summary_artifacts",
+        "lineno": 74,
+        "doc": "",
+        "args": [
+          "config"
+        ]
+      },
+      {
+        "name": "_format_kill_criteria_payload",
+        "lineno": 143,
+        "doc": "",
+        "args": [
+          "kill_data"
+        ]
+      },
+      {
+        "name": "_markdown_table",
+        "lineno": 181,
+        "doc": "",
+        "args": [
+          "df"
+        ]
+      },
+      {
+        "name": "_format_percent",
+        "lineno": 200,
+        "doc": "",
+        "args": [
+          "value"
+        ]
+      },
+      {
+        "name": "_pick_strategy_row",
+        "lineno": 206,
+        "doc": "",
+        "args": [
+          "group",
+          "strategies"
+        ]
+      },
+      {
+        "name": "_format_delta",
+        "lineno": 217,
+        "doc": "",
+        "args": [
+          "value"
+        ]
+      },
+      {
+        "name": "_format_ci",
+        "lineno": 228,
+        "doc": "",
+        "args": [
+          "lo",
+          "hi"
+        ]
+      },
+      {
+        "name": "_format_edge_metric",
+        "lineno": 234,
+        "doc": "",
+        "args": [
+          "value"
+        ]
+      },
+      {
+        "name": "_format_pvalue",
+        "lineno": 242,
+        "doc": "",
+        "args": [
+          "value"
+        ]
+      },
+      {
+        "name": "_format_detection",
+        "lineno": 250,
+        "doc": "",
+        "args": [
+          "value"
+        ]
+      },
+      {
+        "name": "_format_windows",
+        "lineno": 256,
+        "doc": "",
+        "args": [
+          "value"
+        ]
+      },
+      {
+        "name": "_numeric",
+        "lineno": 262,
+        "doc": "",
+        "args": [
+          "row",
+          "key"
+        ]
+      },
+      {
+        "name": "_row_for",
+        "lineno": 271,
+        "doc": "",
+        "args": [
+          "frame",
+          "regime",
+          "portfolio"
+        ]
+      },
+      {
+        "name": "_prettify_reason",
+        "lineno": 286,
+        "doc": "",
+        "args": [
+          "reason"
+        ]
+      },
+      {
+        "name": "_collect_rejection_records",
+        "lineno": 290,
+        "doc": "",
+        "args": [
+          "summary_df",
+          "run_tag"
+        ]
+      },
+      {
+        "name": "_build_key_tables",
+        "lineno": 301,
+        "doc": "",
+        "args": [
+          "panel_df"
+        ]
+      },
+      {
+        "name": "_build_rejection_tables",
+        "lineno": 528,
+        "doc": "",
+        "args": [
+          "rejection_records"
+        ]
+      },
+      {
+        "name": "build_memo",
+        "lineno": 556,
+        "doc": "",
+        "args": [
+          "config_path"
+        ]
+      },
+      {
+        "name": "parse_args",
+        "lineno": 1297,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "main",
+        "lineno": 1308,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tools/list_runs.py": {
+    "module": "list_runs",
+    "classes": [
+      {
+        "name": "RunInfo",
+        "lineno": 35,
+        "doc": ""
+      }
+    ],
+    "functions": [
+      {
+        "name": "_load_json",
+        "lineno": 13,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "_load_detection_total",
+        "lineno": 23,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "_extract_run_info",
+        "lineno": 48,
+        "doc": "",
+        "args": [
+          "label",
+          "path"
+        ]
+      },
+      {
+        "name": "discover_runs",
+        "lineno": 90,
+        "doc": "",
+        "args": [
+          "base_dir"
+        ]
+      },
+      {
+        "name": "format_runs",
+        "lineno": 107,
+        "doc": "",
+        "args": [
+          "runs"
+        ]
+      },
+      {
+        "name": "main",
+        "lineno": 158,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tools/summarize_run.py": {
+    "module": "summarize_run",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_read_json",
+        "lineno": 15,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "_safe_read_csv",
+        "lineno": 25,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "_fmt_float",
+        "lineno": 34,
+        "doc": "",
+        "args": [
+          "x"
+        ]
+      },
+      {
+        "name": "summarize_run",
+        "lineno": 40,
+        "doc": "",
+        "args": [
+          "output_dir"
+        ]
+      },
+      {
+        "name": "main",
+        "lineno": 303,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/test_var_backtests.py": {
+    "module": "test_var_backtests",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_kupiec_pof_rates_relative_misspecification",
+        "lineno": 12,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_christoffersen_independence_flags_clustering",
+        "lineno": 21,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_expected_shortfall_test_reacts_to_bias",
+        "lineno": 30,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/test_balanced_sigma_a.py": {
+    "module": "test_balanced_sigma_a",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_sigma_of_a_balanced_design_identity",
+        "lineno": 8,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/test_threshold_eval.py": {
+    "module": "test_threshold_eval",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_threshold_eval_matches_detect_spikes",
+        "lineno": 11,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/test_balanced_weeks.py": {
+    "module": "test_balanced_weeks",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_balance_weeks_drops_partial_periods",
+        "lineno": 10,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/test_s5_pairing_alignment.py": {
+    "module": "test_s5_pairing_alignment",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_s5_alignment_pairing_comparison",
+        "lineno": 13,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      }
+    ]
+  },
+  "tests/test_portfolios_missing_solver.py": {
+    "module": "test_portfolios_missing_solver",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_raise_missing",
+        "lineno": 9,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_minimum_variance_raises_when_solver_missing",
+        "lineno": 13,
+        "doc": "",
+        "args": [
+          "monkeypatch"
+        ]
+      },
+      {
+        "name": "test_optimize_portfolio_raises_by_default",
+        "lineno": 21,
+        "doc": "",
+        "args": [
+          "monkeypatch"
+        ]
+      },
+      {
+        "name": "test_optimize_portfolio_skip_flag_marks_skipped",
+        "lineno": 29,
+        "doc": "",
+        "args": [
+          "monkeypatch"
+        ]
+      },
+      {
+        "name": "test_force_missing_env_triggers_skip",
+        "lineno": 43,
+        "doc": "",
+        "args": [
+          "monkeypatch"
+        ]
+      }
+    ]
+  },
+  "tests/test_dm.py": {
+    "module": "test_dm",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_dm_test_detects_mean_difference",
+        "lineno": 11,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_dm_test_handles_identical_or_missing_losses",
+        "lineno": 27,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/test_report_gather.py": {
+    "module": "test_report_gather",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_load_run_frames",
+        "lineno": 15,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_find_runs_prefers_tagged",
+        "lineno": 24,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      },
+      {
+        "name": "test_collect_estimator_panel",
+        "lineno": 37,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/test_mp_edge_and_root.py": {
+    "module": "test_mp_edge_and_root",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_balanced_params",
+        "lineno": 19,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_derivatives_match_finite_differences",
+        "lineno": 28,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_round_trip_lambda_to_m_to_lambda",
+        "lineno": 51,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_concavity_at_edge",
+        "lineno": 65,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/test_sweep_cli.py": {
+    "module": "test_sweep_cli",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_sweep_dry_run",
+        "lineno": 8,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      }
+    ]
+  },
+  "tests/test_e2_timeseries.py": {
+    "module": "test_e2_timeseries",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_make_prices_csv",
+        "lineno": 13,
+        "doc": "",
+        "args": [
+          "tmp_path",
+          "weeks",
+          "assets"
+        ]
+      },
+      {
+        "name": "test_e2_spike_timeseries_written",
+        "lineno": 29,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      }
+    ]
+  },
+  "tests/test_aggregate_runs.py": {
+    "module": "test_aggregate_runs",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_write_metrics",
+        "lineno": 10,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "_write_summary",
+        "lineno": 19,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "test_aggregate_runs_cli",
+        "lineno": 27,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      }
+    ]
+  },
+  "tests/test_dealias_guardrails.py": {
+    "module": "test_dealias_guardrails",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_simulate_balanced_panel",
+        "lineno": 15,
+        "doc": "",
+        "args": [
+          "rng"
+        ]
+      },
+      {
+        "name": "test_dealias_rejects_isotropic_panels",
+        "lineno": 34,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_lax_guardrails_raise_fpr",
+        "lineno": 64,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_dealias_detections_are_angularly_stable",
+        "lineno": 108,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/test_pipeline_smoke.py": {
+    "module": "test_pipeline_smoke",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_core_types_are_accessible",
+        "lineno": 45,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_core_functions_are_callable",
+        "lineno": 53,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_experiment_entry_points_are_callable",
+        "lineno": 76,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_experiment_configs_load",
+        "lineno": 82,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_single_equity_window_smoke",
+        "lineno": 92,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      },
+      {
+        "name": "test_weekly_components_identity_and_detection_gain",
+        "lineno": 150,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_relative_delta_and_signed_a_integration",
+        "lineno": 219,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_rolling_synthetic_oos_gain",
+        "lineno": 249,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/test_equity_ablations.py": {
+    "module": "test_equity_ablations",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_make_prices_csv",
+        "lineno": 13,
+        "doc": "",
+        "args": [
+          "tmp_path",
+          "weeks",
+          "assets"
+        ]
+      },
+      {
+        "name": "test_equity_ablation_emits_summary",
+        "lineno": 34,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      }
+    ]
+  },
+  "tests/test_factor_cov.py": {
+    "module": "test_factor_cov",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_factor_covariance_matches_theoretical_when_noise_zero",
+        "lineno": 12,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_factor_covariance_with_industry_and_missing_returns",
+        "lineno": 35,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/test_sharadar_pipeline_smoke.py": {
+    "module": "test_sharadar_pipeline_smoke",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_sharadar_fetch_and_balance_smoke",
+        "lineno": 18,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      }
+    ]
+  },
+  "tests/test_power_null.py": {
+    "module": "test_power_null",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_power_null_summary_behaves",
+        "lineno": 23,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_calibrate_delta_thresholds_returns_lookup",
+        "lineno": 62,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_calibrate_delta_thresholds_multi_panel_fpr_cap",
+        "lineno": 89,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_calibration_cache_roundtrip",
+        "lineno": 114,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      },
+      {
+        "name": "test_calibration_cache_force_recomputes",
+        "lineno": 160,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      }
+    ]
+  },
+  "tests/test_diagnostics.py": {
+    "module": "test_diagnostics",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_write_returns_csv",
+        "lineno": 19,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "test_window_artifacts_expose_edge_margin_and_admissible_root",
+        "lineno": 39,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      }
+    ]
+  },
+  "tests/test_alignment_diag.py": {
+    "module": "test_alignment_diag",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_alignment_angle_boundaries",
+        "lineno": 8,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_alignment_angle_handles_full_rank",
+        "lineno": 17,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/test_equity_prewhiten.py": {
+    "module": "test_equity_prewhiten",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_write_returns_csv",
+        "lineno": 14,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      },
+      {
+        "name": "_write_factor_csv",
+        "lineno": 34,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      },
+      {
+        "name": "test_run_experiment_emits_prewhiten_columns",
+        "lineno": 47,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      }
+    ]
+  },
+  "tests/test_minvar_regularized.py": {
+    "module": "test_minvar_regularized",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_minvar_ridge_box_respects_box_and_sum_constraints",
+        "lineno": 11,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_minvar_ridge_box_matches_objective_and_improves_conditioning",
+        "lineno": 30,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_turnover_and_turnover_cost_application",
+        "lineno": 52,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_minvar_ridge_box_enforces_narrow_box",
+        "lineno": 70,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_minvar_ridge_box_handles_near_singular_covariance",
+        "lineno": 84,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_minvar_memoization_matches_plain_solver",
+        "lineno": 97,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/test_shrinkage.py": {
+    "module": "test_shrinkage",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_oas_covariance_returns_psd",
+        "lineno": 14,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_constant_correlation_shrinkage_reduces_off_diagonal_weight",
+        "lineno": 26,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_shrinkers_warn_on_nonfinite_and_remain_psd",
+        "lineno": 45,
+        "doc": "",
+        "args": [
+          "caplog"
+        ]
+      },
+      {
+        "name": "test_winsorize_clips_extremes",
+        "lineno": 65,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_huberize_limits_outliers",
+        "lineno": 74,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_tyler_shrink_covariance_is_positive_definite",
+        "lineno": 81,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/test_data_registry.py": {
+    "module": "test_data_registry",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_write_registry",
+        "lineno": 12,
+        "doc": "",
+        "args": [
+          "path",
+          "dataset_key",
+          "sha"
+        ]
+      },
+      {
+        "name": "_sha256",
+        "lineno": 29,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "test_assert_registered_dataset_valid",
+        "lineno": 37,
+        "doc": "",
+        "args": [
+          "monkeypatch",
+          "tmp_path"
+        ]
+      },
+      {
+        "name": "test_assert_registered_dataset_hash_mismatch",
+        "lineno": 58,
+        "doc": "",
+        "args": [
+          "monkeypatch",
+          "tmp_path"
+        ]
+      }
+    ]
+  },
+  "tests/test_mp.py": {
+    "module": "test_mp",
+    "classes": [],
+    "functions": [
+      {
+        "name": "micro_mp_params",
+        "lineno": 25,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_z_of_m_agrees_with_reference",
+        "lineno": 56,
+        "doc": "",
+        "args": [
+          "micro_mp_params"
+        ]
+      },
+      {
+        "name": "test_mp_edge_below_outlier",
+        "lineno": 69,
+        "doc": "",
+        "args": [
+          "micro_mp_params"
+        ]
+      },
+      {
+        "name": "test_admissible_root_matches_reference",
+        "lineno": 77,
+        "doc": "",
+        "args": [
+          "micro_mp_params"
+        ]
+      },
+      {
+        "name": "test_mp_edge_uses_Cs_in_denominator",
+        "lineno": 89,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_t_vec_monotonicity",
+        "lineno": 106,
+        "doc": "",
+        "args": [
+          "micro_mp_params"
+        ]
+      },
+      {
+        "name": "test_marchenko_pastur_edges_is_stub",
+        "lineno": 135,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_marchenko_pastur_pdf_is_stub",
+        "lineno": 141,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_mp_edge_cache_parity",
+        "lineno": 148,
+        "doc": "",
+        "args": [
+          "tmp_path",
+          "micro_mp_params"
+        ]
+      }
+    ]
+  },
+  "tests/test_pairing.py": {
+    "module": "test_pairing",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_pairing_alignment_improves_median_bias",
+        "lineno": 13,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      }
+    ]
+  },
+  "tests/test_balanced.py": {
+    "module": "test_balanced",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_balanced_panel",
+        "lineno": 16,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_group_means_returns_expected_statistics",
+        "lineno": 29,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_mean_squares_matrices_and_identities",
+        "lineno": 43,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_mean_squares_rejects_unbalanced_design",
+        "lineno": 71,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_compute_balanced_weights_is_stub",
+        "lineno": 82,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/test_dealias.py": {
+    "module": "test_dealias",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_simulate_one_way",
+        "lineno": 17,
+        "doc": "",
+        "args": [
+          "rng"
+        ]
+      },
+      {
+        "name": "test_dealiasing_result_structure",
+        "lineno": 49,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_dealias_covariance_uses_detection_vectors",
+        "lineno": 55,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_dealias_covariance_accepts_target_spectrum",
+        "lineno": 71,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_dealias_search_detects_sigma1_spike",
+        "lineno": 81,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_t_vector_acceptance_consistency_toy_spike",
+        "lineno": 104,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_relative_delta_enables_detection_when_absolute_blocks",
+        "lineno": 158,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_equity_toy_detection_with_delta_frac",
+        "lineno": 184,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_detections_include_diagnostics_fields",
+        "lineno": 210,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_signed_a_grid_no_crash",
+        "lineno": 245,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_dealias_search_limits_sigma2_false_positives",
+        "lineno": 275,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_dealias_search_has_low_false_positive_rate",
+        "lineno": 298,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_dealias_search_isotropic_trials_under_one_percent",
+        "lineno": 329,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_cs_drop_top_frac_influences_threshold_or_detections",
+        "lineno": 352,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_dealias_search_stability_consistent_across_eta",
+        "lineno": 394,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/test_cache.py": {
+    "module": "test_cache",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_write_returns_csv",
+        "lineno": 16,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "test_window_cache_resume",
+        "lineno": 36,
+        "doc": "",
+        "args": [
+          "monkeypatch",
+          "tmp_path"
+        ]
+      }
+    ]
+  },
+  "tests/conftest.py": {
+    "module": "conftest",
+    "classes": [],
+    "functions": []
+  },
+  "tests/test_robust_edge.py": {
+    "module": "test_robust_edge",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_tyler_scatter_returns_psd_matrix",
+        "lineno": 8,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_edge_from_scatter_monotone_in_scale",
+        "lineno": 20,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/test_eval_missing_solver.py": {
+    "module": "test_eval_missing_solver",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_raise_missing",
+        "lineno": 10,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_min_variance_weights_raises_when_cvxpy_missing",
+        "lineno": 14,
+        "doc": "",
+        "args": [
+          "monkeypatch"
+        ]
+      },
+      {
+        "name": "test_min_variance_weights_skip_missing",
+        "lineno": 21,
+        "doc": "",
+        "args": [
+          "monkeypatch"
+        ]
+      }
+    ]
+  },
+  "tests/test_metrics_qlike.py": {
+    "module": "test_metrics_qlike",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_qlike_matches_manual_computation",
+        "lineno": 8,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/test_report_tables.py": {
+    "module": "test_report_tables",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_table_estimators",
+        "lineno": 16,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      },
+      {
+        "name": "test_table_rejections",
+        "lineno": 26,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      },
+      {
+        "name": "test_table_ablation",
+        "lineno": 41,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      }
+    ]
+  },
+  "tests/test_gpt_bundle.py": {
+    "module": "test_gpt_bundle",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_makefile_has_gpt_bundle_target_and_inputs",
+        "lineno": 19,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/test_nested_balanced.py": {
+    "module": "test_nested_balanced",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_generate_nested_sample",
+        "lineno": 11,
+        "doc": "",
+        "args": [
+          "I",
+          "J",
+          "R",
+          "p"
+        ]
+      },
+      {
+        "name": "test_mean_squares_nested_balanced",
+        "lineno": 47,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_nested_dealias_smoke_run",
+        "lineno": 86,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/test_factor_baselines.py": {
+    "module": "test_factor_baselines",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_observed_factor_covariance_matches_population",
+        "lineno": 9,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_poet_lite_covariance_returns_valid_matrix",
+        "lineno": 34,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/test_run_meta_module.py": {
+    "module": "test_run_meta_module",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_write_run_meta_creates_file_with_expected_fields",
+        "lineno": 15,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      }
+    ]
+  },
+  "tests/test_gating.py": {
+    "module": "test_gating",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_count_isolated_outliers_zero_when_missing_isolated",
+        "lineno": 11,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_select_top_k_prefers_high_score_and_edge_margin",
+        "lineno": 19,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_lookup_calibrated_delta_reads_json",
+        "lineno": 50,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      }
+    ]
+  },
+  "tests/test_theta_solver.py": {
+    "module": "test_theta_solver",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_synthetic_oneway_dataset",
+        "lineno": 13,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_theta_solver_brackets_root",
+        "lineno": 36,
+        "doc": "",
+        "args": [
+          "monkeypatch"
+        ]
+      },
+      {
+        "name": "test_theta_solver_fallback_to_grid",
+        "lineno": 85,
+        "doc": "",
+        "args": [
+          "monkeypatch"
+        ]
+      },
+      {
+        "name": "test_theta_solver_logs_solver_flag",
+        "lineno": 117,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/test_calibrate_defaults.py": {
+    "module": "test_calibrate_defaults",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_build_defaults_payload_filters_and_formats",
+        "lineno": 9,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      }
+    ]
+  },
+  "tests/test_evaluation_checks.py": {
+    "module": "test_evaluation_checks",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_check_dealiased_applied_raises_on_identical_forecasts",
+        "lineno": 11,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_check_dealiased_applied_passes_when_different",
+        "lineno": 27,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/test_dealias_search.py": {
+    "module": "test_dealias_search",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_make_single_spike_panel",
+        "lineno": 17,
+        "doc": "",
+        "args": [
+          "rng"
+        ]
+      },
+      {
+        "name": "test_single_spike_mu_hat_within_standard_error",
+        "lineno": 37,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_permuted_group_labels_yield_no_detections",
+        "lineno": 65,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_decisions_stable_within_eta_band",
+        "lineno": 92,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_wrds_window_yields_detection_with_relaxed_leakage",
+        "lineno": 150,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/test_plotting_utils.py": {
+    "module": "test_plotting_utils",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_e1_e2_e3_e4_and_s4_create_pdfs",
+        "lineno": 32,
+        "doc": "",
+        "args": [
+          "tmp_path",
+          "run_name"
+        ]
+      }
+    ]
+  },
+  "tests/test_evaluation_metrics.py": {
+    "module": "test_evaluation_metrics",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_sign_test_pvalue_strong_asymmetry",
+        "lineno": 19,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_block_bootstrap_ci_median_contains_sample_median",
+        "lineno": 26,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_iqr_matches_percentile_difference",
+        "lineno": 40,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_build_metrics_summary_dealiased_vs_baselines",
+        "lineno": 45,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/test_cache_switch_estimator.py": {
+    "module": "test_cache_switch_estimator",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_window_cache_key_changes_with_estimator",
+        "lineno": 11,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      }
+    ]
+  },
+  "tests/test_report_plots.py": {
+    "module": "test_report_plots",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_plot_dm_and_detection",
+        "lineno": 21,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      },
+      {
+        "name": "test_plot_edge_margin",
+        "lineno": 29,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      },
+      {
+        "name": "test_plot_ablation_heatmap",
+        "lineno": 40,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      }
+    ]
+  },
+  "tests/test_calibration_lookup.py": {
+    "module": "test_calibration_lookup",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_lookup_calibrated_delta_nested_tyler",
+        "lineno": 4,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_lookup_calibrated_delta_nested_huber",
+        "lineno": 12,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/test_weekly_cov_identity.py": {
+    "module": "test_weekly_cov_identity",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_weekly_covariance_identity",
+        "lineno": 7,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/test_nested_smoke.py": {
+    "module": "test_nested_smoke",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_synthetic_nested_blocks",
+        "lineno": 14,
+        "doc": "Generate a small balanced Year\u2283Week panel with a \u03a3\u2081 spike.",
+        "args": []
+      },
+      {
+        "name": "test_nested_smoke_detection_positive_stability",
+        "lineno": 51,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/synthetic/test_harness_utils.py": {
+    "module": "synthetic.test_harness_utils",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_small_config",
+        "lineno": 11,
+        "doc": "",
+        "args": [
+          "edge_modes"
+        ]
+      },
+      {
+        "name": "test_simulate_scores_increases_with_signal",
+        "lineno": 24,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_select_energy_floor_respects_target_fpr",
+        "lineno": 34,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_roc_table_emits_entries_for_each_mu",
+        "lineno": 48,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/synthetic/test_calibration.py": {
+    "module": "synthetic.test_calibration",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_calibrate_thresholds_controls_fpr",
+        "lineno": 12,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      },
+      {
+        "name": "test_edge_delta_thresholds_real_run",
+        "lineno": 42,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_calibration_deterministic_small_grid",
+        "lineno": 64,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_calibration_resume_equivalence",
+        "lineno": 85,
+        "doc": "",
+        "args": [
+          "tmp_path",
+          "monkeypatch"
+        ]
+      }
+    ]
+  },
+  "tests/eval/test_clean.py": {
+    "module": "eval.test_clean",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_apply_nan_policy_drops_assets_above_threshold",
+        "lineno": 9,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_apply_nan_policy_drops_rows_with_zero_tolerance",
+        "lineno": 34,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/eval/test_balance.py": {
+    "module": "eval.test_balance",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_build_balanced_window_trims_to_min_replicates",
+        "lineno": 9,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_build_balanced_window_intersects_assets_across_groups",
+        "lineno": 30,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_build_balanced_window_flags_insufficient_replicates",
+        "lineno": 49,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/tools/test_summarize_rc_sanity.py": {
+    "module": "tools.test_summarize_rc_sanity",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_write_daily_run",
+        "lineno": 16,
+        "doc": "",
+        "args": [
+          "run_dir"
+        ]
+      },
+      {
+        "name": "test_eval_completeness_flags_partial_dir",
+        "lineno": 52,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      },
+      {
+        "name": "test_summarizer_marks_missing_sections_and_excludes_incomplete",
+        "lineno": 64,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      }
+    ]
+  },
+  "tests/tools/test_make_summary.py": {
+    "module": "tools.test_make_summary",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_copy_sample_rc",
+        "lineno": 12,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      },
+      {
+        "name": "test_summarise_rc_directory",
+        "lineno": 21,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      }
+    ]
+  },
+  "tests/io/test_wrds_snapshot.py": {
+    "module": "io.test_wrds_snapshot",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_wrds_returns_snapshot_columns",
+        "lineno": 9,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_wrds_labels_snapshot_columns",
+        "lineno": 20,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/baselines/test_load_factors.py": {
+    "module": "baselines.test_load_factors",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_write_factor_csv",
+        "lineno": 12,
+        "doc": "",
+        "args": [
+          "path",
+          "scale"
+        ]
+      },
+      {
+        "name": "test_load_observed_factors_prefers_explicit_path",
+        "lineno": 26,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      },
+      {
+        "name": "test_load_observed_factors_builds_proxy",
+        "lineno": 40,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      },
+      {
+        "name": "test_load_observed_factors_auto_scales_percentages",
+        "lineno": 55,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      },
+      {
+        "name": "test_load_observed_factors_errors_without_returns",
+        "lineno": 63,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      }
+    ]
+  },
+  "tests/baselines/test_covariance.py": {
+    "module": "baselines.test_covariance",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_make_observations",
+        "lineno": 17,
+        "doc": "",
+        "args": [
+          "samples",
+          "assets",
+          "seed"
+        ]
+      },
+      {
+        "name": "_assert_psd",
+        "lineno": 23,
+        "doc": "",
+        "args": [
+          "matrix",
+          "atol"
+        ]
+      },
+      {
+        "name": "test_statistical_covariances_are_psd",
+        "lineno": 30,
+        "doc": "",
+        "args": [
+          "factory"
+        ]
+      },
+      {
+        "name": "test_ewma_covariance_matches_manual_loop",
+        "lineno": 38,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_rie_covariance_shrinks_towards_mean_spectrum",
+        "lineno": 52,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_quest_covariance_clips_to_mp_support",
+        "lineno": 66,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/baselines/test_prewhiten.py": {
+    "module": "baselines.test_prewhiten",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_simulated_returns",
+        "lineno": 13,
+        "doc": "",
+        "args": [
+          "rng"
+        ]
+      },
+      {
+        "name": "test_prewhiten_reduces_spike_strength",
+        "lineno": 37,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_prewhiten_residuals_preserve_null_fpr",
+        "lineno": 64,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_prewhiten_result_exposes_betas_and_intercepts",
+        "lineno": 99,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/experiments/test_ablate_run.py": {
+    "module": "experiments.test_ablate_run",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_write_returns",
+        "lineno": 13,
+        "doc": "",
+        "args": [
+          "path",
+          "rows",
+          "cols"
+        ]
+      },
+      {
+        "name": "_write_config",
+        "lineno": 22,
+        "doc": "",
+        "args": [
+          "path",
+          "returns_path"
+        ]
+      },
+      {
+        "name": "test_run_ablation_small_grid",
+        "lineno": 72,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      }
+    ]
+  },
+  "tests/experiments/test_gating_diagnostics.py": {
+    "module": "experiments.test_gating_diagnostics",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_gating_diagnostics_artifact",
+        "lineno": 10,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      }
+    ]
+  },
+  "tests/experiments/test_eval_run.py": {
+    "module": "experiments.test_eval_run",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_make_returns_csv",
+        "lineno": 27,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      },
+      {
+        "name": "_make_factors_csv",
+        "lineno": 37,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      },
+      {
+        "name": "test_run_evaluation_emits_artifacts",
+        "lineno": 50,
+        "doc": "",
+        "args": [
+          "tmp_path_factory"
+        ]
+      },
+      {
+        "name": "test_run_evaluation_prewhiten_off",
+        "lineno": 196,
+        "doc": "",
+        "args": [
+          "tmp_path_factory"
+        ]
+      },
+      {
+        "name": "test_apply_multi_alignment_guard_respects_threshold",
+        "lineno": 222,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_sign_test_stat_filters_ties",
+        "lineno": 236,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_run_evaluation_respects_assets_top",
+        "lineno": 247,
+        "doc": "",
+        "args": [
+          "tmp_path_factory"
+        ]
+      },
+      {
+        "name": "test_run_evaluation_vol_design_logs_state",
+        "lineno": 274,
+        "doc": "",
+        "args": [
+          "tmp_path_factory"
+        ]
+      },
+      {
+        "name": "test_vol_run_outputs_flip_and_prewhiten_effect",
+        "lineno": 322,
+        "doc": "",
+        "args": [
+          "tmp_path_factory"
+        ]
+      },
+      {
+        "name": "test_resolve_eval_config_precedence",
+        "lineno": 406,
+        "doc": "",
+        "args": [
+          "tmp_path_factory"
+        ]
+      },
+      {
+        "name": "test_fpr_guard_for_calibrated_thresholds",
+        "lineno": 485,
+        "doc": "",
+        "args": [
+          "tmp_path_factory"
+        ]
+      },
+      {
+        "name": "test_resolve_eval_config_prewhiten_cli",
+        "lineno": 503,
+        "doc": "",
+        "args": [
+          "tmp_path_factory"
+        ]
+      },
+      {
+        "name": "test_resolve_eval_config_shrinkers",
+        "lineno": 520,
+        "doc": "",
+        "args": [
+          "tmp_path_factory",
+          "shrinker"
+        ]
+      },
+      {
+        "name": "test_load_daily_panel_from_parquet",
+        "lineno": 533,
+        "doc": "",
+        "args": [
+          "tmp_path_factory"
+        ]
+      },
+      {
+        "name": "test_min_variance_weights_turnover_penalty",
+        "lineno": 554,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_dm_alignment_uses_common_windows",
+        "lineno": 573,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_vol_thresholds_use_training_data",
+        "lineno": 620,
+        "doc": "",
+        "args": [
+          "tmp_path_factory"
+        ]
+      },
+      {
+        "name": "test_run_evaluation_is_reproducible",
+        "lineno": 645,
+        "doc": "",
+        "args": [
+          "tmp_path_factory"
+        ]
+      },
+      {
+        "name": "test_bootstrap_bands_populate_for_overlay",
+        "lineno": 707,
+        "doc": "",
+        "args": [
+          "tmp_path_factory"
+        ]
+      }
+    ]
+  },
+  "tests/experiments/test_prewhiten_utils.py": {
+    "module": "experiments.test_prewhiten_utils",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_mock_returns",
+        "lineno": 9,
+        "doc": "",
+        "args": [
+          "rows",
+          "cols"
+        ]
+      },
+      {
+        "name": "_mock_factors",
+        "lineno": 16,
+        "doc": "",
+        "args": [
+          "rows"
+        ]
+      },
+      {
+        "name": "test_apply_prewhitening_off_mode_returns_identity",
+        "lineno": 24,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_apply_prewhitening_with_factors_uses_requested_mode",
+        "lineno": 33,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_apply_prewhitening_custom_mode_preserves_columns",
+        "lineno": 44,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/experiments/test_daily_grouping.py": {
+    "module": "experiments.test_daily_grouping",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_make_returns_frame",
+        "lineno": 17,
+        "doc": "",
+        "args": [
+          "start",
+          "periods"
+        ]
+      },
+      {
+        "name": "test_group_by_day_of_week_balances",
+        "lineno": 24,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_group_by_day_of_week_requires_full_weeks",
+        "lineno": 35,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_group_by_vol_state_balances",
+        "lineno": 41,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_group_by_vol_state_enforces_min_replicates",
+        "lineno": 63,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_daily_cli_forwards_defaults",
+        "lineno": 81,
+        "doc": "",
+        "args": [
+          "tmp_path",
+          "monkeypatch"
+        ]
+      },
+      {
+        "name": "test_daily_cli_group_alias",
+        "lineno": 112,
+        "doc": "",
+        "args": [
+          "tmp_path",
+          "monkeypatch"
+        ]
+      },
+      {
+        "name": "test_daily_cli_group_conflict",
+        "lineno": 138,
+        "doc": "",
+        "args": [
+          "tmp_path"
+        ]
+      },
+      {
+        "name": "test_daily_cli_forwards_prewhiten",
+        "lineno": 154,
+        "doc": "",
+        "args": [
+          "tmp_path",
+          "monkeypatch"
+        ]
+      },
+      {
+        "name": "test_daily_cli_forwards_use_factor_prewhiten",
+        "lineno": 182,
+        "doc": "",
+        "args": [
+          "tmp_path",
+          "monkeypatch"
+        ]
+      },
+      {
+        "name": "test_daily_cli_forwards_assets_top",
+        "lineno": 208,
+        "doc": "",
+        "args": [
+          "tmp_path",
+          "monkeypatch"
+        ]
+      },
+      {
+        "name": "test_group_by_day_of_week_three_year_slice",
+        "lineno": 234,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/experiments/test_skip_reasons.py": {
+    "module": "experiments.test_skip_reasons",
+    "classes": [],
+    "functions": [
+      {
+        "name": "test_infer_skip_reason_calibration_missing",
+        "lineno": 4,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_infer_skip_reason_prefers_stability",
+        "lineno": 13,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "tests/fjs/test_overlay.py": {
+    "module": "fjs.test_overlay",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_make_detection",
+        "lineno": 20,
+        "doc": "",
+        "args": [
+          "mu",
+          "vec"
+        ]
+      },
+      {
+        "name": "test_apply_overlay_substitutes_detected_eigenvalues",
+        "lineno": 66,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_apply_overlay_respects_detection_cap",
+        "lineno": 77,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_detect_spikes_uses_tyler_edge_mode",
+        "lineno": 89,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_apply_overlay_with_ewma_shrinker_matches_baseline",
+        "lineno": 109,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_apply_overlay_with_quest_shrinker_matches_baseline",
+        "lineno": 119,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_apply_overlay_with_lw_shrinker_matches_baseline",
+        "lineno": 129,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_apply_overlay_with_oas_shrinker_matches_baseline",
+        "lineno": 139,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_apply_overlay_with_cc_shrinker_matches_baseline",
+        "lineno": 149,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "test_detect_spikes_strict_gate_filters",
+        "lineno": 159,
+        "doc": "",
+        "args": [
+          "monkeypatch"
+        ]
+      },
+      {
+        "name": "test_detect_spikes_handles_missing_stats",
+        "lineno": 199,
+        "doc": "",
+        "args": [
+          "monkeypatch"
+        ]
+      },
+      {
+        "name": "test_detect_spikes_preserves_precomputed_stats",
+        "lineno": 214,
+        "doc": "",
+        "args": [
+          "monkeypatch"
+        ]
+      },
+      {
+        "name": "test_detect_spikes_soft_gate_selects_top_score",
+        "lineno": 232,
+        "doc": "",
+        "args": [
+          "monkeypatch"
+        ]
+      },
+      {
+        "name": "test_detect_spikes_rejects_non_admissible_root",
+        "lineno": 270,
+        "doc": "",
+        "args": [
+          "monkeypatch"
+        ]
+      },
+      {
+        "name": "test_detect_spikes_uses_calibrated_delta",
+        "lineno": 291,
+        "doc": "",
+        "args": [
+          "tmp_path",
+          "monkeypatch"
+        ]
+      },
+      {
+        "name": "test_detect_spikes_rejects_when_calibrated_delta_below_min",
+        "lineno": 335,
+        "doc": "",
+        "args": [
+          "tmp_path",
+          "monkeypatch"
+        ]
+      },
+      {
+        "name": "test_detect_spikes_records_pre_gate_stats",
+        "lineno": 379,
+        "doc": "",
+        "args": [
+          "monkeypatch"
+        ]
+      },
+      {
+        "name": "test_detect_spikes_coarse_candidate_fallback",
+        "lineno": 411,
+        "doc": "",
+        "args": [
+          "monkeypatch"
+        ]
+      }
+    ]
+  },
+  "experiments/__init__.py": {
+    "module": "",
+    "classes": [],
+    "functions": []
+  },
+  "experiments/prewhiten.py": {
+    "module": "prewhiten",
+    "classes": [
+      {
+        "name": "PrewhitenTelemetry",
+        "lineno": 26,
+        "doc": ""
+      }
+    ],
+    "functions": [
+      {
+        "name": "identity_prewhiten_result",
+        "lineno": 37,
+        "doc": "",
+        "args": [
+          "returns",
+          "factor_cols"
+        ]
+      },
+      {
+        "name": "select_prewhiten_factors",
+        "lineno": 72,
+        "doc": "",
+        "args": [
+          "factors",
+          "requested"
+        ]
+      },
+      {
+        "name": "_beta_abs_stats",
+        "lineno": 97,
+        "doc": "",
+        "args": [
+          "betas"
+        ]
+      },
+      {
+        "name": "compute_prewhiten_telemetry",
+        "lineno": 113,
+        "doc": "",
+        "args": [
+          "whitening"
+        ]
+      },
+      {
+        "name": "apply_prewhitening",
+        "lineno": 140,
+        "doc": "",
+        "args": [
+          "returns"
+        ]
+      },
+      {
+        "name": "write_prewhiten_diagnostics",
+        "lineno": 169,
+        "doc": "",
+        "args": [
+          "out_dir",
+          "whitening",
+          "telemetry"
+        ]
+      }
+    ]
+  },
+  "experiments/synthetic/null.py": {
+    "module": "synthetic.null",
+    "classes": [],
+    "functions": [
+      {
+        "name": "parse_args",
+        "lineno": 32,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      },
+      {
+        "name": "_git_sha",
+        "lineno": 63,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "_build_fpr_curve",
+        "lineno": 70,
+        "doc": "",
+        "args": [
+          "scores"
+        ]
+      },
+      {
+        "name": "_plot_fpr_curve",
+        "lineno": 89,
+        "doc": "",
+        "args": [
+          "curve",
+          "path"
+        ]
+      },
+      {
+        "name": "main",
+        "lineno": 104,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      }
+    ]
+  },
+  "experiments/synthetic/power.py": {
+    "module": "synthetic.power",
+    "classes": [],
+    "functions": [
+      {
+        "name": "parse_args",
+        "lineno": 40,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      },
+      {
+        "name": "_git_sha",
+        "lineno": 95,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "_load_null_scores",
+        "lineno": 102,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "_plot_roc",
+        "lineno": 115,
+        "doc": "",
+        "args": [
+          "roc",
+          "mu_values",
+          "selection",
+          "path"
+        ]
+      },
+      {
+        "name": "_save_defaults",
+        "lineno": 145,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "main",
+        "lineno": 180,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      }
+    ]
+  },
+  "experiments/synthetic/__init__.py": {
+    "module": "synthetic",
+    "classes": [],
+    "functions": []
+  },
+  "experiments/synthetic/power_null.py": {
+    "module": "synthetic.power_null",
+    "classes": [
+      {
+        "name": "TrialResult",
+        "lineno": 200,
+        "doc": ""
+      }
+    ],
+    "functions": [
+      {
+        "name": "_resolve_delta_grid",
+        "lineno": 76,
+        "doc": "",
+        "args": [
+          "delta_grid"
+        ]
+      },
+      {
+        "name": "_normalise_for_meta",
+        "lineno": 83,
+        "doc": "",
+        "args": [
+          "value"
+        ]
+      },
+      {
+        "name": "_normalise_panel_specs",
+        "lineno": 95,
+        "doc": "",
+        "args": [
+          "panel_specs"
+        ]
+      },
+      {
+        "name": "calibration_cache_meta",
+        "lineno": 107,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "load_calibration_cache",
+        "lineno": 130,
+        "doc": "",
+        "args": [
+          "path",
+          "meta",
+          "dependencies"
+        ]
+      },
+      {
+        "name": "write_calibration_cache",
+        "lineno": 161,
+        "doc": "",
+        "args": [
+          "path",
+          "payload",
+          "meta"
+        ]
+      },
+      {
+        "name": "_edge_scale_for_mode",
+        "lineno": 169,
+        "doc": "",
+        "args": [
+          "y",
+          "mode",
+          "huber_c"
+        ]
+      },
+      {
+        "name": "_detections_for_mode",
+        "lineno": 210,
+        "doc": "",
+        "args": [
+          "y",
+          "groups"
+        ]
+      },
+      {
+        "name": "_simulate_null",
+        "lineno": 255,
+        "doc": "",
+        "args": [
+          "config"
+        ]
+      },
+      {
+        "name": "_simulate_power",
+        "lineno": 267,
+        "doc": "",
+        "args": [
+          "config"
+        ]
+      },
+      {
+        "name": "run_trials",
+        "lineno": 297,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "calibrate_delta_thresholds",
+        "lineno": 370,
+        "doc": "Estimate minimal delta_frac values achieving target null FPR for each (p, T).",
+        "args": []
+      },
+      {
+        "name": "summarise_results",
+        "lineno": 481,
+        "doc": "",
+        "args": [
+          "results"
+        ]
+      },
+      {
+        "name": "plot_fpr_heatmap",
+        "lineno": 507,
+        "doc": "",
+        "args": [
+          "summary",
+          "out_path"
+        ]
+      },
+      {
+        "name": "plot_power_curves",
+        "lineno": 527,
+        "doc": "",
+        "args": [
+          "summary",
+          "out_path"
+        ]
+      },
+      {
+        "name": "parse_args",
+        "lineno": 550,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "main",
+        "lineno": 644,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "experiments/synthetic/nested_killtest.py": {
+    "module": "synthetic.nested_killtest",
+    "classes": [
+      {
+        "name": "TrialResult",
+        "lineno": 64,
+        "doc": ""
+      }
+    ],
+    "functions": [
+      {
+        "name": "load_config",
+        "lineno": 77,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "simulate_nested_panel",
+        "lineno": 88,
+        "doc": "Return (observations, year_labels, week_labels).",
+        "args": [
+          "rng"
+        ]
+      },
+      {
+        "name": "_edge_scale",
+        "lineno": 133,
+        "doc": "",
+        "args": [
+          "observations",
+          "edge_mode",
+          "edge_huber_c"
+        ]
+      },
+      {
+        "name": "run_trials",
+        "lineno": 172,
+        "doc": "",
+        "args": [
+          "config"
+        ]
+      },
+      {
+        "name": "summarise_results",
+        "lineno": 367,
+        "doc": "",
+        "args": [
+          "results"
+        ]
+      },
+      {
+        "name": "write_summary_markdown",
+        "lineno": 394,
+        "doc": "",
+        "args": [
+          "summary_df",
+          "out_path"
+        ]
+      },
+      {
+        "name": "main",
+        "lineno": 406,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      }
+    ]
+  },
+  "experiments/synthetic/harness_utils.py": {
+    "module": "synthetic.harness_utils",
+    "classes": [
+      {
+        "name": "HarnessConfig",
+        "lineno": 27,
+        "doc": "Configuration for synthetic null/power harness simulations."
+      },
+      {
+        "name": "ScoreResult",
+        "lineno": 53,
+        "doc": "Container for per-trial spectral scores."
+      },
+      {
+        "name": "SimulatedScores",
+        "lineno": 79,
+        "doc": "Structured return for score simulations."
+      },
+      {
+        "name": "EnergyFloorSelection",
+        "lineno": 224,
+        "doc": ""
+      }
+    ],
+    "functions": [
+      {
+        "name": "_compute_scatter",
+        "lineno": 91,
+        "doc": "",
+        "args": [
+          "observations",
+          "edge_mode"
+        ]
+      },
+      {
+        "name": "_score_trial",
+        "lineno": 106,
+        "doc": "",
+        "args": [
+          "observations",
+          "edge_mode"
+        ]
+      },
+      {
+        "name": "_run_single_mu",
+        "lineno": 121,
+        "doc": "",
+        "args": [
+          "config",
+          "mu"
+        ]
+      },
+      {
+        "name": "simulate_scores",
+        "lineno": 163,
+        "doc": "Simulate score distributions for the supplied spike strengths.",
+        "args": [
+          "config",
+          "mu_values"
+        ]
+      },
+      {
+        "name": "roc_table",
+        "lineno": 181,
+        "doc": "Return a ROC-style table (FPR vs power) per edge mode and spike.",
+        "args": [
+          "null_scores",
+          "power_scores"
+        ]
+      },
+      {
+        "name": "select_energy_floor",
+        "lineno": 241,
+        "doc": "Select an energy floor that satisfies the FPR cap while maximising power.",
+        "args": [
+          "null_scores",
+          "power_scores"
+        ]
+      },
+      {
+        "name": "write_run_metadata",
+        "lineno": 300,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      }
+    ]
+  },
+  "experiments/synthetic/calibrate_thresholds.py": {
+    "module": "synthetic.calibrate_thresholds",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_parse_float_list",
+        "lineno": 29,
+        "doc": "",
+        "args": [
+          "values"
+        ]
+      },
+      {
+        "name": "parse_args",
+        "lineno": 41,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      },
+      {
+        "name": "build_planned_jobs",
+        "lineno": 181,
+        "doc": "Return the Cartesian product of sweep dimensions (excluding edge modes).",
+        "args": [
+          "p_assets_list",
+          "n_groups_list",
+          "replicates_list",
+          "delta_abs_grid"
+        ]
+      },
+      {
+        "name": "_parse_bins",
+        "lineno": 205,
+        "doc": "",
+        "args": [
+          "specs"
+        ]
+      },
+      {
+        "name": "_assign_bin",
+        "lineno": 229,
+        "doc": "",
+        "args": [
+          "value",
+          "bins"
+        ]
+      },
+      {
+        "name": "_maybe_plot",
+        "lineno": 236,
+        "doc": "",
+        "args": [
+          "entries",
+          "alpha",
+          "path"
+        ]
+      },
+      {
+        "name": "_cell_identifier",
+        "lineno": 284,
+        "doc": "",
+        "args": [
+          "p_assets",
+          "n_groups",
+          "replicates",
+          "delta_abs",
+          "edge_mode"
+        ]
+      },
+      {
+        "name": "_load_shard_jobs",
+        "lineno": 288,
+        "doc": "",
+        "args": [
+          "manifest_path",
+          "shard_id"
+        ]
+      },
+      {
+        "name": "_build_cell_records",
+        "lineno": 318,
+        "doc": "",
+        "args": [
+          "config",
+          "result",
+          "edge_mode"
+        ]
+      },
+      {
+        "name": "_write_cell_payload",
+        "lineno": 355,
+        "doc": "",
+        "args": [
+          "path",
+          "payload"
+        ]
+      },
+      {
+        "name": "_load_cell_payloads",
+        "lineno": 362,
+        "doc": "",
+        "args": [
+          "cells_dir"
+        ]
+      },
+      {
+        "name": "_collect_cell_records",
+        "lineno": 374,
+        "doc": "",
+        "args": [
+          "cell_payloads"
+        ]
+      },
+      {
+        "name": "_build_threshold_map",
+        "lineno": 385,
+        "doc": "",
+        "args": [
+          "entries",
+          "replicate_bins",
+          "asset_bins",
+          "alpha"
+        ]
+      },
+      {
+        "name": "_build_defaults_payload",
+        "lineno": 454,
+        "doc": "",
+        "args": [
+          "thresholds_map"
+        ]
+      },
+      {
+        "name": "main",
+        "lineno": 519,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      },
+      {
+        "name": "_git_sha",
+        "lineno": 766,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "_blas_info",
+        "lineno": 775,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "_instance_metadata",
+        "lineno": 788,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "experiments/ablate/run.py": {
+    "module": "ablate.run",
+    "classes": [
+      {
+        "name": "PanelSpec",
+        "lineno": 58,
+        "doc": ""
+      }
+    ],
+    "functions": [
+      {
+        "name": "_load_yaml",
+        "lineno": 66,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "_coerce_bool",
+        "lineno": 73,
+        "doc": "",
+        "args": [
+          "value"
+        ]
+      },
+      {
+        "name": "_coerce_value",
+        "lineno": 87,
+        "doc": "",
+        "args": [
+          "key",
+          "value"
+        ]
+      },
+      {
+        "name": "_normalise_defaults",
+        "lineno": 99,
+        "doc": "",
+        "args": [
+          "defaults"
+        ]
+      },
+      {
+        "name": "_normalise_combo",
+        "lineno": 106,
+        "doc": "",
+        "args": [
+          "combo"
+        ]
+      },
+      {
+        "name": "_combo_identifier",
+        "lineno": 113,
+        "doc": "",
+        "args": [
+          "params"
+        ]
+      },
+      {
+        "name": "_is_default_combo",
+        "lineno": 129,
+        "doc": "",
+        "args": [
+          "combo",
+          "defaults",
+          "keys"
+        ]
+      },
+      {
+        "name": "_ensure_dir",
+        "lineno": 150,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "_load_panels",
+        "lineno": 154,
+        "doc": "",
+        "args": [
+          "section"
+        ]
+      },
+      {
+        "name": "_extract_perf",
+        "lineno": 174,
+        "doc": "",
+        "args": [
+          "perf_df",
+          "regime",
+          "portfolio"
+        ]
+      },
+      {
+        "name": "_extract_detection",
+        "lineno": 183,
+        "doc": "",
+        "args": [
+          "det_df",
+          "regime"
+        ]
+      },
+      {
+        "name": "_safe_get",
+        "lineno": 191,
+        "doc": "",
+        "args": [
+          "series",
+          "key"
+        ]
+      },
+      {
+        "name": "run_ablation",
+        "lineno": 200,
+        "doc": "",
+        "args": [
+          "config_path"
+        ]
+      },
+      {
+        "name": "parse_args",
+        "lineno": 440,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      },
+      {
+        "name": "main",
+        "lineno": 474,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      }
+    ]
+  },
+  "experiments/ablate/__init__.py": {
+    "module": "ablate",
+    "classes": [],
+    "functions": []
+  },
+  "experiments/etf_panel/run.py": {
+    "module": "etf_panel.run",
+    "classes": [
+      {
+        "name": "ETFConfig",
+        "lineno": 20,
+        "doc": ""
+      }
+    ],
+    "functions": [
+      {
+        "name": "parse_args",
+        "lineno": 30,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      },
+      {
+        "name": "main",
+        "lineno": 82,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      }
+    ]
+  },
+  "experiments/eval/run.py": {
+    "module": "eval.run",
+    "classes": [
+      {
+        "name": "EvalOutputs",
+        "lineno": 85,
+        "doc": ""
+      },
+      {
+        "name": "EvalConfig",
+        "lineno": 224,
+        "doc": ""
+      }
+    ],
+    "functions": [
+      {
+        "name": "_plot_regime_histograms",
+        "lineno": 97,
+        "doc": "",
+        "args": [
+          "diagnostics_df",
+          "column"
+        ]
+      },
+      {
+        "name": "_format_group_label_counts",
+        "lineno": 288,
+        "doc": "",
+        "args": [
+          "labels",
+          "design"
+        ]
+      },
+      {
+        "name": "_vol_state_label",
+        "lineno": 329,
+        "doc": "",
+        "args": [
+          "value",
+          "calm_cut",
+          "crisis_cut"
+        ]
+      },
+      {
+        "name": "_serialise_config",
+        "lineno": 339,
+        "doc": "",
+        "args": [
+          "config"
+        ]
+      },
+      {
+        "name": "_current_git_sha",
+        "lineno": 406,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "_write_run_metadata",
+        "lineno": 418,
+        "doc": "",
+        "args": [
+          "path",
+          "payload"
+        ]
+      },
+      {
+        "name": "_paths_to_strings",
+        "lineno": 423,
+        "doc": "",
+        "args": [
+          "path_map"
+        ]
+      },
+      {
+        "name": "_mode_string",
+        "lineno": 427,
+        "doc": "",
+        "args": [
+          "values"
+        ]
+      },
+      {
+        "name": "_aligned_error_table",
+        "lineno": 440,
+        "doc": "",
+        "args": [
+          "metrics",
+          "regime",
+          "portfolio"
+        ]
+      },
+      {
+        "name": "_aligned_dm_stat",
+        "lineno": 468,
+        "doc": "",
+        "args": [
+          "metrics",
+          "regime",
+          "portfolio"
+        ]
+      },
+      {
+        "name": "_apply_multi_alignment_guard",
+        "lineno": 497,
+        "doc": "Drop detections beyond the first if alignment cosine falls below threshold.",
+        "args": [
+          "detections"
+        ]
+      },
+      {
+        "name": "_sign_test_stat",
+        "lineno": 525,
+        "doc": "",
+        "args": [
+          "aligned",
+          "comparator"
+        ]
+      },
+      {
+        "name": "_bootstrap_delta_mse",
+        "lineno": 549,
+        "doc": "",
+        "args": [
+          "diffs",
+          "resamples",
+          "rng",
+          "block_size"
+        ]
+      },
+      {
+        "name": "_vol_thresholds",
+        "lineno": 583,
+        "doc": "",
+        "args": [
+          "vol_proxy",
+          "train_end",
+          "config"
+        ]
+      },
+      {
+        "name": "parse_args",
+        "lineno": 598,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      },
+      {
+        "name": "_compute_vol_proxy",
+        "lineno": 1041,
+        "doc": "",
+        "args": [
+          "returns",
+          "span"
+        ]
+      },
+      {
+        "name": "_write_overlay_toggle",
+        "lineno": 1049,
+        "doc": "",
+        "args": [
+          "path",
+          "summary"
+        ]
+      },
+      {
+        "name": "_plot_histogram",
+        "lineno": 1081,
+        "doc": "",
+        "args": [
+          "series",
+          "path"
+        ]
+      },
+      {
+        "name": "_plot_acceptance_edge_histograms",
+        "lineno": 1108,
+        "doc": "",
+        "args": [
+          "diagnostics_df",
+          "design",
+          "out_dir"
+        ]
+      },
+      {
+        "name": "_detail_defaults",
+        "lineno": 1138,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "_safe_nanmean",
+        "lineno": 1157,
+        "doc": "",
+        "args": [
+          "values"
+        ]
+      },
+      {
+        "name": "_safe_nanmedian",
+        "lineno": 1167,
+        "doc": "",
+        "args": [
+          "values"
+        ]
+      },
+      {
+        "name": "_top_mean",
+        "lineno": 1177,
+        "doc": "",
+        "args": [
+          "values",
+          "count"
+        ]
+      },
+      {
+        "name": "_safe_share",
+        "lineno": 1188,
+        "doc": "",
+        "args": [
+          "successes",
+          "total"
+        ]
+      },
+      {
+        "name": "_required_replicates",
+        "lineno": 1194,
+        "doc": "",
+        "args": [
+          "design",
+          "config"
+        ]
+      },
+      {
+        "name": "_build_grouped_window",
+        "lineno": 1205,
+        "doc": "",
+        "args": [
+          "frame"
+        ]
+      },
+      {
+        "name": "_min_variance_weights",
+        "lineno": 1240,
+        "doc": "",
+        "args": [
+          "covariance"
+        ]
+      },
+      {
+        "name": "_expected_shortfall",
+        "lineno": 1314,
+        "doc": "",
+        "args": [
+          "sigma",
+          "alpha"
+        ]
+      },
+      {
+        "name": "_realised_tail_mean",
+        "lineno": 1319,
+        "doc": "",
+        "args": [
+          "returns",
+          "var_threshold"
+        ]
+      },
+      {
+        "name": "_safe_condition_number",
+        "lineno": 1326,
+        "doc": "",
+        "args": [
+          "matrix"
+        ]
+      },
+      {
+        "name": "_qlike_loss",
+        "lineno": 1333,
+        "doc": "",
+        "args": [
+          "forecast_var",
+          "realised_var"
+        ]
+      },
+      {
+        "name": "_limit_windows_by_regime",
+        "lineno": 1345,
+        "doc": "",
+        "args": [
+          "metrics_df",
+          "diagnostics_df"
+        ]
+      },
+      {
+        "name": "_window_regime",
+        "lineno": 1405,
+        "doc": "",
+        "args": [
+          "vol_proxy",
+          "date",
+          "calm_cut",
+          "crisis_cut"
+        ]
+      },
+      {
+        "name": "_prepare_returns",
+        "lineno": 1433,
+        "doc": "",
+        "args": [
+          "config"
+        ]
+      },
+      {
+        "name": "run_evaluation",
+        "lineno": 1538,
+        "doc": "",
+        "args": [
+          "config"
+        ]
+      },
+      {
+        "name": "main",
+        "lineno": 3562,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      }
+    ]
+  },
+  "experiments/eval/sensitivity.py": {
+    "module": "eval.sensitivity",
+    "classes": [
+      {
+        "name": "Combo",
+        "lineno": 32,
+        "doc": ""
+      }
+    ],
+    "functions": [
+      {
+        "name": "_parse_bool_grid",
+        "lineno": 51,
+        "doc": "",
+        "args": [
+          "raw"
+        ]
+      },
+      {
+        "name": "_parse_alignment_grid",
+        "lineno": 66,
+        "doc": "",
+        "args": [
+          "raw"
+        ]
+      },
+      {
+        "name": "_parse_float_grid",
+        "lineno": 84,
+        "doc": "",
+        "args": [
+          "raw",
+          "name"
+        ]
+      },
+      {
+        "name": "_ensure_matplotlib",
+        "lineno": 99,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "_thread_env",
+        "lineno": 106,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "_run_evaluation",
+        "lineno": 128,
+        "doc": "",
+        "args": [
+          "command",
+          "env"
+        ]
+      },
+      {
+        "name": "_build_command",
+        "lineno": 132,
+        "doc": "",
+        "args": [
+          "base_args",
+          "combo",
+          "run_dir"
+        ]
+      },
+      {
+        "name": "_load_first_row",
+        "lineno": 186,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "_changed_window_ids",
+        "lineno": 193,
+        "doc": "",
+        "args": [
+          "detail_source"
+        ]
+      },
+      {
+        "name": "_mean_delta_sq_error",
+        "lineno": 211,
+        "doc": "",
+        "args": [
+          "metrics_path",
+          "changed_ids",
+          "portfolio"
+        ]
+      },
+      {
+        "name": "_dm_stats_from_metrics",
+        "lineno": 233,
+        "doc": "",
+        "args": [
+          "metrics_path",
+          "changed_ids",
+          "portfolio"
+        ]
+      },
+      {
+        "name": "_plot_heatmap",
+        "lineno": 265,
+        "doc": "",
+        "args": [
+          "subset",
+          "delta_values",
+          "stability_values",
+          "metric",
+          "title",
+          "xlabel",
+          "ylabel",
+          "path"
+        ]
+      },
+      {
+        "name": "_full_regime",
+        "lineno": 305,
+        "doc": "",
+        "args": [
+          "detail_df"
+        ]
+      },
+      {
+        "name": "_metric_series",
+        "lineno": 315,
+        "doc": "",
+        "args": [
+          "detail_df",
+          "column",
+          "changed_ids"
+        ]
+      },
+      {
+        "name": "_median_metric",
+        "lineno": 334,
+        "doc": "",
+        "args": [
+          "detail_df",
+          "column",
+          "changed_ids"
+        ]
+      },
+      {
+        "name": "_plot_metric_histograms",
+        "lineno": 341,
+        "doc": "",
+        "args": [
+          "metric_map"
+        ]
+      },
+      {
+        "name": "parse_args",
+        "lineno": 379,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      },
+      {
+        "name": "main",
+        "lineno": 413,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      }
+    ]
+  },
+  "experiments/eval/inject_spike.py": {
+    "module": "eval.inject_spike",
+    "classes": [
+      {
+        "name": "WindowSample",
+        "lineno": 28,
+        "doc": ""
+      }
+    ],
+    "functions": [
+      {
+        "name": "_parse_float_list",
+        "lineno": 34,
+        "doc": "",
+        "args": [
+          "raw",
+          "name"
+        ]
+      },
+      {
+        "name": "_make_overlay_config",
+        "lineno": 49,
+        "doc": "",
+        "args": [
+          "config"
+        ]
+      },
+      {
+        "name": "_collect_windows",
+        "lineno": 75,
+        "doc": "",
+        "args": [
+          "config",
+          "raw_returns",
+          "residuals",
+          "vol_proxy_full"
+        ]
+      },
+      {
+        "name": "_baseline_fp",
+        "lineno": 160,
+        "doc": "",
+        "args": [
+          "samples",
+          "overlay_cfg"
+        ]
+      },
+      {
+        "name": "_inject_spike",
+        "lineno": 169,
+        "doc": "",
+        "args": [
+          "matrix",
+          "rng",
+          "mu"
+        ]
+      },
+      {
+        "name": "parse_args",
+        "lineno": 182,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      },
+      {
+        "name": "main",
+        "lineno": 210,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      }
+    ]
+  },
+  "experiments/eval/diagnostics.py": {
+    "module": "eval.diagnostics",
+    "classes": [
+      {
+        "name": "DiagnosticReason",
+        "lineno": 6,
+        "doc": ""
+      }
+    ],
+    "functions": []
+  },
+  "experiments/eval/config.py": {
+    "module": "eval.config",
+    "classes": [
+      {
+        "name": "ResolveResult",
+        "lineno": 110,
+        "doc": ""
+      }
+    ],
+    "functions": [
+      {
+        "name": "_deep_merge",
+        "lineno": 15,
+        "doc": "",
+        "args": [
+          "base",
+          "override"
+        ]
+      },
+      {
+        "name": "_load_yaml",
+        "lineno": 25,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "_load_json",
+        "lineno": 35,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "_normalise_layer",
+        "lineno": 45,
+        "doc": "",
+        "args": [
+          "payload"
+        ]
+      },
+      {
+        "name": "resolve_eval_config",
+        "lineno": 115,
+        "doc": "",
+        "args": [
+          "args"
+        ]
+      }
+    ]
+  },
+  "experiments/equity_panel/run.py": {
+    "module": "equity_panel.run",
+    "classes": [
+      {
+        "name": "PreparedWindowStats",
+        "lineno": 152,
+        "doc": ""
+      }
+    ],
+    "functions": [
+      {
+        "name": "_parse_box_bounds",
+        "lineno": 129,
+        "doc": "Normalise min-variance box bounds into a (lo, hi) tuple.",
+        "args": [
+          "bounds"
+        ]
+      },
+      {
+        "name": "_load_prepared_from_cache",
+        "lineno": 167,
+        "doc": "",
+        "args": [
+          "cached_stats",
+          "design_mode",
+          "y_fit_raw",
+          "code_signature_hash",
+          "expected_nested_replicates"
+        ]
+      },
+      {
+        "name": "_compute_oneway_prepared",
+        "lineno": 270,
+        "doc": "",
+        "args": [
+          "fit_blocks",
+          "y_fit_raw",
+          "replicates",
+          "code_signature_hash"
+        ]
+      },
+      {
+        "name": "_compute_nested_prepared",
+        "lineno": 339,
+        "doc": "",
+        "args": [
+          "fit_blocks",
+          "y_fit_raw",
+          "expected_reps",
+          "code_signature_hash"
+        ]
+      },
+      {
+        "name": "_compute_grouped_design_prepared",
+        "lineno": 635,
+        "doc": "Compute MANOVA statistics for alternate balanced daily groupings.",
+        "args": [
+          "y_fit_raw",
+          "group_labels"
+        ]
+      },
+      {
+        "name": "_prepare_window_stats",
+        "lineno": 709,
+        "doc": "",
+        "args": [
+          "design_mode",
+          "fit_blocks",
+          "replicates"
+        ]
+      },
+      {
+        "name": "_infer_skip_reason",
+        "lineno": 739,
+        "doc": "Best-effort categorisation for windows with no accepted detections.",
+        "args": [
+          "diag_local"
+        ]
+      },
+      {
+        "name": "load_config",
+        "lineno": 783,
+        "doc": "Load experiment configuration, falling back to defaults.",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "_generate_synthetic_prices",
+        "lineno": 806,
+        "doc": "Create a synthetic price panel for quick smoke testing.",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "_mp_edges",
+        "lineno": 831,
+        "doc": "Return approximate Mar\u010denko\u2013Pastur bulk edges.",
+        "args": [
+          "noise_variance",
+          "n_assets",
+          "n_samples"
+        ]
+      },
+      {
+        "name": "_prepare_data",
+        "lineno": 843,
+        "doc": "Load daily returns from returns CSV or derive from prices CSV.",
+        "args": [
+          "config"
+        ]
+      },
+      {
+        "name": "_apply_preprocessing",
+        "lineno": 868,
+        "doc": "Apply optional robustness preprocessing to daily returns.",
+        "args": [
+          "daily_returns"
+        ]
+      },
+      {
+        "name": "_run_param_ablation",
+        "lineno": 887,
+        "doc": "Grid sweep over detection parameters; emit CSV and heatmaps (E5).",
+        "args": [
+          "daily_returns",
+          "output_dir"
+        ]
+      },
+      {
+        "name": "_load_or_build_balanced_panel",
+        "lineno": 1127,
+        "doc": "Load a cached balanced panel or build a fresh one from daily returns.",
+        "args": [
+          "daily_returns"
+        ]
+      },
+      {
+        "name": "_run_single_period",
+        "lineno": 1193,
+        "doc": "Execute the rolling evaluation for a single date range.",
+        "args": [
+          "daily_returns"
+        ]
+      },
+      {
+        "name": "_run_sigma_ablation",
+        "lineno": 3225,
+        "doc": "Evaluate Cs perturbations and persist sensitivity diagnostics.",
+        "args": [
+          "daily_returns",
+          "output_dir",
+          "cs_drop_top_frac",
+          "delta",
+          "delta_frac",
+          "eps",
+          "stability_eta",
+          "signed_a",
+          "target_component"
+        ]
+      },
+      {
+        "name": "run_experiment",
+        "lineno": 3311,
+        "doc": "Execute the rolling equity forecasting experiment.",
+        "args": [
+          "config_path"
+        ]
+      },
+      {
+        "name": "main",
+        "lineno": 3756,
+        "doc": "Entry point for CLI execution.",
+        "args": []
+      }
+    ]
+  },
+  "experiments/equity_panel/__init__.py": {
+    "module": "equity_panel",
+    "classes": [],
+    "functions": []
+  },
+  "experiments/equity_panel/sweep_acceptance.py": {
+    "module": "equity_panel.sweep_acceptance",
+    "classes": [
+      {
+        "name": "SweepParams",
+        "lineno": 42,
+        "doc": ""
+      }
+    ],
+    "functions": [
+      {
+        "name": "_load_grid",
+        "lineno": 58,
+        "doc": "",
+        "args": [
+          "arg"
+        ]
+      },
+      {
+        "name": "_build_parameter_grid",
+        "lineno": 80,
+        "doc": "",
+        "args": [
+          "grid_cfg"
+        ]
+      },
+      {
+        "name": "_load_factor_returns",
+        "lineno": 99,
+        "doc": "",
+        "args": [
+          "config"
+        ]
+      },
+      {
+        "name": "_extract_metrics",
+        "lineno": 124,
+        "doc": "",
+        "args": [
+          "run_dir",
+          "estimators"
+        ]
+      },
+      {
+        "name": "run_sweep",
+        "lineno": 197,
+        "doc": "",
+        "args": [
+          "args"
+        ]
+      },
+      {
+        "name": "parse_args",
+        "lineno": 359,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      },
+      {
+        "name": "main",
+        "lineno": 392,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      }
+    ]
+  },
+  "experiments/daily/run.py": {
+    "module": "daily.run",
+    "classes": [],
+    "functions": [
+      {
+        "name": "_detect_forward_override",
+        "lineno": 14,
+        "doc": "",
+        "args": [
+          "argv",
+          "flag"
+        ]
+      },
+      {
+        "name": "parse_args",
+        "lineno": 28,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      },
+      {
+        "name": "_default_out",
+        "lineno": 78,
+        "doc": "",
+        "args": [
+          "design",
+          "rc_date"
+        ]
+      },
+      {
+        "name": "main",
+        "lineno": 84,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      }
+    ]
+  },
+  "experiments/daily/grouping.py": {
+    "module": "daily.grouping",
+    "classes": [
+      {
+        "name": "GroupingError",
+        "lineno": 16,
+        "doc": "Raised when a sliding window cannot be balanced for replicates."
+      }
+    ],
+    "functions": [
+      {
+        "name": "_ensure_datetime_index",
+        "lineno": 20,
+        "doc": "",
+        "args": [
+          "frame"
+        ]
+      },
+      {
+        "name": "group_by_week",
+        "lineno": 25,
+        "doc": "Balance a window by complete weeks (default: Monday-aligned business weeks).",
+        "args": [
+          "frame"
+        ]
+      },
+      {
+        "name": "group_by_day_of_week",
+        "lineno": 47,
+        "doc": "Balance a window by Day-of-Week replicates across complete weeks.",
+        "args": [
+          "frame"
+        ]
+      },
+      {
+        "name": "_vol_state_codes",
+        "lineno": 95,
+        "doc": "",
+        "args": [
+          "frame",
+          "vol_proxy"
+        ]
+      },
+      {
+        "name": "group_by_vol_state",
+        "lineno": 122,
+        "doc": "Balance a window by volatility-state buckets (calm/mid/crisis).",
+        "args": [
+          "frame"
+        ]
+      },
+      {
+        "name": "group_by_dow_vol",
+        "lineno": 175,
+        "doc": "Balance windows by crossing day-of-week with volatility states.",
+        "args": [
+          "frame"
+        ]
+      },
+      {
+        "name": "group_by_dow_month",
+        "lineno": 225,
+        "doc": "Balance windows by crossing day-of-week with calendar month.",
+        "args": [
+          "frame"
+        ]
+      }
+    ]
+  },
+  "experiments/daily/__init__.py": {
+    "module": "daily",
+    "classes": [],
+    "functions": []
+  },
+  "experiments/daily/config.py": {
+    "module": "daily.config",
+    "classes": [
+      {
+        "name": "DailyDesign",
+        "lineno": 9,
+        "doc": "Configuration defaults for a replicated daily experiment."
+      }
+    ],
+    "functions": []
+  },
+  "experiments/synthetic_oneway/run.py": {
+    "module": "synthetic_oneway.run",
+    "classes": [],
+    "functions": [
+      {
+        "name": "load_config",
+        "lineno": 69,
+        "doc": "Load experiment configuration from YAML, falling back to defaults.",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "ensure_dir",
+        "lineno": 83,
+        "doc": "Create ``path`` and parents if they do not yet exist.",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "simulate_panel",
+        "lineno": 89,
+        "doc": "Simulate a balanced MANOVA panel with a single spike.",
+        "args": [
+          "rng"
+        ]
+      },
+      {
+        "name": "simulate_multi_spike",
+        "lineno": 130,
+        "doc": "Simulate a panel with multiple planted spikes.",
+        "args": [
+          "rng"
+        ]
+      },
+      {
+        "name": "mp_upper_edge",
+        "lineno": 170,
+        "doc": "Return the Mar\u010denko\u2013Pastur upper edge for the supplied regime.",
+        "args": [
+          "noise_variance",
+          "n_assets",
+          "n_groups"
+        ]
+      },
+      {
+        "name": "histogram_s1",
+        "lineno": 177,
+        "doc": "Save the S1 histogram visualising the empirical spectrum.",
+        "args": [
+          "eigenvalues",
+          "edge",
+          "out_dir"
+        ]
+      },
+      {
+        "name": "bias_table_s3",
+        "lineno": 197,
+        "doc": "Persist the S3 bias summary to disk.",
+        "args": [
+          "df",
+          "out_dir"
+        ]
+      },
+      {
+        "name": "s2_vector_alignment",
+        "lineno": 203,
+        "doc": "Evaluate alignment between the leading eigvector and the planted spike.",
+        "args": [
+          "config",
+          "rng"
+        ]
+      },
+      {
+        "name": "summary_to_json",
+        "lineno": 252,
+        "doc": "Write a JSON summary of the synthetic experiments.",
+        "args": [
+          "summary",
+          "out_dir"
+        ]
+      },
+      {
+        "name": "s1_monte_carlo",
+        "lineno": 259,
+        "doc": "Run the S1 Monte Carlo sweep and return summary statistics.",
+        "args": [
+          "config",
+          "rng"
+        ]
+      },
+      {
+        "name": "s3_bias",
+        "lineno": 295,
+        "doc": "Evaluate aliased versus de-aliased bias across spike strengths.",
+        "args": [
+          "config",
+          "rng"
+        ]
+      },
+      {
+        "name": "s4_guardrail_analysis",
+        "lineno": 373,
+        "doc": "Compare false-positive rates under default versus lax guardrails.",
+        "args": [
+          "config",
+          "rng"
+        ]
+      },
+      {
+        "name": "s5_multi_spike_bias",
+        "lineno": 489,
+        "doc": "Assess bias reduction in a multi-spike setting.",
+        "args": [
+          "config",
+          "rng"
+        ]
+      },
+      {
+        "name": "plot_bias_timeseries",
+        "lineno": 695,
+        "doc": "Plot a diagnostic bias timeseries for an individual spike size.",
+        "args": [
+          "prefixes",
+          "aliased",
+          "dealiased",
+          "spike",
+          "output_dir"
+        ]
+      },
+      {
+        "name": "run_experiment",
+        "lineno": 716,
+        "doc": "Execute the S1/S3 synthetic experiments.",
+        "args": [
+          "config_path"
+        ]
+      },
+      {
+        "name": "main",
+        "lineno": 764,
+        "doc": "Entry point for CLI execution.",
+        "args": []
+      }
+    ]
+  },
+  "experiments/synthetic_oneway/__init__.py": {
+    "module": "synthetic_oneway",
+    "classes": [],
+    "functions": []
+  },
+  "scripts/bench_linalg.py": {
+    "module": "bench_linalg",
+    "classes": [],
+    "functions": [
+      {
+        "name": "parse_args",
+        "lineno": 25,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      },
+      {
+        "name": "_configure_threads",
+        "lineno": 50,
+        "doc": "",
+        "args": [
+          "threads"
+        ]
+      },
+      {
+        "name": "_detect_instance_type",
+        "lineno": 68,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "_blas_info",
+        "lineno": 80,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "_bench_dimension",
+        "lineno": 93,
+        "doc": "",
+        "args": [
+          "dim",
+          "repeats",
+          "rng"
+        ]
+      },
+      {
+        "name": "main",
+        "lineno": 112,
+        "doc": "",
+        "args": [
+          "argv"
+        ]
+      },
+      {
+        "name": "_git_sha",
+        "lineno": 157,
+        "doc": "",
+        "args": []
+      }
+    ]
+  },
+  "scripts/manual/merge_calibration_thresholds.py": {
+    "module": "manual.merge_calibration_thresholds",
+    "classes": [],
+    "functions": [
+      {
+        "name": "parse_args",
+        "lineno": 21,
+        "doc": "",
+        "args": []
+      },
+      {
+        "name": "_load_json",
+        "lineno": 45,
+        "doc": "",
+        "args": [
+          "path"
+        ]
+      },
+      {
+        "name": "_sorted_unique",
+        "lineno": 52,
+        "doc": "",
+        "args": [
+          "values"
+        ]
+      },
+      {
+        "name": "main",
+        "lineno": 56,
+        "doc": "",
+        "args": []
+      }
+    ]
+  }
+}

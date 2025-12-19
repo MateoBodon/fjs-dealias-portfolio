@@ -1,16 +1,18 @@
+---
+generated: 2025-12-19T21:04:10+01:00
+git_sha: ce4c1b224c43028bb5388efdebbe0e8eb52e6c61
+git_branch: chore/project_state_refresh
+commands:
+  - python3 tools/generate_project_state.py (latest run excludes heavy caches/outputs)
+  - python3 - <<'PY' (emit project_state docs and indexes)
+---
+
 # Known Issues / Limitations
 
-- **Nested coverage fragile**: Guardrails (isolation, stability_eta, off-component cap) can zero out nested detections; nested RC not present in latest drop. Needs re-tuning.
-- **Nested smoke still 0% after relax**: Even with relaxed delta_frac/eta and non-isolated fallback, nested smoke runs (p≈188, T≈60–80) record 0 acceptances; calibrated delta entries now added for these (p, T) pairs but detection remains 0. Additional diagnostics now logged (nested_years/weeks, prep events), but gating/detection logic needs further tuning.
-- **Crisis degradation**: Crisis 2020 runs show overlay worse than shrinkage (ΔMSE > 0, significant DM p-values); current gating may be too permissive during stress regimes.
-- **Ablation grid timing out**: `config.ablation.smoke.yaml` often fails to finish; gallery shows placeholder ablation section.
-- **PSD clipping hides problems**: Overlay covariance enforces PSD by clipping negative eigenvalues/ridge; may mask unstable detections instead of surfacing warnings.
-- **Cache staleness risk**: Window cache keys exclude report/evaluation code; cached stats may become inconsistent after logic changes unless cache dir cleared.
-- **Optional dependencies**: `cvxpy` required for exact min-var; absence now raises `MissingSolverError` unless an explicit skip flag is set (see CONFIG_REFERENCE). `matplotlib` optional; plots are skipped when missing.
-- **Registry hash tolerance**: `data.registry.assert_registered_dataset` allows drift for `data/returns_daily.csv` in canonical repo; could hide accidental data changes if not checked.
-- **Unimplemented functions**: `balanced.compute_balanced_weights` and `evaluation.marchenko_pastur_edges/pdf` are stubs; calling them raises NotImplementedError.
-- **Threading variability**: EXEC_MODE throughput increases BLAS threads; non-deterministic ordering may affect marginal stats.
-- **Nested synthetic kill-test blows FPR**: Synthetic nested harness (p≈200, weeks 6–8, reps=5) shows FPR≈1.0 under null—overlay accepts every window even with calibrated delta_frac and delta=0.35—so nested gating is currently unsafe.
-- **rc-lite-sanity kill failures**: Latest rc-lite-sanity (2025-12-09 stamp) fails kill criteria because ΔMSE>0 while percent_changed≈100%; DM stats empty. Summary_sanity now explicitly flags DoW + vol overlay_effect = harmful.
-- **Weekly gating diagnostics (Dec 2025) expose guardrail “other”**: DoW smoke with diagnostics (outputs_smoke_ticket07_20251219_173231) now accepts 3/4 windows with one `no_isolated_spike`, but `guard_other` accumulates 1148 counts; synthetic micro smoke shows `diagnostic_failure` skip_reason on all windows. Need to trace `diag_local["other"]` / diagnostic_failure paths and surface precise reasons. Nested weekly remains 0/10 (rc-lite-sanity 20251209_001356), still dominated by `no_isolated_spike` + calibration gaps.
-- **Partial RC dir**: `reports/rc-20251208/` contains only resolved_config/prewhiten files; run appears incomplete yet is indistinguishable from a completed RC in discovery scripts. **Fixed 2025-12-19** via completeness checks in `tools/make_summary.py` / `tools/summarize_rc_sanity.py`; rc-lite-sanity 20251219 run logs completeness metadata and flags missing sections.
+- **Nested coverage still near zero** — Even with relaxed guardrails, nested smoke/rc-lite-sanity runs accept nothing; nested kill-test shows high FPR. Needs re-tuning before relying on nested designs.
+- **Guardrail attribution unclear** — `guard_other` and `diagnostic_failure` dominate recent weekly diagnostics (ticket-07); root causes not yet traced, so gating decisions may be hiding actionable failures.
+- **Crisis degradation risk** — Crisis 2020/2022 configs have shown harmful overlay in past runs; keep gates strict and validate completeness before using crisis outputs.
+- **Vol-state acceptance low** — Vol-state design remains below target detection/acceptance (≈0–0.7% in recent runs) despite prewhitening tweaks.
+- **Cache staleness** — `.cache/` keys do not encode reporting/evaluation code; invalidate caches when changing summary logic or gating defaults.
+- **Optional dependencies** — `cvxpy` is required for MV optimisation; absence now raises `MissingSolverError` unless `mv_skip_on_missing_solver` is set (skip produces flagged empty weights). Matplotlib is optional; plots are skipped when missing.
+- **Large outputs** — Historical outputs in `experiments/equity_panel/outputs_*` and `reports/` can be heavy; avoid deleting or overwriting, create new timestamped dirs instead.

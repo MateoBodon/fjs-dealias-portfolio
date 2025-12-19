@@ -1,35 +1,32 @@
+---
+generated: 2025-12-19T21:04:10+01:00
+git_sha: ce4c1b224c43028bb5388efdebbe0e8eb52e6c61
+git_branch: chore/project_state_refresh
+commands:
+  - python3 tools/generate_project_state.py (latest run excludes heavy caches/outputs)
+  - python3 - <<'PY' (emit project_state docs and indexes)
+---
+
 # Dataflow
 
-## Directories & artifacts
-- `data/returns_daily.csv` — WRDS CRSP daily returns (registry hash `96ac7d…3197`).
-- `data/factors/ff5mom_daily.csv` — FF5+MOM factors (registry hash `469d…908ca`); registry `data/factors/registry.json`.
-- `data/prices_daily.csv`, `data/prices_sample.csv` — price inputs; `data/returns_balanced_weekly.parquet` cached balanced panel; `data/meta/universe_2016_2024.json` universe metadata.
-- `data/wrds/` — raw WRDS parquet exports (ignored) incl. DoW/vol labels.
-- `experiments/equity_panel/outputs*` — Weekly smoke/crisis/nested/ablation/rc-lite-sanity artifacts (rolling_results, detection_summary, metrics_summary, E1–E4 plots, manifests, run_meta).
-- `reports/rc-YYYYMMDD*/` — RC drops and rc-lite-sanity: metrics/risk/dm/diagnostics CSVs, resolved_config, regime.csv, summary/kill_criteria, memo/brief copies.
-- `figures/rc/`, `reports/figures/` — Gallery plots, ROC curves, ablation heatmaps, inject-spike/sensitivity figures.
-- `reports/synthetic/` — Null/power score tables and calibration outputs.
-- `ablations/` — Ablation tables (CSV) from ablate runner.
-- Caches: `.cache/mp_edges` (MP cache), `.cache/rc-lite` (rc-lite-sanity weekly cache), general `.cache/` for window payloads.
-
-## Inputs & expectations
-- Returns CSVs: tidy (`date,ticker,ret`) or wide; loaders validate registries and drop duplicates.
-- Factor CSVs: columns `MKT,SMB,HML,RMW,CMA,MOM`; fall back to market proxy if absent.
-- Balanced panels: Week×Day cubes with equal replicates; partial-week policy `drop` (default) or `impute`.
-- Grouping metadata: DoW/vol labels computed in `experiments.daily.grouping` or derived from CRSP label files.
-
-## Transformations
-1) **Preprocess**: optional winsorize/huber clip; drop/impute partial weeks; intersect tickers; enforce minimum history.
-2) **Prewhiten**: regress returns on factors (FF5/MOM/custom) → residuals, betas, R² telemetry; factor columns normalized to decimals.
-3) **Balance**: `data.panels.build_balanced_weekday_panel` (weekly) or `eval.balance.build_balanced_window` (daily) enforce replicates/universe; manifests store hashes and flags.
-4) **Mean squares**: compute MS1/MS2 (/MS3 nested) and Σ̂ components; Cs plug-ins estimated with top-eigen trimming.
-5) **Detection**: per window, derive MP edge (SCM/Tyler/Huber); apply δ/δ_frac buffer, t-vector isolation, stability perturbations, off-component leak caps; optional calibrated δ_frac lookup (edge_mode × p×t).
-6) **Overlay**: substitute de-aliased spikes into baseline covariance (RIE/LW/OAS/CC/factor/POET/Tyler) with q_max/gate; PSD safeguards.
-7) **Evaluation**: portfolio forecasts (EW, min-var box/LO), realised risk, ΔMSE/QLIKE, VaR/ES coverage, DM/sign tests, alignment diagnostics, flip-set DM.
-8) **Aggregation**: rolling_results + detection_summary → metrics_summary/summary.json; daily eval writes regime CSVs + plots; rc-lite-sanity adds kill_criteria/limitations; gallery/memo/brief pull from these artifacts.
-
-## Environment / path assumptions
-- `EXEC_MODE` (deterministic/throughput) sets BLAS/OpenMP caps via `meta.runtime`.
-- MP cache path via `MP_CACHE_DIR`/`MP_EDGE_CACHE_DIR`; unset uses in-memory cache only.
-- Registries must be current; refresh with `tools/update_registry.py` / `verify_dataset.py` after data changes.
-- WRDS credentials external (`.pgpass`, env vars); `scripts/secrets/setup_wrds_keychain.sh` assists. Avoid logging SQL/creds.
+- **Inputs (registries enforced)**
+  - Returns: `data/returns_daily.csv` (sha256 `96ac7dd3…3197`, 300 cols, 2010-01-05→2024-12-31) registered in `data/registry.json`.
+  - Factors: `data/factors/ff5mom_daily.csv` (sha256 `469d44ad…908ca`, MKT/SMB/HML/RMW/CMA/MOM/RF, 2005-01-03→2025-08-29) in `data/factors/registry.json`.
+  - Verification: `python tools/verify_dataset.py data/returns_daily.csv --registry data/registry.json` (same for factors) is wired into `make rc*` targets.
+- **Preprocessing**
+  - Balancing: `eval.balance.build_balanced_window` aligns panels; partial-week handling via CLI (`--drop-partial-weeks` default, `--impute-partial-weeks` optional).
+  - Prewhitening: `experiments/prewhiten.py` and `experiments/eval/run.py` apply factor regression; factor fallbacks defined in `experiments/prewhiten.py` and `experiments/eval/config.py`.
+  - Caching: `.cache/rc-lite` and `.cache/mp_edges` store balanced panels and MP edge grids; cache keys include design/estimator/preprocessing flags.
+- **Calibration artefacts**
+  - `calibration/defaults.json` (energy-floor, thresholds) and `calibration/edge_delta_thresholds.json` produced by `make calibrate-thresholds`.
+  - Synthetic outputs: `reports/synthetic/{null_harness,power_harness}/`, `reports/figures/roc_null.png`, `reports/figures/roc_power.png`.
+- **Experiment outputs**
+  - Daily eval: `reports/rc-YYYYMMDD*/` (rc/rc-lite/rc-lite-sanity) containing `metrics_summary.csv`, `diagnostics*.csv`, DM tables, plots, `resolved_config.json`, `run.json`.
+  - Weekly panels: `experiments/equity_panel/outputs_*` per design/estimator, each with `config_resolved.yaml`, `detection_summary.csv`, spectra/VaR plots, gating diagnostics; avoid overwriting historical outputs.
+  - Crisis/sweep artefacts: `reports/rc-20251121/`, `reports/rc-20251113/`, etc. Only sample or read metadata; do not delete.
+- **Reporting**
+  - Summaries in `reports/rc-YYYYMMDD/summary*.{json,csv,md}`; galleries under `figures/rc/YYYYMMDD/`; memos/briefs in `reports/` with timestamped copies.
+- **Logs & manifests**
+  - Each run writes `resolved_config.json`/`run.json` (eval) or `config_resolved.yaml`/`run_meta.json` (equity_panel). Completeness checks in `meta/completeness.py` guard summaries.
+- **Exclusions**
+  - Do not modify `data/wrds/` mounts or raw WRDS exports. Large dirs (`reports/`, `data/`, `experiments/equity_panel/outputs_*`) were not parsed deeply for this rebuild; rely on manifests.

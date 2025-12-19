@@ -1,3 +1,10 @@
+## 2025-12-19T20:16Z — project_state rebuild (doc-only @ ce4c1b2)
+- **Branch/Run**: `chore/project_state_refresh` (RUN_NAME=`20251219_210410_project_state_rebuild`), git sha `ce4c1b224c43028bb5388efdebbe0e8eb52e6c61`.
+- **Commands**: `python3 tools/generate_project_state.py` (post-fix rerun to clean make_targets), small Python emitters for FUNCTION_INDEX/DEPENDENCY_GRAPH + markdown rewrites, `zip -r docs/gpt_bundles/project_state_20251219_211602_ce4c1b2.zip ...`.
+- **Changes**: Added `tools/generate_project_state.py`; regenerated `project_state/_generated/{repo_inventory,import_graph,symbol_index,make_targets}.json/txt`; rewrote all project_state markdowns with metadata headers and refreshed CURRENT_RESULTS/KNOWN_ISSUES/ROADMAP for tickets 05/07/08.
+- **Tests**: Not run (documentation-only).
+- **Artifacts**: `docs/gpt_bundles/project_state_20251219_211732_ce4c1b2.zip`; run log `docs/agent_runs/20251219_210410_project_state_rebuild/`.
+
 ## 2025-12-19T20:25Z — MV solver missing-proof (ticket-08 @ a4451969)
 - **Branch/Run**: `codex/ticket-08-solver-missing-proof` (RUN_NAME=`20251219_202301_ticket-08_solver-missing-proof`), git sha `a44519691f94010993176f74949485f68b9a44f0`.
 - **Commands**:

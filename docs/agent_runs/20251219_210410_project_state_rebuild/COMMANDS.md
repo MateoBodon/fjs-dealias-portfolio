@@ -1,0 +1,16 @@
+Commands run (chronological):
+- git status -sb
+- git rev-parse HEAD
+- git checkout -b chore/project_state_refresh
+- date -Iseconds
+- python3 --version
+- python3 tools/generate_project_state.py
+- python3 tools/generate_project_state.py  # after make_targets fix
+- date -Iseconds
+- python3 - <<'PY' ...  # generate FUNCTION_INDEX.md
+- python3 - <<'PY' ...  # generate DEPENDENCY_GRAPH.md
+- python3 - <<'PY' ...  # write project_state markdown docs
+- head/sed/find/ripgrep for inspection (read-only)
+- zip -r docs/gpt_bundles/project_state_20251219_211602_ce4c1b2.zip project_state PROGRESS.md docs/PLAN_OF_RECORD.md docs/DOCS_AND_LOGGING_SYSTEM.md docs/CODEX_SPRINT_TICKETS.md
+- python3 tools/generate_project_state.py  # rerun after inventory exclusions
+- zip -r docs/gpt_bundles/project_state_20251219_211732_ce4c1b2.zip project_state PROGRESS.md docs/PLAN_OF_RECORD.md docs/DOCS_AND_LOGGING_SYSTEM.md docs/CODEX_SPRINT_TICKETS.md

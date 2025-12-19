@@ -1,11 +1,18 @@
-# Style Guide (observed + recommended)
+---
+generated: 2025-12-19T21:04:10+01:00
+git_sha: ce4c1b224c43028bb5388efdebbe0e8eb52e6c61
+git_branch: chore/project_state_refresh
+commands:
+  - python3 tools/generate_project_state.py (latest run excludes heavy caches/outputs)
+  - python3 - <<'PY' (emit project_state docs and indexes)
+---
 
-- **Language**: Python 3.11+; type hints on public functions; prefer short, composable helpers over dense one-liners.
-- **Formatting/Lint**: `ruff` + `black` + `mypy`; abide by `pytest.ini` markers; `_`-prefixed helpers for internal use; avoid non-ASCII unless already present.
-- **Numerical care**: symmetrise covariance matrices (`0.5*(A+A.T)`), clip eigenvalues, guard against NaNs/inf, use `np.asarray(..., dtype=np.float64)`, ridge when needed.
-- **Config handling**: deep-merge YAML/JSON/CLI (`experiments.eval.config`), validate inputs early with clear errors, prefer deterministic seeds.
-- **Logging/telemetry**: record run metadata (`run_meta.json`), cache keys include code signature; avoid printing data/credentials; keep console output concise.
-- **Plotting**: use `matplotlib.use("Agg")` in non-interactive contexts; create parent dirs before saving; close figures promptly.
-- **Testing expectations**: run `make test-fast` before commits; mark heavier tests with `slow`/`heavy` to keep CI lean.
-- **Git/branching**: feature branches `codex/<task>`; commits prefixed `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `perf:` per AGENTS.
-- **Documentation**: update PROGRESS.md after RC/calibration; keep memos/briefs reproducible; prefer apply_patch for edits; treat `Long_Term_Plan.md` and `project_state/` as sources of truth when adding new experiments.
+# Style Guide
+
+- **Formatting** — Black (line length 88) + Ruff; run `make fmt` before commits. Type hints preferred on public functions; Python ≥3.11 features allowed.
+- **Imports** — Prefer absolute `src.`/package imports over deep relatives; keep experiment scripts thin and delegate to `src/` modules.
+- **Configs** — Avoid hard-coding experiment parameters inside `src/`; prefer YAML in `experiments/**/config*.yaml` and CLI flags. Log resolved configs (`resolved_config.json` / `config_resolved.yaml`).
+- **Data handling** — Never commit WRDS/raw data. Use `tools/verify_dataset.py` and registries to validate hashes. Write new outputs to timestamped directories; do not delete prior RC drops.
+- **Logging** — Ensure runs emit `run.json`/`resolved_config.*` and completeness metadata. For new guardrails, add diagnostics columns rather than silent skips.
+- **Docs** — Keep `project_state/` concise, path-centric, and dated. When adding public knobs, update `CONFIG_REFERENCE.md` + PROGRESS entry.
+- **Tests** — Prefer `make test-fast` before commits. When changing detection/overlay or evaluation logic, add targeted tests (smoke + edge cases) and note markers.

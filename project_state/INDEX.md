@@ -1,23 +1,30 @@
+---
+generated: 2025-12-19T21:04:10+01:00
+git_sha: ce4c1b224c43028bb5388efdebbe0e8eb52e6c61
+git_branch: chore/project_state_refresh
+commands:
+  - python3 tools/generate_project_state.py (latest run excludes heavy caches/outputs)
+  - python3 - <<'PY' (emit project_state docs and indexes)
+---
+
 # Project State Index
 
-Last refreshed: 2025-12-17 (Codex sweep)
-
-This directory is the knowledge spine of the repo. Each file below is a stable entry point for newcomers and agents; update them incrementally rather than rewriting from scratch.
-
-- `ARCHITECTURE.md` — High-level purpose, directory map, major components, and data/control flow.
-- `MODULE_SUMMARIES.md` — Per-module descriptions with key classes/functions and algorithm notes.
-- `FUNCTION_INDEX.md` — Table of important public functions/classes with signatures, returns, and dependencies.
-- `DEPENDENCY_GRAPH.md` — Textual import graph; highlights high-fan-out modules and coupling risks.
-- `PIPELINE_FLOW.md` — End-to-end pipelines (rc/rc-lite/rc-lite-sanity, synthetic, ablations, reporting) with entry commands and outputs.
-- `DATAFLOW.md` — Data locations (raw/processed/synthetic), expected formats, caches, and path/env assumptions.
-- `EXPERIMENTS.md` — Catalog of experiment types, configs, metrics, and where outputs land.
-- `CURRENT_RESULTS.md` — Snapshot of latest metrics/runs, with gaps/recency flags.
-- `RESEARCH_NOTES.md` — Theory ↔ implementation bridge, notation map, and conceptual caveats.
-- `OPEN_QUESTIONS.md` — Unresolved design/analysis questions to investigate next.
-- `KNOWN_ISSUES.md` — Bugs/limitations/perf and stability concerns.
-- `ROADMAP.md` — Short/medium/long-term priorities and sequencing dependencies.
-- `CONFIG_REFERENCE.md` — Key config files/flags/env vars with meanings and defaults.
-- `SERVER_ENVIRONMENT.md` — Runtime expectations (Python/dep stack, hardware, thread caps, data mounts).
-- `TEST_COVERAGE.md` — Test suite scope, markers, notable gaps, and how to run.
-- `STYLE_GUIDE.md` — Observed/recommended coding + documentation conventions.
-- `CHANGELOG.md` — Dated change log for code/doc/experiment structure updates.
+How to read this folder without repo access:
+- **ARCHITECTURE.md** — system overview, layers, and main entrypoints.
+- **MODULE_SUMMARIES.md** — what each top-level package does.
+- **FUNCTION_INDEX.md** — AST-derived list of public classes/functions (with line numbers).
+- **DEPENDENCY_GRAPH.md** — internal import fan-in/fan-out snapshot.
+- **PIPELINE_FLOW.md** — execution paths for RC/RC-lite/synthetic/reporting.
+- **DATAFLOW.md** — datasets, registries, caches, and IO contracts.
+- **EXPERIMENTS.md** — configs/targets and expected outputs.
+- **CURRENT_RESULTS.md** — latest validated runs and metrics.
+- **RESEARCH_NOTES.md** — interpretations + context from recent work.
+- **OPEN_QUESTIONS.md** — decisions/analyses still pending.
+- **KNOWN_ISSUES.md** — bugs, limitations, and safety guardrails.
+- **ROADMAP.md** — near- and mid-term milestones tied to LONG_TERM_PLAN.
+- **CONFIG_REFERENCE.md** — CLI flags, env vars, YAML keys.
+- **SERVER_ENVIRONMENT.md** — runtime/dependency expectations.
+- **TEST_COVERAGE.md** — test surface + gaps.
+- **STYLE_GUIDE.md** — coding/doc conventions.
+- **CHANGELOG.md** — doc-only changes to `project_state/`.
+- `_generated/` — machine outputs (do not edit): `repo_inventory.json`, `symbol_index.json`, `import_graph.json`, `make_targets.txt`.

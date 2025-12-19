@@ -1,52 +1,27 @@
-# Experiments
+---
+generated: 2025-12-19T21:04:10+01:00
+git_sha: ce4c1b224c43028bb5388efdebbe0e8eb52e6c61
+git_branch: chore/project_state_refresh
+commands:
+  - python3 tools/generate_project_state.py (latest run excludes heavy caches/outputs)
+  - python3 - <<'PY' (emit project_state docs and indexes)
+---
 
-## rc-lite-sanity (daily + weekly)
-- **Script/Target**: `make rc-lite-sanity` (wraps `experiments/eval/run.py` twice + two weekly smoke runs).
-- **Configs**: Makefile env knobs (RC_DOW_GROUP_MIN/REPS, RC_VOL_GROUP_MIN/REPS, RC_GATE_DELTA_FRAC_MIN{_VOL}, RC_Q_MAX, RC_VOL alignment, assets_top=50, window=60, horizon=10).
-- **Purpose**: Fast health check combining daily DoW + vol-state eval (2023H1 slice) and weekly DoW/nested smoke windows.
-- **Outputs**: `reports/rc-<date>-sanity-<stamp>/` (metrics/risk/dm/diagnostics, delta_mse.png, flip_dm.png, kill_criteria.json, limitations.md, regime.csv) and `experiments/equity_panel/outputs_rc-lite-<date>_<stamp>/` (weekly smoke artifacts).
+# Experiments & Configs
 
-## Daily Overlay Evaluation
-- **Script**: `experiments/eval/run.py` (Make targets: `rc-dow`, `rc-vol`, `rc-week`, `rc-dowxvol`, `rc-lite`, `rc-lite-sanity`).
-- **Configs**: `experiments/eval/config.yaml`, `experiments/eval/thresholds.json`, CLI flags (`--group-design`, `--window`, `--horizon`, `--assets-top`, `--edge-mode`, `--shrinker`, `--gate-mode`, `--gate-delta-frac-min/max`, `--q-max`, `--q2-alignment-min-cos`, `--overlay-delta`, `--coarse-candidate`, `--prewhiten`, `--use-factor-prewhiten`, `--factors-csv`).
-- **Purpose**: Rolling daily overlay eval by design (week/DoW/vol/dow_month/dowxvol), producing ΔMSE/QLIKE, VaR/ES, DM/sign tests, flip-set diagnostics.
-- **Outputs**: Per-regime CSVs (metrics, risk, dm, diagnostics, diagnostics_detail), plots (delta_mse, flip_dm, histograms), resolved_config.json, prewhiten_diagnostics under `reports/rc-YYYYMMDD/<design-edge>/` or custom out_dir.
-
-## Weekly Equity Panel (MANOVA)
-- **Script**: `experiments/equity_panel/run.py` (Make targets: `rc-lite`, `rc`, `rc-lite-sanity` weekly component, `rc-data`, `rc-ablations`).
-- **Configs**: `config.smoke.yaml`, `config.nested.smoke.yaml`, `config.crisis.*.yaml`, `config.rc.yaml`, `config.gallery.yaml`, `config.ablation.smoke.yaml`.
-- **Purpose**: Weekly MANOVA detection on balanced panels (oneway/DoW/vol/nested) with overlay on shrinkage/factor baselines; produces E1–E4 plots, metrics_summary, detection diagnostics.
-- **Outputs**: Run directories under `experiments/equity_panel/outputs*` or `reports/rc-YYYYMMDD/` containing rolling_results.csv, detection_summary.csv, diagnostics*.csv, metrics_summary.csv, summary.json, run_meta.json, E1–E4 figures, panel manifest.
-
-## Synthetic Calibration / ROC
-- **Scripts**: `experiments/synthetic/null.py`, `experiments/synthetic/power.py`, `experiments/synthetic/calibrate_thresholds.py`, `experiments/synthetic/power_null.py`.
-- **Configs/CLI**: grids over `--delta-abs-grid`, `--delta-frac-grid`, `--stability-grid`, `--energy-floor-grid`, `--edge-modes`, `--p-assets`, `--n-groups`, `--replicates`, `--trials-null/alt`; sharding via `tools/shard_grid.py`; reduction via `tools/reduce_calibration.py`.
-- **Purpose**: Calibrate δ/η/energy thresholds for MP edge gating; produce ROC curves and defaults JSON.
-- **Outputs**: Score tables (`reports/synthetic/null_harness`, `power_harness`), ROC figures under `reports/figures/`, `calibration_defaults.json`, `calibration/edge_delta_thresholds.json`.
-
-## Nested Synthetic Kill-test
-- **Script**: `experiments/synthetic/nested_killtest.py`.
-- **Config**: `experiments/synthetic/config.nested.killtest.yaml` (p≈200, years=2, weeks 6–8, reps=5, delta=0.35, delta_frac_min configurable, tyler/huber edge, calibrated lookup).
-- **Purpose**: Stress-test nested gating (FPR/Power + skip reasons) on year⊃week structure matched to weekly smoke windows.
-- **Outputs**: `reports/synthetic_nested_killtest/{nested_killtest_trials.csv,summary.csv,summary.md,run.json}`.
-
-## Synthetic Benchmarks (one-way)
-- **Script**: `experiments/synthetic_oneway/run.py` (Make: `run-synth`).
-- **Configs**: YAML at `experiments/synthetic_oneway/config.yaml` (S1/S3/S4/S5 knobs).
-- **Purpose**: Bias/recall/guardrail analysis for S1/S3/S4/S5 scenarios; optional multi-spike simulation.
-- **Outputs**: `figures/synthetic/`, `experiments/synthetic_oneway/summary.json`.
-
-## Ablation Grid
-- **Script**: `experiments/ablate/run.py` (Make: `rc-ablations`).
-- **Configs**: `experiments/ablate/ablation_matrix_tiny.yaml` (tiny grid), `ablation_matrix.yaml`.
-- **Purpose**: Sweep overlay hyperparams (delta, eps, eta, q_max, gate mode) on selected slices; supports calm/crisis sampling.
-- **Outputs**: `ablations/ablation_matrix.csv`, `experiments/equity_panel/outputs_ablation_smoke/ablation_summary.csv`, heatmaps in gallery.
-
-## Sensitivity / Spike injection
-- **Scripts**: `experiments/eval/sensitivity.py` (gate/δ/η grids); `experiments/eval/inject_spike.py` (μ-injection recall/FP).
-- **Outputs**: `reports/rc-sensitivity/*` heatmaps/tables; `reports/figures/inject_*` plots + manifest.
-
-## ETF Demo
-- **Script**: `experiments/etf_panel/run.py`.
-- **Purpose**: ETF country/sector demo using daily eval harness; writes overlay_toggle markdown.
-- **Outputs**: Similar diagnostics/plots as daily eval under specified `out` dir.
+- **Equity panel (weekly designs)** — `experiments/equity_panel/run.py`
+  - Configs: `config.yaml` (full RC), `config.rc.yaml` (gallery/memo), `config.smoke.yaml` (fast smoke), `config.nested.smoke.yaml`, `config.ablation.smoke.yaml`, `config.gallery.yaml`, crisis presets (`config.crisis.2020.yaml`, `config.crisis.2022.yaml`, `config.nested.crisis.2020.yaml`).
+  - CLI overrides: design (`dow`/`vol`/`nested`/`oneway`), estimator (`dealias`, `lw`, `oas`, `cc`, `factor`, `tyler_shrink`), edge-mode (`scm`/`tyler`/`huber`), gating (`--gating-mode`, `--gating-calibration`, `--gating-diagnostics`), prewhiten/factors, minvar controls (`--minvar-ridge`, `--minvar-box`, `--minvar-condition-cap`, `--turnover-cost`), crisis window, cache/resume flags, ablation switches.
+  - Outputs: detection summaries, spectra/variance/VaR plots, gating diagnostics, `config_resolved.yaml`, `panel_manifest.json`, cached per-window stats in `.cache/` when resume/precompute enabled.
+- **Daily evaluation (rc/rc-lite/rc-lite-sanity)** — `experiments/eval/run.py`
+  - Config defaults in `experiments/eval/config.yaml` + thresholds `thresholds.json`; CLI merges via `experiments/eval/config.py`.
+  - Key knobs: group design (`dow`, `vol`, `week`, `dowxvol`), overlay (`overlay_delta`, `overlay_delta_frac`, `q_max`, `gate_mode`, `gate_delta_frac_min/max`, `gate_stability_min`, `gate_accept_nonisolated`, `coarse_candidate`), edge (`edge_mode`), MV (`mv_gamma`, `mv_tau`, `mv_box_lo/hi`, `mv_turnover_bps`, `mv_condition_cap`, `mv_solver {projgrad,cvxpy}`, `mv_skip_on_missing_solver`, `mv_solver_name`), prewhitening (`prewhiten`, `use_factor_prewhiten`), isolation (`require_isolated`, `q2_alignment_min_cos`), bootstrap samples.
+  - Typical commands: `make rc-dow`, `make rc-vol`, `make rc-week`, `make rc-dowxvol`, or manual `python -m experiments.eval.run --returns-csv data/returns_daily.csv --group-design dow --window 126 --horizon 21 --out reports/rc-<date>/dow-tyler ...`.
+- **Synthetic harness** — `experiments/synthetic/null.py`, `power.py`, `power_null.py`, `nested_killtest.py`, `calibrate_thresholds.py`.
+  - Use `HARNESS_TRIALS` and `EXEC_MODE` envs; configs for nested kill-test in `config.nested.killtest.yaml`.
+  - Outputs live in `reports/synthetic/` + `reports/figures/`; calibration JSONs in `calibration/`.
+- **Ablations** — `experiments/ablate/run.py` with `ablation_matrix.yaml` or `ablation_matrix_tiny.yaml`; `make rc-ablations` runs after rc/rc-lite to summarise ablation outputs in `experiments/equity_panel/outputs_ablation_*`.
+- **Prewhitening / ETF / daily smoke**
+  - `experiments/prewhiten.py` (standalone prewhitening), `experiments/etf_panel/run.py` (ETF demo), `experiments/daily/run.py` (quick DoW/vol smoke via Make `smoke-daily`).
+- **Synthetic-oneway demo** — `experiments/synthetic_oneway/run.py` for S1/S3/S4/S5 figures; invoked by `make figures`.
+- **Outputs to avoid overwriting** — keep `reports/rc-YYYYMMDD/`, `experiments/equity_panel/outputs_*`, `reports/rc-sensitivity/`, `reports/aws/` immutable; create new timestamped dirs for reruns.

@@ -1,0 +1,478 @@
+{
+  "pairing": [],
+  "synthetic.threshold_eval": [
+    "fjs.balanced",
+    "fjs.dealias"
+  ],
+  "synthetic": [
+    "experiments.synthetic.harness_utils"
+  ],
+  "synthetic.calibration": [
+    "fjs.balanced",
+    "synthetic.threshold_eval"
+  ],
+  "eval.clean": [],
+  "eval": [],
+  "eval.balance": [],
+  "evaluation.evaluate": [
+    "evaluation.dm"
+  ],
+  "evaluation.factor": [
+    "finance.factors"
+  ],
+  "evaluation.dm": [],
+  "evaluation": [],
+  "report.gather": [],
+  "report.plots": [],
+  "report": [],
+  "report.tables": [],
+  "io.wrds_connect": [
+    "utils.credentials"
+  ],
+  "io.crsp_daily": [],
+  "baselines.factors": [],
+  "baselines": [],
+  "baselines.covariance": [
+    "finance.ledoit",
+    "finance.shrinkage"
+  ],
+  "meta.run_meta": [],
+  "meta.cache": [],
+  "meta.completeness": [],
+  "meta.runtime": [],
+  "finance.loader": [
+    "finance.io"
+  ],
+  "finance.portfolios": [],
+  "finance.factors": [],
+  "finance.design": [],
+  "finance": [
+    "eval",
+    "io"
+  ],
+  "finance.shrinkage": [],
+  "finance.eval": [
+    "evaluation.factor",
+    "finance.factors",
+    "finance.ledoit",
+    "finance.robust",
+    "finance.shrinkage",
+    "fjs.balanced",
+    "fjs.dealias"
+  ],
+  "finance.io": [],
+  "finance.portfolio": [],
+  "finance.ledoit": [
+    "finance.shrinkage"
+  ],
+  "finance.returns": [],
+  "finance.robust": [],
+  "fjs.balanced": [],
+  "fjs.overlay": [
+    "baselines.covariance",
+    "finance.ledoit",
+    "finance.shrinkage",
+    "fjs.dealias",
+    "fjs.gating"
+  ],
+  "fjs.mp": [],
+  "fjs.dealias": [
+    "fjs.balanced",
+    "fjs.mp",
+    "fjs.theta_solver"
+  ],
+  "fjs": [],
+  "fjs.spectra": [],
+  "fjs.robust": [],
+  "fjs.balanced_nested": [],
+  "fjs.theta_solver": [
+    "fjs.mp"
+  ],
+  "fjs.gating": [],
+  "plotting": [
+    "utils"
+  ],
+  "plotting.utils": [
+    "evaluation.evaluate",
+    "fjs.spectra"
+  ],
+  "utils.credentials": [],
+  "make_summary": [
+    "meta.completeness"
+  ],
+  "shard_grid": [
+    "experiments.synthetic.calibrate_thresholds"
+  ],
+  "verify_dataset": [],
+  "aggregate_runs": [],
+  "run_monitor": [],
+  "clean_outputs": [],
+  "summarize_rc_sanity": [
+    "meta.completeness"
+  ],
+  "summarize_weekly_diagnostics": [],
+  "plot_rc_hist": [],
+  "reduce_calibration": [
+    "experiments.synthetic"
+  ],
+  "update_registry": [],
+  "prewhiten_effect": [],
+  "build_brief": [
+    "build_memo",
+    "report.gather"
+  ],
+  "build_gallery": [
+    "report.gather",
+    "report.plots",
+    "report.tables"
+  ],
+  "generate_project_state": [],
+  "build_memo": [
+    "report.gather"
+  ],
+  "list_runs": [],
+  "summarize_run": [],
+  "test_var_backtests": [
+    "evaluation.evaluate"
+  ],
+  "test_balanced_sigma_a": [
+    "fjs.dealias"
+  ],
+  "test_threshold_eval": [
+    "fjs.balanced",
+    "fjs.overlay",
+    "synthetic.calibration",
+    "synthetic.threshold_eval"
+  ],
+  "test_balanced_weeks": [
+    "finance.io",
+    "finance.returns"
+  ],
+  "test_s5_pairing_alignment": [
+    "experiments.synthetic_oneway"
+  ],
+  "test_portfolios_missing_solver": [
+    "finance.portfolios"
+  ],
+  "test_dm": [
+    "evaluation.dm"
+  ],
+  "test_report_gather": [
+    "report.gather"
+  ],
+  "test_mp_edge_and_root": [
+    "fjs.mp"
+  ],
+  "test_sweep_cli": [],
+  "test_e2_timeseries": [
+    "experiments.equity_panel"
+  ],
+  "test_aggregate_runs": [],
+  "test_dealias_guardrails": [
+    "fjs.balanced",
+    "fjs.dealias",
+    "fjs.mp"
+  ],
+  "test_pipeline_smoke": [
+    "experiments.equity_panel",
+    "experiments.synthetic_oneway",
+    "finance",
+    "fjs",
+    "fjs.dealias"
+  ],
+  "test_equity_ablations": [
+    "experiments.equity_panel"
+  ],
+  "test_factor_cov": [
+    "finance.factors"
+  ],
+  "test_sharadar_pipeline_smoke": [],
+  "test_power_null": [
+    "experiments.synthetic",
+    "experiments.synthetic.power_null"
+  ],
+  "test_diagnostics": [
+    "experiments.equity_panel",
+    "io",
+    "tools.summarize_run"
+  ],
+  "test_alignment_diag": [
+    "evaluation.evaluate"
+  ],
+  "test_equity_prewhiten": [
+    "experiments.equity_panel"
+  ],
+  "test_minvar_regularized": [
+    "finance.portfolio"
+  ],
+  "test_shrinkage": [
+    "finance.ledoit",
+    "finance.robust",
+    "finance.shrinkage"
+  ],
+  "test_data_registry": [],
+  "test_mp": [
+    "fjs.mp"
+  ],
+  "test_pairing": [
+    "experiments.synthetic_oneway"
+  ],
+  "test_balanced": [
+    "fjs.balanced"
+  ],
+  "test_dealias": [
+    "fjs.balanced",
+    "fjs.dealias",
+    "fjs.mp"
+  ],
+  "test_cache": [
+    "experiments.equity_panel",
+    "meta.cache"
+  ],
+  "conftest": [],
+  "test_robust_edge": [
+    "fjs.robust"
+  ],
+  "test_eval_missing_solver": [
+    "experiments.eval",
+    "finance.portfolios"
+  ],
+  "test_metrics_qlike": [
+    "evaluation.evaluate"
+  ],
+  "test_report_tables": [
+    "report.gather",
+    "report.tables"
+  ],
+  "test_gpt_bundle": [],
+  "test_nested_balanced": [
+    "fjs.balanced_nested",
+    "fjs.dealias"
+  ],
+  "test_factor_baselines": [
+    "evaluation.factor"
+  ],
+  "test_run_meta_module": [
+    "meta.run_meta"
+  ],
+  "test_gating": [
+    "fjs.gating"
+  ],
+  "test_theta_solver": [
+    "fjs.balanced",
+    "fjs.dealias",
+    "fjs.theta_solver"
+  ],
+  "test_calibrate_defaults": [
+    "experiments.synthetic.calibrate_thresholds"
+  ],
+  "test_evaluation_checks": [
+    "evaluation"
+  ],
+  "test_dealias_search": [
+    "finance.io",
+    "fjs.balanced",
+    "fjs.dealias",
+    "fjs.mp"
+  ],
+  "test_plotting_utils": [
+    "plotting"
+  ],
+  "test_evaluation_metrics": [
+    "evaluation.evaluate"
+  ],
+  "test_cache_switch_estimator": [
+    "meta.cache"
+  ],
+  "test_report_plots": [
+    "report.gather",
+    "report.plots"
+  ],
+  "test_calibration_lookup": [
+    "fjs.gating"
+  ],
+  "test_weekly_cov_identity": [],
+  "test_nested_smoke": [
+    "experiments.equity_panel.run",
+    "fjs.dealias"
+  ],
+  "synthetic.test_harness_utils": [
+    "experiments.synthetic.harness_utils"
+  ],
+  "synthetic.test_calibration": [
+    "experiments.synthetic",
+    "synthetic.calibration"
+  ],
+  "eval.test_clean": [
+    "eval.clean"
+  ],
+  "eval.test_balance": [
+    "eval.balance"
+  ],
+  "tools.test_summarize_rc_sanity": [
+    "meta.completeness"
+  ],
+  "tools.test_make_summary": [
+    "tools.make_summary"
+  ],
+  "io.test_wrds_snapshot": [],
+  "baselines.test_load_factors": [
+    "baselines.factors"
+  ],
+  "baselines.test_covariance": [
+    "baselines.covariance"
+  ],
+  "baselines.test_prewhiten": [
+    "baselines.factors",
+    "fjs.dealias"
+  ],
+  "experiments.test_ablate_run": [
+    "experiments.ablate.run"
+  ],
+  "experiments.test_gating_diagnostics": [
+    "experiments.equity_panel"
+  ],
+  "experiments.test_eval_run": [
+    "experiments.eval.config",
+    "experiments.eval.diagnostics",
+    "experiments.eval.run"
+  ],
+  "experiments.test_prewhiten_utils": [
+    "experiments.prewhiten"
+  ],
+  "experiments.test_daily_grouping": [
+    "experiments.daily.grouping",
+    "experiments.daily.run"
+  ],
+  "experiments.test_skip_reasons": [
+    "experiments.equity_panel"
+  ],
+  "fjs.test_overlay": [
+    "baselines.covariance",
+    "fjs.dealias",
+    "fjs.overlay"
+  ],
+  "": [],
+  "prewhiten": [
+    "baselines"
+  ],
+  "synthetic.null": [
+    "experiments.synthetic.harness_utils"
+  ],
+  "synthetic.power": [
+    "experiments.synthetic.harness_utils"
+  ],
+  "synthetic.power_null": [
+    "evaluation.evaluate",
+    "experiments.synthetic_oneway.run",
+    "finance.eval",
+    "fjs.dealias",
+    "fjs.robust"
+  ],
+  "synthetic.nested_killtest": [
+    "experiments.equity_panel.run",
+    "fjs.balanced_nested",
+    "fjs.dealias",
+    "fjs.gating",
+    "fjs.robust"
+  ],
+  "synthetic.harness_utils": [
+    "experiments.synthetic_oneway.run",
+    "fjs.robust"
+  ],
+  "synthetic.calibrate_thresholds": [
+    "experiments.synthetic.harness_utils",
+    "fjs",
+    "meta",
+    "synthetic.calibration"
+  ],
+  "ablate.run": [
+    "experiments.eval.run",
+    "tools.make_summary"
+  ],
+  "ablate": [],
+  "etf_panel.run": [
+    "experiments.eval.run"
+  ],
+  "eval.run": [
+    "baselines",
+    "baselines.covariance",
+    "baselines.factors",
+    "eval.balance",
+    "eval.clean",
+    "evaluation.dm",
+    "evaluation.evaluate",
+    "evaluation.factor",
+    "experiments.daily.grouping",
+    "experiments.eval.config",
+    "experiments.eval.diagnostics",
+    "experiments.prewhiten",
+    "finance",
+    "finance.portfolio",
+    "fjs.overlay",
+    "meta"
+  ],
+  "eval.sensitivity": [
+    "evaluation.dm",
+    "tools.verify_dataset"
+  ],
+  "eval.inject_spike": [
+    "eval.balance",
+    "eval.clean",
+    "experiments.daily.grouping",
+    "experiments.eval.config",
+    "experiments.eval.run",
+    "fjs.overlay"
+  ],
+  "eval.diagnostics": [],
+  "eval.config": [
+    "experiments.eval.run"
+  ],
+  "equity_panel.run": [
+    "baselines",
+    "evaluation",
+    "evaluation.evaluate",
+    "experiments.prewhiten",
+    "finance.eval",
+    "finance.io",
+    "finance.portfolio",
+    "finance.portfolios",
+    "finance.returns",
+    "finance.robust",
+    "fjs.balanced",
+    "fjs.balanced_nested",
+    "fjs.dealias",
+    "fjs.gating",
+    "fjs.mp",
+    "fjs.robust",
+    "fjs.spectra",
+    "meta",
+    "meta.cache",
+    "meta.run_meta",
+    "plotting"
+  ],
+  "equity_panel": [],
+  "equity_panel.sweep_acceptance": [
+    "experiments.equity_panel.run"
+  ],
+  "daily.run": [
+    "experiments.daily.config",
+    "experiments.eval.run"
+  ],
+  "daily.grouping": [],
+  "daily": [],
+  "daily.config": [],
+  "synthetic_oneway.run": [
+    "fjs.balanced",
+    "fjs.dealias",
+    "fjs.spectra",
+    "meta.run_meta",
+    "pairing",
+    "plotting"
+  ],
+  "synthetic_oneway": [],
+  "bench_linalg": [],
+  "manual.merge_calibration_thresholds": [
+    "experiments.synthetic.calibrate_thresholds"
+  ]
+}

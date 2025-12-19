@@ -1,0 +1,8 @@
+{
+  "run_id": "20251219_210410_project_state_rebuild",
+  "branch": "chore/project_state_refresh",
+  "git_sha": "ce4c1b224c43028bb5388efdebbe0e8eb52e6c61",
+  "timestamp": "2025-12-19T21:04:10+01:00",
+  "purpose": "Rebuild project_state folder and generated indices",
+  "tests": "not run"
+}

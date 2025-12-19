@@ -1,44 +1,66 @@
-# Dependency Graph (textual)
+---
+generated: 2025-12-19T21:04:10+01:00
+git_sha: ce4c1b224c43028bb5388efdebbe0e8eb52e6c61
+git_branch: chore/project_state_refresh
+commands:
+  - python3 tools/generate_project_state.py (latest run excludes heavy caches/outputs)
+  - python3 - <<'PY' (emit project_state docs and indexes)
+---
 
-## Core library imports
-- `fjs.mp` → numpy; consumed by `fjs.dealias`, `fjs.theta_solver`, `fjs.overlay`, `experiments.synthetic`, `evaluation.evaluate` (alignment diagnostics).
-- `fjs.balanced` / `fjs.balanced_nested` → numpy; consumed by `fjs.dealias`, `finance.eval`, `experiments.equity_panel`, `experiments.synthetic`.
-- `fjs.dealias` → (`fjs.balanced*`, `fjs.mp`, `fjs.theta_solver`); consumed by `fjs.overlay`, `finance.eval` (dealias estimator), `experiments.equity_panel`, `experiments.eval`.
-- `fjs.overlay` → (`fjs.dealias`, `fjs.gating`, shrinkers from `baselines.covariance`/`finance.ledoit`/`finance.shrinkage`); consumed by `experiments.eval`, optionally by `equity_panel`.
-- `fjs.gating` → json/numpy; consumed by `fjs.overlay`, `experiments.equity_panel` (calibrated gate), `experiments.eval`.
-- `fjs.robust` → numpy; used for robust MP edges (Tyler/Huber) in overlay/equity_panel.
-- `fjs.spectra` → numpy/matplotlib; plotting helpers used by equity_panel.
+# Dependency Graph
 
-- `finance.*` → numpy/pandas; depend on `fjs` (dealias_covariance) and `evaluation.factor`/`baselines` for factor/POET; consumed by experiment runners.
-- `baselines.*` → numpy/pandas; shrinkers and prewhitening used by experiments/eval/equity_panel.
-- `data.*` → pandas; registries and balanced panels used by finance loaders, experiments, registry tools.
-- `evaluation.*` → numpy/pandas/scipy; metrics/DM/coverage used by equity_panel + eval runners and reporting.
-- `eval.clean/balance` → numpy/pandas; used by `experiments.eval.run` to enforce balanced regimes.
-- `meta.cache/run_meta/runtime` → used by equity_panel, eval, synthetic calibration for cache keys, metadata, thread caps.
-- `report.*` → pandas/matplotlib; used by gallery/memo/brief/summary tools.
-- `plotting.utils` → matplotlib; used by equity_panel for E1–E4 figures.
+Source: project_state/_generated/import_graph.json (internal imports only).
 
-## Experiment runners and helpers
-- `experiments/equity_panel/run.py` imports: finance (eval/portfolio/returns/io/robust), fjs (balanced/nested/mp/dealias/gating/spectra/robust), baselines (factors, covariance), meta (cache/runtime/run_meta), data.panels, evaluation (alignment/metrics), plotting utils, experiments.prewhiten. Outputs → figures, run_meta, memo/brief via tools.
-- `experiments/eval/run.py` imports: experiments.daily grouping, experiments.prewhiten, baselines (covariance/factors), data.factors, eval.clean/balance, evaluation.dm/evaluate/factor, finance (minvar/turnover), fjs.overlay, meta.runtime. Outputs feed rc-lite/rc-lite-sanity + rc targets.
-- `experiments/daily/run.py` (wrapper) imports grouping utilities and calls eval runner; minimal external deps.
-- `experiments/ablate/run.py` imports equity_panel helpers to sweep configs and read ablation matrices.
-- `experiments/synthetic/*.py` import `fjs.mp/dealias/balanced`, `synthetic.calibration/threshold_eval`, harness_utils; use pandas/matplotlib.
-- `experiments/synthetic_oneway/run.py` imports `fjs.mp` utilities directly for analytic edges.
+**Top fan-out (modules importing many peers)**
 
-## Tools / scripts
-- `tools/build_*`, `make_summary`, `summarize_rc_sanity`, `aggregate_runs`, `list_runs` → depend on `report.*`, pandas/matplotlib, sometimes `synthetic.calibration`/`data.registry`.
-- `tools/reduce_calibration.py` → reads JSON shards produced by synthetic sweeps.
-- `tools/update_registry.py` / `verify_dataset.py` → depend on `data.registry` / `data.factors`.
-- `scripts/data/*.py` → pandas/numpy + finance/data loaders; `scripts/aws_run.sh` wraps Make targets.
+module                         | fan_out | imports (truncated)                                                                                             
+------------------------------ | ------- | ----------------------------------------------------------------------------------------------------------------
+equity_panel.run               | 21      | baselines, evaluation, evaluation.evaluate, experiments.prewhiten, finance.eval, finance.io…                    
+eval.run                       | 16      | baselines, baselines.covariance, baselines.factors, eval.balance, eval.clean, evaluation.dm…                    
+finance.eval                   | 7       | evaluation.factor, finance.factors, finance.ledoit, finance.robust, finance.shrinkage, fjs.balanced…            
+eval.inject_spike              | 6       | eval.balance, eval.clean, experiments.daily.grouping, experiments.eval.config, experiments.eval.run, fjs.overlay
+synthetic_oneway.run           | 6       | fjs.balanced, fjs.dealias, fjs.spectra, meta.run_meta, pairing, plotting                                        
+fjs.overlay                    | 5       | baselines.covariance, finance.ledoit, finance.shrinkage, fjs.dealias, fjs.gating                                
+test_pipeline_smoke            | 5       | experiments.equity_panel, experiments.synthetic_oneway, finance, fjs, fjs.dealias                               
+synthetic.power_null           | 5       | evaluation.evaluate, experiments.synthetic_oneway.run, finance.eval, fjs.dealias, fjs.robust                    
+synthetic.nested_killtest      | 5       | experiments.equity_panel.run, fjs.balanced_nested, fjs.dealias, fjs.gating, fjs.robust                          
+test_threshold_eval            | 4       | fjs.balanced, fjs.overlay, synthetic.calibration, synthetic.threshold_eval                                      
+test_dealias_search            | 4       | finance.io, fjs.balanced, fjs.dealias, fjs.mp                                                                   
+synthetic.calibrate_thresholds | 4       | experiments.synthetic.harness_utils, fjs, meta, synthetic.calibration                                           
+fjs.dealias                    | 3       | fjs.balanced, fjs.mp, fjs.theta_solver                                                                          
+build_gallery                  | 3       | report.gather, report.plots, report.tables                                                                      
+test_dealias_guardrails        | 3       | fjs.balanced, fjs.dealias, fjs.mp                                                                               
+test_diagnostics               | 3       | experiments.equity_panel, io, tools.summarize_run                                                               
+test_shrinkage                 | 3       | finance.ledoit, finance.robust, finance.shrinkage                                                               
+test_dealias                   | 3       | fjs.balanced, fjs.dealias, fjs.mp                                                                               
+test_theta_solver              | 3       | fjs.balanced, fjs.dealias, fjs.theta_solver                                                                     
+experiments.test_eval_run      | 3       | experiments.eval.config, experiments.eval.diagnostics, experiments.eval.run                                     
 
-## High fan-out modules
-- `fjs.dealias` / `fjs.mp` — numerical core touched by most detection/overlay flows.
-- `experiments/equity_panel/run.py` — orchestrates data, fjs, finance, meta, plotting; writes run_meta.
-- `experiments/eval/run.py` — daily counterpart with heavy dependencies on overlay + finance + eval.clean/balance.
-- `experiments/prewhiten.py` — centralises factor selection for both daily and weekly pipelines.
+**Top fan-in (modules that many peers import)**
 
-## Coupling / gaps
-- `experiments/eval/run.py` imports `data.loader` but falls back to an inline loader when missing (no `src/data/loader.py` exists); keep fallback in mind when refactoring.
-- No circular imports observed; plotting and reporting modules are leaf dependents.
-- MP cache path is set via environment (`MP_CACHE_DIR`/`MP_EDGE_CACHE_DIR`); callers must configure before first edge query to avoid mixed cache content across runs.
+module                              | fan_in
+----------------------------------- | ------
+fjs.dealias                         | 17    
+fjs.balanced                        | 12    
+fjs.mp                              | 8     
+evaluation.evaluate                 | 8     
+experiments.equity_panel            | 8     
+report.gather                       | 6     
+experiments.eval.run                | 6     
+experiments.synthetic.harness_utils | 5     
+finance.shrinkage                   | 5     
+fjs.gating                          | 5     
+fjs.robust                          | 5     
+evaluation.dm                       | 4     
+finance.ledoit                      | 4     
+finance.io                          | 4     
+baselines.covariance                | 4     
+fjs.overlay                         | 4     
+finance.factors                     | 3     
+evaluation.factor                   | 3     
+finance.robust                      | 3     
+fjs.spectra                         | 3     
+
+**Notes**
+- Modules are named from file paths (src/ stripped). Relative imports were resolved best-effort.
+- rc/evaluation entrypoints (experiments/equity_panel/run.py, experiments/eval/run.py) dominate fan-out; core math modules (fjs.*) are high fan-in.

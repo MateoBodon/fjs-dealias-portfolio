@@ -1,41 +1,24 @@
-# Current Results (as of 2025-12-19)
+---
+generated: 2025-12-19T21:04:10+01:00
+git_sha: ce4c1b224c43028bb5388efdebbe0e8eb52e6c61
+git_branch: chore/project_state_refresh
+commands:
+  - python3 tools/generate_project_state.py (latest run excludes heavy caches/outputs)
+  - python3 - <<'PY' (emit project_state docs and indexes)
+---
 
-- **Weekly gating diagnostics (ticket-07, RUN_NAME=20251219_173231_ticket-07_weekly-drought-diagnostics)** — diagnostics artifact + summaries
-  - Real-data DoW smoke (config.smoke.yaml with `--gating-diagnostics`, output `experiments/equity_panel/outputs_smoke_ticket07_20251219_173231/oneway_J5_solver-auto_est-dealias_prep-prewhiten_modeoff/`): detection_rate = 0.75 (3/4 windows), single skip_reason = `no_isolated_spike`; guardrail counts dominated by `guard_other` (=1148). Summary: `weekly_diagnostics.md` in the run directory.
-  - Synthetic micro smoke (generated returns via `/tmp/ticket07_synth_returns.csv`, config `docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/config.synthetic.yaml`, output `experiments/equity_panel/outputs_ticket07_synth_20251219_173231/oneway_J5_solver-auto_est-dealias_prep-prewhiten_modeoff/`): detection_rate = 0, skip_reason = `diagnostic_failure` for all 6 windows; summary co-located `weekly_diagnostics.md`.
+# Current Results (latest validated drops)
 
-- **rc-lite-sanity (stamp 20251209_001356)** — `reports/rc-20251208-sanity-20251209_001356/`
-  - Daily DoW (tyler, rie, 60×10, assets_top=50): detection_rate_mean ≈ 5.36%, acceptance≈detection, percent_changed=100%, edge_margin_mean ≈ 0.00365. ΔMSE vs baseline remains positive (EW ≈1.24e-10, MV ≈4.52e-11); summary_sanity overlay_effect = *harmful*. Alignment cosine ≈1.0; isolation=1.0. Prewhiten R² mean ≈0.317 (FF5+MOM).
-  - Daily Vol-state (tyler, oas): detection_rate ≈ 5.22%, acceptance≈5.56%, percent_changed≈93.9%; edge_margin_mean ≈0.00376. ΔMSE now tabulated (EW ≈3.67e-11, MV ≈1.24e-13), also **harmful** with overlay_effect = harmful.
-  - Regime splits: calm detection ~4.9–5.5%, crisis detection ~5.5%; DM stats empty (n_effective 32 full).
-  - Summary_sanity/regime.csv regenerated with daily DoW + vol and weekly dow/nested; memo/brief still stale for this batch.
-- **Weekly rc-lite-sanity smoke (same stamp)** — `experiments/equity_panel/outputs_rc-lite-20251208_20251209_001356/`
-  - DoW weekly (2023Q1, J=5, window=6, horizon=1, tyler): rolling_windows_evaluated=4; detection_windows=0; substitution_fraction=0.
-  - Nested weekly (2022–2023H1, window=52, horizon=1): rolling_windows_evaluated=10; detection_windows=0; substitution_fraction=0. Highlights persistent nested/weekly detection drought at current guardrails.
-- **Older full RC-lite (capped 200 windows)** — `reports/rc-20251121/` remains last completed full RC-lite run; detection≈4.32–4.33% (DoW/Vol), percent_changed≈100%, ΔMSE near 0 (see README/REPORT). Treat as stale relative to rc-lite-sanity.
-- **Calibration defaults** — `calibration_defaults.json` generated 2025-11-21 (SCM energy_floor≈0.108; delta=0.5, delta_frac=0.02, eps=0.02, stability_eta_deg=0.4). `calibration/edge_delta_thresholds.json` refreshed 2025-12-17 with direct entries for tyler + huber covering p∈{188,200}, T∈{60,70,80} (plus backfilled 64/96) to unblock nested calibrated gating.
-- **Nested synthetic kill-test (20251217)** — `reports/synthetic_nested_killtest/summary.md`: under the current nested settings (p≈200, weeks 6–8, reps=5, delta=0.35, delta_frac_min=0.05) the null scenario still accepts 100% of windows (FPR≈1.0), i.e., overlay is unsafe; power indistinguishable because acceptance is unconditional.
-- **Gaps**
-  - `reports/rc-20251208/` contains only resolved_config/prewhiten files (no metrics); likely incomplete run.
-  - rc-lite-sanity daily overlay harmful on both DoW and vol slices; kill criteria failing (ΔMSE>0) despite low detection coverage.
-  - No recent crisis or full-length nested RC after November; crisis performance and nested acceptance remain unknown under current thresholds.
+- **2025-12-19 — MV solver missing-proof (ticket-08, git a4451969)**
+  - Commands: `make test-fast`; `python -m experiments.eval.run ... --mv-solver cvxpy` and forced-missing run with `FJS_FORCE_MISSING_CVXPY=1 --mv-skip-on-missing-solver`.
+  - Outcomes: Normal run `reports/eval-smoke-ticket08-proof/normal/metrics_detail.csv` shows MV rows `skipped=False`, `solver_status=optimal`; forced-missing run `.../missing-skip/metrics_detail.csv` shows `skipped=True`, `skip_reason=missing_solver`, empty weights; diagnostics propagate `solver_used`/`solver_status`.
+- **2025-12-19 — Weekly gating diagnostics (ticket-07, git 2e0fd573b5)**
+  - Real DoW smoke (2023Q1, window=6, horizon=1): detection_rate=0.75 (3/4) with one `no_isolated_spike`; guardrail tallies dominated by `guard_other`=1148 (`experiments/equity_panel/outputs_smoke_ticket07_20251219_173231/weekly_diagnostics.md`).
+  - Synthetic micro smoke: detection_rate=0, `skip_reason=diagnostic_failure` across all windows (`experiments/equity_panel/outputs_ticket07_synth_20251219_173231/weekly_diagnostics.md`).
+- **2025-12-19 — rc-lite-sanity completeness refresh (ticket-05, git 03d4c03c)**
+  - Deterministic DoW/vol daily eval (top-50, 60×10): detection_rate≈0.055 (DoW) / 0.052 (vol); overlay_effect harmful (ΔMSE > 0), percent_changed≈100%; completeness JSON emitted under `reports/rc-20251219-sanity-20251219_050735/summary/`.
+  - Weekly DoW + nested remain zero-acceptance; completeness surfaced in `summary_sanity.json` and `limitations.md`.
+- **2025-11-21 — Latest full RC-lite (deterministic)**
+  - DoW/vol (Tyler edge, FF5+MOM, top-60, first 200 windows): detection≈4.3%, acceptance≈detection, percent_changed≈100%, ΔMSE(EW)=+1.75e-13, ΔMSE(MV)=−2.54e-14. Artefacts in `reports/rc-20251121/` (`metrics_summary.json`, `run_manifest.json`).
 
-#### Daily rc-lite-sanity (2023H1, 50 assets, DoW + vol-state)
-
-Status as of 2025-12-17 (run: `reports/rc-20251208-sanity-20251209_001356/`):
-
-- **DoW daily (Tyler edge, FF5+MOM prewhitened)**  
-  - detection_rate ≈ 5.36% of windows  
-  - percent_changed ≈ 100% (overlay replaces the covariance whenever it triggers)  
-  - ΔMSE (EW, MV) > 0 vs Ledoit–Wolf on this slice  
-  - Under our current kill criteria, this counts as **harmful overlay**: whenever the overlay fires, it tends to worsen OOS variance.
-
-- **Vol-state daily (Tyler edge, FF5+MOM prewhitened)**  
-  - detection_rate ≈ 5.22% of windows  
-  - percent_changed ≈ 93.9%  
-  - ΔMSE (EW ≈ 3.7e-11, MV ≈ 1.2e-13) > 0 vs Ledoit–Wolf  
-  - Overlay flagged **harmful** in summary_sanity (harm fails kill criteria).
-
-- **Weekly DoW + nested smokes**  
-  - DoW (config.smoke.yaml with diagnostics, outputs_smoke_ticket07_20251219_173231): detection_windows=3/4, skip_reason `no_isolated_spike` on the lone rejection; guardrail tally shows `guard_other`=1148 in gating_diagnostics.csv.  
-  - Nested acceptance in rc-lite-sanity (20251209_001356) remains 0/10, still dominated by `no_isolated_spike` and calibration gaps for p≈188, T≈60–80. Diagnostics added but behaviour unchanged; nested remains **non-functional** in WRDS runs.
+Older runs (AWS RCs, sensitivity sweeps, prewhiten studies) remain catalogued in `reports/rc-20251113/`, `reports/rc-sensitivity/`, and `reports/aws/`; see PROGRESS.md for provenance.

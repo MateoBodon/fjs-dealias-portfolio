@@ -1,0 +1,5 @@
+- Added `tools/generate_project_state.py` (AST + inventory + import graph + make targets) and regenerated `project_state/_generated/*` (inventory now excludes heavy caches/outputs).
+- Rewrote all project_state markdown files with metadata headers; regenerated FUNCTION_INDEX.md and DEPENDENCY_GRAPH.md from generated JSON.
+- Captured latest results/issues from PROGRESS.md into CURRENT_RESULTS/KNOWN_ISSUES/ROADMAP.
+- Bundles: `docs/gpt_bundles/project_state_20251219_211732_ce4c1b2.zip` (supersedes earlier 211602 bundle).
+- No tests executed (doc-only work).

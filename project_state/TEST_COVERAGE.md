@@ -1,24 +1,23 @@
+---
+generated: 2025-12-19T21:04:10+01:00
+git_sha: ce4c1b224c43028bb5388efdebbe0e8eb52e6c61
+git_branch: chore/project_state_refresh
+commands:
+  - python3 tools/generate_project_state.py (latest run excludes heavy caches/outputs)
+  - python3 - <<'PY' (emit project_state docs and indexes)
+---
+
 # Test Coverage
 
-## Test suite structure (pytest, markers)
-- Markers: `unit` (default), `integration`, `slow`, `heavy` (see `pytest.ini`; default excludes slow/heavy).
-- Commands: `make test-fast` (unit), `make test-integration`, `make test-slow`, `make test` (full).
-
-## Covered areas
-- **Core FJS math**: `tests/test_dealias.py`, `test_dealias_search.py`, `test_mp.py`, `test_mp_edge_and_root.py`, `test_theta_solver.py`, `test_balanced.py`, `test_balanced_sigma_a.py`, `test_nested_balanced.py`, `test_robust_edge.py`, `test_s5_pairing_alignment.py`, `test_dealias_guardrails.py`.
-- **Gating/overlay**: `tests/test_gating.py`, `fjs/test_overlay.py`, `test_cache_switch_estimator.py`, `test_alignment_diag.py`.
-- **Finance/shrinkage**: `tests/test_shrinkage.py`, `baselines/test_covariance.py`, `test_minvar_regularized.py`, `test_var_backtests.py`, `test_weekly_cov_identity.py`, `test_factor_baselines.py`, `test_factor_cov.py`.
-- **Data/registry**: `tests/test_data_registry.py`, `data/test_factors_registry.py`, `io/test_wrds_snapshot.py`.
-- **Prewhitening/factors**: `baselines/test_prewhiten.py`, `baselines/test_load_factors.py`, `experiments/test_equity_prewhiten.py`, `experiments/test_prewhiten_utils.py`.
-- **Experiments**: `tests/test_pipeline_smoke.py`, `tests/experiments/test_eval_run.py`, `tests/experiments/test_daily_grouping.py`, `test_equity_ablations.py`, `test_sweep_cli.py`, `test_equity_ablation_emits_sum0`, `test_sharadar_pipeline_smoke.py`, `test_nested_smoke.py`, `test_e2_timeseries.py`.
-- **Synthetic**: `tests/synthetic/test_calibration.py`, `test_harness_utils.py`, `test_power_null.py`, `test_threshold_eval.py`.
-- **Reporting/plotting**: `tests/test_report_gather.py`, `test_report_tables.py`, `test_report_plots.py`, `test_plotting_utils.py`, `tools/test_make_summary.py`, `test_diagnostics.py`.
-- **Evaluation metrics**: `test_evaluation_metrics.py`, `test_evaluation_checks.py`, `test_dm.py`, `test_metrics_qlike.py`.
-- **Utilities**: `test_cache.py`, `test_cache_switch_estimator.py`, `test_pairing.py`, `test_run_meta_module.py`.
-
-## Gaps / risks
-- Balanced weight computation and MP PDF stubs untested (not implemented).
-- Crisis/nested full-length RC flows not covered (only smoke slices); rc-lite-sanity summary tooling lacks automated tests for multi-design aggregation.
-- AWS/HPC scripts and thread-cap behaviour rely on manual testing; limited automated coverage.
-- PSD clipping paths in `apply_overlay`/`variance_forecast_from_components` rely on numerical tolerance; no dedicated regression tests.
-- make rc-lite-sanity pipeline lacks an automated end-to-end regression; rc summary generation not validated when runs are partial or missing designs.
+- **Commands** — `make test-fast` (pytest -m unit), `make test-integration`, `make test-slow`, `make test` (full). Latest recorded run (2025-12-19 ticket-08) shows 68 passed, 151 deselected on `make test-fast` (per PROGRESS.md). No tests were executed during this project_state rebuild.
+- **Areas covered** (representative):
+  - FJS math/gating: `tests/test_dealias.py`, `test_mp_edge_and_root.py`, `test_gating.py`, `test_theta_solver.py`, `test_balanced*`, `test_nested_balanced.py`, `test_nested_smoke.py`, `tests/fjs/test_overlay.py`.
+  - Synthetic harness: `tests/test_power_null.py`, `tests/synthetic/test_calibration.py`, `tests/synthetic/test_harness_utils.py`, `tests/test_calibrate_defaults.py`, `tests/test_threshold_eval.py`.
+  - Evaluation runners: `tests/experiments/test_eval_run.py`, `test_gating_diagnostics.py`, `test_skip_reasons.py`, `tests/test_pipeline_smoke.py`.
+  - Finance/portfolio: `tests/test_portfolios_missing_solver.py`, `tests/test_eval_missing_solver.py`, `tests/test_minvar_regularized.py`, `tests/test_shrinkage.py`, `tests/test_factor_cov.py`, `tests/test_cache_switch_estimator.py`.
+  - Reporting: `tests/test_report_gather.py`, `tests/test_report_tables.py`, `tests/test_report_plots.py`, `tests/tools/test_make_summary.py`, `tests/tools/test_summarize_rc_sanity.py`, `tests/test_gpt_bundle.py`.
+  - Data/registry: `tests/data/test_factors_registry.py`, `tests/io/test_wrds_snapshot.py`, `tests/test_data_registry.py`.
+- **Gaps / heavy tests**
+  - Full RC / RC-lite / AWS paths are not in fast suite; rely on smoke configs and manual runs.
+  - Crisis configs, vol-state acceptance, and nested kill-test FPR are not yet regression-tested.
+  - Plotting relies on matplotlib availability; skipped when library missing.

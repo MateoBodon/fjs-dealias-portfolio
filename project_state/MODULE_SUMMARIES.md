@@ -1,97 +1,30 @@
+---
+generated: 2025-12-19T21:04:10+01:00
+git_sha: ce4c1b224c43028bb5388efdebbe0e8eb52e6c61
+git_branch: chore/project_state_refresh
+commands:
+  - python3 tools/generate_project_state.py (latest run excludes heavy caches/outputs)
+  - python3 - <<'PY' (emit project_state docs and indexes)
+---
+
 # Module Summaries
 
-## src/fjs (MANOVA core)
-- `balanced.py` — Balanced one-way MANOVA utilities: input validation, group means, mean square estimators (`mean_squares`), `BalancedConfig`, placeholder `compute_balanced_weights`.
-- `balanced_nested.py` — Nested Year⊃Week mean squares with `NestedDesignMetadata` (d, c, N, order, replicates) and label validation.
-- `mp.py` — Marčenko–Pastur machinery: edge/root finders (`mp_edge`, `m_edge`, `marchenko_pastur_edges`), admissible root (`admissible_m_from_lambda`), t-vector (`t_vec`), Cs plug-in estimation (`estimate_Cs_from_MS`), cache controls (`configure_mp_cache`, `clear_mp_cache`), z′/z″ utilities, PDF stub.
-- `dealias.py` — Algorithm 1 spike search & substitution (`dealias_search`, `dealias_covariance`); helper design defaults, input validation, admissible root checks, angular grid/rotation, merge duplicate detections, design params TypedDicts, result dataclass.
-- `gating.py` — Post-detection gating: outlier counting, top-k selection, calibrated δ_frac lookup (`lookup_calibrated_delta`), scoring helpers.
-- `overlay.py` — Overlay wrapper: `OverlayConfig` dataclass, coarse candidates, baseline covariance chooser, `detect_spikes`, gating (strict/soft), calibrated/relative delta handling, `apply_overlay` (PSD-guarded substitution).
-- `robust.py` — Tyler/Huber scatter estimators and MP edge scaling helper (`edge_from_scatter`).
-- `spectra.py` — Eigen diagnostics: `topk_eigh`, `project_alignment`, spectrum plots (`plot_spectrum_with_edges`), spike time-series plots, spectrum estimation.
-- `theta_solver.py` — `ThetaSolverParams` + `solve_theta_for_t2_zero` root finder for k=2 designs with stability probes.
-
-## src/finance (covariance, portfolios, IO)
-- `design.py` — Build combined return+factor design matrices; week grouping labels.
-- `eval.py` — Rolling windows; risk metrics; `oos_variance_forecast`, `weekly_cov_from_components`, `variance_forecast_from_components`, `evaluate_portfolio`.
-- `factors.py` — Observed-factor covariance via cross-sectional OLS; design alignment; industry factor handling.
-- `ledoit.py` — Ledoit–Wolf shrinkage wrapper with PSD checks.
-- `portfolio.py` — PGD min-var with ridge/box (`minvar_ridge_box`), turnover and cost utilities, memoised penalised covariances.
-- `portfolios.py` — cvxpy-based min-var solvers (box/long-only); fail-loud on missing cvxpy, optional skip flag (no EW fallback).
-- `returns.py` — Log-return computation; weekly aggregation; balanced Week×Day construction (`balance_weeks`, `weekly_panel`).
-- `robust.py` — Winsorize/huberize returns; Tyler shrinkage covariance.
-- `shrinkage.py` — OAS and constant-correlation shrinkage with PSD/finite guards.
-- `io.py` — Price/return CSV loaders with registry validation, long→wide conversion.
-- `loader.py` — Balanced weekly panel loader from daily prices; rolling windows with fixed universe enforcement.
-
-## src/baselines (shrinkers & prewhitening)
-- `covariance.py` — Sample covariance; LW/OAS/CC shrinkage; RIE, QuEST clipping, EWMA covariance with PSD symmetrisation.
-- `factors.py` — Load observed factors (FF5/MOM, market proxy); `PrewhitenResult`; prewhiten returns; percent-scale detection.
-
-## src/data (registries/panels)
-- `panels.py` — `PanelManifest`, `BalancedPanel`, hash utilities, balanced Week×Day builder, save/load manifest/panel pickles.
-- `registry.py` — Dataset registry loader/validator with SHA256 checking (`assert_registered_dataset`).
-- `factors.py` — Factor registry loader/validator (`load_registered_factors`), SHA checks, timestamp coercion.
-
-## src/eval (helpers for daily eval)
-- `clean.py` — NaN filtering policy with `NaNPolicyTelemetry/Result`.
-- `balance.py` — Balance per-group replicates (`BalanceResult/Telemetry`), asset intersection controls.
-
-## src/evaluation (metrics & diagnostics)
-- `dm.py` — Diebold–Mariano test with Newey–West variance.
-- `evaluate.py` — ΔMSE/QLIKE/VaR/ES metrics, sign test, bootstrap CI, coverage tests, alignment diagnostics, plotting helpers, `DeltaSummary`, metrics summary aggregation.
-- `factor.py` — Observed-factor covariance, POET-lite estimator with IC selection (`POETResult`).
-
-## src/meta (runtime/cache/metadata)
-- `cache.py` — `window_key`, save/load window payloads (JSON + NPZ).
-- `run_meta.py` — `RunMeta` dataclass; `code_signature` hashing; Git SHA helper; PDF hash collector; detection counting; `write_run_meta`.
-- `runtime.py` — `ExecModeSettings`, thread-cap application, exec-mode resolution, worker count helpers, metadata snapshot.
-
-## src/report & plotting
-- `report.gather` — Run loader, run discovery, detection/edge extraction, estimator panel aggregation.
-- `report.tables` — Estimator/rejection/ablation table writers (CSV/MD/TeX).
-- `report.plots` — Detection rates, edge histograms, alignment angles, DM bars, ablation heatmaps.
-- `plotting.utils` — Figure roots, E1–E4 plot builders, guardrail plots.
-
-## src/synthetic
-- `calibration.py` — Calibration sweep config/result dataclasses, panel simulation, seed batching, threshold selection/writing.
-- `threshold_eval.py` — Evaluate calibrated thresholds vs score tables; `DetectionArrays`.
-
-## src/io
-- `crsp_daily.py` — CRSP snapshot fetch with rowcount probe, cleaning, DoW/vol labels, parquet writer.
-- `wrds_connect.py` — WRDS connection helper (credential-aware).
-
-## src/utils
-- `credentials.py` — WRDS credential stubs; keychain lookup placeholder.
-
-## experiments (pipelines & helpers)
-- `equity_panel/run.py` — Weekly MANOVA runner: config parsing/defaults, data loading/balancing, prewhitening, caching (`meta.cache`), detection (`dealias_search`), gating (calibrated/fixed), overlay baseline selection, portfolio evaluation, plots (E1–E4), ablation support, crisis slices, run metadata.
-- `equity_panel/sweep_acceptance.py` — Small synthetic sweep near acceptance thresholds.
-- Configs (`config*.yaml`) — smoke, crisis, nested, rc, rc-lite/gallery, ablation, acceptance, calibration.
-- `eval/run.py` — Daily overlay runner: config resolution, grouping (week/DoW/vol/dow_month/dowxvol), NaN/balance policies, prewhitening, overlay detection, risk metrics, diagnostics/plots, resolved config echo.
-- `eval/config.py` / `diagnostics.py` / `inject_spike.py` / `sensitivity.py` — Config deep-merge & thresholds loader, diagnostic enums, spike injection harness, gating sensitivity sweeps.
-- `daily/grouping.py` / `config.py` / `run.py` — Grouping utilities (week, DoW, vol-state, DoW×vol, DoW×month) with error reporting and CLI wrapper.
-- `synthetic/null.py`, `power.py`, `power_null.py`, `calibrate_thresholds.py`, `harness_utils.py` — Synthetic ROC sweeps, score simulation, calibration CLI, cache/meta helpers, plotting and default writer.
-- `synthetic_oneway/run.py` — Synthetic S1/S3/S4/S5 benchmarks, bias/recall plots, summary JSON, multi-spike support.
-- `ablate/run.py` — YAML-driven parameter sweep; E5-style summary extraction; supports calm/crisis sampling.
-- `etf_panel/run.py` — ETF demo atop daily eval defaults, writes overlay_toggle markdown.
-- `prewhiten.py` — Prewhitening selection, telemetry computation, diagnostics writers (`PrewhitenTelemetry`).
-
-## tools (reporting, maintenance, monitoring)
-- `build_gallery.py`, `build_memo.py`, `build_brief.py` — Gallery/ memo/brief generation from YAML manifests and run dirs.
-- `make_summary.py` — Cross-run summary (detection/perf/kill criteria) with `SummaryArtifacts`.
-- `summarize_run.py`, `summarize_rc_sanity.py` — Text/CSV summaries for run dirs and rc-lite-sanity batch.
-- `aggregate_runs.py`, `list_runs.py` — Run discovery and aggregation.
-- `prewhiten_effect.py` — Compare prewhiten on/off runs.
-- `reduce_calibration.py`, `shard_grid.py` — Calibration sharding/reduction.
-- `run_monitor.py` — Progress/metrics tailer with resource telemetry.
-- `clean_outputs.py` — Targeted clean/archival of legacy outputs.
-- `update_registry.py`, `verify_dataset.py` — Dataset/factor registry refresh and validation.
-- `plot_rc_hist.py` — RC histogram plot helper.
-
-## scripts
-- `scripts/data/*.py` — WRDS/Sharadar ingestion, balanced weekly builders, return summaries.
-- `scripts/manual/*.sh|*.py` — Calibration and RC smoke wrappers, merge calibration shards.
-- `scripts/aws_run.sh` / `scripts/aws_provision.sh` — AWS dispatch/provision helpers (micromamba + telemetry).
-- `scripts/bench_linalg.py` — BLAS sizing probe.
-- `scripts/secrets/setup_wrds_keychain.sh` — WRDS credential setup (no secrets committed).
+- **src/fjs** — spectral de-alias overlay. `dealias.py` (core transform + admissibility), `overlay.py` (detect_spikes/apply_overlay), `mp.py` (MP edge), `gating.py` (acceptance), `balanced.py` / `balanced_nested.py` (balanced MANOVA sums), `theta_solver.py` (t-vector solver), `spectra.py` (eigen transforms), `robust.py` (robust edge scaling).
+- **src/finance** — base covariance + portfolio layer. `shrinkage.py`/`ledoit.py` (LW/OAS/RIE wrappers), `robust.py` (Tyler/Huber SCM), `factors.py` (factor loading helpers), `returns.py`/`io.py`/`loader.py` (data alignment), `design.py` (group labels), `portfolio.py` + `portfolios.py` (EW, min-var, box constraints, turnover, solver skip/fail-loud), `eval.py` (overlay-aware covariance evaluation).
+- **src/baselines** — covariance baselines (`covariance.py`: cc, EWMA, LW, OAS, QUEST, RIE) and factor loading/prewhitening helpers (`factors.py`).
+- **src/evaluation** — `evaluate.py` (rolling metrics, alignment diagnostics, q-like losses), `dm.py` (Diebold–Mariano tests incl. flip-set), `factor.py` (observed-factor + POET-lite covariances).
+- **src/eval** — `clean.py` (NaN policy / winsor/Huber), `balance.py` (balanced panel construction), reused by `experiments/eval/run.py` and tests.
+- **src/meta** — `cache.py` (on-disk memoisation), `completeness.py` (run completeness checks), `run_meta.py` (git/code signature hashes), `runtime.py` (EXEC_MODE thread caps + seeds).
+- **src/report** — `gather.py` (load metrics/diagnostics), `tables.py` (summary tables), `plots.py` (histograms, DM plots, completeness badges). Used by gallery/memo builders.
+- **src/plotting** — `utils.py` (common plotting helpers used in tests and tools).
+- **src/io** — `wrds_connect.py` (WRDS DB session helper), `crsp_daily.py` (fetch/format CRSP daily returns).
+- **experiments/equity_panel** — `run.py` weekly group runner (DoW/vol/nested), configs `config.yaml`, `config.rc.yaml`, `config.smoke.yaml`, `config.nested.smoke.yaml`, `config.ablation.smoke.yaml`, `config.gallery.yaml`, `config.crisis.2020.yaml`, `config.crisis.2022.yaml`, `config.nested.crisis.2020.yaml`. Produces `outputs_*` dirs with `detection_summary.csv`, `weekly_diagnostics.md`, spectra/edge plots.
+- **experiments/eval** — `run.py` daily evaluation CLI (EW/MV, VaR/ES, DM), `config.py` (layered config merge), `diagnostics.py`, `inject_spike.py`, `sensitivity.py`, `config.yaml` + `thresholds.json` defaults.
+- **experiments/synthetic** — `null.py`, `power.py`, `power_null.py`, `calibrate_thresholds.py`, `harness_utils.py`, `nested_killtest.py`, `config.nested.killtest.yaml` for ROC/null/power and acceptance calibration.
+- **experiments/ablate** — `run.py` drives ablation grid defined in `ablation_matrix.yaml` / `ablation_matrix_tiny.yaml`.
+- **experiments/daily** — `run.py` small daily smoke, `grouping.py` group label helpers.
+- **experiments/prewhiten.py** — factor prewhitening CLI used by eval/equity runners.
+- **experiments/synthetic_oneway** — S1/S3/S4/S5 harness and plots.
+- **experiments/etf_panel** — `run.py` ETF panel demo mirroring equity eval defaults.
+- **tools/** — ops/reporting utilities: `verify_dataset.py`, `update_registry.py`, `list_runs.py`, `aggregate_runs.py`, `run_monitor.py`, `clean_outputs.py`, `shard_grid.py`/`reduce_calibration.py`, `make_summary.py`, `summarize_rc_sanity.py`, `summarize_weekly_diagnostics.py`, `build_gallery.py`, `build_memo.py`, `build_brief.py`, `plot_rc_hist.py`, `summarize_run.py`, `prewhiten_effect.py`, `generate_project_state.py`.
+- **tests/** — coverage for fjs math/gating, synthetic harness, eval/equity runners, reporting, registries, MV solver skip/fail-loud, gpt-bundle packaging.

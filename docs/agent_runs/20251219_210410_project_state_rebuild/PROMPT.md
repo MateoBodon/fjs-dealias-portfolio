@@ -1,0 +1,1 @@
+User request: rebuild project_state/ to be self-describing (17 markdown files + INDEX + _generated JSON + make_targets). Follow AGENTS.md; avoid deep parsing of data/reports; include metadata header (timestamp, git SHA, branch, commands) in every project_state doc; create bundle zip; log run; commit on branch chore/project_state_refresh.

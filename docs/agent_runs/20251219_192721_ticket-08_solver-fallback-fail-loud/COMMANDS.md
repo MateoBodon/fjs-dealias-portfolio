@@ -1,0 +1,28 @@
+# COMMANDS
+
+- pwd
+- ls
+- git status --short
+- git checkout -b ticket-08-solver-fallback-fail-loud
+- run_name=$(date +%Y%m%d_%H%M%S)_ticket-08_solver-fallback-fail-loud; echo $run_name
+- mkdir -p docs/agent_runs/20251219_192721_ticket-08_solver-fallback-fail-loud
+- create PROMPT.md, META.json, COMMANDS.md, RESULTS.md, TESTS.md (cat <<EOF)
+- rg "cvxpy"
+- rg "fallback" src/finance/portfolios.py
+- sed -n '1,240p' src/finance/portfolios.py
+- rg "optimize_portfolio" -n
+- rg "min_variance" -n src experiments tests
+- sed -n '1160,1250p' experiments/eval/run.py
+- rg "minvar_ridge_box" -n experiments/eval/run.py src
+- sed -n '1,220p' src/finance/portfolio.py
+- rg "converged"
+- sed -n '2150,2320p' experiments/eval/run.py
+- rg "minvar_ridge_box" -n experiments/equity_panel/run.py
+- sed -n '1320,1410p' experiments/equity_panel/run.py
+- sed -n '1,200p' project_state/CONFIG_REFERENCE.md
+- python3 -m venv .venv
+- source .venv/bin/activate && pip install --upgrade pip
+- source .venv/bin/activate && pip install -e .[dev]
+- source .venv/bin/activate && make test-fast
+- source .venv/bin/activate && EXEC_MODE=deterministic python -m experiments.eval.run --returns-csv data/returns_daily.csv --out reports/eval-smoke-ticket08 --max-windows 2 --assets-top 50 --overlay-delta 0.2 --mv-box-lo 0.0 --mv-box-hi 0.1
+- source .venv/bin/activate && make gpt-bundle TICKET=ticket-08 RUN_NAME=20251219_192721_ticket-08_solver-fallback-fail-loud

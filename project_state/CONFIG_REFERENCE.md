@@ -43,3 +43,6 @@ CLI notable flags: `--design`, `--edge-mode`, `--gating-mode {fixed,calibrated}`
 ## AWS/runner scripts
 - `scripts/aws_run.sh <target>` expects Make target and optional `EXEC_MODE`; writes telemetry under `reports/aws/<run_id>/`.
 - Manual scripts under `scripts/manual/` call rc-lite/rc/calibration targets with explicit env overrides.
+
+## Library (finance.portfolios)
+- `optimize_portfolio(..., skip_on_missing_solver=True)` — when `cvxpy` is missing, mark the result as `skipped` with `solver_status="missing_dependency"` and empty weights; default is fail-loud via `MissingSolverError` (no equal-weight fallback).

@@ -6,7 +6,7 @@
 - **Ablation grid timing out**: `config.ablation.smoke.yaml` often fails to finish; gallery shows placeholder ablation section.
 - **PSD clipping hides problems**: Overlay covariance enforces PSD by clipping negative eigenvalues/ridge; may mask unstable detections instead of surfacing warnings.
 - **Cache staleness risk**: Window cache keys exclude report/evaluation code; cached stats may become inconsistent after logic changes unless cache dir cleared.
-- **Optional dependencies**: `cvxpy` required for exact min-var; absence silently falls back to equal-weight with `converged=False`. `matplotlib` optional; plots skipped when missing.
+- **Optional dependencies**: `cvxpy` required for exact min-var; absence now raises `MissingSolverError` unless an explicit skip flag is set (see CONFIG_REFERENCE). `matplotlib` optional; plots are skipped when missing.
 - **Registry hash tolerance**: `data.registry.assert_registered_dataset` allows drift for `data/returns_daily.csv` in canonical repo; could hide accidental data changes if not checked.
 - **Unimplemented functions**: `balanced.compute_balanced_weights` and `evaluation.marchenko_pastur_edges/pdf` are stubs; calling them raises NotImplementedError.
 - **Threading variability**: EXEC_MODE throughput increases BLAS threads; non-deterministic ordering may affect marginal stats.

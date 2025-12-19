@@ -1,3 +1,17 @@
+## 2025-12-19T19:30Z — MV solver fail-loud (ticket-08 @ 3820c1fb85)
+- **Branch/Run**: `ticket-08-solver-fallback-fail-loud` (RUN_NAME=`20251219_192721_ticket-08_solver-fallback-fail-loud`), git sha `3820c1fb850968718b43e1c4a3f00aa3b6f872c0`.
+- **Commands**:
+  - Env/tests: `python3 -m venv .venv && source .venv/bin/activate && pip install --upgrade pip && pip install -e .[dev]`; `source .venv/bin/activate && make test-fast` (pass).
+  - Smoke: `source .venv/bin/activate && EXEC_MODE=deterministic python -m experiments.eval.run --returns-csv data/returns_daily.csv --out reports/eval-smoke-ticket08 --max-windows 2 --assets-top 50 --overlay-delta 0.2 --mv-box-lo 0.0 --mv-box-hi 0.1`.
+- **Changes**:
+  - Added explicit `MissingSolverError` for cvxpy absence; `optimize_portfolio` now fails loud by default and exposes `skip_on_missing_solver` escape hatch that returns flagged, empty-weight results (no EW fallback). `OptimizationResult` carries `solver_status` and `skipped`.
+  - New unit tests simulate missing solver and assert no equal-weight fallback.
+  - Docs: removed silent-fallback issue from `project_state/KNOWN_ISSUES.md`; noted skip knob in `project_state/CONFIG_REFERENCE.md`.
+- **Artifacts**:
+  - Smoke output: `reports/eval-smoke-ticket08/`.
+  - Run log: `docs/agent_runs/20251219_192721_ticket-08_solver-fallback-fail-loud/` (PROMPT/COMMANDS/RESULTS/TESTS/META).
+  - Bundle: `docs/gpt_bundles/20251219_194020_ticket-08_20251219_192721_ticket-08_solver-fallback-fail-loud.zip`.
+
 ## 2025-12-19T18:02Z — weekly gating diagnostics (ticket-07 @ 2e0fd573b5)
 - **Branch/Run**: `codex/ticket-07-weekly-drought-diagnostics` (RUN_NAME=`20251219_173231_ticket-07_weekly-drought-diagnostics`), git sha `2e0fd573b509173c456923ced807be5525b38df0`.
 - **Commands**:

@@ -1,0 +1,7 @@
+{
+  "run_name": "20251219_192721_ticket-08_solver-fallback-fail-loud",
+  "start_time": "2025-12-19T19:27:54+01:00",
+  "hostname": "Ubuntu-2404-noble-amd64-base",
+  "git_sha": "3820c1fb850968718b43e1c4a3f00aa3b6f872c0",
+  "python_version": "/bin/bash: line 4: python: command not found"
+}

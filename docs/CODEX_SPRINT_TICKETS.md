@@ -13,7 +13,7 @@ Status legend:
 
 | Ticket | Goal | Status | Latest RUN_NAME | Bundle (required for DONE) | Notes / Evidence |
 |---|---|---:|---|---|---|
-| ticket-08 | **Eliminate silent MV solver fallback** (cvxpy missing → EW) | **NEXT** | (to be created) | (to be created) | Stop-the-line validity issue noted in `project_state/KNOWN_ISSUES.md` (“Optional dependencies: cvxpy required… absence silently falls back”). |
+| ticket-08 | **Eliminate silent MV solver fallback** (cvxpy missing → EW) | **DONE** | `20251219_192721_ticket-08_solver-fallback-fail-loud` | `docs/gpt_bundles/20251219_194020_ticket-08_20251219_192721_ticket-08_solver-fallback-fail-loud.zip` | Fail-loud default with optional skip flag; tests added; docs updated. |
 | ticket-07 | Weekly detection “drought” diagnostics (emit gating trace artifact) | **NEEDS-FOLLOW-UP** | `20251219_173231_ticket-07_weekly-drought-diagnostics` | `docs/gpt_bundles/20251219_180641_ticket-07_20251219_173231_ticket-07_weekly-drought-diagnostics.zip` | Feature landed, but doc protocol not met: no PROGRESS entry; RESULTS.md missing bundle pointer; META.json SHA mismatch; synthetic skip_reason=`diagnostic_failure` everywhere; real smoke dominated by `guard_other`. See run log `docs/agent_runs/.../RESULTS.md`. |
 | ticket-05 | rc-lite-sanity completeness hardening | **NEEDS-FOLLOW-UP** | `20251219_044404_ticket-05_rc-sanity-summary-hardening` | **MISSING** | PROGRESS has results, but (per prior tickets file) bundling was blocked before ticket-06. After ticket-06, re-run `make gpt-bundle` for ticket-05 so it becomes reviewable. |
 | ticket-06 | Restore `make gpt-bundle` fail-loud target + regression test | **DONE** | `20251219_072353_ticket-06_gpt-bundle-restore` | `docs/gpt_bundles/20251219_074334_ticket-06_20251219_072353_ticket-06_gpt-bundle-restore.zip` | Implemented bundling + regression guard; recorded in `PROGRESS.md` top entry. |
@@ -29,16 +29,9 @@ Follow-ups to close ticket-07 cleanly:
   - Explain and/or fix `skip_reason=diagnostic_failure` on synthetic weekly micro run (is it expected? if so, rename; if not, fix root cause).
   - Update `project_state/CONFIG_REFERENCE.md` to document `diagnostics.gating_trace` / `--gating-diagnostics`.
 
-## Ticket detail: ticket-08 (NEXT)
-Goal:
-- Remove the “cvxpy missing → silently use equal-weight MV” behavior.
-
-Acceptance criteria:
-- When MV is requested and solver is unavailable:
-  - default behavior is **fail loud** with a clear error message, OR
-  - MV is skipped only when explicitly allowed, and run is marked incomplete + summaries exclude MV.
-- Add unit test(s) that simulate missing solver and assert no silent fallback.
-- `make test-fast` passes.
-- Deterministic smoke run using real data triggers the behavior and is recorded in the run log.
-- Update `project_state/KNOWN_ISSUES.md` and `project_state/CONFIG_REFERENCE.md` accordingly.
-- Bundle generated and path recorded in `docs/agent_runs/<RUN_NAME>/RESULTS.md`.
+## Ticket detail: ticket-08 (DONE)
+- Behavior change: `finance.portfolios._get_cvxpy` now raises `MissingSolverError` when cvxpy is absent; `optimize_portfolio` fails loud by default or returns `skipped=True` + empty weights only when `skip_on_missing_solver=True` (no equal-weight fallback).
+- Tests: added `tests/test_portfolios_missing_solver.py` to simulate missing cvxpy and assert skipped/error paths; `make test-fast` passing.
+- Docs: `project_state/KNOWN_ISSUES.md` updated (silent fallback removed); `project_state/CONFIG_REFERENCE.md` documents skip knob; `project_state/MODULE_SUMMARIES.md` refreshed.
+- Smoke: deterministic eval run (`reports/eval-smoke-ticket08/`) completes with cvxpy present.
+- Bundle: `docs/gpt_bundles/20251219_194020_ticket-08_20251219_192721_ticket-08_solver-fallback-fail-loud.zip`.

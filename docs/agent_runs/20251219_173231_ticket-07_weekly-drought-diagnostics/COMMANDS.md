@@ -1192,3 +1192,5 @@ EOF_RESULTS
 +
 *** End Patch
 EOF_PATCH
+- cd /root/fjs-dealias-portfolio && git add PROGRESS.md docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/COMMANDS.md docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/RESULTS.md docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/TESTS.md docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/bundle_contents.txt
+- cd /root/fjs-dealias-portfolio && git commit -m "chore: record ticket-07 artifacts" -m "Tests: not run (docs/bundle updates only)"

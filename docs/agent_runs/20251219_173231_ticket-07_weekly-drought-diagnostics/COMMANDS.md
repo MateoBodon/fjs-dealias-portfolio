@@ -1198,3 +1198,12 @@ EOF_PATCH
 - cd /root/fjs-dealias-portfolio && git commit -m "chore: sync ticket-07 command log" -m "Tests: not run (log only)"
 - cd /root/fjs-dealias-portfolio && git commit -m "chore: finalize ticket-07 log entries" -m "Tests: not run (log sync)"
 - cd /root/fjs-dealias-portfolio && git add docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/COMMANDS.md
+- cd /root/fjs-dealias-portfolio && ls docs/gpt_bundles
+- cd /root/fjs-dealias-portfolio && unzip -l docs/gpt_bundles/20251219_073746_ticket-06_20251219_072353_ticket-06_gpt-bundle-restore.zip | head
+- cd /root/fjs-dealias-portfolio && unzip -l docs/gpt_bundles/20251219_074334_ticket-06_20251219_072353_ticket-06_gpt-bundle-restore.zip | head
+- cd /root/fjs-dealias-portfolio && unzip -l docs/gpt_bundles/20251219_074334_ticket-06_20251219_072353_ticket-06_gpt-bundle-restore.zip | grep -E '^\s+[0-9]+\s+.*docs/' | head
+- cd /root/fjs-dealias-portfolio && mkdir -p gpt_output
+- cd /root/fjs-dealias-portfolio && for z in docs/gpt_bundles/*.zip; do unzip -n "$z" -d gpt_output >/dev/null; done
+- cd /root/fjs-dealias-portfolio && if ! grep -qx 'gpt_output/' .git/info/exclude 2>/dev/null; then printf '\n# Local bundle extracts\ngpt_output/\n' >> .git/info/exclude; fi
+- cd /root/fjs-dealias-portfolio && rm -rf gpt_output
+- cd /root/fjs-dealias-portfolio && perl -0777 -pe 's/\n# Local bundle extracts\ngpt_output\/\n//g' -i .git/info/exclude

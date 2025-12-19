@@ -77,3 +77,4 @@ sed -n '1,40p' PROGRESS.md
 apply_patch PROGRESS.md update bundle path
 git add PROGRESS.md docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/bundle_contents.txt docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/RESULTS.md docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/COMMANDS.md
 git commit -m 'chore: refresh ticket-06 bundle artifacts' -m 'Tests: source .venv/bin/activate && make test-fast\nArtifacts: docs/gpt_bundles/20251219_074334_ticket-06_20251219_072353_ticket-06_gpt-bundle-restore.zip'
+git status -sb

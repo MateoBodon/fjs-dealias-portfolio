@@ -1,1 +1,3 @@
 - source .venv/bin/activate && make test-fast — pass (68 passed, 145 deselected)
+- source .venv/bin/activate && python -m experiments.equity_panel.run --config docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/config.synthetic.yaml --gating-diagnostics --exec-mode deterministic -- pass (windows=6, detection_rate=0)
+- source .venv/bin/activate && python -m experiments.equity_panel.run --config experiments/equity_panel/config.smoke.yaml --gating-diagnostics --output-dir experiments/equity_panel/outputs_smoke_ticket07_20251219_173231 --exec-mode deterministic -- pass (windows=4, detection_rate=0.75)

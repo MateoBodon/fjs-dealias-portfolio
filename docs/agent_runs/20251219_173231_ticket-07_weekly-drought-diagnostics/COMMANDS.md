@@ -1149,3 +1149,46 @@ EOF_PATCH
 - cd /root/fjs-dealias-portfolio && git add docs/CODEX_SPRINT_TICKETS.md experiments/equity_panel/run.py project_state/CURRENT_RESULTS.md project_state/KNOWN_ISSUES.md tests/experiments/test_gating_diagnostics.py tools/summarize_weekly_diagnostics.py docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics
 - cd /root/fjs-dealias-portfolio && git status --short
 - cd /root/fjs-dealias-portfolio && git commit -m "feat: add weekly gating diagnostics artifact" -m "Tests: source .venv/bin/activate && make test-fast" -m "Smokes: source .venv/bin/activate && python -m experiments.equity_panel.run --config docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/config.synthetic.yaml --gating-diagnostics --exec-mode deterministic; source .venv/bin/activate && python -m experiments.equity_panel.run --config experiments/equity_panel/config.smoke.yaml --gating-diagnostics --output-dir experiments/equity_panel/outputs_smoke_ticket07_20251219_173231 --exec-mode deterministic"
+- cd /root/fjs-dealias-portfolio && git add docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/COMMANDS.md
+- cd /root/fjs-dealias-portfolio && git commit -m "chore: refresh ticket-07 command log" -m "Tests: not run (log update only)"
+- cd /root/fjs-dealias-portfolio && git status --short
+- cd /root/fjs-dealias-portfolio && cat >> docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/TESTS.md <<'EOF_TESTS'
+- source .venv/bin/activate && python -m experiments.equity_panel.run --config docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/config.synthetic.yaml --gating-diagnostics --exec-mode deterministic — pass (windows=6, detection_rate=0)
+- source .venv/bin/activate && python -m experiments.equity_panel.run --config experiments/equity_panel/config.smoke.yaml --gating-diagnostics --output-dir experiments/equity_panel/outputs_smoke_ticket07_20251219_173231 --exec-mode deterministic — pass (windows=4, detection_rate=0.75)
+EOF_TESTS
+- cd /root/fjs-dealias-portfolio && apply_patch <<'EOF_PATCH'
+*** Begin Patch
+*** Update File: docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/TESTS.md
+@@
+-- source .venv/bin/activate && python -m experiments.equity_panel.run --config docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/config.synthetic.yaml --gating-diagnostics --exec-mode deterministic — pass (windows=6, detection_rate=0)
+-- source .venv/bin/activate && python -m experiments.equity_panel.run --config experiments/equity_panel/config.smoke.yaml --gating-diagnostics --output-dir experiments/equity_panel/outputs_smoke_ticket07_20251219_173231 --exec-mode deterministic — pass (windows=4, detection_rate=0.75)
++- source .venv/bin/activate && python -m experiments.equity_panel.run --config docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/config.synthetic.yaml --gating-diagnostics --exec-mode deterministic -- pass (windows=6, detection_rate=0)
++- source .venv/bin/activate && python -m experiments.equity_panel.run --config experiments/equity_panel/config.smoke.yaml --gating-diagnostics --output-dir experiments/equity_panel/outputs_smoke_ticket07_20251219_173231 --exec-mode deterministic -- pass (windows=4, detection_rate=0.75)
+*** End Patch
+EOF_PATCH
+- cd /root/fjs-dealias-portfolio && source .venv/bin/activate && make gpt-bundle TICKET=ticket-07 RUN_NAME=20251219_173231_ticket-07_weekly-drought-diagnostics
+- cd /root/fjs-dealias-portfolio && unzip -l docs/gpt_bundles/20251219_180641_ticket-07_20251219_173231_ticket-07_weekly-drought-diagnostics.zip > docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/bundle_contents.txt
+- cd /root/fjs-dealias-portfolio && cat >> docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/RESULTS.md <<'EOF_RESULTS'
+- Bundle: docs/gpt_bundles/20251219_180641_ticket-07_20251219_173231_ticket-07_weekly-drought-diagnostics.zip (contents: docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/bundle_contents.txt)
+EOF_RESULTS
+- cd /root/fjs-dealias-portfolio && git rev-parse HEAD
+- cd /root/fjs-dealias-portfolio && apply_patch <<'EOF_PATCH'
+*** Begin Patch
+*** Update File: PROGRESS.md
+@@
++## 2025-12-19T18:02Z — weekly gating diagnostics (ticket-07 @ 2e0fd573b5)
++- **Branch/Run**: `codex/ticket-07-weekly-drought-diagnostics` (RUN_NAME=`20251219_173231_ticket-07_weekly-drought-diagnostics`), git sha `2e0fd573b509173c456923ced807be5525b38df0`.
++- **Commands**:
++  - Tests: `source .venv/bin/activate && make test-fast`.
++  - Smokes: `source .venv/bin/activate && python -m experiments.equity_panel.run --config docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/config.synthetic.yaml --gating-diagnostics --exec-mode deterministic`; `source .venv/bin/activate && python -m experiments.equity_panel.run --config experiments/equity_panel/config.smoke.yaml --gating-diagnostics --output-dir experiments/equity_panel/outputs_smoke_ticket07_20251219_173231 --exec-mode deterministic`.
++  - Bundle: `make gpt-bundle TICKET=ticket-07 RUN_NAME=20251219_173231_ticket-07_weekly-drought-diagnostics`.
++- **Findings**:
++  - DoW weekly smoke (2023Q1, window=6, horizon=1, edge=scm) now shows detection_rate=0.75 (3/4) with a single skip_reason `no_isolated_spike`; guardrail tallies dominated by `guard_other`=1148 despite fixed delta_frac_used=0.02. Summary: `experiments/equity_panel/outputs_smoke_ticket07_20251219_173231/oneway_J5_solver-auto_est-dealias_prep-prewhiten_modeoff/weekly_diagnostics.md`.
++  - Synthetic micro smoke on generated returns (config.synthetic.yaml) records detection_rate=0 with skip_reason `diagnostic_failure` on all 6 windows; `guard_other`=18. Indicates diagnostic/guardrail “other” path still active on tiny panels.
++- **Artifacts**:
++  - Real run: `experiments/equity_panel/outputs_smoke_ticket07_20251219_173231/oneway_J5_solver-auto_est-dealias_prep-prewhiten_modeoff/{gating_diagnostics.csv,weekly_diagnostics.md}`.
++  - Synthetic run: `experiments/equity_panel/outputs_ticket07_synth_20251219_173231/oneway_J5_solver-auto_est-dealias_prep-prewhiten_modeoff/{gating_diagnostics.csv,weekly_diagnostics.md}`.
++  - Bundle: `docs/gpt_bundles/20251219_180641_ticket-07_20251219_173231_ticket-07_weekly-drought-diagnostics.zip` (listed in `docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/bundle_contents.txt`).
++
+*** End Patch
+EOF_PATCH

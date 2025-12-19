@@ -1,0 +1,25 @@
+Archive:  docs/gpt_bundles/20251219_180641_ticket-07_20251219_173231_ticket-07_weekly-drought-diagnostics.zip
+  Length      Date    Time    Name
+---------  ---------- -----   ----
+   194979  2025-12-19 18:06   DIFF.patch
+    11316  2025-12-19 18:06   AGENTS.md
+        0  2025-12-19 18:06   docs/
+     1475  2025-12-19 18:06   docs/DOCS_AND_LOGGING_SYSTEM.md
+      906  2025-12-19 18:06   docs/CODEX_SPRINT_TICKETS.md
+        0  2025-12-19 18:06   docs/agent_runs/
+        0  2025-12-19 18:06   docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/
+      200  2025-12-19 18:06   docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/META.json
+      563  2025-12-19 18:06   docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/config.synthetic.yaml
+      625  2025-12-19 18:06   docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/TESTS.md
+    17509  2025-12-19 18:06   docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/PROMPT.md
+     1207  2025-12-19 18:06   docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/RESULTS.md
+    56869  2025-12-19 18:06   docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/COMMANDS.md
+     1040  2025-12-19 18:06   docs/PLAN_OF_RECORD.md
+      323  2025-12-19 18:06   LAST_COMMIT.txt
+    30359  2025-12-19 18:06   PROGRESS.md
+        0  2025-12-19 18:06   project_state/
+     5525  2025-12-19 18:06   project_state/CONFIG_REFERENCE.md
+     5057  2025-12-19 18:06   project_state/CURRENT_RESULTS.md
+     3235  2025-12-19 18:06   project_state/KNOWN_ISSUES.md
+---------                     -------
+   331188                     20 files

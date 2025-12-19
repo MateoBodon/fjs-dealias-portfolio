@@ -63,3 +63,7 @@ git add tests/test_gpt_bundle.py
 git commit -m 'test: guard gpt-bundle target' -m 'Tests: source .venv/bin/activate && make test-fast\nArtifacts: docs/gpt_bundles/20251219_073746_ticket-06_20251219_072353_ticket-06_gpt-bundle-restore.zip'
 git add .gitignore docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/COMMANDS.md
 git commit -m 'chore: ignore bundle outputs' -m 'Tests: source .venv/bin/activate && make test-fast\nArtifacts: docs/gpt_bundles/20251219_073746_ticket-06_20251219_072353_ticket-06_gpt-bundle-restore.zip'
+git add docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/COMMANDS.md docs/agent_runs/20251219_044404_ticket-05_rc-sanity-summary-hardening/COMMANDS.md
+git commit -m 'docs: update agent run logs' -m 'Tests: source .venv/bin/activate && make test-fast\nArtifacts: docs/gpt_bundles/20251219_073746_ticket-06_20251219_072353_ticket-06_gpt-bundle-restore.zip'
+git add docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/COMMANDS.md
+git commit -m 'docs: finalize ticket-06 command log' -m 'Tests: source .venv/bin/activate && make test-fast\nArtifacts: docs/gpt_bundles/20251219_073746_ticket-06_20251219_072353_ticket-06_gpt-bundle-restore.zip'

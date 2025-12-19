@@ -59,3 +59,4 @@
 - git status --short
 - git add docs/agent_runs/20251219_232717_ticket-09_weekly-guardrail-attribution/META.md
 - git commit -m "ticket-09: finalize run log and meta"
+- git commit -m "ticket-09: sync meta hashes"

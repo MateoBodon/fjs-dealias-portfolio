@@ -234,7 +234,7 @@
   - Ablation artifacts: `ablations/ablation_matrix.csv` (4-combo tiny grid) and `experiments/equity_panel/outputs_ablation_smoke/ablation_summary.csv`; gallery/memo pick up the matrix (heatmap/table) and ablation summary directory.
   - **Notes**: Added `use_tvector` toggle (configurable, disabled for nested smoke and ablations) to bypass overly strict t-vector gating; relaxed nested thresholds (delta_frac 0.005, eps 0.01, eta 0.15, q_max 2, require_isolated=false). Equity-panel ablation runner still heavy when invoked via `rc-ablations`; direct `_run_param_ablation` was used to emit the E5 summary for this drop. Next: rerun the full `rc-ablations` target on Hetzner if time permits, or wire timeout/limit guards.
 
-## 2025-12-19T23:27Z — Weekly guardrail attribution (359d992)
+## 2025-12-19T23:27Z — Weekly guardrail attribution (0443a62)
 - **Data**: WRDS daily returns (`experiments/equity_panel/config.smoke.yaml`), deterministic exec mode.
 - **Commands**:
   - PATH="/root/fjs-dealias-portfolio/.venv/bin:$PATH" make test-fast

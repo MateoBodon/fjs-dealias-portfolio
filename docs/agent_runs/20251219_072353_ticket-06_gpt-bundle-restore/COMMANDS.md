@@ -57,3 +57,7 @@ echo "Tests: source .venv/bin/activate && make test-fast (68 passed, 144 deselec
 git status -sb
 git add Makefile
 git commit -m 'feat: add gpt-bundle target' -m 'Tests: source .venv/bin/activate && make test-fast\nArtifacts: docs/gpt_bundles/20251219_073746_ticket-06_20251219_072353_ticket-06_gpt-bundle-restore.zip'
+git add docs/PLAN_OF_RECORD.md docs/DOCS_AND_LOGGING_SYSTEM.md docs/CODEX_SPRINT_TICKETS.md PROGRESS.md docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore
+git commit -m 'docs: restore bundle docs and log ticket-06' -m 'Tests: source .venv/bin/activate && make test-fast\nArtifacts: docs/gpt_bundles/20251219_073746_ticket-06_20251219_072353_ticket-06_gpt-bundle-restore.zip'
+git add tests/test_gpt_bundle.py
+git commit -m 'test: guard gpt-bundle target' -m 'Tests: source .venv/bin/activate && make test-fast\nArtifacts: docs/gpt_bundles/20251219_073746_ticket-06_20251219_072353_ticket-06_gpt-bundle-restore.zip'

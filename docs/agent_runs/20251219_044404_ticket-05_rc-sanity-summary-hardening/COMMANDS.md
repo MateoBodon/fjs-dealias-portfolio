@@ -165,3 +165,5 @@ PY
 2025-12-19 05:20:50 | git commit -m "docs: log rc-lite-sanity completeness validation" -m "Tests:\n- source .venv/bin/activate && make test-fast\n- source .venv/bin/activate && pytest -m unit -k \"summary or summarize_rc_sanity or run_meta\"\n\nArtifacts:\n- reports/rc-20251219-sanity-20251219_050735/\n- bundles/20251219_044404_ticket-05_rc-sanity-summary-hardening.tar.gz\n- docs/agent_runs/20251219_044404_ticket-05_rc-sanity-summary-hardening/"
 2025-12-19 05:21:00 | git add docs/agent_runs/20251219_044404_ticket-05_rc-sanity-summary-hardening/COMMANDS.md
 2025-12-19 05:21:10 | git commit -m "chore: update run log entries" -m "Tests:\n- not run (log update only)\n\nArtifacts:\n- docs/agent_runs/20251219_044404_ticket-05_rc-sanity-summary-hardening/COMMANDS.md"
+2025-12-19 05:24:10 | zip -rq bundles/20251219_044404_ticket-05_rc-sanity-summary-hardening-gpt-bundle.zip <same payload as tar>
+2025-12-19 05:24:20 | du -h bundles/20251219_044404_ticket-05_rc-sanity-summary-hardening-gpt-bundle.zip

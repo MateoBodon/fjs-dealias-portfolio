@@ -5,4 +5,5 @@
 - `summary/completeness.json` emitted by `tools/make_summary.py`; completeness and cap info now surface in limitations/kill_criteria.
 - Working tree dirty before validation run due to ongoing ticket work (branch `ticket-05-rc-sanity-summary-hardening`).
 - Note: `docs/DOCS_AND_LOGGING_SYSTEM.md` referenced in prompt is absent in repo; followed existing agent_runs logging format.
-- Bundle: `bundles/20251219_044404_ticket-05_rc-sanity-summary-hardening.tar.gz` (manual tarball; `make gpt-bundle` target not present).
+- Bundle (tar): `bundles/20251219_044404_ticket-05_rc-sanity-summary-hardening.tar.gz`.
+- Bundle (zip, gpt-bundle equivalent): `bundles/20251219_044404_ticket-05_rc-sanity-summary-hardening-gpt-bundle.zip`.

@@ -1,3 +1,20 @@
+## 2025-12-19T05:17Z — rc-lite-sanity completeness hardening (ticket-05 @ 03d4c03c)
+- **Branch/Run**: `ticket-05-rc-sanity-summary-hardening` (RUN_NAME=`20251219_044404_ticket-05_rc-sanity-summary-hardening`), git sha `03d4c03c`.
+- **Data**: WRDS daily returns `data/returns_daily.csv` (sha256=96ac7dd3…3197) and FF5+MOM factors `data/factors/ff5mom_daily.csv` (sha256=469d44ad…908ca); verified via `tools/verify_dataset.py` inside `make rc-lite-sanity`.
+- **Commands**:
+  - Env/tests: `.venv` bootstrap + `pip install -e .[dev]`; `source .venv/bin/activate && make test-fast`; `source .venv/bin/activate && pytest -m unit -k "summary or summarize_rc_sanity or run_meta"`.
+  - RC-lite sanity (deterministic): `source .venv/bin/activate && EXEC_MODE=deterministic make rc-lite-sanity`.
+  - Summary regen with completeness: `source .venv/bin/activate && PYTHONPATH=src:. python3 tools/make_summary.py --rc-dir reports/rc-20251219-sanity-20251219_050735` and `python3 tools/summarize_rc_sanity.py --rc-dir reports/rc-20251219-sanity-20251219_050735 --dow-dir .../dow-tyler --vol-dir .../vol-tyler --weekly-dow-dir .../dow-weekly --nested-dir .../nested`.
+- **Artifacts**:
+  - RC root: `reports/rc-20251219-sanity-20251219_050735/` with refreshed `summary_sanity.json`, `regime.csv`, and `summary/{summary_perf.csv,summary_detection.csv,kill_criteria.json,limitations.md,completeness.json}`.
+  - Weekly outputs: `experiments/equity_panel/outputs_rc-lite-20251219_20251219_050735/{dow-weekly,nested}/`.
+  - Run log: `docs/agent_runs/20251219_044404_ticket-05_rc-sanity-summary-hardening/`.
+- **Results**:
+  - Completeness surfaced in summaries; `incomplete_runs` is empty for this drop. Aggregate includes only complete, uncapped runs.
+  - Daily DoW: detection_rate≈0.055, ΔMSE(EW)=+1.24e-10, ΔMSE(MV)=+4.52e-11, overlay_effect=harmful.
+  - Daily vol: detection_rate≈0.052, ΔMSE(EW)=+3.67e-11, ΔMSE(MV)=+1.24e-13, overlay_effect=harmful.
+  - Weekly DoW & nested: detection_rate=0, accept_share=0 (smoke still non-detecting under current guardrails).
+
 ## 2025-11-22T00:56Z — Hetzner RC-lite + calibration refresh (git sha 3db9335)
 - **Data**: WRDS daily returns `data/returns_daily.csv` (sha256=96ac7dd3…3197) + FF5+MOM factors `data/factors/ff5mom_daily.csv` (sha256=469d44ad…908ca), verified against registries.
 - **Commands**:

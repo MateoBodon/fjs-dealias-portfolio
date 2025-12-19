@@ -1,0 +1,12 @@
+{
+  "run_name": "20251219_044404_ticket-05_rc-sanity-summary-hardening",
+  "ticket": "ticket-05",
+  "branch": "ticket-05-rc-sanity-summary-hardening",
+  "git_sha": "03d4c03cc386ab315b6ec03714871849b0109e5c",
+  "run_timestamp": "2025-12-19T05:07:35Z",
+  "rc_sanity_dir": "reports/rc-20251219-sanity-20251219_050735",
+  "weekly_outputs": [
+    "experiments/equity_panel/outputs_rc-lite-20251219_20251219_050735/dow-weekly",
+    "experiments/equity_panel/outputs_rc-lite-20251219_20251219_050735/nested"
+  ]
+}

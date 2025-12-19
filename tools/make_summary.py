@@ -10,6 +10,8 @@ from typing import Any, Callable, Iterable, Sequence
 import numpy as np
 import pandas as pd
 
+from meta.completeness import CompletenessResult, evaluate_eval_run
+
 REGIMES: Sequence[str] = ("full", "calm", "crisis")
 PORTFOLIOS: Sequence[str] = ("ew", "mv")
 
@@ -18,6 +20,7 @@ PORTFOLIOS: Sequence[str] = ("ew", "mv")
 class SummaryArtifacts:
     performance: pd.DataFrame
     detection: pd.DataFrame
+    completeness: CompletenessResult | None = None
 
 
 def _read_csv(path: Path) -> pd.DataFrame:
@@ -316,6 +319,13 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
     if not rc_dir.exists() or not rc_dir.is_dir():
         raise ValueError(f"RC directory '{rc_dir}' does not exist or is not a directory.")
 
+    completeness = evaluate_eval_run(
+        rc_dir,
+        label=rc_dir.name,
+        require_manifest=False,
+        allow_unknown_coverage=True,
+        run_type="rc",
+    )
     root_detail = _read_csv(rc_dir / "diagnostics_detail.csv")
     design_dirs = [child for child in rc_dir.iterdir() if child.is_dir() and child.name != "summary"]
     perf_records: list[dict[str, object]] = []
@@ -469,7 +479,7 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
 
     perf_df = pd.DataFrame(perf_records)
     det_df = pd.DataFrame(det_records)
-    return SummaryArtifacts(performance=perf_df, detection=det_df)
+    return SummaryArtifacts(performance=perf_df, detection=det_df, completeness=completeness)
 
 
 def _discover_rc_dirs(root: Path, patterns: Iterable[str] | None, all_runs: bool, rc_dir: Path | None) -> list[Path]:
@@ -515,6 +525,19 @@ def write_summaries(rc_dirs: Iterable[Path]) -> dict[Path, SummaryArtifacts]:
         kill_data, limitations = _evaluate_kill_criteria(
             artifacts.performance, artifacts.detection, directory.name
         )
+        comp = artifacts.completeness
+        if comp is not None:
+            kill_data["completeness"] = comp.as_dict()
+            if not comp.is_complete:
+                limitations.append(comp.incomplete_reason or "run marked incomplete")
+            if comp.window_coverage is not None and comp.window_coverage < 1.0:
+                limitations.append(
+                    f"window coverage {comp.window_coverage:.3g} < 1.0; excluded from aggregates."
+                )
+            if comp.cap_active:
+                reason = ", ".join(comp.cap_sources) if comp.cap_sources else "cap_active=true"
+                limitations.append(f"run capped ({reason}); excluded from aggregates.")
+
         kill_path = summary_dir / "kill_criteria.json"
         kill_path.write_text(json.dumps(kill_data, indent=2, sort_keys=True), encoding="utf-8")
         if limitations:
@@ -526,6 +549,11 @@ def write_summaries(rc_dirs: Iterable[Path]) -> dict[Path, SummaryArtifacts]:
         limitations_path.write_text(text, encoding="utf-8")
         print(f"[make_summary] Wrote {_display_path(kill_path)}")
         print(f"[make_summary] Wrote {_display_path(limitations_path)}")
+
+        if comp is not None:
+            comp_path = summary_dir / "completeness.json"
+            comp_path.write_text(json.dumps(comp.as_dict(), indent=2, sort_keys=True), encoding="utf-8")
+            print(f"[make_summary] Wrote {_display_path(comp_path)}")
     return outputs
 
 

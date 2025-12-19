@@ -1,3 +1,18 @@
+## 2025-12-19T20:25Z — MV solver missing-proof (ticket-08 @ a4451969)
+- **Branch/Run**: `codex/ticket-08-solver-missing-proof` (RUN_NAME=`20251219_202301_ticket-08_solver-missing-proof`), git sha `a44519691f94010993176f74949485f68b9a44f0`.
+- **Commands**:
+  - Tests: `source .venv/bin/activate && make test-fast` (first attempt timed out at 10 s; reran successfully: 68 passed, 151 deselected).
+  - Smokes: `source .venv/bin/activate && EXEC_MODE=deterministic python -m experiments.eval.run --returns-csv data/returns_daily.csv --out reports/eval-smoke-ticket08-proof/normal --max-windows 2 --assets-top 50 --overlay-delta 0.2 --mv-box-lo 0.0 --mv-box-hi 0.1 --mv-solver cvxpy`; `source .venv/bin/activate && FJS_FORCE_MISSING_CVXPY=1 EXEC_MODE=deterministic python -m experiments.eval.run --returns-csv data/returns_daily.csv --out reports/eval-smoke-ticket08-proof/missing-skip --max-windows 2 --assets-top 50 --overlay-delta 0.2 --mv-box-lo 0.0 --mv-box-hi 0.1 --mv-solver cvxpy --mv-skip-on-missing-solver`.
+- **Changes**:
+  - `finance/portfolios`: add `skip_reason/solver_used`, support `FJS_FORCE_MISSING_CVXPY`, remove success-shaped fallback when solver missing, allow ridge/box passthrough in `optimize_portfolio`.
+  - `experiments/eval`: new `mv_solver`/`mv_skip_on_missing_solver` knobs, propagate `skipped/skip_reason/solver_status` into metrics + diagnostics, and add regression tests covering forced-missing cvxpy.
+  - Docs: `project_state/CONFIG_REFERENCE.md` documents the new solver knob + env flag; run artifacts written under `reports/eval-smoke-ticket08-proof/`.
+- **Results**:
+  - Normal cvxpy smoke: `reports/eval-smoke-ticket08-proof/normal/metrics_detail.csv` shows MV rows with `solver_status=optimal`, `skipped=False`.
+  - Forced missing (skip flag): `reports/eval-smoke-ticket08-proof/missing-skip/full/diagnostics.csv` logs `mv_skipped_share=1.0`; `metrics_detail.csv` rows carry `skipped=True`, `skip_reason=missing_solver`, `solver_status=missing_solver`.
+  - Default path remains fail-loud via `MissingSolverError` (unit tests cover) with no equal-weight fallback.
+  - Bundle: `docs/gpt_bundles/20251219_204908_ticket-08_20251219_202301_ticket-08_solver-missing-proof.zip`.
+
 ## 2025-12-19T19:30Z — MV solver fail-loud (ticket-08 @ 3820c1fb85)
 - **Branch/Run**: `ticket-08-solver-fallback-fail-loud` (RUN_NAME=`20251219_192721_ticket-08_solver-fallback-fail-loud`), git sha `3820c1fb850968718b43e1c4a3f00aa3b6f872c0`.
 - **Commands**:

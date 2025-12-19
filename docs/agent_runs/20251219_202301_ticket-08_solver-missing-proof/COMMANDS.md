@@ -1,0 +1,57 @@
+# COMMANDS
+
+- ls
+- sed -n '1,200p' docs/DOCS_AND_LOGGING_SYSTEM.md
+- git status -sb
+- git checkout -b codex/ticket-08-solver-missing-proof
+- date +%Y%m%d_%H%M%S
+- ls docs/agent_runs | tail
+- mkdir -p docs/agent_runs/20251219_202301_ticket-08_solver-missing-proof
+- cat <<'EOF' > docs/agent_runs/20251219_202301_ticket-08_solver-missing-proof/PROMPT.md
+- git rev-parse HEAD
+- printf \"- git rev-parse HEAD\\n\" >> docs/agent_runs/20251219_202301_ticket-08_solver-missing-proof/COMMANDS.md  # failed (printf option parsing)
+- cat <<'EOF' > docs/agent_runs/20251219_202301_ticket-08_solver-missing-proof/RESULTS.md
+- cat <<'EOF' > docs/agent_runs/20251219_202301_ticket-08_solver-missing-proof/TESTS.md
+- date -Iseconds
+- hostname
+- python --version
+- python3 --version
+- cat <<'EOF' > docs/agent_runs/20251219_202301_ticket-08_solver-missing-proof/META.json
+- sed -n '1,200p' AGENTS.md
+- sed -n '1,160p' Long_Term_Plan.md
+- sed -n '1,200p' project_state/CONFIG_REFERENCE.md
+- sed -n '1,160p' project_state/KNOWN_ISSUES.md
+- rg "cvxpy"
+- sed -n '1,260p' src/finance/portfolios.py
+- sed -n '260,520p' src/finance/portfolios.py
+- sed -n '1,200p' tests/test_portfolios_missing_solver.py
+- rg "optimize_portfolio"
+- rg "minvar" -n src experiments tests
+- sed -n '1,220p' src/finance/portfolio.py
+- rg "MissingSolverError"
+- sed -n '1,200p' tests/test_pipeline_smoke.py
+- rg "solver" experiments/eval/run.py | head
+- sed -n '1160,1320p' experiments/eval/run.py
+- rg "_min_variance_weights" -n experiments/eval/run.py
+- sed -n '2120,2245p' experiments/eval/run.py
+- sed -n '2020,2485p' experiments/eval/run.py
+- sed -n '2485,2900p' experiments/eval/run.py
+- ls -d .venv
+- git status -sb
+- .venv/bin/python -c "import cvxpy, sys; print(cvxpy.__version__)"
+- cat <<'EOF' > tests/test_eval_missing_solver.py
+- source .venv/bin/activate && make test-fast  # timed out (increase timeout and retry)
+- source .venv/bin/activate && make test-fast
+- source .venv/bin/activate && EXEC_MODE=deterministic python -m experiments.eval.run --returns-csv data/returns_daily.csv --out reports/eval-smoke-ticket08-proof/normal --max-windows 2 --assets-top 50 --overlay-delta 0.2 --mv-box-lo 0.0 --mv-box-hi 0.1 --mv-solver cvxpy
+- source .venv/bin/activate && FJS_FORCE_MISSING_CVXPY=1 EXEC_MODE=deterministic python -m experiments.eval.run --returns-csv data/returns_daily.csv --out reports/eval-smoke-ticket08-proof/missing-skip --max-windows 2 --assets-top 50 --overlay-delta 0.2 --mv-box-lo 0.0 --mv-box-hi 0.1 --mv-solver cvxpy --mv-skip-on-missing-solver
+- .venv/bin/python - <<'PY'\nimport pandas as pd\nfrom pathlib import Path\n\npaths = [\n    Path('reports/eval-smoke-ticket08-proof/normal/metrics_detail.csv'),\n    Path('reports/eval-smoke-ticket08-proof/missing-skip/metrics_detail.csv'),\n]\nfor path in paths:\n    print(f\"=== {path} ===\")\n    df = pd.read_csv(path)\n    cols = [c for c in df.columns if c in {\"portfolio\",\"solver_status\",\"skipped\",\"skip_reason\",\"estimator\"}]\n    print(df[cols].drop_duplicates())\nPY
+- .venv/bin/python - <<'PY'\nimport pandas as pd\n\npath = \"reports/eval-smoke-ticket08-proof/missing-skip/diagnostics.csv\"\ndiag = pd.read_csv(path)\ncols = [c for c in diag.columns if c.startswith(\"mv_\") and c not in {\"mv_condition_cap\"}]\nprint(diag[cols].drop_duplicates())\nPY  # failed (diagnostics.csv not found)
+- find reports/eval-smoke-ticket08-proof -maxdepth 2 -type f | head
+- find reports/eval-smoke-ticket08-proof/missing-skip -type f | head
+- .venv/bin/python - <<'PY'\nimport pandas as pd\npath = \"reports/eval-smoke-ticket08-proof/missing-skip/full/diagnostics.csv\"\ndiag = pd.read_csv(path)\ncols = [c for c in diag.columns if c.startswith(\"mv_\") and c not in {\"mv_condition_cap\"}]\nprint(diag[cols].drop_duplicates())\nPY
+- git status -sb
+- make gpt-bundle TICKET=ticket-08 RUN_NAME=20251219_202301_ticket-08_solver-missing-proof
+- git status -sb
+- git add src/finance/portfolios.py experiments/eval/config.py experiments/eval/run.py tests/test_portfolios_missing_solver.py tests/test_eval_missing_solver.py project_state/CONFIG_REFERENCE.md
+- git commit -m "feat: enforce explicit mv solver handling" -m "- add skip_reason/solver_used to OptimizationResult and fail loud when cvxpy is missing\n- add mv_solver/mv_skip_on_missing_solver to eval runner with telemetry + skip propagation\n- document new knobs and add regression tests for forced-missing solver" -m "Tests: make test-fast"
+- git status -sb

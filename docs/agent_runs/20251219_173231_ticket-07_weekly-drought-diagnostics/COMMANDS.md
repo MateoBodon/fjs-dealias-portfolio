@@ -1146,3 +1146,6 @@ EOF_PATCH
 EOF_PATCH
 - date -Iseconds
 - cd /root/fjs-dealias-portfolio && git status --short
+- cd /root/fjs-dealias-portfolio && git add docs/CODEX_SPRINT_TICKETS.md experiments/equity_panel/run.py project_state/CURRENT_RESULTS.md project_state/KNOWN_ISSUES.md tests/experiments/test_gating_diagnostics.py tools/summarize_weekly_diagnostics.py docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics
+- cd /root/fjs-dealias-portfolio && git status --short
+- cd /root/fjs-dealias-portfolio && git commit -m "feat: add weekly gating diagnostics artifact" -m "Tests: source .venv/bin/activate && make test-fast" -m "Smokes: source .venv/bin/activate && python -m experiments.equity_panel.run --config docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/config.synthetic.yaml --gating-diagnostics --exec-mode deterministic; source .venv/bin/activate && python -m experiments.equity_panel.run --config experiments/equity_panel/config.smoke.yaml --gating-diagnostics --output-dir experiments/equity_panel/outputs_smoke_ticket07_20251219_173231 --exec-mode deterministic"

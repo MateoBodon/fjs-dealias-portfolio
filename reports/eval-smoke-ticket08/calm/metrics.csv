@@ -1,0 +1,1 @@
+regime,estimator,portfolio,mse_mean,es_mse_mean,var95,es95,realised_var,realised_es,violation_rate,count,qlike_mean,mv_turnover_mean,mv_turnover_cost_bps,cov_condition_median,cov_condition_p90,baseline_mse,baseline_es_mse,baseline_qlike_mean,delta_mse_vs_baseline,delta_es_vs_baseline,delta_qlike_vs_baseline,delta_mse_ci_lower,delta_mse_ci_upper

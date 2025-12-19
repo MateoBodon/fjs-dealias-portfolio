@@ -1,0 +1,1 @@
+- source .venv/bin/activate && make test-fast — pass (68 passed, 145 deselected)

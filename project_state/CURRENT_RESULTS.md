@@ -1,4 +1,8 @@
-# Current Results (as of 2025-12-17)
+# Current Results (as of 2025-12-19)
+
+- **Weekly gating diagnostics (ticket-07, RUN_NAME=20251219_173231_ticket-07_weekly-drought-diagnostics)** — diagnostics artifact + summaries
+  - Real-data DoW smoke (config.smoke.yaml with `--gating-diagnostics`, output `experiments/equity_panel/outputs_smoke_ticket07_20251219_173231/oneway_J5_solver-auto_est-dealias_prep-prewhiten_modeoff/`): detection_rate = 0.75 (3/4 windows), single skip_reason = `no_isolated_spike`; guardrail counts dominated by `guard_other` (=1148). Summary: `weekly_diagnostics.md` in the run directory.
+  - Synthetic micro smoke (generated returns via `/tmp/ticket07_synth_returns.csv`, config `docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/config.synthetic.yaml`, output `experiments/equity_panel/outputs_ticket07_synth_20251219_173231/oneway_J5_solver-auto_est-dealias_prep-prewhiten_modeoff/`): detection_rate = 0, skip_reason = `diagnostic_failure` for all 6 windows; summary co-located `weekly_diagnostics.md`.
 
 - **rc-lite-sanity (stamp 20251209_001356)** — `reports/rc-20251208-sanity-20251209_001356/`
   - Daily DoW (tyler, rie, 60×10, assets_top=50): detection_rate_mean ≈ 5.36%, acceptance≈detection, percent_changed=100%, edge_margin_mean ≈ 0.00365. ΔMSE vs baseline remains positive (EW ≈1.24e-10, MV ≈4.52e-11); summary_sanity overlay_effect = *harmful*. Alignment cosine ≈1.0; isolation=1.0. Prewhiten R² mean ≈0.317 (FF5+MOM).
@@ -33,6 +37,5 @@ Status as of 2025-12-17 (run: `reports/rc-20251208-sanity-20251209_001356/`):
   - Overlay flagged **harmful** in summary_sanity (harm fails kill criteria).
 
 - **Weekly DoW + nested smokes**  
-  - Weekly DoW acceptance in rc-lite-sanity: 0/4 windows  
-  - Nested acceptance: 0/10 windows, with skip reasons dominated by `no_isolated_spike` and missing Tyler calibrations for p≈188, T≈60–80.  
-  - Nested design is currently **non-functional** in real WRDS runs; see ROADMAP and KNOWN_ISSUES for planned kill-tests and calibration fixes.
+  - DoW (config.smoke.yaml with diagnostics, outputs_smoke_ticket07_20251219_173231): detection_windows=3/4, skip_reason `no_isolated_spike` on the lone rejection; guardrail tally shows `guard_other`=1148 in gating_diagnostics.csv.  
+  - Nested acceptance in rc-lite-sanity (20251209_001356) remains 0/10, still dominated by `no_isolated_spike` and calibration gaps for p≈188, T≈60–80. Diagnostics added but behaviour unchanged; nested remains **non-functional** in WRDS runs.

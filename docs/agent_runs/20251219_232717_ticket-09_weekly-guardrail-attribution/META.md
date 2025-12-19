@@ -1,0 +1,6 @@
+- Branch: ticket-09-weekly-guardrail-attribution
+- Run name: 20251219_232717_ticket-09_weekly-guardrail-attribution
+- Output dir: experiments/equity_panel/outputs_ticket-09_20251219_232717/oneway_J5_solver-auto_est-dealias_prep-prewhiten_modeoff/
+- Git SHA (before commit): 51e21d6b76848a1cb5d538a86479bb3619b2783d
+- Git SHA (after commit): pending
+- Working tree dirty before commit: yes (pre-existing doc changes + new work)

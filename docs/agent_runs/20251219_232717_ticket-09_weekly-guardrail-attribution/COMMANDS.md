@@ -1,0 +1,59 @@
+- git status --short
+- git rev-parse --abbrev-ref HEAD
+- git checkout -b ticket-09-weekly-guardrail-attribution
+- rg "guard_other|diagnostic_failure" experiments/equity_panel/run.py src/fjs/overlay.py src/fjs/gating.py tools/summarize_weekly_diagnostics.py tests
+- rg "guard_" experiments/equity_panel/run.py src/fjs/overlay.py src/fjs/gating.py tools/summarize_weekly_diagnostics.py tests/experiments
+- rg "diagnostic_failure"
+- sed -n '1,220p' experiments/equity_panel/run.py
+- rg "diag" experiments/equity_panel/run.py | head
+- rg -n "diag_local" experiments/equity_panel/run.py
+- sed -n '700,840p' experiments/equity_panel/run.py
+- rg -n "diag" src/fjs
+- sed -n '416,860p' src/fjs/dealias.py
+- sed -n '650,790p' src/fjs/dealias.py
+- sed -n '790,880p' src/fjs/dealias.py
+- ls experiments
+- rg -n "gating_diag_enabled" experiments/equity_panel/run.py
+- sed -n '1400,1495p' experiments/equity_panel/run.py
+- rg "run:equity_smoke" -n Makefile (no match)
+- rg "equity_smoke" -n Makefile experiments
+- sed -n '520,550p' Makefile
+- rg "gating-diagnostics" -n experiments/equity_panel/run.py
+- sed -n '3800,3870p' experiments/equity_panel/run.py
+- sed -n '3970,4025p' experiments/equity_panel/run.py
+- rg "guard_other" tests
+- perl -ne 'print "$1\n" if /_diag_inc\("([^"]+)"\)/' src/fjs/dealias.py | sort | uniq
+- python -m pytest tests/experiments/test_gating_diagnostics.py (failed: python not found)
+- python3 -m pytest tests/experiments/test_gating_diagnostics.py (failed: pytest missing)
+- make setup (failed: externally-managed env)
+- python3 -m venv .venv
+- .venv/bin/pip install --upgrade pip
+- .venv/bin/pip install -e '.[dev]'
+- .venv/bin/pytest tests/experiments/test_gating_diagnostics.py (failed: insufficient balanced weeks)
+- .venv/bin/pytest tests/experiments/test_gating_diagnostics.py (failed: diagnostic_failure rows empty)
+- ls /tmp/pytest-of-root/pytest-36/test_gating_diagnostics_record0/weekly_diag_failure
+- head -n 5 /tmp/pytest-of-root/pytest-36/test_gating_diagnostics_record0/weekly_diag_failure/gating_diagnostics.csv
+- .venv/bin/python - <<'PY' ... run.dealias_search=boom smoke diag (skip_reason_primary was no_isolated_spike)
+- .venv/bin/python - <<'PY' ... check globals for dealias_search bindings
+- .venv/bin/python - <<'PY' ... run.dealias_search=boom smoke diag (skip_reason_primary diagnostic_failure)
+- .venv/bin/pytest tests/experiments/test_gating_diagnostics.py
+- PATH="/root/fjs-dealias-portfolio/.venv/bin:$PATH" make test-fast (timeout)
+- PATH="/root/fjs-dealias-portfolio/.venv/bin:$PATH" make test-fast
+- date '+%Y%m%d_%H%M%S'
+- PYTHONPATH=src EXEC_MODE=deterministic .venv/bin/python experiments/equity_panel/run.py --config experiments/equity_panel/config.smoke.yaml --gating-mode fixed --minvar-ridge 0.0001 --minvar-box 0.0,0.1 --minvar-condition-cap 1000000000 --turnover-cost 5 --gating-diagnostics --output-dir experiments/equity_panel/outputs_ticket-09_20251219_232717
+- ls experiments/equity_panel/outputs_ticket-09_20251219_232717
+- ls experiments/equity_panel/outputs_ticket-09_20251219_232717/oneway_J5_solver-auto_est-dealias_prep-prewhiten_modeoff
+- PYTHONPATH=src .venv/bin/python tools/summarize_weekly_diagnostics.py --input experiments/equity_panel/outputs_ticket-09_20251219_232717/oneway_J5_solver-auto_est-dealias_prep-prewhiten_modeoff/gating_diagnostics.csv (failed: unalignable boolean mask)
+- PYTHONPATH=src .venv/bin/python tools/summarize_weekly_diagnostics.py --input experiments/equity_panel/outputs_ticket-09_20251219_232717/oneway_J5_solver-auto_est-dealias_prep-prewhiten_modeoff/gating_diagnostics.csv
+- head -n 80 experiments/equity_panel/outputs_ticket-09_20251219_232717/oneway_J5_solver-auto_est-dealias_prep-prewhiten_modeoff/weekly_diagnostics.md
+- git rev-parse HEAD
+- mkdir -p docs/agent_runs/20251219_232717_ticket-09_weekly-guardrail-attribution
+- git status --short
+- cat > docs/agent_runs/20251219_232717_ticket-09_weekly-guardrail-attribution/META.md
+- .venv/bin/pytest tests/experiments/test_gating_diagnostics.py
+- PATH="/root/fjs-dealias-portfolio/.venv/bin:/tmp/.tmp1sawyN:/usr/local/lib/node_modules/@openai/codex/vendor/x86_64-unknown-linux-musl/path:/root/.vscode-server/data/User/globalStorage/github.copilot-chat/debugCommand:/root/.vscode-server/data/User/globalStorage/github.copilot-chat/copilotCli:/root/.vscode-server/cli/servers/Stable-618725e67565b290ba4da6fe2d29f8fa1d4e3622/server/bin/remote-cli:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin" make test-fast
+- git add (ticket files, reasons module, run log, PROGRESS)
+- git status --short
+- git commit -m "ticket-09: attribute weekly gating diagnostics"
+- PATH="/root/fjs-dealias-portfolio/.venv/bin:$PATH" make gpt-bundle TICKET=ticket-09 RUN_NAME=20251219_232717_ticket-09_weekly-guardrail-attribution
+- git status --short

@@ -81,6 +81,12 @@ from data.panels import (
 )
 from baselines import load_observed_factors
 from experiments.prewhiten import PrewhitenTelemetry, apply_prewhitening, write_prewhiten_diagnostics
+from experiments.equity_panel.reasons import (
+    DIAGNOSTIC_GUARD_KEYS,
+    SkipAttribution,
+    SkipReasonPrimary,
+    infer_primary_reason,
+)
 
 DEFAULT_CONFIG = {
     "data_path": "data/returns_daily.csv",
@@ -740,45 +746,17 @@ def _infer_skip_reason(
     diag_local: Mapping[str, Any] | None,
     *,
     calibration_missing: bool,
+    calibration_detail: Mapping[str, Any] | None = None,
     isolated_spikes: int | None,
-) -> str:
+) -> SkipAttribution:
     """Best-effort categorisation for windows with no accepted detections."""
 
-    if calibration_missing:
-        return "calibration_missing_p_T"
-
-    reason_priority = [
-        ("edge_buffer", "no_outliers_above_edge"),
-        ("stability_fail", "instability_in_a_neighborhood"),
-        ("off_component_ratio", "off_component_leak"),
-        ("energy_floor", "energy_below_floor"),
-        ("neg_mu", "invalid_mu"),
-        ("other", "diagnostic_failure"),
-    ]
-    counts: dict[str, int] = {}
-    if diag_local:
-        for key, _ in reason_priority:
-            try:
-                counts[key] = int(diag_local.get(key, 0))
-            except (TypeError, ValueError):
-                counts[key] = 0
-    total = sum(counts.values())
-    if total > 0:
-        alias_lookup = {key: alias for key, alias in reason_priority}
-        best_key = None
-        best_count = -1
-        for key, _ in reason_priority:
-            count = counts.get(key, 0)
-            if count > best_count:
-                best_key = key
-                best_count = count
-        if best_key:
-            return alias_lookup[best_key]
-
-    if isolated_spikes is not None and isolated_spikes == 0:
-        return "no_isolated_spike"
-
-    return "no_outliers_above_edge"
+    return infer_primary_reason(
+        diag_local,
+        calibration_missing=calibration_missing,
+        calibration_detail=calibration_detail,
+        isolated_spikes=isolated_spikes,
+    )
 
 def load_config(path: Path | str) -> dict[str, Any]:
     """Load experiment configuration, falling back to defaults."""
@@ -1765,31 +1743,45 @@ def _run_single_period(
 
         off_cap = off_component_leak_cap
         diag_local: dict[str, int] = {}
-        detections = dealias_search(
-            y_fit_daily,
-            groups_fit,
-            target_r=target_component,
-            delta=delta,
-            delta_frac=float(delta_frac_used_value),
-            eps=eps,
-            energy_min_abs=energy_min_abs,
-            stability_eta_deg=stability_eta,
-            use_tvector=use_tvector_cfg,
-            nonnegative_a=not signed_a,
-            a_grid=int(a_grid),
-            cs_drop_top_frac=float(cs_drop_top_frac),
-            cs_sensitivity_frac=float(cs_sensitivity_frac),
-            scan_basis="sigma",
-            off_component_leak_cap=(
-                None if off_cap is None else float(off_cap)
-            ),
-            diagnostics=diag_local,
-            stats=stats_local,
-            design=design_override,
-            oneway_a_solver=solver_mode,
-            edge_scale=edge_scale_used,
-            edge_mode=edge_mode_cfg,
-        )
+        window_skip_reason: str | None = None
+        skip_reason_detail: str = ""
+        skip_exception_type: str | None = None
+        try:
+            detections = dealias_search(
+                y_fit_daily,
+                groups_fit,
+                target_r=target_component,
+                delta=delta,
+                delta_frac=float(delta_frac_used_value),
+                eps=eps,
+                energy_min_abs=energy_min_abs,
+                stability_eta_deg=stability_eta,
+                use_tvector=use_tvector_cfg,
+                nonnegative_a=not signed_a,
+                a_grid=int(a_grid),
+                cs_drop_top_frac=float(cs_drop_top_frac),
+                cs_sensitivity_frac=float(cs_sensitivity_frac),
+                scan_basis="sigma",
+                off_component_leak_cap=(
+                    None if off_cap is None else float(off_cap)
+                ),
+                diagnostics=diag_local,
+                stats=stats_local,
+                design=design_override,
+                oneway_a_solver=solver_mode,
+                edge_scale=edge_scale_used,
+                edge_mode=edge_mode_cfg,
+            )
+        except Exception as exc:
+            detections = []
+            window_skip_reason = str(SkipReasonPrimary.DIAGNOSTIC_FAILURE)
+            skip_reason_detail = f"dealias_search raised {exc.__class__.__name__}: {exc}"
+            if len(skip_reason_detail) > 500:
+                skip_reason_detail = f"{skip_reason_detail[:497]}..."
+            skip_exception_type = exc.__class__.__name__
+            gating_skip_reasons[window_skip_reason] = (
+                gating_skip_reasons.get(window_skip_reason, 0) + 1
+            )
         for key, value in diag_local.items():
             rejection_totals[key] = rejection_totals.get(key, 0) + int(value)
         detections = list(detections or [])
@@ -1804,7 +1796,6 @@ def _run_single_period(
             "off_component_ratio": float("nan"),
             "delta_frac": float("nan"),
         }
-        window_skip_reason: str | None = None
         gate_discard_detail: list[dict[str, float]] = []
         isolated_count_raw = count_isolated_outliers(detections, None, None)
 
@@ -1841,13 +1832,15 @@ def _run_single_period(
                                 reverse=True,
                             )[: nested_noniso_q_max]
                         else:
-                            window_skip_reason = "no_isolated_spike"
+                            window_skip_reason = str(SkipReasonPrimary.NO_ISOLATED_SPIKE)
+                            skip_reason_detail = f"isolated_spikes={int(isolated_count_raw)}"
                             gating_skip_reasons[window_skip_reason] = (
                                 gating_skip_reasons.get(window_skip_reason, 0) + 1
                             )
                             candidate_pool = []
                     else:
-                        window_skip_reason = "no_isolated_spike"
+                        window_skip_reason = str(SkipReasonPrimary.NO_ISOLATED_SPIKE)
+                        skip_reason_detail = f"isolated_spikes={int(isolated_count_raw)}"
                         gating_skip_reasons[window_skip_reason] = (
                             gating_skip_reasons.get(window_skip_reason, 0) + 1
                         )
@@ -1891,7 +1884,11 @@ def _run_single_period(
                 if filtered_pool:
                     candidate_pool = filtered_pool
                 else:
-                    window_skip_reason = "nested_guard"
+                    window_skip_reason = str(SkipReasonPrimary.NESTED_GUARD)
+                    skip_reason_detail = (
+                        f"nonisolated_fallback; stability_min={nested_noniso_stability_min}, "
+                        f"edge_min={nested_noniso_edge_min}"
+                    )
                     gating_skip_reasons[window_skip_reason] = (
                         gating_skip_reasons.get(window_skip_reason, 0) + 1
                     )
@@ -1968,14 +1965,22 @@ def _run_single_period(
                 detections = candidate_pool
 
         if not detections and not window_skip_reason:
-            inferred_reason = _infer_skip_reason(
+            attribution = _infer_skip_reason(
                 diag_local,
                 calibration_missing=calibration_missing,
+                calibration_detail={
+                    "edge_mode": edge_mode_cfg,
+                    "p": int(p_dim),
+                    "t": int(n_fit_samples),
+                },
                 isolated_spikes=int(isolated_count_raw) if isolated_count_raw is not None else None,
             )
-            window_skip_reason = inferred_reason
-            gating_skip_reasons[inferred_reason] = (
-                gating_skip_reasons.get(inferred_reason, 0) + 1
+            window_skip_reason = attribution.primary
+            skip_reason_detail = attribution.detail
+            if attribution.exception_type:
+                skip_exception_type = attribution.exception_type
+            gating_skip_reasons[window_skip_reason] = (
+                gating_skip_reasons.get(window_skip_reason, 0) + 1
             )
 
         if detections:
@@ -2066,6 +2071,9 @@ def _run_single_period(
             "hold_end": hold.index[-1],
             "n_detections": len(detections),
             "skip_reason": window_skip_reason or "",
+            "skip_reason_primary": window_skip_reason or "",
+            "skip_reason_detail": skip_reason_detail,
+            "exception_type": skip_exception_type or "",
             "isolated_spikes": int(isolated_count_raw),
             "nested_nonisolated_fallback": bool(nonisolated_fallback_used),
             "gate_discarded_count": len(gate_discard_detail),
@@ -2324,7 +2332,8 @@ def _run_single_period(
                 lambda_ratio = float(lambda_top_val / edge_selected_val)
             diag_skip_reason = window_skip_reason or ""
             if not detections and not diag_skip_reason:
-                diag_skip_reason = "unknown"
+                diag_skip_reason = str(SkipReasonPrimary.NO_OUTLIERS_ABOVE_EDGE)
+            guard_counts = {key: int(diag_local.get(key, 0)) for key in DIAGNOSTIC_GUARD_KEYS}
             diag_row = {
                 "window_index": int(window_idx),
                 "fit_start": fit.index[0],
@@ -2369,14 +2378,10 @@ def _run_single_period(
                 "accepted_count": int(len(detections)),
                 "accepted": bool(bool(detections)),
                 "skip_reason": diag_skip_reason,
+                "skip_reason_primary": diag_skip_reason,
+                "skip_reason_detail": skip_reason_detail,
+                "exception_type": skip_exception_type or "",
                 "gate_discarded": int(len(gate_discard_detail)),
-                "guard_edge_buffer": int(diag_local.get("edge_buffer", 0)),
-                "guard_off_component_ratio": int(diag_local.get("off_component_ratio", 0)),
-                "guard_stability_fail": int(diag_local.get("stability_fail", 0)),
-                "guard_energy_floor": int(diag_local.get("energy_floor", 0)),
-                "guard_neg_mu": int(diag_local.get("neg_mu", 0)),
-                "guard_eps": int(diag_local.get("eps", 0)),
-                "guard_other": int(diag_local.get("other", 0)),
                 "diag_payload": json.dumps({k: int(v) for k, v in diag_local.items()}),
                 "top_lambda_hat": float(top_diag.get("lambda_hat", float("nan"))),
                 "top_mu_hat": float(top_diag.get("mu_hat", float("nan"))),
@@ -2386,6 +2391,7 @@ def _run_single_period(
                 "top_off_component_ratio": float(top_diag.get("off_component_ratio", float("nan"))),
                 "top_delta_frac": float(top_diag.get("delta_frac", float("nan"))),
             }
+            diag_row.update({f"guard_{key}": guard_counts.get(key, 0) for key in DIAGNOSTIC_GUARD_KEYS})
             gating_diag_records.append(diag_row)
 
         for strategy_label, cfg in strategies.items():
@@ -2749,7 +2755,7 @@ def _run_single_period(
         except Exception:
             pass
 
-    for key in ("edge_buffer", "off_component_ratio", "stability_fail", "energy_floor", "neg_mu", "other"):
+    for key in DIAGNOSTIC_GUARD_KEYS:
         rejection_totals.setdefault(key, 0)
 
     total_records = len(records)
@@ -2812,6 +2818,7 @@ def _run_single_period(
 
     results_df = pd.DataFrame(records)
     if gating_diag_enabled:
+        guard_columns = [f"guard_{key}" for key in DIAGNOSTIC_GUARD_KEYS]
         diag_columns = [
             "window_index",
             "fit_start",
@@ -2850,14 +2857,11 @@ def _run_single_period(
             "accepted_count",
             "accepted",
             "skip_reason",
+            "skip_reason_primary",
+            "skip_reason_detail",
+            "exception_type",
             "gate_discarded",
-            "guard_edge_buffer",
-            "guard_off_component_ratio",
-            "guard_stability_fail",
-            "guard_energy_floor",
-            "guard_neg_mu",
-            "guard_eps",
-            "guard_other",
+            *guard_columns,
             "diag_payload",
             "top_lambda_hat",
             "top_mu_hat",
@@ -2879,6 +2883,9 @@ def _run_single_period(
     if not results_df.empty and "top_lambda_hat" in results_df.columns:
         for col, default in {
             "skip_reason": "",
+            "skip_reason_primary": "",
+            "skip_reason_detail": "",
+            "exception_type": "",
             "isolated_spikes": 0,
             "gate_discarded_count": 0,
             "gate_discarded": "[]",
@@ -2898,6 +2905,9 @@ def _run_single_period(
                 "hold_end",
                 "n_detections",
                 "skip_reason",
+                "skip_reason_primary",
+                "skip_reason_detail",
+                "exception_type",
                 "isolated_spikes",
                 "gate_discarded_count",
                 "gate_discarded",

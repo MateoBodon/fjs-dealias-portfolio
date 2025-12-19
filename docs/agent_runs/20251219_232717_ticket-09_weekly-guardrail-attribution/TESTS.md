@@ -1,0 +1,2 @@
+- .venv/bin/pytest tests/experiments/test_gating_diagnostics.py  # ran twice; latest pass
+- PATH="/root/fjs-dealias-portfolio/.venv/bin:$PATH" make test-fast  # unit suite, ran twice; latest 68 passed, 152 deselected

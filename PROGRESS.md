@@ -232,4 +232,15 @@
 - **Results**:
   - Nested smoke now logs 7/24 detection windows (29% coverage) with gating skips recorded; edge margin median ~0.023; non-isolated fallback not triggered; summary at `experiments/equity_panel/outputs_nested_smoke/.../summary.json`.
   - Ablation artifacts: `ablations/ablation_matrix.csv` (4-combo tiny grid) and `experiments/equity_panel/outputs_ablation_smoke/ablation_summary.csv`; gallery/memo pick up the matrix (heatmap/table) and ablation summary directory.
-- **Notes**: Added `use_tvector` toggle (configurable, disabled for nested smoke and ablations) to bypass overly strict t-vector gating; relaxed nested thresholds (delta_frac 0.005, eps 0.01, eta 0.15, q_max 2, require_isolated=false). Equity-panel ablation runner still heavy when invoked via `rc-ablations`; direct `_run_param_ablation` was used to emit the E5 summary for this drop. Next: rerun the full `rc-ablations` target on Hetzner if time permits, or wire timeout/limit guards.
+  - **Notes**: Added `use_tvector` toggle (configurable, disabled for nested smoke and ablations) to bypass overly strict t-vector gating; relaxed nested thresholds (delta_frac 0.005, eps 0.01, eta 0.15, q_max 2, require_isolated=false). Equity-panel ablation runner still heavy when invoked via `rc-ablations`; direct `_run_param_ablation` was used to emit the E5 summary for this drop. Next: rerun the full `rc-ablations` target on Hetzner if time permits, or wire timeout/limit guards.
+
+## 2025-12-19T23:27Z — Weekly guardrail attribution (ticket-09)
+- **Data**: WRDS daily returns (`experiments/equity_panel/config.smoke.yaml`), deterministic exec mode.
+- **Commands**:
+  - PATH="/root/fjs-dealias-portfolio/.venv/bin:$PATH" make test-fast
+  - PYTHONPATH=src EXEC_MODE=deterministic .venv/bin/python experiments/equity_panel/run.py --config experiments/equity_panel/config.smoke.yaml --gating-mode fixed --minvar-ridge 0.0001 --minvar-box 0.0,0.1 --minvar-condition-cap 1000000000 --turnover-cost 5 --gating-diagnostics --output-dir experiments/equity_panel/outputs_ticket-09_20251219_232717
+  - PYTHONPATH=src .venv/bin/python tools/summarize_weekly_diagnostics.py --input experiments/equity_panel/outputs_ticket-09_20251219_232717/oneway_J5_solver-auto_est-dealias_prep-prewhiten_modeoff/gating_diagnostics.csv
+- **Results**:
+  - Replaced `guard_other` with explicit diagnostic keys and added stable `skip_reason_primary/detail/exception_type` across gating outputs; diagnostic failures now carry exception type/message.
+  - Gating diagnostics test updated to enforce no `guard_other` and require detail for `diagnostic_failure`.
+  - Smoke output: detection_rate=75% with one `no_isolated_spike`; guard totals tvec_compute_error=72, tvec_target_zero=2, tvec_off_component=1074. Weekly summary at `experiments/equity_panel/outputs_ticket-09_20251219_232717/oneway_J5_solver-auto_est-dealias_prep-prewhiten_modeoff/weekly_diagnostics.md`.

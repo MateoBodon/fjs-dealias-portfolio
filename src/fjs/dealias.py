@@ -722,19 +722,19 @@ def dealias_search(
                     t_target = float(t_vals[target_r])
             except (RuntimeError, ValueError):
                 if use_tvector:
-                    _diag_inc("other")
+                    _diag_inc("tvec_compute_error")
                     continue
                 t_vals = None
                 t_target = None
 
             if use_tvector:
                 if t_vals is None or t_target is None or abs(t_target) <= eps:
-                    _diag_inc("other")
+                    _diag_inc("tvec_target_zero")
                     continue
                 t_off = np.delete(t_vals, target_r)
                 # Stricter absolute off-component cap to match guardrail tests
                 if t_off.size and float(np.max(np.abs(t_off))) > float(eps):
-                    _diag_inc("other")
+                    _diag_inc("tvec_off_component")
                     continue
 
             if t_target is None or abs(t_target) < 1e-12:
@@ -742,7 +742,7 @@ def dealias_search(
             else:
                 mu_hat = float(lam_val / t_target)
             if not np.isfinite(mu_hat):
-                _diag_inc("other")
+                _diag_inc("mu_nonfinite")
                 continue
             if mu_hat <= 0.0:
                 mu_hat = abs(mu_hat)

@@ -13,6 +13,7 @@ from .io import load_market_data, load_prices_csv, to_daily_returns
 from .factors import factor_covariance
 from .ledoit import ledoit_wolf_shrinkage, lw_cov
 from .portfolios import (
+    MissingSolverError,
     OptimizationResult,
     equal_weight,
     min_variance_box,
@@ -49,6 +50,7 @@ __all__ = [
     "huberize",
     "tyler_shrink_covariance",
     "OptimizationResult",
+    "MissingSolverError",
     "equal_weight",
     "min_variance_box",
     "minimum_variance",

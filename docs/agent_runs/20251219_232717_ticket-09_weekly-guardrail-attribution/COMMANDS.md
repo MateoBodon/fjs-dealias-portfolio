@@ -57,3 +57,5 @@
 - git commit -m "ticket-09: attribute weekly gating diagnostics"
 - PATH="/root/fjs-dealias-portfolio/.venv/bin:$PATH" make gpt-bundle TICKET=ticket-09 RUN_NAME=20251219_232717_ticket-09_weekly-guardrail-attribution
 - git status --short
+- git add docs/agent_runs/20251219_232717_ticket-09_weekly-guardrail-attribution/META.md
+- git commit -m "ticket-09: finalize run log and meta"

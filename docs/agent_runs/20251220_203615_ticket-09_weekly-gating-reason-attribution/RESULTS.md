@@ -14,4 +14,4 @@ Real deterministic equity smoke:
 - Reason counts: no_isolated_spike=1; diagnostic_failure=0; guard_other absent (no guard_other column, no values in diag_payload).
 - weekly_diagnostics.md: detection_rate=75%; Primary Skip Reasons table -> no_isolated_spike 1 (100%); guard totals tvec_compute_error=72, tvec_target_zero=2, tvec_off_component=1074; examples section lists window stats with p/T/reps/delta/edge/guards.
 
-Bundle: docs/gpt_bundles/20251220_210439_ticket-09_20251220_203615_ticket-09_weekly-gating-reason-attribution.zip (contents: docs/agent_runs/20251220_203615_ticket-09_weekly-gating-reason-attribution/bundle_contents.txt)
+Bundle: command `RUN_NAME=20251220_203615_ticket-09_weekly-gating-reason-attribution make gpt-bundle TICKET=ticket-09 RUN_NAME=20251220_203615_ticket-09_weekly-gating-reason-attribution`; path docs/gpt_bundles/20251220_210439_ticket-09_20251220_203615_ticket-09_weekly-gating-reason-attribution.zip (contents: docs/agent_runs/20251220_203615_ticket-09_weekly-gating-reason-attribution/bundle_contents.txt)

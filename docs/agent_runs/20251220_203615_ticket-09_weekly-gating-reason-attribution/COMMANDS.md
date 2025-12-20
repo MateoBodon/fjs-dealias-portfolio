@@ -598,3 +598,6 @@ git commit -m 'Log ticket-09 gating diagnostics run' -m 'Tests run: make test-fa
 git status -sb
 git add docs/agent_runs/20251220_203615_ticket-09_weekly-gating-reason-attribution/COMMANDS.md
 git commit -m 'Update command log' -m 'Tests run: make test-fast'
+cat docs/agent_runs/20251220_203615_ticket-09_weekly-gating-reason-attribution/bundle_contents.txt
+git status -sb
+git add docs/agent_runs/20251220_203615_ticket-09_weekly-gating-reason-attribution/COMMANDS.md docs/agent_runs/20251220_203615_ticket-09_weekly-gating-reason-attribution/RESULTS.md

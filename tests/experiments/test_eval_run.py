@@ -13,6 +13,7 @@ from experiments.eval.run import (
     DailyLoaderConfig,
     EvalConfig,
     _aligned_dm_stat,
+    _aligned_delta_mean,
     _apply_multi_alignment_guard,
     _min_variance_weights,
     _sign_test_stat,
@@ -611,10 +612,63 @@ def test_dm_alignment_uses_common_windows() -> None:
             },
         ]
     )
-    dm_stat, p_value, n_eff = _aligned_dm_stat(metrics, "full", "ew")
+    dm_stat, p_value, n_eff = _aligned_dm_stat(
+        metrics, "full", "ew", min_windows=2
+    )
     assert n_eff == 2
     assert np.isfinite(dm_stat)
     assert np.isfinite(p_value)
+
+
+def test_aligned_delta_respects_intersection() -> None:
+    metrics = pd.DataFrame(
+        [
+            {"window_id": 0, "regime": "full", "portfolio": "ew", "estimator": "overlay", "sq_error": 0.5},
+            {"window_id": 0, "regime": "full", "portfolio": "ew", "estimator": "baseline", "sq_error": 0.7},
+            {"window_id": 1, "regime": "full", "portfolio": "ew", "estimator": "overlay", "sq_error": 0.4},
+            # missing baseline for window 1
+            {"window_id": 2, "regime": "full", "portfolio": "ew", "estimator": "overlay", "sq_error": 0.6},
+            {"window_id": 2, "regime": "full", "portfolio": "ew", "estimator": "baseline", "sq_error": 0.55},
+        ]
+    )
+    delta, n_eff = _aligned_delta_mean(metrics, "full", "ew", column="sq_error")
+    assert n_eff == 2
+    assert np.isclose(delta, (-0.2 + 0.05) / 2)
+
+
+def test_run_metadata_flags_caps_and_skip_stats(tmp_path_factory: pytest.TempPathFactory) -> None:
+    returns_csv = _make_returns_csv(tmp_path_factory)
+    out_dir = tmp_path_factory.mktemp("capped_outputs")
+    config = EvalConfig(
+        returns_csv=Path(returns_csv),
+        factors_csv=None,
+        window=20,
+        horizon=5,
+        out_dir=Path(out_dir),
+        shrinker="rie",
+        seed=7,
+        max_windows=3,
+        min_comparison_windows=2,
+        use_factor_prewhiten=False,
+    )
+    outputs = run_evaluation(config)
+
+    run_path = Path(out_dir) / "run.json"
+    payload = json.loads(run_path.read_text(encoding="utf-8"))
+    windows_block = payload.get("windows", {})
+    assert windows_block.get("cap_active") is True
+    assert "max_windows" in windows_block.get("cap_sources", [])
+    assert windows_block.get("windows_evaluated") == 3
+    assert windows_block.get("window_coverage") is not None
+
+    skip_all = Path(out_dir) / "skip_stats.csv"
+    assert skip_all.exists()
+    skip_df = pd.read_csv(skip_all)
+    assert {"skip_share", "skip_count"}.issubset(skip_df.columns)
+
+    dm_full = Path(outputs.dm["full"])
+    dm_df = pd.read_csv(dm_full)
+    assert "comparison_valid" in dm_df.columns
 
 
 def test_vol_thresholds_use_training_data(

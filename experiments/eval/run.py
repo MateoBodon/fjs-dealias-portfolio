@@ -89,9 +89,11 @@ class EvalOutputs:
     diagnostics: dict[str, Path]
     plots: dict[str, Path]
     diagnostics_detail: dict[str, Path]
+    skip_stats: dict[str, Path]
 
 
 _REGIMES = ("full", "calm", "crisis")
+MIN_COMPARISON_WINDOWS = 30
 
 
 def _plot_regime_histograms(
@@ -253,6 +255,7 @@ class EvalConfig:
     mv_solver: str = "projgrad"
     mv_skip_on_missing_solver: bool = False
     mv_solver_name: str | None = None
+    min_comparison_windows: int = MIN_COMPARISON_WINDOWS
     bootstrap_samples: int = 0
     require_isolated: bool = True
     q_max: int = 1
@@ -371,6 +374,7 @@ def _serialise_config(config: EvalConfig) -> dict[str, Any]:
         "mv_solver": config.mv_solver,
         "mv_skip_on_missing_solver": config.mv_skip_on_missing_solver,
         "mv_solver_name": config.mv_solver_name,
+        "min_comparison_windows": config.min_comparison_windows,
         "bootstrap_samples": config.bootstrap_samples,
         "require_isolated": config.require_isolated,
         "q_max": config.q_max,
@@ -420,6 +424,41 @@ def _write_run_metadata(path: Path, payload: Mapping[str, object]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True, default=str), encoding="utf-8")
 
 
+def _aggregate_skip_stats(metrics_df: pd.DataFrame, regime: str | None = None) -> pd.DataFrame:
+    """Aggregate per-method skip shares by reason for a given regime."""
+
+    required = {"estimator", "skip_reason", "skipped", "portfolio"}
+    if metrics_df.empty or not required.issubset(metrics_df.columns):
+        return pd.DataFrame(
+            columns=[
+                "regime",
+                "portfolio",
+                "estimator",
+                "skip_reason",
+                "windows",
+                "skip_count",
+                "skip_share",
+            ]
+        )
+
+    frame = metrics_df.copy()
+    if regime is not None and regime != "full":
+        frame = frame[frame["regime"] == regime]
+    frame["regime"] = frame.get("regime", regime or "full")
+    grouped = (
+        frame.groupby(["regime", "portfolio", "estimator", "skip_reason"])  # type: ignore[arg-type]
+        .agg(skip_count=("skipped", "sum"), windows=("skipped", "count"))
+        .reset_index()
+    )
+    grouped["skip_share"] = grouped.apply(
+        lambda row: float(row["skip_count"]) / float(row["windows"])
+        if float(row.get("windows", 0)) > 0
+        else 0.0,
+        axis=1,
+    )
+    return grouped
+
+
 def _paths_to_strings(path_map: Mapping[str, Path]) -> dict[str, str]:
     return {key: str(value) for key, value in path_map.items()}
 
@@ -445,15 +484,30 @@ def _aligned_error_table(
     column: str,
     estimator_ref: str = "overlay",
     comparator: str = "baseline",
+    valid_window_ids: set[int] | None = None,
 ) -> pd.DataFrame:
+    """Return per-window errors aligned on common availability.
+
+    Applies optional ``valid_window_ids`` to enforce additional filters (e.g.,
+    flip-set only) *before* dropna, so n_effective matches the true
+    intersection of participating windows.
+    """
+
     mask = metrics["portfolio"].eq(portfolio)
     if regime != "full":
         mask &= metrics["regime"].eq(regime)
     if column not in metrics.columns:
         return pd.DataFrame(columns=[estimator_ref, comparator])
+
     subset = metrics.loc[mask, ["window_id", "estimator", column]]
     if subset.empty:
         return pd.DataFrame(columns=[estimator_ref, comparator])
+
+    if valid_window_ids is not None:
+        subset = subset[subset["window_id"].isin(valid_window_ids)]
+        if subset.empty:
+            return pd.DataFrame(columns=[estimator_ref, comparator])
+
     pivot = subset.pivot_table(
         index="window_id",
         columns="estimator",
@@ -462,7 +516,8 @@ def _aligned_error_table(
     )
     if estimator_ref not in pivot.columns or comparator not in pivot.columns:
         return pd.DataFrame(columns=[estimator_ref, comparator])
-    return pivot[[estimator_ref, comparator]].dropna()
+    aligned = pivot[[estimator_ref, comparator]].dropna()
+    return aligned
 
 
 def _aligned_dm_stat(
@@ -473,6 +528,7 @@ def _aligned_dm_stat(
     column: str = "sq_error",
     comparator: str = "baseline",
     valid_window_ids: set[int] | None = None,
+    min_windows: int = MIN_COMPARISON_WINDOWS,
 ) -> tuple[float, float, int]:
     aligned = _aligned_error_table(
         metrics,
@@ -481,17 +537,43 @@ def _aligned_dm_stat(
         column=column,
         estimator_ref="overlay",
         comparator=comparator,
+        valid_window_ids=valid_window_ids,
     )
-    if valid_window_ids is not None and not aligned.empty:
-        aligned = aligned.loc[aligned.index.isin(valid_window_ids)]
     n_eff = int(aligned.shape[0])
-    if n_eff < 2:
+    if n_eff < max(2, int(min_windows)):
         return float("nan"), float("nan"), n_eff
     dm_stat, p_value = dm_test(
         aligned["overlay"].to_numpy(),
         aligned[comparator].to_numpy(),
     )
     return dm_stat, p_value, n_eff
+
+
+def _aligned_delta_mean(
+    metrics: pd.DataFrame,
+    regime: str,
+    portfolio: str,
+    *,
+    column: str,
+    comparator: str = "baseline",
+    valid_window_ids: set[int] | None = None,
+) -> tuple[float, int]:
+    """Aligned mean difference overlay - comparator for a given loss column."""
+
+    aligned = _aligned_error_table(
+        metrics,
+        regime,
+        portfolio,
+        column=column,
+        estimator_ref="overlay",
+        comparator=comparator,
+        valid_window_ids=valid_window_ids,
+    )
+    n_eff = int(aligned.shape[0])
+    if n_eff == 0:
+        return float("nan"), 0
+    diffs = aligned["overlay"].to_numpy() - aligned[comparator].to_numpy()
+    return float(np.nanmean(diffs)), n_eff
 
 
 def _apply_multi_alignment_guard(
@@ -787,6 +869,13 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
         type=str,
         default=None,
         help="Optional cvxpy solver name to pass through when mv-solver=cvxpy.",
+    )
+    parser.add_argument(
+        "--min-comparison-windows",
+        dest="min_comparison_windows",
+        type=int,
+        default=None,
+        help="Minimum aligned windows required for Δ metrics/DM validity (default: 30).",
     )
     parser.add_argument(
         "--mv-skip-on-missing-solver",
@@ -2624,10 +2713,12 @@ def run_evaluation(
 
     total_days = raw_returns.shape[0]
     start_indices: Iterable[int]
-    start_indices = range(0, total_days - config.window - config.horizon + 1)
+    windows_requested = max(total_days - config.window - config.horizon + 1, 0)
+    start_indices = range(0, windows_requested)
     if config.max_windows is not None:
         max_windows = max(0, int(config.max_windows))
         start_indices = list(start_indices)[:max_windows]
+    windows_after_caps = len(start_indices)
     worker_setting = config.workers
     if mv_tau > 0.0:
         worker_setting = 1
@@ -2719,6 +2810,32 @@ def run_evaluation(
         crisis_limit=config.crisis_window_top_k,
         seed=config.seed,
     )
+    windows_evaluated = int(metrics_df["window_id"].nunique()) if "window_id" in metrics_df.columns else 0
+    windows_coverage = (
+        float(windows_evaluated) / float(windows_requested) if windows_requested > 0 else None
+    )
+
+    # Track cap/truncation metadata early for downstream summaries
+    caps_active = False
+    cap_sources: list[str] = []
+    if config.max_windows is not None:
+        caps_active = True
+        cap_sources.append("max_windows")
+    if config.calm_window_sample is not None or config.crisis_window_top_k is not None:
+        caps_active = True
+        if config.calm_window_sample is not None:
+            cap_sources.append("calm_window_sample")
+        if config.crisis_window_top_k is not None:
+            cap_sources.append("crisis_window_top_k")
+    if config.start is not None or config.end is not None:
+        caps_active = True
+        cap_sources.append("date_truncation")
+    if "mv_condition_flag" in diagnostics_df.columns and diagnostics_df["mv_condition_flag"].fillna(0).astype(int).sum() > 0:
+        caps_active = True
+        cap_sources.append("condition_cap")
+    if windows_coverage is not None and windows_coverage < 1.0:
+        caps_active = True
+        cap_sources.append("window_coverage")
     bootstrap_samples = max(0, int(config.bootstrap_samples))
     rng_bootstrap = np.random.default_rng(config.seed + 97)
     bootstrap_bands: dict[tuple[str, str], tuple[float, float]] = {}
@@ -2851,6 +2968,7 @@ def run_evaluation(
     outputs_metrics: dict[str, Path] = {}
     outputs_risk: dict[str, Path] = {}
     outputs_dm: dict[str, Path] = {}
+    outputs_skip: dict[str, Path] = {}
     outputs_diag: dict[str, Path] = {}
     outputs_plots: dict[str, Path] = {}
     outputs_diag_detail: dict[str, Path] = {}
@@ -2879,24 +2997,32 @@ def run_evaluation(
             metrics_path = path / "metrics.csv"
             risk_path = path / "risk.csv"
             dm_path = path / "dm.csv"
+            skip_path = path / "skip_stats.csv"
             diag_path = path / "diagnostics.csv"
             empty.to_csv(metrics_path, index=False)
             empty.to_csv(risk_path, index=False)
             pd.DataFrame(
                 columns=["portfolio", "baseline", "dm_stat", "p_value"]
             ).to_csv(dm_path, index=False)
+            pd.DataFrame(columns=["regime", "portfolio", "estimator", "skip_reason", "windows", "skip_count", "skip_share"]).to_csv(skip_path, index=False)
             diagnostics_df.to_csv(diag_path, index=False)
             detail_path = path / "diagnostics_detail.csv"
             diagnostics_df.to_csv(detail_path, index=False)
             outputs_metrics[regime] = metrics_path
             outputs_risk[regime] = risk_path
             outputs_dm[regime] = dm_path
+            outputs_skip[regime] = skip_path
             outputs_diag[regime] = diag_path
             outputs_plots[regime] = path / "delta_mse.png"
             outputs_diag_detail[regime] = detail_path
         detail_root_path = out_dir / "diagnostics_detail.csv"
         diagnostics_df.to_csv(detail_root_path, index=False)
         outputs_diag_detail["all"] = detail_root_path
+        skip_all_path = out_dir / "skip_stats.csv"
+        pd.DataFrame(
+            columns=["regime", "portfolio", "estimator", "skip_reason", "windows", "skip_count", "skip_share"]
+        ).to_csv(skip_all_path, index=False)
+        outputs_skip["all"] = skip_all_path
         return EvalOutputs(
             outputs_metrics,
             outputs_risk,
@@ -2904,7 +3030,14 @@ def run_evaluation(
             outputs_diag,
             outputs_plots,
             outputs_diag_detail,
+            outputs_skip,
         )
+
+    # Skip stats across all regimes
+    skip_all = _aggregate_skip_stats(metrics_df, regime=None)
+    skip_all_path = out_dir / "skip_stats.csv"
+    skip_all.to_csv(skip_all_path, index=False)
+    outputs_skip["all"] = skip_all_path
 
     summaries = []
     for regime in _REGIMES:
@@ -2955,17 +3088,54 @@ def run_evaluation(
         }
     )[["regime", "portfolio", "baseline_mse", "baseline_es_mse", "baseline_qlike_mean"]]
     summary_df = summary_df.merge(baseline_df, on=["regime", "portfolio"], how="left")
-    summary_df["delta_mse_vs_baseline"] = (
-        summary_df["mse_mean"] - summary_df["baseline_mse"]
-    )
-    summary_df["delta_es_vs_baseline"] = (
-        summary_df["es_mse_mean"] - summary_df["baseline_es_mse"]
-    )
-    summary_df["delta_qlike_vs_baseline"] = (
-        summary_df["qlike_mean"] - summary_df["baseline_qlike_mean"]
-    )
+    summary_df["delta_mse_vs_baseline"] = np.nan
+    summary_df["delta_es_vs_baseline"] = np.nan
+    summary_df["delta_qlike_vs_baseline"] = np.nan
     summary_df["delta_mse_ci_lower"] = np.nan
     summary_df["delta_mse_ci_upper"] = np.nan
+    summary_df["n_effective_mse"] = np.nan
+    summary_df["n_effective_es"] = np.nan
+    summary_df["n_effective_qlike"] = np.nan
+    summary_df["comparison_valid"] = np.nan
+
+    # Aligned deltas: overlay vs baseline on common windows
+    for regime_key in _REGIMES:
+        for portfolio in ("ew", "mv"):
+            delta_mse, n_mse = _aligned_delta_mean(
+                metrics_df,
+                regime_key,
+                portfolio,
+                column="sq_error",
+                comparator="baseline",
+            )
+            delta_es, n_es = _aligned_delta_mean(
+                metrics_df,
+                regime_key,
+                portfolio,
+                column="sq_error_es",
+                comparator="baseline",
+            )
+            delta_qlike, n_qlike = _aligned_delta_mean(
+                metrics_df,
+                regime_key,
+                portfolio,
+                column="qlike",
+                comparator="baseline",
+            )
+            mask_overlay = (
+                summary_df["regime"].eq(regime_key)
+                & summary_df["portfolio"].eq(portfolio)
+                & summary_df["estimator"].eq("overlay")
+            )
+            summary_df.loc[mask_overlay, "delta_mse_vs_baseline"] = delta_mse
+            summary_df.loc[mask_overlay, "delta_es_vs_baseline"] = delta_es
+            summary_df.loc[mask_overlay, "delta_qlike_vs_baseline"] = delta_qlike
+            summary_df.loc[mask_overlay, "n_effective_mse"] = n_mse
+            summary_df.loc[mask_overlay, "n_effective_es"] = n_es
+            summary_df.loc[mask_overlay, "n_effective_qlike"] = n_qlike
+            summary_df.loc[mask_overlay, "comparison_valid"] = (
+                n_mse >= int(config.min_comparison_windows)
+            )
 
     if bootstrap_samples > 0:
         for regime_key in _REGIMES:
@@ -3375,6 +3545,7 @@ def run_evaluation(
                     column="sq_error",
                     comparator=comparator,
                     valid_window_ids=valid_ids,
+                    min_windows=config.min_comparison_windows,
                 )
                 dm_stat_qlike, p_value_qlike, n_eff_qlike = _aligned_dm_stat(
                     metrics_df,
@@ -3383,6 +3554,7 @@ def run_evaluation(
                     column="qlike",
                     comparator=comparator,
                     valid_window_ids=valid_ids,
+                    min_windows=config.min_comparison_windows,
                 )
                 dm_rows.append(
                     {
@@ -3394,11 +3566,17 @@ def run_evaluation(
                         "dm_stat_qlike": dm_stat_qlike,
                         "p_value_qlike": p_value_qlike,
                         "n_effective_qlike": n_eff_qlike,
+                        "comparison_valid": n_eff >= MIN_COMPARISON_WINDOWS,
                     }
                 )
         dm_path = path / "dm.csv"
         pd.DataFrame(dm_rows).to_csv(dm_path, index=False)
         outputs_dm[regime] = dm_path
+
+        skip_stats_path = path / "skip_stats.csv"
+        skip_stats_df = _aggregate_skip_stats(metrics_df, regime)
+        skip_stats_df.to_csv(skip_stats_path, index=False)
+        outputs_skip[regime] = skip_stats_path
 
         diag_path = path / "diagnostics.csv"
         diag_subset = diagnostics_summary[diagnostics_summary["regime"] == regime]
@@ -3518,6 +3696,13 @@ def run_evaluation(
             "mode": resolved_payload.get("exec_mode", "deterministic"),
             "thread_caps": runtime.thread_caps_snapshot(),
         },
+        "windows": {
+            "windows_requested": windows_requested,
+            "windows_evaluated": windows_evaluated,
+            "window_coverage": windows_coverage,
+            "cap_active": caps_active,
+            "cap_sources": cap_sources,
+        },
         "use_factor_prewhiten": bool(config.use_factor_prewhiten),
         "factors": (
             {
@@ -3539,6 +3724,7 @@ def run_evaluation(
             "dm_flip_only": str(flip_dm_path),
             "diagnostics": _paths_to_strings(outputs_diag),
             "diagnostics_detail": _paths_to_strings(outputs_diag_detail),
+            "skip_stats": _paths_to_strings(outputs_skip),
             "plots": plot_paths,
             "overlay_toggle": str(overlay_toggle_path),
         },
@@ -3556,6 +3742,7 @@ def run_evaluation(
         diagnostics=outputs_diag,
         plots=outputs_plots,
         diagnostics_detail=outputs_diag_detail,
+        skip_stats=outputs_skip,
     )
 
 

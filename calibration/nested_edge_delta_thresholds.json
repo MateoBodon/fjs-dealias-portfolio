@@ -1,0 +1,109 @@
+{
+  "design": "nested",
+  "alpha": 0.02,
+  "generated_at": "2025-12-20T02:23:32.778018+00:00",
+  "run_name": "20251220_011519_ticket-10_nested-null-fpr",
+  "git_sha": "e6e798288c117a188db38c4dde85cf91972921d8",
+  "config": {
+    "n_assets": 200,
+    "years": 2,
+    "weeks_options": [
+      6,
+      7,
+      8
+    ],
+    "replicates": 5,
+    "edge_modes": [
+      "tyler"
+    ],
+    "delta": 0.35,
+    "stability_eta_deg": 0.2
+  },
+  "selection": {
+    "delta_frac": 0.05,
+    "null_rate": 0.0,
+    "null_ci_high": 0.01716151619513562,
+    "null_ci_low": 0.0,
+    "null_trials": 220,
+    "power_moderate": 1.0,
+    "power_moderate_ci_high": 0.9999999999999998,
+    "power_moderate_trials": 60,
+    "power_strong": 1.0,
+    "meets_target": true
+  },
+  "sweep": [
+    {
+      "delta_frac": 0.05,
+      "null_rate": 0.0,
+      "null_ci_high": 0.01716151619513562,
+      "null_ci_low": 0.0,
+      "null_trials": 220,
+      "power_moderate": 1.0,
+      "power_moderate_ci_high": 0.9999999999999998,
+      "power_moderate_trials": 60,
+      "power_strong": 1.0,
+      "meets_target": true
+    }
+  ],
+  "thresholds": {
+    "tyler": {
+      "200x60": {
+        "delta": 0.35,
+        "delta_frac": 0.05,
+        "stability_eta_deg": 0.2,
+        "target_fpr": 0.02,
+        "fpr": 0.0,
+        "fpr_ci": [
+          0.0,
+          0.01716151619513562
+        ],
+        "trials_null": 220,
+        "run_name": "20251220_011519_ticket-10_nested-null-fpr",
+        "git_sha": "e6e798288c117a188db38c4dde85cf91972921d8",
+        "generated_at": "2025-12-20T02:23:32.778018+00:00",
+        "design": "nested",
+        "n_obs": 60,
+        "n_obs_mean": 70.77272727272727,
+        "p_assets": 200
+      },
+      "200x70": {
+        "delta": 0.35,
+        "delta_frac": 0.05,
+        "stability_eta_deg": 0.2,
+        "target_fpr": 0.02,
+        "fpr": 0.0,
+        "fpr_ci": [
+          0.0,
+          0.01716151619513562
+        ],
+        "trials_null": 220,
+        "run_name": "20251220_011519_ticket-10_nested-null-fpr",
+        "git_sha": "e6e798288c117a188db38c4dde85cf91972921d8",
+        "generated_at": "2025-12-20T02:23:32.778018+00:00",
+        "design": "nested",
+        "n_obs": 70,
+        "n_obs_mean": 70.77272727272727,
+        "p_assets": 200
+      },
+      "200x80": {
+        "delta": 0.35,
+        "delta_frac": 0.05,
+        "stability_eta_deg": 0.2,
+        "target_fpr": 0.02,
+        "fpr": 0.0,
+        "fpr_ci": [
+          0.0,
+          0.01716151619513562
+        ],
+        "trials_null": 220,
+        "run_name": "20251220_011519_ticket-10_nested-null-fpr",
+        "git_sha": "e6e798288c117a188db38c4dde85cf91972921d8",
+        "generated_at": "2025-12-20T02:23:32.778018+00:00",
+        "design": "nested",
+        "n_obs": 80,
+        "n_obs_mean": 70.77272727272727,
+        "p_assets": 200
+      }
+    }
+  }
+}

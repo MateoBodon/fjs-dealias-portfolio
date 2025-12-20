@@ -1,0 +1,10 @@
+- branch: ticket-10-nested-null-fpr
+- git_sha_start: e6e798288c117a188db38c4dde85cf91972921d8
+- git_sha_end: e6e798288c117a188db38c4dde85cf91972921d8
+- workspace_dirty_at_start: yes (user-modified docs)
+- workspace_dirty_at_end: yes (new calibration + outputs)
+- venv: .venv (pip install -e .[dev])
+- key artifacts:
+  - reports/synthetic/nested_killtest/20251220_011519_ticket-10_nested-null-fpr/
+  - calibration/nested_edge_delta_thresholds.json
+  - docs/agent_runs/20251220_011519_ticket-10_nested-null-fpr/

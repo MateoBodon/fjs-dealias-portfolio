@@ -2,7 +2,10 @@ n_assets: 200
 years: 2
 weeks_options: [6, 7, 8]
 replicates: 5
-trials_per_scenario: 12
+trials_per_scenario:
+  "null": 220
+  moderate: 60
+  strong: 40
 spikes:
   "null": 0.0
   moderate: 3.0
@@ -26,6 +29,7 @@ nonisolated_edge_min: 0.015
 nonisolated_q_max: 2
 require_isolated: true
 q_max: 2
-calibration_path: "calibration/edge_delta_thresholds.json"
+calibration_path: "calibration/nested_edge_delta_thresholds.json"
+calibration_design: nested
 seed: 0
 out_dir: "reports/synthetic_nested_killtest"

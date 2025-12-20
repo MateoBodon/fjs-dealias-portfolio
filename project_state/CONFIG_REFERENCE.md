@@ -1,10 +1,9 @@
 ---
-generated: 2025-12-19T21:04:10+01:00
-git_sha: ce4c1b224c43028bb5388efdebbe0e8eb52e6c61
-git_branch: chore/project_state_refresh
+generated: 2025-12-20T07:45:00+00:00
+git_sha: 35242b0c1f6b6a47bccf85dc7633bb181dbf3ce3
+git_branch: codex/ticket-15-eval-contamination-fixup
 commands:
-  - python3 tools/generate_project_state.py (latest run excludes heavy caches/outputs)
-  - python3 - <<'PY' (emit project_state docs and indexes)
+  - manual update during ticket-15 (eval contamination fixup)
 ---
 
 # Config Reference
@@ -35,8 +34,8 @@ commands:
 - Overlay/gating: `--overlay-delta`, `--overlay-delta-frac`, `--gate-mode {strict,soft}`, `--gate-delta-frac-min/max`, `--gate-stability-min`, `--gate-accept-nonisolated`, `--gate-delta-calibration`, `--coarse-candidate`.
 - MV controls: `--mv-gamma`, `--mv-tau`, `--mv-box-lo/--mv-box-hi`, `--mv-turnover-bps`, `--mv-condition-cap`, `--mv-solver {projgrad,cvxpy}`, `--mv-skip-on-missing-solver`, `--mv-solver-name` (cvxpy backend string).
 - Prewhitening: `--prewhiten {off,ff5,ff5mom,custom}`, `--use-factor-prewhiten {0,1}`.
-- Comparison validity: `--min-comparison-windows` (default 30) enforces a minimum aligned window count for Δ metrics and DM tests; comparisons below the threshold are marked invalid with `comparison_valid=false`.
-- Outputs: `--out` (default `reports/eval-latest`), writes `resolved_config.json`, `run.json`, metrics/risk/dm CSVs, diagnostics, plots (when matplotlib available).
+- Comparison validity: `--min-comparison-windows` (default 30) enforces a minimum aligned window count for Δ metrics and DM tests; aligned Δ outputs include `n_effective_*` and per-metric `comparison_valid_*` plus an aggregate `comparison_valid` flag. DM outputs carry `n_effective`/`n_effective_qlike` with `comparison_valid` and `comparison_valid_qlike`.
+- Outputs: `--out` (default `reports/eval-latest`), writes `resolved_config.json`, `run.json`, metrics/risk/dm CSVs, diagnostics, plots (when matplotlib available). `run.json` windows block records caps and coverage (`cap_active`, `cap_sources`, `windows_requested`, `windows_after_caps`, `windows_evaluated`, `window_coverage`); skip shares by estimator/reason are emitted in `skip_stats.csv` (per regime + root).
 
 ## Synthetic / calibration
 - `experiments/synthetic/null.py` / `power.py`: `--trials`, `--edge-modes`, `--defaults-path`, `--out`, `--figures-out`.

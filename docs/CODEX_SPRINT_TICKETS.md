@@ -1,3 +1,14 @@
+ticket-10: FAIL (no commits + empty DIFF.patch → not auditable/mergeable).
+
+Keep ticket-11 / ticket-12 in queue, but do not proceed until we can review and merge ticket-10’s claimed calibration plumbing.
+
+Next ticket to run (exactly one): add and run a fixup ticket
+
+Select: NEW ticket-14 — “Ticket‑10 Fixup: make nested calibration mergeable + auditable”
+
+Rationale: the technical result might be correct, but we can’t merge or trust it without committed diffs + a non-empty patch + a nested-specific smoke.
+
+
 # Codex Sprint Tickets (NEXT SPRINT ONLY)
 
 Ordering principle: unblock validity first, then calibrate/extend.

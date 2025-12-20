@@ -271,3 +271,11 @@
   - EXEC_MODE=deterministic PYTHONPATH=src:. OMP_NUM_THREADS=1 python3 experiments/eval/run.py --returns-csv data/returns_daily.csv --window 40 --horizon 5 --max-windows 4 --group-min-replicates 2 --assets-top 30 --prewhiten off --use-factor-prewhiten 0 --out reports/eval-ticket-11-smoke-small
 - **Changes**: Enforced aligned window intersections for all Δ metrics and DM tests, added `n_effective_*` and `comparison_valid` flags, surfaced cap/truncation sources (max_windows, coverage, condition caps, date truncation) in `run.json` windows block, and emitted per-estimator skip-share tables (`skip_stats.csv`). New config knob `min_comparison_windows` (default 30) documented; summary tooling now carries cap/coverage and invalid-comparison warnings.
 - **Artifacts**: `reports/eval-ticket-11-smoke-small/` (capped, deterministic): check `run.json` windows block, `full/dm.csv` and `full/metrics.csv` for aligned n_effective/comparison_valid, and `skip_stats.csv` for skip shares.
+
+## 2025-12-20T07:46Z — Eval contamination fixup (ticket-15)
+- **Branch / git**: codex/ticket-15-eval-contamination-fixup @ 35242b0
+- **Commands**:
+  - `. .venv/bin/activate && make test-fast`
+  - `EXEC_MODE=deterministic python -m experiments.eval.run --returns-csv data/returns_daily.csv --out reports/eval-ticket-15-smoke-aligned5 --assets-top 20 --window 42 --horizon 10 --max-windows 50 --min-comparison-windows 30 --prewhiten off --overlay-delta 0.0 --gate-mode soft --gate-accept-nonisolated`
+- **Outputs**: `reports/eval-ticket-15-smoke-aligned5/` (capped: max_windows=50, window_coverage≈0.013; comparison_valid_mse/es/qlike=1, DM n_effective=0). Not headline—capped/truncated run excluded from aggregates by completeness rules.
+- **Notes**: Added per-metric `comparison_valid_*` flags and `windows_after_caps` to eval metadata; DM comparison_valid now respects `min_comparison_windows`; summary sanity aggregation now explicitly drops capped runs.

@@ -35,6 +35,7 @@ commands:
 - Overlay/gating: `--overlay-delta`, `--overlay-delta-frac`, `--gate-mode {strict,soft}`, `--gate-delta-frac-min/max`, `--gate-stability-min`, `--gate-accept-nonisolated`, `--gate-delta-calibration`, `--coarse-candidate`.
 - MV controls: `--mv-gamma`, `--mv-tau`, `--mv-box-lo/--mv-box-hi`, `--mv-turnover-bps`, `--mv-condition-cap`, `--mv-solver {projgrad,cvxpy}`, `--mv-skip-on-missing-solver`, `--mv-solver-name` (cvxpy backend string).
 - Prewhitening: `--prewhiten {off,ff5,ff5mom,custom}`, `--use-factor-prewhiten {0,1}`.
+- Comparison validity: `--min-comparison-windows` (default 30) enforces a minimum aligned window count for Δ metrics and DM tests; comparisons below the threshold are marked invalid with `comparison_valid=false`.
 - Outputs: `--out` (default `reports/eval-latest`), writes `resolved_config.json`, `run.json`, metrics/risk/dm CSVs, diagnostics, plots (when matplotlib available).
 
 ## Synthetic / calibration

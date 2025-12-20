@@ -74,6 +74,7 @@ DEFAULTS: dict[str, Any] = {
     "mv_solver": "projgrad",
     "mv_skip_on_missing_solver": False,
     "mv_solver_name": None,
+    "min_comparison_windows": 30,
     "bootstrap_samples": 0,
     "require_isolated": True,
     "q_max": 1,
@@ -331,6 +332,12 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         if mv_solver_name_raw is not None and str(mv_solver_name_raw).strip() != ""
         else None
     )
+    min_comparison_windows_raw = merged.get(
+        "min_comparison_windows", DEFAULTS["min_comparison_windows"]
+    )
+    min_comparison_windows_val = int(min_comparison_windows_raw)
+    if min_comparison_windows_val <= 0:
+        min_comparison_windows_val = int(DEFAULTS["min_comparison_windows"])
 
     overlay_delta_raw = merged.get("overlay_delta")
     if overlay_delta_raw is None or str(overlay_delta_raw).strip() == "":
@@ -400,6 +407,7 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         mv_solver=mv_solver_val,
         mv_skip_on_missing_solver=mv_skip_val,
         mv_solver_name=mv_solver_name_val,
+        min_comparison_windows=min_comparison_windows_val,
         bootstrap_samples=int(
             merged.get("bootstrap_samples", DEFAULTS["bootstrap_samples"])
         ),
@@ -482,6 +490,7 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         "mv_solver": config.mv_solver,
         "mv_skip_on_missing_solver": config.mv_skip_on_missing_solver,
         "mv_solver_name": config.mv_solver_name,
+        "min_comparison_windows": config.min_comparison_windows,
         "bootstrap_samples": config.bootstrap_samples,
         "require_isolated": require_isolated,
         "q_max": config.q_max,

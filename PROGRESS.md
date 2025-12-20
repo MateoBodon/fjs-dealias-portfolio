@@ -263,3 +263,11 @@
   - Replaced `guard_other` with explicit diagnostic keys and added stable `skip_reason_primary/detail/exception_type` across gating outputs; diagnostic failures now carry exception type/message.
   - Gating diagnostics test updated to enforce no `guard_other` and require detail for `diagnostic_failure`.
   - Smoke output: detection_rate=75% with one `no_isolated_spike`; guard totals tvec_compute_error=72, tvec_target_zero=2, tvec_off_component=1074. Weekly summary at `experiments/equity_panel/outputs_ticket-09_20251219_232717/oneway_J5_solver-auto_est-dealias_prep-prewhiten_modeoff/weekly_diagnostics.md`.
+
+## 2025-12-20T04:59Z — Eval contamination hardening (ticket-11)
+- **Commands**: 
+  - python3 -m pip install --break-system-packages pytest numpy pandas scipy matplotlib scikit-learn jinja2
+  - make test-fast
+  - EXEC_MODE=deterministic PYTHONPATH=src:. OMP_NUM_THREADS=1 python3 experiments/eval/run.py --returns-csv data/returns_daily.csv --window 40 --horizon 5 --max-windows 4 --group-min-replicates 2 --assets-top 30 --prewhiten off --use-factor-prewhiten 0 --out reports/eval-ticket-11-smoke-small
+- **Changes**: Enforced aligned window intersections for all Δ metrics and DM tests, added `n_effective_*` and `comparison_valid` flags, surfaced cap/truncation sources (max_windows, coverage, condition caps, date truncation) in `run.json` windows block, and emitted per-estimator skip-share tables (`skip_stats.csv`). New config knob `min_comparison_windows` (default 30) documented; summary tooling now carries cap/coverage and invalid-comparison warnings.
+- **Artifacts**: `reports/eval-ticket-11-smoke-small/` (capped, deterministic): check `run.json` windows block, `full/dm.csv` and `full/metrics.csv` for aligned n_effective/comparison_valid, and `skip_stats.csv` for skip shares.

@@ -1,0 +1,13 @@
+portfolio,baseline,test,stat,p_value,n_effective
+ew,baseline,dm,,,4
+ew,baseline,sign,,,0
+ew,lw,dm,,,4
+ew,lw,sign,2.0,0.125,4
+ew,oas,dm,,,4
+ew,oas,sign,2.0,0.125,4
+mv,baseline,dm,,,4
+mv,baseline,sign,,,0
+mv,lw,dm,,,4
+mv,lw,sign,2.0,0.125,4
+mv,oas,dm,,,4
+mv,oas,sign,2.0,0.125,4

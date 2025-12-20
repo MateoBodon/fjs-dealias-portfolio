@@ -20,6 +20,7 @@ PORTFOLIOS: Sequence[str] = ("ew", "mv")
 class SummaryArtifacts:
     performance: pd.DataFrame
     detection: pd.DataFrame
+    skip_stats: pd.DataFrame
     completeness: CompletenessResult | None = None
 
 
@@ -330,11 +331,13 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
     design_dirs = [child for child in rc_dir.iterdir() if child.is_dir() and child.name != "summary"]
     perf_records: list[dict[str, object]] = []
     det_records: list[dict[str, object]] = []
+    skip_frames: list[pd.DataFrame] = []
 
     for regime in REGIMES:
         metrics_path = rc_dir / regime / "metrics.csv"
         dm_path = rc_dir / regime / "dm.csv"
         diag_path = rc_dir / regime / "diagnostics.csv"
+        skip_path = rc_dir / regime / "skip_stats.csv"
 
         use_design_dirs = not metrics_path.exists() and any((d / regime).exists() for d in design_dirs)
 
@@ -343,13 +346,18 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
             dm_df = _concat_if_exists(d / regime / "dm.csv" for d in design_dirs)
             diag_df = _concat_if_exists(d / regime / "diagnostics.csv" for d in design_dirs)
             detail_df = _concat_if_exists(d / regime / "diagnostics_detail.csv" for d in design_dirs)
+            skip_df = _concat_if_exists(d / regime / "skip_stats.csv" for d in design_dirs)
         else:
             metrics_df = _read_csv(metrics_path)
             dm_df = _read_csv(dm_path)
             diag_df = _read_csv(diag_path)
+            skip_df = _read_csv(skip_path)
             detail_df = _load_detail(rc_dir, regime, root_detail)
 
         diag_row = _aggregate_diag_row(diag_df)
+        if not skip_df.empty:
+            skip_df["regime"] = skip_df.get("regime", regime)
+            skip_frames.append(skip_df)
 
         for portfolio in PORTFOLIOS:
             overlay_row = _aggregate_row(metrics_df, regime=regime, estimator="overlay", portfolio=portfolio)
@@ -375,6 +383,14 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
                 "dm_stat": float("nan"),
                 "dm_p_value": float("nan"),
                 "n_effective": float("nan"),
+                "n_effective_mse": float("nan"),
+                "n_effective_es": float("nan"),
+                "n_effective_qlike": float("nan"),
+                "comparison_valid_dm": float("nan"),
+                "comparison_valid_delta": float("nan"),
+                "cap_active": completeness.cap_active,
+                "cap_sources": ",".join(completeness.cap_sources),
+                "window_coverage": completeness.window_coverage,
             }
 
             if overlay_row is not None:
@@ -388,6 +404,10 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
                         "es95_overlay": _numeric(overlay_row, "es95"),
                         "realised_var_overlay": _numeric(overlay_row, "realised_var"),
                         "realised_es_overlay": _numeric(overlay_row, "realised_es"),
+                        "n_effective_mse": _numeric(overlay_row, "n_effective_mse"),
+                        "n_effective_es": _numeric(overlay_row, "n_effective_es"),
+                        "n_effective_qlike": _numeric(overlay_row, "n_effective_qlike"),
+                        "comparison_valid_delta": _numeric(overlay_row, "comparison_valid"),
                     }
                 )
             if baseline_row is not None:
@@ -405,6 +425,7 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
                         "dm_stat": _numeric(dm_row, "dm_stat"),
                         "dm_p_value": _numeric(dm_row, "p_value"),
                         "n_effective": _numeric(dm_row, "n_effective"),
+                        "comparison_valid_dm": _numeric(dm_row, "comparison_valid"),
                     }
                 )
 
@@ -474,12 +495,16 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
             "crisis_threshold_mean": _numeric(diag_row, "crisis_threshold"),
             "vol_signal_mean": _numeric(diag_row, "vol_signal"),
             "resolved_config_path": _string(diag_row, "resolved_config_path"),
+            "cap_active": completeness.cap_active,
+            "cap_sources": ",".join(completeness.cap_sources),
+            "window_coverage": completeness.window_coverage,
         }
         det_records.append(det_record)
 
     perf_df = pd.DataFrame(perf_records)
     det_df = pd.DataFrame(det_records)
-    return SummaryArtifacts(performance=perf_df, detection=det_df, completeness=completeness)
+    skip_df_all = pd.concat(skip_frames, ignore_index=True) if skip_frames else pd.DataFrame()
+    return SummaryArtifacts(performance=perf_df, detection=det_df, skip_stats=skip_df_all, completeness=completeness)
 
 
 def _discover_rc_dirs(root: Path, patterns: Iterable[str] | None, all_runs: bool, rc_dir: Path | None) -> list[Path]:
@@ -516,11 +541,14 @@ def write_summaries(rc_dirs: Iterable[Path]) -> dict[Path, SummaryArtifacts]:
         summary_dir.mkdir(parents=True, exist_ok=True)
         perf_path = summary_dir / "summary_perf.csv"
         det_path = summary_dir / "summary_detection.csv"
+        skip_path = summary_dir / "summary_skip_stats.csv"
         artifacts.performance.to_csv(perf_path, index=False)
         artifacts.detection.to_csv(det_path, index=False)
+        artifacts.skip_stats.to_csv(skip_path, index=False)
         outputs[directory] = artifacts
         print(f"[make_summary] Wrote {_display_path(perf_path)}")
         print(f"[make_summary] Wrote {_display_path(det_path)}")
+        print(f"[make_summary] Wrote {_display_path(skip_path)}")
 
         kill_data, limitations = _evaluate_kill_criteria(
             artifacts.performance, artifacts.detection, directory.name
@@ -554,6 +582,14 @@ def write_summaries(rc_dirs: Iterable[Path]) -> dict[Path, SummaryArtifacts]:
             comp_path = summary_dir / "completeness.json"
             comp_path.write_text(json.dumps(comp.as_dict(), indent=2, sort_keys=True), encoding="utf-8")
             print(f"[make_summary] Wrote {_display_path(comp_path)}")
+        invalid_rows = artifacts.performance[
+            (artifacts.performance.get("comparison_valid_delta") == 0)
+            | (artifacts.performance.get("comparison_valid_dm") == 0)
+        ]
+        if not invalid_rows.empty:
+            limitations.append(
+                "Some comparisons marked invalid due to insufficient aligned windows (see summary_perf.csv)."
+            )
     return outputs
 
 

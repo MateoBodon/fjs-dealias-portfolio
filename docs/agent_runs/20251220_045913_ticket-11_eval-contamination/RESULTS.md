@@ -1,0 +1,6 @@
+- Implemented aligned comparison enforcement in `experiments/eval/run.py`: Δ metrics and DM stats now use intersection windows, emit `n_effective_*`, and mark `comparison_valid` when aligned sample >= min_comparison_windows (default 30).
+- Added skip statistics outputs (`skip_stats.csv` per regime + root) with per-estimator skip shares by reason; surfaced comparison validity and cap flags into run metadata and summary outputs.
+- Added config knob `min_comparison_windows` (defaults to 30) and recorded caps/date truncation/condition-cap sources in `run.json` windows block; `tools/make_summary.py` now propagates cap/coverage and skip stats to summary artifacts and flags invalid comparisons.
+- New unit tests: alignment delta intersection, cap flags propagation, and comparison validity; updated DM alignment test threshold; all `make test-fast` unit tests pass.
+- Deterministic smoke run (capped) demonstrating new fields: `reports/eval-ticket-11-smoke-small/` (max_windows=4, assets_top=30, prewhiten off). Check `run.json` windows block, `full/dm.csv` (comparison_valid), `full/metrics.csv` (n_effective_*), and `skip_stats.csv`.
+- GPT bundle: docs/gpt_bundles/20251220_062628_ticket-11_20251220_045913_ticket-11_eval-contamination.zip

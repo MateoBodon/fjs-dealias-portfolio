@@ -56,3 +56,7 @@ ls docs/gpt_bundles | tail
 git status --short docs/gpt_bundles/20251220_225201_ticket-09_20251220_223706_ticket-09_weekly-gating-attribution.zip
 git check-ignore -v docs/gpt_bundles/20251220_225201_ticket-09_20251220_223706_ticket-09_weekly-gating-attribution.zip
 git add PROGRESS.md docs/CODEX_SPRINT_TICKETS.md project_state/KNOWN_ISSUES.md docs/agent_runs/20251220_223706_ticket-09_weekly-gating-attribution/PROMPT.md docs/agent_runs/20251220_223706_ticket-09_weekly-gating-attribution/COMMANDS.md docs/agent_runs/20251220_223706_ticket-09_weekly-gating-attribution/RESULTS.md docs/agent_runs/20251220_223706_ticket-09_weekly-gating-attribution/TESTS.md docs/agent_runs/20251220_223706_ticket-09_weekly-gating-attribution/META.md docs/agent_runs/20251220_223706_ticket-09_weekly-gating-attribution/bundle_contents.txt
+git status -sb
+git commit -m 'Log ticket-09 guard attribution run'
+git status -sb
+git add docs/agent_runs/20251220_223706_ticket-09_weekly-gating-attribution/COMMANDS.md

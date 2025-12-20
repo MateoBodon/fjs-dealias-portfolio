@@ -7,7 +7,8 @@ def test_infer_skip_reason_calibration_missing() -> None:
         calibration_missing=True,
         isolated_spikes=0,
     )
-    assert reason == "calibration_missing_p_T"
+    assert reason.primary == "calibration_missing_p_T"
+    assert reason.detail == ""
 
 
 def test_infer_skip_reason_prefers_stability() -> None:
@@ -15,4 +16,5 @@ def test_infer_skip_reason_prefers_stability() -> None:
     reason = run._infer_skip_reason(
         diag, calibration_missing=False, isolated_spikes=0
     )
-    assert reason == "instability_in_a_neighborhood"
+    assert reason.primary == "instability_in_a_neighborhood"
+    assert "stability_fail" in reason.detail

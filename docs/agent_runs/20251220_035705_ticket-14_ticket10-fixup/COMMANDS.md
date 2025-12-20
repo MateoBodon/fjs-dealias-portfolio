@@ -352,3 +352,11 @@ apply_patch project_state/KNOWN_ISSUES.md (update nested issue)
 git add src/fjs/gating.py tests/test_calibration_lookup.py calibration/nested_edge_delta_thresholds.json experiments/synthetic/nested_killtest.py
 git commit -m 'Harden nested calibration metadata and lookup' ...
 cat <<'EOF' > docs/agent_runs/20251220_035705_ticket-14_ticket10-fixup/META.md ...
+git add Makefile experiments/equity_panel/run.py experiments/equity_panel/config.nested.smoke.tiny.yaml project_state/CONFIG_REFERENCE.md project_state/CURRENT_RESULTS.md project_state/KNOWN_ISSUES.md PROGRESS.md docs/agent_runs/20251220_035705_ticket-14_ticket10-fixup
+git commit -m 'Add capped nested smoke path and doc updates' ...
+git rev-parse HEAD
+apply_patch docs/agent_runs/20251220_035705_ticket-14_ticket10-fixup/META.md (set end_sha)
+git add docs/agent_runs/20251220_035705_ticket-14_ticket10-fixup/COMMANDS.md docs/agent_runs/20251220_035705_ticket-14_ticket10-fixup/META.md
+make gpt-bundle TICKET=ticket-14 RUN_NAME=20251220_035705_ticket-14_ticket10-fixup
+unzip -l docs/gpt_bundles/20251220_052600_ticket-14_20251220_035705_ticket-14_ticket10-fixup.zip > docs/agent_runs/20251220_035705_ticket-14_ticket10-fixup/bundle_listing.txt
+unzip -p docs/gpt_bundles/20251220_052600_ticket-14_20251220_035705_ticket-14_ticket10-fixup.zip LAST_COMMIT.txt

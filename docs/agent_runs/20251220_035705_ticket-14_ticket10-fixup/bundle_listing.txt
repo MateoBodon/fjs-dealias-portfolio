@@ -1,0 +1,24 @@
+Archive:  docs/gpt_bundles/20251220_052600_ticket-14_20251220_035705_ticket-14_ticket10-fixup.zip
+  Length      Date    Time    Name
+---------  ---------- -----   ----
+    52908  2025-12-20 05:26   DIFF.patch
+     3587  2025-12-20 05:26   AGENTS.md
+        0  2025-12-20 05:26   docs/
+     5236  2025-12-20 05:26   docs/DOCS_AND_LOGGING_SYSTEM.md
+     7823  2025-12-20 05:26   docs/CODEX_SPRINT_TICKETS.md
+        0  2025-12-20 05:26   docs/agent_runs/
+        0  2025-12-20 05:26   docs/agent_runs/20251220_035705_ticket-14_ticket10-fixup/
+     1168  2025-12-20 05:26   docs/agent_runs/20251220_035705_ticket-14_ticket10-fixup/META.md
+      462  2025-12-20 05:26   docs/agent_runs/20251220_035705_ticket-14_ticket10-fixup/TESTS.md
+     5035  2025-12-20 05:26   docs/agent_runs/20251220_035705_ticket-14_ticket10-fixup/PROMPT.md
+     1647  2025-12-20 05:26   docs/agent_runs/20251220_035705_ticket-14_ticket10-fixup/RESULTS.md
+    15180  2025-12-20 05:26   docs/agent_runs/20251220_035705_ticket-14_ticket10-fixup/COMMANDS.md
+    13315  2025-12-20 05:26   docs/PLAN_OF_RECORD.md
+     1361  2025-12-20 05:26   LAST_COMMIT.txt
+    42037  2025-12-20 05:26   PROGRESS.md
+        0  2025-12-20 05:26   project_state/
+     4591  2025-12-20 05:26   project_state/CONFIG_REFERENCE.md
+     3308  2025-12-20 05:26   project_state/CURRENT_RESULTS.md
+     2117  2025-12-20 05:26   project_state/KNOWN_ISSUES.md
+---------                     -------
+   159775                     19 files

@@ -1,7 +1,7 @@
 run_name: 20251220_035705_ticket-14_ticket10-fixup
 branch: codex/ticket-14-ticket10-fixup
 start_sha: 334e86d7ff94aadce6e2c3f86149c198fd9bfdb0
-end_sha: TBD
+end_sha: 8555ce177125398d5964300a0b3d093d1760f024
 start_dirty:
   - docs/CODEX_SPRINT_TICKETS.md
   - docs/agent_runs/20251220_011519_ticket-10_nested-null-fpr/COMMANDS.md

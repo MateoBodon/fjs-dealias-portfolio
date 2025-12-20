@@ -360,3 +360,6 @@ git add docs/agent_runs/20251220_035705_ticket-14_ticket10-fixup/COMMANDS.md doc
 make gpt-bundle TICKET=ticket-14 RUN_NAME=20251220_035705_ticket-14_ticket10-fixup
 unzip -l docs/gpt_bundles/20251220_052600_ticket-14_20251220_035705_ticket-14_ticket10-fixup.zip > docs/agent_runs/20251220_035705_ticket-14_ticket10-fixup/bundle_listing.txt
 unzip -p docs/gpt_bundles/20251220_052600_ticket-14_20251220_035705_ticket-14_ticket10-fixup.zip LAST_COMMIT.txt
+make gpt-bundle TICKET=ticket-14 RUN_NAME=20251220_035705_ticket-14_ticket10-fixup
+unzip -l docs/gpt_bundles/20251220_052833_ticket-14_20251220_035705_ticket-14_ticket10-fixup.zip > docs/agent_runs/20251220_035705_ticket-14_ticket10-fixup/bundle_listing.txt
+unzip -p docs/gpt_bundles/20251220_052833_ticket-14_20251220_035705_ticket-14_ticket10-fixup.zip LAST_COMMIT.txt

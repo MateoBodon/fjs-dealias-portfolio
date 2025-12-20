@@ -1,8 +1,9 @@
 ticket-10: FAIL (no commits + empty DIFF.patch → not auditable/mergeable).
 ticket-11: DONE (fixed via ticket-15; aligned Δ/DM on changed window intersections, surfaced `n_effective*` + `comparison_valid*`, skip_stats + cap metadata in run.json/summary).
 ticket-15: DONE — ticket-11 fixup is now auditable (committed diffs, run log, bundle required).
+ticket-09: DONE — gating diagnostics attribution fixed; run log `docs/agent_runs/20251220_203615_ticket-09_weekly-gating-reason-attribution/`, smoke outputs `experiments/equity_panel/outputs_smoke/oneway_J5_solver-auto_est-dealias_prep-prewhiten_modeoff/`.
 
-Next ticket to run (exactly one): ticket-09 gating diagnostics (see backlog below). Pause ticket-12 until ticket-10 is cleaned up or explicitly de-scoped.
+Next ticket to run (exactly one): ticket-10 nested null-FPR (see backlog below). Pause ticket-12 until ticket-10 is cleaned up or explicitly de-scoped.
 
 
 # Codex Sprint Tickets (NEXT SPRINT ONLY)
@@ -14,6 +15,9 @@ Ordering principle: unblock validity first, then calibrate/extend.
 ## Ticket #1 (ticket-09) — Fix weekly gating diagnostics attribution (kill `guard_other`)
 **Goal (1 sentence)**  
 Make weekly gating diagnostics actionable: every “no acceptance” window must have an attributable reason code (no `guard_other` blob, no opaque `diagnostic_failure`).
+
+**Status**  
+DONE (2025-12-20). Run log `docs/agent_runs/20251220_203615_ticket-09_weekly-gating-reason-attribution/`; smokes: real `experiments/equity_panel/outputs_smoke/oneway_J5_solver-auto_est-dealias_prep-prewhiten_modeoff/`, synthetic diagnostic-failure `experiments/equity_panel/outputs_ticket-09_synth_failure_20251220_203615_ticket-09_weekly-gating-reason-attribution/`.
 
 **Files/modules likely involved**
 - `experiments/equity_panel/run.py` (notably `_infer_skip_reason(...)` and gating diagnostics writer)

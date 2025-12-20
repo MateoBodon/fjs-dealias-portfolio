@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -28,6 +29,7 @@ def test_gating_diagnostics_artifact(tmp_path: Path) -> None:
         output_dir=out_dir,
         window_weeks=2,
         horizon_weeks=1,
+        max_windows=None,
         delta=0.0,
         delta_frac=0.01,
         eps=0.01,
@@ -82,14 +84,18 @@ def test_gating_diagnostics_artifact(tmp_path: Path) -> None:
         "skip_reason_primary",
         "skip_reason_detail",
         "exception_type",
+        "exception_stage",
+        "exception_message_short",
         "delta_frac_used",
         "edge_used",
         "lambda_top_over_edge",
+        "replicates",
     }
     assert required.issubset(set(diag_df.columns))
     for guard_key in DIAGNOSTIC_GUARD_KEYS:
         assert f"guard_{guard_key}" in diag_df.columns
     assert "guard_other" not in diag_df.columns
+    assert not diag_df["skip_reason_primary"].fillna("").str.contains("guard_other").any()
 
     rejected = diag_df[diag_df["accepted"] == False]
     if not rejected.empty:
@@ -99,6 +105,17 @@ def test_gating_diagnostics_artifact(tmp_path: Path) -> None:
         if not diag_failures.empty:
             assert diag_failures["skip_reason_detail"].replace("", pd.NA).notna().all()
             assert diag_failures["exception_type"].replace("", pd.NA).notna().all()
+            assert diag_failures["exception_stage"].replace("", pd.NA).notna().all()
+            assert diag_failures["exception_message_short"].replace("", pd.NA).notna().all()
+            assert (diag_failures["exception_message_short"].str.len() <= 200).all()
+    if "diag_payload" in diag_df.columns:
+        payloads = diag_df["diag_payload"].dropna().astype(str)
+        for raw in payloads:
+            try:
+                decoded = json.loads(raw)
+            except Exception:
+                continue
+            assert "other" not in decoded
 
 
 def test_gating_diagnostics_records_exception_detail(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -125,6 +142,7 @@ def test_gating_diagnostics_records_exception_detail(tmp_path: Path, monkeypatch
         output_dir=out_dir,
         window_weeks=2,
         horizon_weeks=1,
+        max_windows=None,
         delta=0.0,
         delta_frac=0.01,
         eps=0.01,
@@ -167,3 +185,7 @@ def test_gating_diagnostics_records_exception_detail(tmp_path: Path, monkeypatch
     assert not failures.empty
     assert failures["skip_reason_detail"].replace("", pd.NA).notna().all()
     assert failures["exception_type"].replace("", pd.NA).notna().all()
+    assert failures["exception_stage"].replace("", pd.NA).notna().all()
+    assert failures["exception_message_short"].replace("", pd.NA).notna().all()
+    assert (failures["exception_message_short"].str.len() <= 200).all()
+    assert failures["skip_reason_detail"].str.contains("dealias_search").all()

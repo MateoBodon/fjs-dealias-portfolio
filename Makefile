@@ -524,16 +524,17 @@ inject-spike-coarse:
 		--out $(RC_INJECT_OUT)
 
 run-synth:
-	python experiments/synthetic_oneway/run.py
+	python3 experiments/synthetic_oneway/run.py
 
 run-equity:
-	python experiments/equity_panel/run.py
+	python3 experiments/equity_panel/run.py
 
 .PHONY: run\:equity_smoke
 run\:equity_smoke:
-	PYTHONPATH=src python experiments/equity_panel/run.py \
+	PYTHONPATH=src python3 experiments/equity_panel/run.py \
 		--config experiments/equity_panel/config.smoke.yaml \
 		--gating-mode fixed \
+		--gating-diagnostics \
 		--minvar-ridge 0.0001 \
 		--minvar-box 0.0,0.1 \
 		--minvar-condition-cap 1000000000 \
@@ -541,7 +542,7 @@ run\:equity_smoke:
 
 .PHONY: run\:equity_nested_smoke_tiny
 run\:equity_nested_smoke_tiny:
-	PYTHONPATH=src EXEC_MODE=deterministic python experiments/equity_panel/run.py \
+	PYTHONPATH=src EXEC_MODE=deterministic python3 experiments/equity_panel/run.py \
 		--config experiments/equity_panel/config.nested.smoke.tiny.yaml --gating-diagnostics --exec-mode deterministic
 
 .PHONY: sweep\:acceptance

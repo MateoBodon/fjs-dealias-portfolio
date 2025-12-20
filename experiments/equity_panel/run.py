@@ -1764,6 +1764,8 @@ def _run_single_period(
         window_skip_reason: str | None = None
         skip_reason_detail: str = ""
         skip_exception_type: str | None = None
+        skip_exception_stage: str | None = None
+        skip_exception_message_short: str = ""
         try:
             detections = dealias_search(
                 y_fit_daily,
@@ -1793,10 +1795,17 @@ def _run_single_period(
         except Exception as exc:
             detections = []
             window_skip_reason = str(SkipReasonPrimary.DIAGNOSTIC_FAILURE)
-            skip_reason_detail = f"dealias_search raised {exc.__class__.__name__}: {exc}"
-            if len(skip_reason_detail) > 500:
-                skip_reason_detail = f"{skip_reason_detail[:497]}..."
-            skip_exception_type = exc.__class__.__name__
+            exc_type = exc.__class__.__name__
+            exc_message = str(exc) or exc_type
+            skip_exception_type = exc_type
+            skip_exception_stage = "dealias_search"
+            skip_exception_message_short = (
+                exc_message if len(exc_message) <= 200 else f"{exc_message[:197]}..."
+            )
+            detail = f"{skip_exception_stage}: {exc_type}: {exc_message}"
+            if len(detail) > 500:
+                detail = f"{detail[:497]}..."
+            skip_reason_detail = detail
             gating_skip_reasons[window_skip_reason] = (
                 gating_skip_reasons.get(window_skip_reason, 0) + 1
             )
@@ -1997,6 +2006,10 @@ def _run_single_period(
             skip_reason_detail = attribution.detail
             if attribution.exception_type:
                 skip_exception_type = attribution.exception_type
+            if attribution.exception_stage:
+                skip_exception_stage = attribution.exception_stage
+            if attribution.exception_message_short:
+                skip_exception_message_short = attribution.exception_message_short
             gating_skip_reasons[window_skip_reason] = (
                 gating_skip_reasons.get(window_skip_reason, 0) + 1
             )
@@ -2092,6 +2105,8 @@ def _run_single_period(
             "skip_reason_primary": window_skip_reason or "",
             "skip_reason_detail": skip_reason_detail,
             "exception_type": skip_exception_type or "",
+            "exception_stage": skip_exception_stage or "",
+            "exception_message_short": skip_exception_message_short or "",
             "isolated_spikes": int(isolated_count_raw),
             "nested_nonisolated_fallback": bool(nonisolated_fallback_used),
             "gate_discarded_count": len(gate_discard_detail),
@@ -2364,6 +2379,7 @@ def _run_single_period(
                 "edge_mode": edge_mode_cfg,
                 "p": int(p_dim),
                 "t": int(n_fit_samples),
+                "replicates": int(nested_reps_value if design_mode == "nested" else replicates),
                 "edge_used": float(edge_selected_val),
                 "edge_scm": float(edge_scm_val),
                 "edge_tyler": float(edge_tyler_val),
@@ -2399,6 +2415,8 @@ def _run_single_period(
                 "skip_reason_primary": diag_skip_reason,
                 "skip_reason_detail": skip_reason_detail,
                 "exception_type": skip_exception_type or "",
+                "exception_stage": skip_exception_stage or "",
+                "exception_message_short": skip_exception_message_short or "",
                 "gate_discarded": int(len(gate_discard_detail)),
                 "diag_payload": json.dumps({k: int(v) for k, v in diag_local.items()}),
                 "top_lambda_hat": float(top_diag.get("lambda_hat", float("nan"))),
@@ -2849,6 +2867,7 @@ def _run_single_period(
             "edge_mode",
             "p",
             "t",
+            "replicates",
             "edge_used",
             "edge_scm",
             "edge_tyler",
@@ -2878,6 +2897,8 @@ def _run_single_period(
             "skip_reason_primary",
             "skip_reason_detail",
             "exception_type",
+            "exception_stage",
+            "exception_message_short",
             "gate_discarded",
             *guard_columns,
             "diag_payload",
@@ -2904,6 +2925,8 @@ def _run_single_period(
             "skip_reason_primary": "",
             "skip_reason_detail": "",
             "exception_type": "",
+            "exception_stage": "",
+            "exception_message_short": "",
             "isolated_spikes": 0,
             "gate_discarded_count": 0,
             "gate_discarded": "[]",

@@ -613,5 +613,5 @@ git checkout main
 git add docs/agent_runs/20251220_203615_ticket-09_weekly-gating-reason-attribution/COMMANDS.md
 git commit -m 'Log checkout attempt' -m 'Tests run: make test-fast'
 git checkout main
-git checkout main
 git checkout codex/ticket-09-gating-diagnostics-attribution -- docs/agent_runs/20251220_203615_ticket-09_weekly-gating-reason-attribution
+git merge --no-ff codex/ticket-09-gating-diagnostics-attribution

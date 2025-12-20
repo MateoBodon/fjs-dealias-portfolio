@@ -1,0 +1,24 @@
+Archive:  /root/fjs-dealias-portfolio/docs/gpt_bundles/20251220_174554_ticket-15_20251220_171911_ticket-15_ticket11-fixup.zip
+  Length      Date    Time    Name
+---------  ---------- -----   ----
+    11826  2025-12-20 17:45   DIFF.patch
+     3587  2025-12-20 17:45   AGENTS.md
+        0  2025-12-20 17:45   docs/
+     5236  2025-12-20 17:45   docs/DOCS_AND_LOGGING_SYSTEM.md
+     7811  2025-12-20 17:45   docs/CODEX_SPRINT_TICKETS.md
+        0  2025-12-20 17:45   docs/agent_runs/
+        0  2025-12-20 17:45   docs/agent_runs/20251220_171911_ticket-15_ticket11-fixup/
+      893  2025-12-20 17:45   docs/agent_runs/20251220_171911_ticket-15_ticket11-fixup/META.md
+      253  2025-12-20 17:45   docs/agent_runs/20251220_171911_ticket-15_ticket11-fixup/TESTS.md
+     5188  2025-12-20 17:45   docs/agent_runs/20251220_171911_ticket-15_ticket11-fixup/PROMPT.md
+     4969  2025-12-20 17:45   docs/agent_runs/20251220_171911_ticket-15_ticket11-fixup/RESULTS.md
+    13662  2025-12-20 17:45   docs/agent_runs/20251220_171911_ticket-15_ticket11-fixup/COMMANDS.md
+    13315  2025-12-20 17:45   docs/PLAN_OF_RECORD.md
+      712  2025-12-20 17:45   LAST_COMMIT.txt
+    46153  2025-12-20 17:45   PROGRESS.md
+        0  2025-12-20 17:45   project_state/
+     5211  2025-12-20 17:45   project_state/CONFIG_REFERENCE.md
+     3308  2025-12-20 17:45   project_state/CURRENT_RESULTS.md
+     2484  2025-12-20 17:45   project_state/KNOWN_ISSUES.md
+---------                     -------
+   124608                     19 files

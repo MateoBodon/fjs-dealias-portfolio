@@ -66,3 +66,6 @@ git add docs/agent_runs/20251220_223706_ticket-09_weekly-gating-attribution/COMM
 git commit -m 'Finalize command log for ticket-09 run'
 git status -sb
 git checkout main
+git checkout main
+git merge --ff-only codex/ticket-09-weekly-gating-attribution
+git status -sb

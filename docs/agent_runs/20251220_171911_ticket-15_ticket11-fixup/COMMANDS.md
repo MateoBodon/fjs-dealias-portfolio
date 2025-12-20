@@ -155,3 +155,8 @@ cd /root/fjs-dealias-portfolio && RUN_NAME=20251220_171911_ticket-15_ticket11-fi
 cd /root/fjs-dealias-portfolio && rg "gpt_bundles" .gitignore
 cd /root/fjs-dealias-portfolio && rg "reports" .gitignore
 cd /root/fjs-dealias-portfolio && sed -n '1,120p' .gitignore
+cd /root/fjs-dealias-portfolio && git add docs/CODEX_SPRINT_TICKETS.md PROGRESS.md docs/agent_runs/20251220_171911_ticket-15_ticket11-fixup reports/ticket-15-smoke-171911
+cd /root/fjs-dealias-portfolio && git status --short
+cd /root/fjs-dealias-portfolio && git commit -m "Log ticket-15 run artifacts" -m "Tests run: make test-fast"
+cd /root/fjs-dealias-portfolio && git rev-parse HEAD
+cd /root/fjs-dealias-portfolio && git status --short

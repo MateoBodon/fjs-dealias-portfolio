@@ -611,3 +611,5 @@ git commit -m 'Log final pre-merge commands' -m 'Tests run: make test-fast'
 git status -sb
 git checkout main
 git add docs/agent_runs/20251220_203615_ticket-09_weekly-gating-reason-attribution/COMMANDS.md
+git commit -m 'Log checkout attempt' -m 'Tests run: make test-fast'
+git checkout main

@@ -1,0 +1,4 @@
+- PYTHONPATH=src pytest tests/experiments/test_skip_reasons.py -q (pass)
+- PYTHONPATH=src pytest tests/experiments/test_gating_diagnostics.py -q (fail: missing max_windows; fixed and rerun)
+- PYTHONPATH=src pytest tests/experiments/test_gating_diagnostics.py -q (pass)
+- make test-fast (pass)

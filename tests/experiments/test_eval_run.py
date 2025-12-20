@@ -4,6 +4,7 @@ import json
 import subprocess
 from pathlib import Path
 
+import math
 import numpy as np
 import pandas as pd
 import pytest
@@ -634,6 +635,21 @@ def test_aligned_delta_respects_intersection() -> None:
     delta, n_eff = _aligned_delta_mean(metrics, "full", "ew", column="sq_error")
     assert n_eff == 2
     assert np.isclose(delta, (-0.2 + 0.05) / 2)
+
+
+def test_dm_respects_min_comparison_windows() -> None:
+    metrics = pd.DataFrame(
+        [
+            {"window_id": 0, "regime": "full", "portfolio": "ew", "estimator": "overlay", "sq_error": 0.4},
+            {"window_id": 0, "regime": "full", "portfolio": "ew", "estimator": "baseline", "sq_error": 0.5},
+            {"window_id": 1, "regime": "full", "portfolio": "ew", "estimator": "overlay", "sq_error": 0.6},
+            {"window_id": 1, "regime": "full", "portfolio": "ew", "estimator": "baseline", "sq_error": 0.65},
+        ]
+    )
+    dm_stat, p_value, n_eff = _aligned_dm_stat(metrics, "full", "ew", min_windows=3)
+    assert n_eff == 2
+    assert math.isnan(dm_stat)
+    assert math.isnan(p_value)
 
 
 def test_run_metadata_flags_caps_and_skip_stats(tmp_path_factory: pytest.TempPathFactory) -> None:

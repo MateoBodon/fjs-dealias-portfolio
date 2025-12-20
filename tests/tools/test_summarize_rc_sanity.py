@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from meta.completeness import evaluate_eval_run
+from tools.summarize_rc_sanity import _aggregate_entries
 
 pytestmark = pytest.mark.unit
 
@@ -109,3 +110,29 @@ def test_summarizer_marks_missing_sections_and_excludes_incomplete(tmp_path: Pat
 
     incomplete_labels = {item["label"] for item in summary["incomplete_runs"]}
     assert {"daily_vol", "weekly_dow", "nested_weekly"}.issubset(incomplete_labels)
+
+
+def test_aggregate_entries_excludes_capped_runs() -> None:
+    entries = [
+        {
+            "label": "rc_capped",
+            "excluded_from_aggregate": True,
+            "detection_rate": 0.15,
+            "delta_mse_ew": -0.1,
+            "delta_mse_mv": -0.2,
+        },
+        {
+            "label": "rc_ok",
+            "excluded_from_aggregate": False,
+            "detection_rate": 0.12,
+            "delta_mse_ew": -0.05,
+            "delta_mse_mv": -0.06,
+        },
+    ]
+
+    aggregated = _aggregate_entries(entries)
+
+    assert aggregated["included"] == ["rc_ok"]
+    assert aggregated["detection_rate_mean"] == 0.12
+    assert aggregated["delta_mse_ew_mean"] == -0.05
+    assert aggregated["delta_mse_mv_mean"] == -0.06

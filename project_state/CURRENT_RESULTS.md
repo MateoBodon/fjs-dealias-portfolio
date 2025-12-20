@@ -1,14 +1,16 @@
 ---
-generated: 2025-12-19T21:04:10+01:00
-git_sha: ce4c1b224c43028bb5388efdebbe0e8eb52e6c61
-git_branch: chore/project_state_refresh
+generated: 2025-12-20T02:25:00+00:00
+git_sha: e6e798288c117a188db38c4dde85cf91972921d8
+git_branch: ticket-10-nested-null-fpr
 commands:
-  - python3 tools/generate_project_state.py (latest run excludes heavy caches/outputs)
-  - python3 - <<'PY' (emit project_state docs and indexes)
+  - source .venv/bin/activate && python -m experiments.synthetic.nested_killtest --config experiments/synthetic/config.nested.killtest.yaml --out reports/synthetic/nested_killtest/20251220_011519_ticket-10_nested-null-fpr --calibration-out calibration/nested_edge_delta_thresholds.json --run-name 20251220_011519_ticket-10_nested-null-fpr --target-fpr 0.02
 ---
 
 # Current Results (latest validated drops)
 
+- **2025-12-20 — Nested synthetic calibration (ticket-10, git e6e7982)**  
+  - Synthetic nested (p=200, years=2, weeks 6–8, reps=5, tyler, delta=0.35, delta_frac=0.05): null detections 0/220 → FPR 0 with Wilson hi 0.017; power 1.0 on moderate/strong.  
+  - Calibration written to `calibration/nested_edge_delta_thresholds.json` with run metadata; nested configs now point to this file; lookup is design-aware.
 - **2025-12-19 — MV solver missing-proof (ticket-08, git a4451969)**
   - Commands: `make test-fast`; `python -m experiments.eval.run ... --mv-solver cvxpy` and forced-missing run with `FJS_FORCE_MISSING_CVXPY=1 --mv-skip-on-missing-solver`.
   - Outcomes: Normal run `reports/eval-smoke-ticket08-proof/normal/metrics_detail.csv` shows MV rows `skipped=False`, `solver_status=optimal`; forced-missing run `.../missing-skip/metrics_detail.csv` shows `skipped=True`, `skip_reason=missing_solver`, empty weights; diagnostics propagate `solver_used`/`solver_status`.

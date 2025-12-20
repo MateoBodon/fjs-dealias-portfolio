@@ -160,3 +160,9 @@ cd /root/fjs-dealias-portfolio && git status --short
 cd /root/fjs-dealias-portfolio && git commit -m "Log ticket-15 run artifacts" -m "Tests run: make test-fast"
 cd /root/fjs-dealias-portfolio && git rev-parse HEAD
 cd /root/fjs-dealias-portfolio && git status --short
+cd /root/fjs-dealias-portfolio && git add PROGRESS.md docs/agent_runs/20251220_171911_ticket-15_ticket11-fixup/COMMANDS.md docs/agent_runs/20251220_171911_ticket-15_ticket11-fixup/META.md
+cd /root/fjs-dealias-portfolio && git commit -m "Update ticket-15 metadata" -m "Tests run: make test-fast"
+cd /root/fjs-dealias-portfolio && sed -n '1,20p' PROGRESS.md
+cd /root/fjs-dealias-portfolio && git status --short
+cd /root/fjs-dealias-portfolio && git add docs/agent_runs/20251220_171911_ticket-15_ticket11-fixup/COMMANDS.md
+cd /root/fjs-dealias-portfolio && git add docs/agent_runs/20251220_171911_ticket-15_ticket11-fixup/COMMANDS.md (restage)

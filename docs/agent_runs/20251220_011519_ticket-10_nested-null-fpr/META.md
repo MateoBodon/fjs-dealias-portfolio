@@ -1,6 +1,6 @@
 - branch: ticket-10-nested-null-fpr
 - git_sha_start: e6e798288c117a188db38c4dde85cf91972921d8
-- git_sha_end: 553c41925271eba980741cba8cdfa22126d29ec0
+- git_sha_end: e6e798288c117a188db38c4dde85cf91972921d8
 - workspace_dirty_at_start: yes (user-modified docs)
 - workspace_dirty_at_end: yes (new calibration + outputs)
 - venv: .venv (pip install -e .[dev])

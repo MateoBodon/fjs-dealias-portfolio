@@ -1,0 +1,2 @@
+- make test-fast (failed initially: pytest missing); after creating .venv and running `. .venv/bin/activate && make test-fast` → **pass** (68 passed, 154 deselected).
+- make run:equity_nested_smoke_tiny (first attempt hit NameError on max_windows; after fix, `. .venv/bin/activate && make run:equity_nested_smoke_tiny` → **pass**, 3/3 windows skipped with skip_reason=calibration_missing_p_T; outputs in experiments/equity_panel/outputs_nested_smoke_tiny/).

@@ -11,6 +11,7 @@ commands:
 - **2025-12-20 — Nested synthetic calibration (ticket-10, git e6e7982)**  
   - Synthetic nested (p=200, years=2, weeks 6–8, reps=5, tyler, delta=0.35, delta_frac=0.05): null detections 0/220 → FPR 0 with Wilson hi 0.017; power 1.0 on moderate/strong.  
   - Calibration written to `calibration/nested_edge_delta_thresholds.json` with run metadata; nested configs now point to this file; lookup is design-aware.
+  - (ticket-14 fixup) Calibration artifact now includes config hash + operating_points and enforces design-specific lookup; tiny deterministic nested smoke (max_windows=3) on WRDS data skipped 3/3 windows with `skip_reason=calibration_missing_p_T` (p≈188, T=70/80) and delta_frac_used=0.008 fallback—operating point unchanged.
 - **2025-12-19 — MV solver missing-proof (ticket-08, git a4451969)**
   - Commands: `make test-fast`; `python -m experiments.eval.run ... --mv-solver cvxpy` and forced-missing run with `FJS_FORCE_MISSING_CVXPY=1 --mv-skip-on-missing-solver`.
   - Outcomes: Normal run `reports/eval-smoke-ticket08-proof/normal/metrics_detail.csv` shows MV rows `skipped=False`, `solver_status=optimal`; forced-missing run `.../missing-skip/metrics_detail.csv` shows `skipped=True`, `skip_reason=missing_solver`, empty weights; diagnostics propagate `solver_used`/`solver_status`.

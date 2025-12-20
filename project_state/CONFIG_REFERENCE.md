@@ -17,10 +17,12 @@ commands:
 ## Make targets (from `project_state/_generated/make_targets.txt`)
 - `make rc`, `rc-lite`, `rc-lite-sanity`, `rc-dow`, `rc-vol`, `rc-week`, `rc-dowxvol`, `rc-sensitivity`, `inject-spike`, `calibrate-thresholds`, `sweep:acceptance`, `gpt-bundle`. Remote variants: `make aws:<target> AWS_ARGS="..."`.
 - Key env knobs: `EXEC_MODE={deterministic,throughput}`, `RC_GATE_DELTA_FRAC_MIN` / `_VOL`, `RC_Q_MAX`, `Q_MAX_VOL`, `RC_DOW_MIN_REPS`, `RC_VOL_MIN_REPS`, `RC_VOL_GROUP_REPS`, `RC_OVERLAY_DELTA`, `RC_GATE_MODE`, `RC_PREWHITEN`, `RC_USE_FACTOR_PREWHITEN`, `RC_REQUIRE_ISOLATED` / `RC_VOL_REQUIRE_ISOLATED`, `RC_FACTORS`, `RC_RETURNS`, `HARNESS_TRIALS`.
+- Smoke shortcut: `make run:equity_nested_smoke_tiny` (deterministic nested weekly smoke capped at three windows; emits gating_diagnostics).
 
 ## Equity weekly runner (`experiments/equity_panel/run.py`)
 - Config files: `experiments/equity_panel/config*.yaml` (see EXPERIMENTS.md for list). CLI overrides include:
   - `--design {oneway,dow,vol,nested}`; `--nested-replicates`; `--estimator {aliased,dealias,lw,oas,cc,factor,tyler_shrink}`.
+  - Rolling window controls: `--window-weeks`, `--horizon-weeks`, `--max-windows` (caps evaluated windows; persisted in `config_resolved.yaml`).
   - Edge/gating: `--edge-mode {scm,tyler,huber}` (+ `--edge-huber-c`), `--gating-mode {fixed,calibrated}`, `--gating-calibration path`, `--gating-diagnostics`.
   - Overlay params: `--delta-frac`, `--eps`, `--a-grid`, `--eta`, `--off-leak`, `--energy-min-abs`, `--target-component`, `--signed-a/--nonnegative-a`, `--cs-drop-top-frac`.
   - Portfolio: `--minvar-ridge`, `--minvar-box lo,hi`, `--minvar-condition-cap`, `--turnover-cost`.

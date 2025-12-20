@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import itertools
 import json
 import sys
 from collections import defaultdict
@@ -94,6 +95,7 @@ DEFAULT_CONFIG = {
     "end_date": "2024-12-31",
     "window_weeks": 156,
     "horizon_weeks": 4,
+    "max_windows": None,
     "output_dir": "experiments/equity_panel/outputs",
     "dealias_delta_frac": 0.02,
     "signed_a": True,
@@ -1176,6 +1178,7 @@ def _run_single_period(
     output_dir: Path,
     window_weeks: int,
     horizon_weeks: int,
+    max_windows: int | None,
     delta: float,
     delta_frac: float | None,
     eps: float,
@@ -1452,7 +1455,21 @@ def _run_single_period(
     poet_warned = False
 
     total_windows = weekly_balanced.shape[0] - (window_weeks + horizon_weeks) + 1
-    window_iter = rolling_windows(weekly_balanced, window_weeks, horizon_weeks)
+    if total_windows < 0:
+        total_windows = 0
+    max_windows_cfg = max_windows
+    try:
+        max_windows_cfg = int(max_windows_cfg) if max_windows_cfg is not None else None
+    except (TypeError, ValueError):
+        max_windows_cfg = None
+    if max_windows_cfg is not None and max_windows_cfg <= 0:
+        max_windows_cfg = None
+    if max_windows_cfg is not None:
+        total_windows = min(total_windows, max_windows_cfg)
+    window_iter_raw = rolling_windows(weekly_balanced, window_weeks, horizon_weeks)
+    if max_windows_cfg is not None:
+        window_iter_raw = itertools.islice(window_iter_raw, max_windows_cfg)
+    window_iter = window_iter_raw
     window_cache_dir = cache_dir / label if cache_dir is not None else None
     if progress and total_windows > 0:
         window_iter = tqdm(
@@ -3339,6 +3356,7 @@ def run_experiment(
     eta_override: float | None = None,
     window_weeks_override: int | None = None,
     horizon_weeks_override: int | None = None,
+    max_windows_override: int | None = None,
     energy_min_abs_override: float | None = None,
     partial_week_policy: str | None = None,
     precompute_panel: bool = False,
@@ -3395,6 +3413,8 @@ def run_experiment(
         config["window_weeks"] = int(window_weeks_override)
     if horizon_weeks_override is not None:
         config["horizon_weeks"] = int(horizon_weeks_override)
+    if max_windows_override is not None:
+        config["max_windows"] = int(max_windows_override)
     if energy_min_abs_override is not None:
         config["energy_min_abs"] = float(energy_min_abs_override)
     if estimator_override is not None:
@@ -3680,6 +3700,7 @@ def run_experiment(
                 output_dir=run_output_dir,
                 window_weeks=int(config["window_weeks"]),
                 horizon_weeks=int(config["horizon_weeks"]),
+                max_windows=config.get("max_windows"),
                 delta=float(config.get("dealias_delta", 0.0)),
                 delta_frac=cast(float | None, config.get("dealias_delta_frac")),
                 eps=float(config.get("dealias_eps", 0.03)),
@@ -3961,6 +3982,12 @@ def main() -> None:
         help="Override holdout horizon length in weeks",
     )
     parser.add_argument(
+        "--max-windows",
+        type=int,
+        default=None,
+        help="Cap the number of rolling windows evaluated (default: all).",
+    )
+    parser.add_argument(
         "--signed-a",
         dest="signed_a_override",
         action="store_const",
@@ -4070,6 +4097,7 @@ def main() -> None:
         eta_override=args.eta,
         window_weeks_override=args.window_weeks,
         horizon_weeks_override=args.horizon_weeks,
+        max_windows_override=args.max_windows,
         energy_min_abs_override=args.energy_min_abs,
         partial_week_policy=args.partial_week_policy,
         precompute_panel=args.precompute_panel,

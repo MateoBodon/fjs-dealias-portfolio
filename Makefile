@@ -539,6 +539,11 @@ run\:equity_smoke:
 		--minvar-condition-cap 1000000000 \
 		--turnover-cost 5
 
+.PHONY: run\:equity_nested_smoke_tiny
+run\:equity_nested_smoke_tiny:
+	PYTHONPATH=src EXEC_MODE=deterministic python experiments/equity_panel/run.py \
+		--config experiments/equity_panel/config.nested.smoke.tiny.yaml --gating-diagnostics --exec-mode deterministic
+
 .PHONY: sweep\:acceptance
 sweep\:acceptance:
 	PYTHONPATH=src python experiments/synthetic/null.py \

@@ -1,0 +1,36 @@
+data_path: "data/returns_daily.csv"
+start_date: "2022-01-01"
+end_date: "2023-06-30"
+window_weeks: 52
+horizon_weeks: 1
+max_windows: 3
+output_dir: "experiments/equity_panel/outputs_nested_smoke_tiny"
+dealias_delta: 0.0
+dealias_delta_frac: 0.008
+dealias_eps: 0.008
+stability_eta_deg: 0.2
+signed_a: true
+cs_drop_top_frac: 0.1
+a_grid: 96
+cs_sensitivity_frac: 0.0
+off_component_leak_cap: 25.0
+energy_min_abs: 2e-07
+partial_week_policy: "drop"
+design: "nested"
+nested_replicates: 5
+oneway_a_solver: "auto"
+target_component: 0
+edge_mode: "tyler"
+use_tvector: false
+gating:
+  enable: true
+  mode: calibrated
+  calibration_path: "calibration/nested_edge_delta_thresholds.json"
+  q_max: 2
+  require_isolated: false
+  allow_nonisolated_nested: true
+  nonisolated_stability_min: 0.015
+  nonisolated_edge_min: 0.015
+  nonisolated_q_max: 2
+diagnostics:
+  gating_trace: true

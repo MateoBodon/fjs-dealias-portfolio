@@ -48,6 +48,42 @@ def _make_factors_csv(tmp_path: pytest.TempPathFactory) -> str:
     return str(path)
 
 
+def test_aligned_delta_and_dm_use_window_intersection() -> None:
+    metrics = pd.DataFrame(
+        [
+            {"window_id": 1, "regime": "full", "portfolio": "ew", "estimator": "overlay", "sq_error": 1.0},
+            {"window_id": 2, "regime": "full", "portfolio": "ew", "estimator": "overlay", "sq_error": 2.0},
+            {"window_id": 2, "regime": "full", "portfolio": "ew", "estimator": "baseline", "sq_error": 1.5},
+            {"window_id": 3, "regime": "full", "portfolio": "ew", "estimator": "overlay", "sq_error": 0.8},
+            {"window_id": 3, "regime": "full", "portfolio": "ew", "estimator": "baseline", "sq_error": 1.2},
+            {"window_id": 4, "regime": "full", "portfolio": "ew", "estimator": "baseline", "sq_error": 0.7},
+        ]
+    )
+
+    delta, n_eff = _aligned_delta_mean(metrics, "full", "ew", column="sq_error")
+    assert n_eff == 2
+    assert delta == pytest.approx((2.0 - 1.5 + 0.8 - 1.2) / 2.0)
+
+    delta_valid, n_valid = _aligned_delta_mean(
+        metrics, "full", "ew", column="sq_error", valid_window_ids={3}
+    )
+    assert n_valid == 1
+    assert delta_valid == pytest.approx(0.8 - 1.2)
+
+    dm_stat, p_value, n_dm = _aligned_dm_stat(
+        metrics,
+        "full",
+        "ew",
+        column="sq_error",
+        comparator="baseline",
+        valid_window_ids={2, 3},
+        min_windows=2,
+    )
+    assert n_dm == 2
+    assert np.isfinite(dm_stat)
+    assert 0.0 <= p_value <= 1.0
+
+
 @pytest.mark.slow
 def test_run_evaluation_emits_artifacts(
     tmp_path_factory: pytest.TempPathFactory,
@@ -218,6 +254,95 @@ def test_run_evaluation_prewhiten_off(tmp_path_factory: pytest.TempPathFactory) 
     assert not diag_df.empty
     assert (diag_df["prewhiten_mode_effective"] == "off").all()
     assert np.isclose(diag_df["prewhiten_r2_mean"], 0.0).all()
+
+
+def test_run_evaluation_marks_comparison_valid_and_caps(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    returns_csv = _make_returns_csv(tmp_path_factory)
+    out_dir = tmp_path_factory.mktemp("comparison_flags")
+    config = EvalConfig(
+        returns_csv=Path(returns_csv),
+        factors_csv=None,
+        window=10,
+        horizon=2,
+        out_dir=Path(out_dir),
+        shrinker="rie",
+        seed=99,
+        use_factor_prewhiten=False,
+        min_comparison_windows=3,
+        max_windows=2,
+        assets_top=5,
+        mv_box_hi=1.0,
+        mv_box_lo=-0.5,
+        mv_turnover_bps=0.0,
+        mv_condition_cap=1e6,
+        workers=1,
+    )
+    outputs = run_evaluation(config)
+
+    metrics_df = pd.read_csv(outputs.metrics["full"])
+    overlay_rows = metrics_df[
+        (metrics_df["estimator"] == "overlay") & (metrics_df["portfolio"] == "ew")
+    ]
+    assert not overlay_rows.empty
+    overlay_row = overlay_rows.iloc[0]
+    assert "n_effective_mse" in metrics_df.columns
+    assert int(overlay_row["comparison_valid"]) == 0
+    assert overlay_row["n_effective_mse"] <= 2
+
+    dm_df = pd.read_csv(outputs.dm["full"])
+    assert {"comparison_valid", "n_effective", "n_effective_qlike"} <= set(dm_df.columns)
+    assert int(dm_df["comparison_valid"].max()) == 0
+
+    run_payload = json.loads((Path(out_dir) / "run.json").read_text(encoding="utf-8"))
+    windows_block = run_payload.get("windows", {})
+    assert windows_block.get("cap_active") is True
+    assert "max_windows" in windows_block.get("cap_sources", [])
+    coverage = windows_block.get("window_coverage")
+    assert coverage is None or coverage < 1.0
+
+    skip_df = pd.read_csv(outputs.skip_stats["all"])
+    assert not skip_df.empty
+    expected_skip_cols = {"regime", "portfolio", "estimator", "skip_reason", "windows", "skip_count", "skip_share"}
+    assert expected_skip_cols <= set(skip_df.columns)
+
+
+def test_run_evaluation_delta_respects_changed_window_filter(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    returns_csv = _make_returns_csv(tmp_path_factory)
+    out_dir = tmp_path_factory.mktemp("changed_window_filter")
+    config = EvalConfig(
+        returns_csv=Path(returns_csv),
+        factors_csv=None,
+        window=10,
+        horizon=2,
+        out_dir=Path(out_dir),
+        shrinker="rie",
+        seed=11,
+        use_factor_prewhiten=False,
+        min_comparison_windows=1,
+        max_windows=2,
+        assets_top=5,
+        mv_box_hi=1.0,
+        mv_box_lo=-0.5,
+        mv_turnover_bps=0.0,
+        mv_condition_cap=1e6,
+        workers=1,
+    )
+    forced_changed = {"full": {0}}
+    outputs = run_evaluation(config, forced_changed_windows=forced_changed)
+
+    metrics_df = pd.read_csv(outputs.metrics["full"])
+    overlay_row = metrics_df[
+        (metrics_df["estimator"] == "overlay") & (metrics_df["portfolio"] == "ew")
+    ].iloc[0]
+    assert int(overlay_row["n_effective_mse"]) == 1
+
+    dm_df = pd.read_csv(outputs.dm["full"])
+    dm_row = dm_df[(dm_df["portfolio"] == "ew") & (dm_df["baseline"] == "baseline")].iloc[0]
+    assert int(dm_row["n_effective"]) == 1
 
 
 @pytest.mark.unit

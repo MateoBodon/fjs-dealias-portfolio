@@ -1,12 +1,8 @@
 ticket-10: FAIL (no commits + empty DIFF.patch → not auditable/mergeable).
+ticket-11: DONE (fixed via ticket-15; aligned Δ/DM on changed window intersections, surfaced `n_effective*` + `comparison_valid*`, skip_stats + cap metadata in run.json/summary).
+ticket-15: DONE — ticket-11 fixup is now auditable (committed diffs, run log, bundle required).
 
-Keep ticket-11 / ticket-12 in queue, but do not proceed until we can review and merge ticket-10’s claimed calibration plumbing.
-
-Next ticket to run (exactly one): add and run a fixup ticket
-
-Select: NEW ticket-14 — “Ticket‑10 Fixup: make nested calibration mergeable + auditable”
-
-Rationale: the technical result might be correct, but we can’t merge or trust it without committed diffs + a non-empty patch + a nested-specific smoke.
+Next ticket to run (exactly one): ticket-09 gating diagnostics (see backlog below). Pause ticket-12 until ticket-10 is cleaned up or explicitly de-scoped.
 
 
 # Codex Sprint Tickets (NEXT SPRINT ONLY)

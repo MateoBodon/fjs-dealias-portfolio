@@ -1628,6 +1628,7 @@ def run_evaluation(
     config: EvalConfig,
     *,
     resolved_config: Mapping[str, Any] | None = None,
+    forced_changed_windows: Mapping[str, set[int]] | None = None,
 ) -> EvalOutputs:
     panel, raw_returns, whitening, prewhiten_meta, factor_entry = _prepare_returns(
         config
@@ -2836,6 +2837,27 @@ def run_evaluation(
     if windows_coverage is not None and windows_coverage < 1.0:
         caps_active = True
         cap_sources.append("window_coverage")
+
+    changed_windows_by_regime: dict[str, set[int]] = {regime: set() for regime in _REGIMES}
+    changed_windows_by_regime["full"] = set()
+    if {"changed_flag", "window_id"}.issubset(diagnostics_df.columns):
+        diag_ids = diagnostics_df.dropna(subset=["window_id"]).copy()
+        if not diag_ids.empty:
+            diag_ids["window_id"] = diag_ids["window_id"].astype(int)
+            changed_mask = diag_ids["changed_flag"].fillna(0).astype(int) == 1
+            changed_windows_by_regime["full"] = set(diag_ids.loc[changed_mask, "window_id"])
+            for regime_name in _REGIMES:
+                regime_mask = diag_ids["regime"] == regime_name
+                changed_windows_by_regime[regime_name] = set(
+                    diag_ids.loc[regime_mask & changed_mask, "window_id"]
+                )
+    if forced_changed_windows:
+        forced_sets = {name: set(ids) for name, ids in forced_changed_windows.items()}
+        if "full" not in forced_sets and forced_sets:
+            forced_sets["full"] = set().union(*forced_sets.values())
+        for regime_name in _REGIMES:
+            forced_sets.setdefault(regime_name, changed_windows_by_regime.get(regime_name, set()))
+        changed_windows_by_regime = forced_sets
     bootstrap_samples = max(0, int(config.bootstrap_samples))
     rng_bootstrap = np.random.default_rng(config.seed + 97)
     bootstrap_bands: dict[tuple[str, str], tuple[float, float]] = {}
@@ -3104,12 +3126,15 @@ def run_evaluation(
     # Aligned deltas: overlay vs baseline on common windows
     for regime_key in _REGIMES:
         for portfolio in ("ew", "mv"):
+            valid_ids = changed_windows_by_regime.get(regime_key, set())
+            valid_arg = valid_ids if valid_ids else None
             delta_mse, n_mse = _aligned_delta_mean(
                 metrics_df,
                 regime_key,
                 portfolio,
                 column="sq_error",
                 comparator="baseline",
+                valid_window_ids=valid_arg,
             )
             delta_es, n_es = _aligned_delta_mean(
                 metrics_df,
@@ -3117,6 +3142,7 @@ def run_evaluation(
                 portfolio,
                 column="sq_error_es",
                 comparator="baseline",
+                valid_window_ids=valid_arg,
             )
             delta_qlike, n_qlike = _aligned_delta_mean(
                 metrics_df,
@@ -3124,6 +3150,7 @@ def run_evaluation(
                 portfolio,
                 column="qlike",
                 comparator="baseline",
+                valid_window_ids=valid_arg,
             )
             mask_overlay = (
                 summary_df["regime"].eq(regime_key)
@@ -3490,24 +3517,6 @@ def run_evaluation(
                 title_prefix=title_prefix,
             )
         )
-
-    changed_windows_by_regime: dict[str, set[int]] = {
-        regime: set() for regime in _REGIMES
-    }
-    changed_windows_by_regime["full"] = set()
-    if {"changed_flag", "window_id"}.issubset(diagnostics_df.columns):
-        diag_ids = diagnostics_df.dropna(subset=["window_id"]).copy()
-        if not diag_ids.empty:
-            diag_ids["window_id"] = diag_ids["window_id"].astype(int)
-            changed_mask = diag_ids["changed_flag"].fillna(0).astype(int) == 1
-            changed_windows_by_regime["full"] = set(
-                diag_ids.loc[changed_mask, "window_id"]
-            )
-            for regime_name in _REGIMES:
-                regime_mask = diag_ids["regime"] == regime_name
-                changed_windows_by_regime[regime_name] = set(
-                    diag_ids.loc[regime_mask & changed_mask, "window_id"]
-                )
 
     for regime, path in regime_dirs.items():
         subset_metrics = summary_df[summary_df["regime"] == regime]

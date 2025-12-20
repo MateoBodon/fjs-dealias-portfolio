@@ -90,12 +90,15 @@ def test_gating_diagnostics_artifact(tmp_path: Path) -> None:
         "edge_used",
         "lambda_top_over_edge",
         "replicates",
+        "guard_unknown",
     }
     assert required.issubset(set(diag_df.columns))
     for guard_key in DIAGNOSTIC_GUARD_KEYS:
         assert f"guard_{guard_key}" in diag_df.columns
+    assert "guard_unknown" in diag_df.columns
     assert "guard_other" not in diag_df.columns
     assert not diag_df["skip_reason_primary"].fillna("").str.contains("guard_other").any()
+    assert (diag_df["guard_unknown"].fillna(0).astype(int) == 0).all()
 
     rejected = diag_df[diag_df["accepted"] == False]
     if not rejected.empty:
@@ -116,6 +119,7 @@ def test_gating_diagnostics_artifact(tmp_path: Path) -> None:
             except Exception:
                 continue
             assert "other" not in decoded
+            assert "guard_other" not in decoded
 
 
 def test_gating_diagnostics_records_exception_detail(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -189,3 +193,74 @@ def test_gating_diagnostics_records_exception_detail(tmp_path: Path, monkeypatch
     assert failures["exception_message_short"].replace("", pd.NA).notna().all()
     assert (failures["exception_message_short"].str.len() <= 200).all()
     assert failures["skip_reason_detail"].str.contains("dealias_search").all()
+
+
+def test_unknown_guard_is_actionable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    dates = pd.date_range("2023-02-01", periods=70, freq="B")
+    rng = np.random.default_rng(3)
+    returns = pd.DataFrame(
+        rng.normal(scale=0.01, size=(len(dates), 5)),
+        index=dates,
+        columns=[f"U{idx:02d}" for idx in range(5)],
+    )
+
+    def fake_search(*args, diagnostics=None, **kwargs):
+        if diagnostics is not None:
+            diagnostics["mystery_guard"] = diagnostics.get("mystery_guard", 0) + 2
+        return []
+
+    monkeypatch.setattr(run, "dealias_search", fake_search)
+
+    out_dir = tmp_path / "weekly_diag_unknown"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    run._run_single_period(
+        daily_returns=returns,
+        start=dates[0],
+        end=dates[-1],
+        output_dir=out_dir,
+        window_weeks=3,
+        horizon_weeks=1,
+        max_windows=None,
+        delta=0.0,
+        delta_frac=0.02,
+        eps=0.02,
+        stability_eta=0.5,
+        signed_a=True,
+        target_component=0,
+        partial_week_policy="drop",
+        precompute_panel=False,
+        cache_dir=None,
+        resume_cache=False,
+        cs_drop_top_frac=0.05,
+        cs_sensitivity_frac=0.0,
+        off_component_leak_cap=5.0,
+        sigma_ablation=False,
+        label="test",
+        design_mode="oneway",
+        nested_replicates=4,
+        oneway_a_solver="auto",
+        estimator="dealias",
+        progress=False,
+        a_grid=24,
+        energy_min_abs=1e-6,
+        factor_returns=None,
+        prewhiten_meta=None,
+        minvar_ridge=1e-4,
+        minvar_box=(0.0, 0.1),
+        turnover_cost_bps=1.0,
+        minvar_condition_cap=1e6,
+        preprocess_flags={},
+        gating={"enable": True, "q_max": 1, "require_isolated": True},
+        alignment_top_p=2,
+        edge_mode="scm",
+        edge_huber_c=1.5,
+        use_tvector=True,
+        diagnostics={"gating_trace": True},
+    )
+
+    diag_df = pd.read_csv(out_dir / "gating_diagnostics.csv")
+    unknown_rows = diag_df[diag_df["skip_reason_primary"] == str(SkipReasonPrimary.GUARD_UNKNOWN)]
+    assert not unknown_rows.empty
+    assert (unknown_rows["guard_unknown"] > 0).all()
+    assert unknown_rows["skip_reason_detail"].astype(str).str.contains("mystery_guard").all()

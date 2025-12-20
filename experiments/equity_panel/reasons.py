@@ -20,6 +20,7 @@ class SkipReasonPrimary(str, Enum):
     NO_ISOLATED_SPIKE = "no_isolated_spike"
     NESTED_GUARD = "nested_guard"
     DIAGNOSTIC_FAILURE = "diagnostic_failure"
+    GUARD_UNKNOWN = "guard_unknown"
 
     def __str__(self) -> str:  # pragma: no cover - trivial
         return self.value
@@ -65,6 +66,24 @@ DIAG_KEY_TO_REASON = {
     "tvec_off_component": SkipReasonPrimary.T_VECTOR_OFF_COMPONENT,
     "mu_nonfinite": SkipReasonPrimary.MU_NONFINITE,
 }
+
+
+def collect_unknown_guards(diag_local: Mapping[str, Any] | None) -> dict[str, int]:
+    """Return positive-count guard keys not covered by the canonical set."""
+
+    unknown: dict[str, int] = {}
+    if not diag_local:
+        return unknown
+    for key, value in diag_local.items():
+        if key in DIAGNOSTIC_GUARD_KEYS:
+            continue
+        try:
+            count = int(value)
+        except Exception:
+            continue
+        if count:
+            unknown[key] = count
+    return unknown
 
 
 @dataclass
@@ -115,6 +134,16 @@ def infer_primary_reason(
             if parts:
                 detail = "; ".join(parts)
         return SkipAttribution(primary=str(SkipReasonPrimary.CALIBRATION_MISSING), detail=detail)
+
+    unknown_guards = collect_unknown_guards(diag_local)
+    if unknown_guards:
+        summary = "; ".join(
+            f"{name}={count}" for name, count in sorted(unknown_guards.items())
+        )
+        return SkipAttribution(
+            primary=str(SkipReasonPrimary.GUARD_UNKNOWN),
+            detail=f"unknown guard(s): {summary}" if summary else "unknown guard",
+        )
 
     counts = normalise_diag_counts(diag_local)
     total = sum(counts.values())

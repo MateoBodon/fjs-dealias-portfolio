@@ -86,6 +86,7 @@ from experiments.equity_panel.reasons import (
     DIAGNOSTIC_GUARD_KEYS,
     SkipAttribution,
     SkipReasonPrimary,
+    collect_unknown_guards,
     infer_primary_reason,
 )
 
@@ -2367,6 +2368,7 @@ def _run_single_period(
             if not detections and not diag_skip_reason:
                 diag_skip_reason = str(SkipReasonPrimary.NO_OUTLIERS_ABOVE_EDGE)
             guard_counts = {key: int(diag_local.get(key, 0)) for key in DIAGNOSTIC_GUARD_KEYS}
+            unknown_guard_counts = collect_unknown_guards(diag_local)
             diag_row = {
                 "window_index": int(window_idx),
                 "fit_start": fit.index[0],
@@ -2428,6 +2430,7 @@ def _run_single_period(
                 "top_delta_frac": float(top_diag.get("delta_frac", float("nan"))),
             }
             diag_row.update({f"guard_{key}": guard_counts.get(key, 0) for key in DIAGNOSTIC_GUARD_KEYS})
+            diag_row["guard_unknown"] = int(sum(unknown_guard_counts.values()))
             gating_diag_records.append(diag_row)
 
         for strategy_label, cfg in strategies.items():
@@ -2854,7 +2857,7 @@ def _run_single_period(
 
     results_df = pd.DataFrame(records)
     if gating_diag_enabled:
-        guard_columns = [f"guard_{key}" for key in DIAGNOSTIC_GUARD_KEYS]
+        guard_columns = [f"guard_{key}" for key in DIAGNOSTIC_GUARD_KEYS] + ["guard_unknown"]
         diag_columns = [
             "window_index",
             "fit_start",

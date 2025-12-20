@@ -3096,6 +3096,9 @@ def run_evaluation(
     summary_df["n_effective_mse"] = np.nan
     summary_df["n_effective_es"] = np.nan
     summary_df["n_effective_qlike"] = np.nan
+    summary_df["comparison_valid_mse"] = np.nan
+    summary_df["comparison_valid_es"] = np.nan
+    summary_df["comparison_valid_qlike"] = np.nan
     summary_df["comparison_valid"] = np.nan
 
     # Aligned deltas: overlay vs baseline on common windows
@@ -3133,8 +3136,14 @@ def run_evaluation(
             summary_df.loc[mask_overlay, "n_effective_mse"] = n_mse
             summary_df.loc[mask_overlay, "n_effective_es"] = n_es
             summary_df.loc[mask_overlay, "n_effective_qlike"] = n_qlike
-            summary_df.loc[mask_overlay, "comparison_valid"] = (
-                n_mse >= int(config.min_comparison_windows)
+            valid_mse = int(n_mse >= int(config.min_comparison_windows))
+            valid_es = int(n_es >= int(config.min_comparison_windows))
+            valid_qlike = int(n_qlike >= int(config.min_comparison_windows))
+            summary_df.loc[mask_overlay, "comparison_valid_mse"] = valid_mse
+            summary_df.loc[mask_overlay, "comparison_valid_es"] = valid_es
+            summary_df.loc[mask_overlay, "comparison_valid_qlike"] = valid_qlike
+            summary_df.loc[mask_overlay, "comparison_valid"] = int(
+                bool(valid_mse and valid_es and valid_qlike)
             )
 
     if bootstrap_samples > 0:
@@ -3566,7 +3575,12 @@ def run_evaluation(
                         "dm_stat_qlike": dm_stat_qlike,
                         "p_value_qlike": p_value_qlike,
                         "n_effective_qlike": n_eff_qlike,
-                        "comparison_valid": n_eff >= MIN_COMPARISON_WINDOWS,
+                        "comparison_valid": int(
+                            n_eff >= int(config.min_comparison_windows)
+                        ),
+                        "comparison_valid_qlike": int(
+                            n_eff_qlike >= int(config.min_comparison_windows)
+                        ),
                     }
                 )
         dm_path = path / "dm.csv"
@@ -3698,6 +3712,7 @@ def run_evaluation(
         },
         "windows": {
             "windows_requested": windows_requested,
+            "windows_after_caps": windows_after_caps,
             "windows_evaluated": windows_evaluated,
             "window_coverage": windows_coverage,
             "cap_active": caps_active,

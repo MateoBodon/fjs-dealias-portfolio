@@ -68,3 +68,9 @@ PY
 - git add docs/agent_runs/20251220_011519_ticket-10_nested-null-fpr/COMMANDS.md docs/agent_runs/20251220_011519_ticket-10_nested-null-fpr/RESULTS.md
 - git add docs/agent_runs/20251220_011519_ticket-10_nested-null-fpr/COMMANDS.md
 - git rev-parse HEAD
+- git add AGENTS.md docs/CODEX_SPRINT_TICKETS.md docs/DOCS_AND_LOGGING_SYSTEM.md
+- git commit -m "Carry forward doc edits" -m "Tests: source .venv/bin/activate && make test-fast
+Smoke: source .venv/bin/activate && EXEC_MODE=deterministic make run:equity_smoke
+Run log: docs/agent_runs/20251220_011519_ticket-10_nested-null-fpr/"
+- git checkout main
+- git merge --no-ff ticket-10-nested-null-fpr

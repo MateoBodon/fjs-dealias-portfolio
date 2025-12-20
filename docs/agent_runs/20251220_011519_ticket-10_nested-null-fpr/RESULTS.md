@@ -1,0 +1,6 @@
+- Nested killtest (config: p=200, weeks 6–8, reps=5, tyler, delta=0.35, delta_frac=0.05): null detections 0/220 → FPR 0 with 95% CI [0.000, 0.017]; moderate 60/60 and strong 40/40 detection (power intact). Output: reports/synthetic/nested_killtest/20251220_011519_ticket-10_nested-null-fpr/.
+- Root cause: synthetic harness skipped overlay gating—inadmissible_root and nonisolated candidates with pre_outlier_count==1 always passed (run diagnostics: gating rejections inadmissible_root=9845, nonisolated=328, q_max_trim=628, stability=6); added overlay-aligned gating (admissible_root, stability_min, delta bounds, q_max) and design-aware calibration lookup.
+- Calibration artifact: calibration/nested_edge_delta_thresholds.json (run_name=20251220_011519_ticket-10_nested-null-fpr, git_sha recorded, target_fpr=0.02, thresholds for 200x60/70/80).
+- Real-data smoke: EXEC_MODE=deterministic make run:equity_smoke (pass).
+- Tests: source .venv/bin/activate && make test-fast (pass; 68 passed, 153 deselected).
+- Bundle: docs/gpt_bundles/20251220_033209_ticket-10_20251220_011519_ticket-10_nested-null-fpr.zip.

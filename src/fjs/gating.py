@@ -152,6 +152,7 @@ def lookup_calibrated_delta(
     t: int,
     *,
     calibration_path: str | Path | None,
+    design: str | None = None,
 ) -> float | None:
     """Return the calibrated delta_frac for the given (edge_mode, p, t) combo.
 
@@ -177,7 +178,22 @@ def lookup_calibrated_delta(
     if not path.is_absolute():
         path = path.resolve()
     payload = _load_delta_thresholds(str(path))
-    thresholds = payload.get("thresholds")
+    thresholds = None
+    design_key = (str(design).strip().lower() if design else None) or None
+    if design_key:
+        design_map = payload.get("design_thresholds")
+        if isinstance(design_map, dict):
+            nested_map = design_map.get(design_key)
+            if isinstance(nested_map, Mapping):
+                thresholds = nested_map.get("thresholds") if "thresholds" in nested_map else nested_map
+        if thresholds is None:
+            design_direct = payload.get(design_key)
+            if isinstance(design_direct, Mapping):
+                thresholds = (
+                    design_direct.get("thresholds") if "thresholds" in design_direct else design_direct
+                )
+    if thresholds is None:
+        thresholds = payload.get("thresholds")
     if not isinstance(thresholds, dict):
         return None
     mode_map = thresholds.get(edge_mode_key)

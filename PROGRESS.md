@@ -1,3 +1,15 @@
+## 2025-12-20T02:23Z — ticket-10 nested null calibration (ticket-10-nested-null-fpr)
+- **Branch/Run**: `ticket-10-nested-null-fpr` (RUN_NAME=`20251220_011519_ticket-10_nested-null-fpr`), git sha `e6e798288c117a188db38c4dde85cf91972921d8`.
+- **Data**: synthetic nested generator (p=200, years=2, weeks 6–8, reps=5); real smoke uses WRDS daily returns + ff5mom factors via `experiments/equity_panel/config.smoke.yaml`.
+- **Commands**:
+  - `source .venv/bin/activate && python -m experiments.synthetic.nested_killtest --config experiments/synthetic/config.nested.killtest.yaml --out reports/synthetic/nested_killtest/20251220_011519_ticket-10_nested-null-fpr --calibration-out calibration/nested_edge_delta_thresholds.json --run-name 20251220_011519_ticket-10_nested-null-fpr --target-fpr 0.02`
+  - `source .venv/bin/activate && make test-fast`
+  - `source .venv/bin/activate && EXEC_MODE=deterministic make run:equity_smoke`
+- **Results**:
+  - Nested killtest now applies overlay-aligned gating (admissible_root, stability floor, delta bounds, q_max); null FPR 0/220 with Wilson upper bound 0.017 (<2%) and power 1.0 on moderate/strong spikes at delta_frac=0.05.
+  - Design-aware calibration emitted to `calibration/nested_edge_delta_thresholds.json` (run_name/git_sha embedded) and nested configs repointed; `lookup_calibrated_delta` accepts a `design` key.
+  - Tests refreshed (`make test-fast`), calibration lookup tests assert metadata; real-data smoke still passes.
+
 ## 2025-12-19T20:16Z — project_state rebuild (doc-only @ ce4c1b2)
 - **Branch/Run**: `chore/project_state_refresh` (RUN_NAME=`20251219_210410_project_state_rebuild`), git sha `ce4c1b224c43028bb5388efdebbe0e8eb52e6c61`.
 - **Commands**: `python3 tools/generate_project_state.py` (post-fix rerun to clean make_targets), small Python emitters for FUNCTION_INDEX/DEPENDENCY_GRAPH + markdown rewrites, `zip -r docs/gpt_bundles/project_state_20251219_211602_ce4c1b2.zip ...`.

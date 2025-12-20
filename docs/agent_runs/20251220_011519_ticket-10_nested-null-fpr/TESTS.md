@@ -1,0 +1,2 @@
+- source .venv/bin/activate && make test-fast  # PASS (68 passed, 153 deselected)
+- source .venv/bin/activate && EXEC_MODE=deterministic make run:equity_smoke  # PASS

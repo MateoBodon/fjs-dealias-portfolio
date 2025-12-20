@@ -1707,6 +1707,7 @@ def _run_single_period(
                 p=p_dim,
                 t=n_fit_samples,
                 calibration_path=calibration_path,
+                design=design_mode,
             )
             if delta_frac_calibrated is None:
                 calibration_missing = True

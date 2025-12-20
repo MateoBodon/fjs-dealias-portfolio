@@ -24,6 +24,7 @@ use_tvector: false
 gating:
   enable: true
   mode: calibrated
+  calibration_path: "calibration/nested_edge_delta_thresholds.json"
   q_max: 2
   require_isolated: false
   allow_nonisolated_nested: true

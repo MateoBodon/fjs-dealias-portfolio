@@ -64,3 +64,5 @@ git commit -m 'Update command log for ticket-09 run'
 git status -sb
 git add docs/agent_runs/20251220_223706_ticket-09_weekly-gating-attribution/COMMANDS.md
 git commit -m 'Finalize command log for ticket-09 run'
+git status -sb
+git checkout main

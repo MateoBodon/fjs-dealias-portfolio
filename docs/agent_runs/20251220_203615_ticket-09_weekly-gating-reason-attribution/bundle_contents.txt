@@ -1,0 +1,25 @@
+Archive:  docs/gpt_bundles/20251220_210439_ticket-09_20251220_203615_ticket-09_weekly-gating-reason-attribution.zip
+  Length      Date    Time    Name
+---------  ---------- -----   ----
+    17461  2025-12-20 21:04   DIFF.patch
+     3587  2025-12-20 21:04   AGENTS.md
+        0  2025-12-20 21:04   docs/
+     5236  2025-12-20 21:04   docs/DOCS_AND_LOGGING_SYSTEM.md
+     8449  2025-12-20 21:04   docs/CODEX_SPRINT_TICKETS.md
+        0  2025-12-20 21:04   docs/agent_runs/
+        0  2025-12-20 21:04   docs/agent_runs/20251220_203615_ticket-09_weekly-gating-reason-attribution/
+      407  2025-12-20 21:04   docs/agent_runs/20251220_203615_ticket-09_weekly-gating-reason-attribution/META.md
+     2158  2025-12-20 21:04   docs/agent_runs/20251220_203615_ticket-09_weekly-gating-reason-attribution/synth_diag_failure.py
+      293  2025-12-20 21:04   docs/agent_runs/20251220_203615_ticket-09_weekly-gating-reason-attribution/TESTS.md
+     6622  2025-12-20 21:04   docs/agent_runs/20251220_203615_ticket-09_weekly-gating-reason-attribution/PROMPT.md
+     1700  2025-12-20 21:04   docs/agent_runs/20251220_203615_ticket-09_weekly-gating-reason-attribution/RESULTS.md
+    34137  2025-12-20 21:04   docs/agent_runs/20251220_203615_ticket-09_weekly-gating-reason-attribution/COMMANDS.md
+    13315  2025-12-20 21:04   docs/PLAN_OF_RECORD.md
+      389  2025-12-20 21:04   LAST_COMMIT.txt
+    47736  2025-12-20 21:04   PROGRESS.md
+        0  2025-12-20 21:04   project_state/
+     5211  2025-12-20 21:04   project_state/CONFIG_REFERENCE.md
+     3308  2025-12-20 21:04   project_state/CURRENT_RESULTS.md
+     2598  2025-12-20 21:04   project_state/KNOWN_ISSUES.md
+---------                     -------
+   152607                     20 files

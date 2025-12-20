@@ -1,109 +1,289 @@
 {
-  "design": "nested",
+  "achieved_fpr": 0.0,
   "alpha": 0.02,
-  "generated_at": "2025-12-20T02:23:32.778018+00:00",
-  "run_name": "20251220_011519_ticket-10_nested-null-fpr",
-  "git_sha": "e6e798288c117a188db38c4dde85cf91972921d8",
   "config": {
+    "a_grid": 96,
+    "allow_nonisolated": false,
+    "calibration_design": "nested",
+    "calibration_path": "calibration/nested_edge_delta_thresholds.json",
+    "cs_drop_top_frac": 0.1,
+    "cs_sensitivity_frac": 0.0,
+    "delta": 0.35,
+    "delta_frac_min": 0.05,
+    "edge_huber_c": 1.5,
+    "edge_modes": [
+      "tyler"
+    ],
+    "energy_min_abs": "2e-7",
+    "eps": 0.008,
     "n_assets": 200,
-    "years": 2,
+    "noise_variance": 1.0,
+    "nonisolated_edge_min": 0.015,
+    "nonisolated_q_max": 2,
+    "nonisolated_stability_min": 0.015,
+    "off_component_leak_cap": 25.0,
+    "out_dir": "reports/synthetic_nested_killtest",
+    "q_max": 2,
+    "replicates": 5,
+    "require_isolated": true,
+    "seed": 0,
+    "signal_to_noise": 0.35,
+    "spikes": {
+      "moderate": 3.0,
+      "null": 0.0,
+      "strong": 6.0
+    },
+    "stability_eta_deg": 0.2,
+    "trials_per_scenario": {
+      "moderate": 60,
+      "null": 220,
+      "strong": 40
+    },
     "weeks_options": [
       6,
       7,
       8
     ],
-    "replicates": 5,
-    "edge_modes": [
+    "years": 2
+  },
+  "design": "nested",
+  "design_thresholds": {
+    "nested": {
+      "thresholds": {
+        "tyler": {
+          "200x60": {
+            "delta": 0.35,
+            "delta_frac": 0.05,
+            "design": "nested",
+            "edge_mode": "tyler",
+            "fpr": 0.0,
+            "fpr_ci": [
+              0.0,
+              0.01716151619513562
+            ],
+            "generated_at": "2025-12-20T02:23:32.778018+00:00",
+            "git_sha": "e6e798288c117a188db38c4dde85cf91972921d8",
+            "n_obs": 60,
+            "n_obs_mean": 70.77272727272727,
+            "p_assets": 200,
+            "replicates": 5,
+            "run_name": "20251220_011519_ticket-10_nested-null-fpr",
+            "stability_eta_deg": 0.2,
+            "target_fpr": 0.02,
+            "trials_null": 220,
+            "weeks_common": 6,
+            "years": 2
+          },
+          "200x70": {
+            "delta": 0.35,
+            "delta_frac": 0.05,
+            "design": "nested",
+            "edge_mode": "tyler",
+            "fpr": 0.0,
+            "fpr_ci": [
+              0.0,
+              0.01716151619513562
+            ],
+            "generated_at": "2025-12-20T02:23:32.778018+00:00",
+            "git_sha": "e6e798288c117a188db38c4dde85cf91972921d8",
+            "n_obs": 70,
+            "n_obs_mean": 70.77272727272727,
+            "p_assets": 200,
+            "replicates": 5,
+            "run_name": "20251220_011519_ticket-10_nested-null-fpr",
+            "stability_eta_deg": 0.2,
+            "target_fpr": 0.02,
+            "trials_null": 220,
+            "weeks_common": 7,
+            "years": 2
+          },
+          "200x80": {
+            "delta": 0.35,
+            "delta_frac": 0.05,
+            "design": "nested",
+            "edge_mode": "tyler",
+            "fpr": 0.0,
+            "fpr_ci": [
+              0.0,
+              0.01716151619513562
+            ],
+            "generated_at": "2025-12-20T02:23:32.778018+00:00",
+            "git_sha": "e6e798288c117a188db38c4dde85cf91972921d8",
+            "n_obs": 80,
+            "n_obs_mean": 70.77272727272727,
+            "p_assets": 200,
+            "replicates": 5,
+            "run_name": "20251220_011519_ticket-10_nested-null-fpr",
+            "stability_eta_deg": 0.2,
+            "target_fpr": 0.02,
+            "trials_null": 220,
+            "weeks_common": 8,
+            "years": 2
+          }
+        }
+      }
+    }
+  },
+  "generated_at": "2025-12-20T02:23:32.778018+00:00",
+  "git_sha": "e6e798288c117a188db38c4dde85cf91972921d8",
+  "metadata": {
+    "achieved_fpr": 0.0,
+    "achieved_fpr_ci_high": 0.01716151619513562,
+    "achieved_fpr_ci_low": 0.0,
+    "ci_method": "wilson(alpha=0.05)",
+    "config_edge_modes": [
       "tyler"
     ],
-    "delta": 0.35,
-    "stability_eta_deg": 0.2
+    "config_hash": "69404b24e2352527538e571956b83fc216e10f67139614ec25f409632b1ea48d",
+    "config_path": "experiments/synthetic/config.nested.killtest.yaml",
+    "git_sha": "e6e798288c117a188db38c4dde85cf91972921d8",
+    "null_trials": 220,
+    "operating_points": [
+      {
+        "edge_mode": "tyler",
+        "p": 200,
+        "replicates": 5,
+        "t": 60,
+        "weeks": 6,
+        "years": 2
+      },
+      {
+        "edge_mode": "tyler",
+        "p": 200,
+        "replicates": 5,
+        "t": 70,
+        "weeks": 7,
+        "years": 2
+      },
+      {
+        "edge_mode": "tyler",
+        "p": 200,
+        "replicates": 5,
+        "t": 80,
+        "weeks": 8,
+        "years": 2
+      }
+    ],
+    "power_moderate": 1.0,
+    "power_moderate_ci_high": 0.9999999999999998,
+    "power_moderate_trials": 60,
+    "power_strong": 1.0,
+    "power_strong_ci_high": null,
+    "power_strong_trials": 40,
+    "run_name": "20251220_011519_ticket-10_nested-null-fpr",
+    "target_fpr": 0.02,
+    "timestamp_utc": "2025-12-20T02:23:32.778018Z",
+    "trials_per_scenario": {
+      "moderate": 60,
+      "null": 220,
+      "strong": 40
+    }
   },
+  "run_name": "20251220_011519_ticket-10_nested-null-fpr",
+  "schema_version": "1.0",
   "selection": {
+    "ci_method": "wilson(alpha=0.05)",
     "delta_frac": 0.05,
-    "null_rate": 0.0,
+    "meets_target": true,
     "null_ci_high": 0.01716151619513562,
     "null_ci_low": 0.0,
+    "null_rate": 0.0,
     "null_trials": 220,
     "power_moderate": 1.0,
     "power_moderate_ci_high": 0.9999999999999998,
     "power_moderate_trials": 60,
     "power_strong": 1.0,
-    "meets_target": true
+    "power_strong_ci_high": null,
+    "power_strong_trials": 40,
+    "target_fpr": 0.02
   },
   "sweep": [
     {
       "delta_frac": 0.05,
-      "null_rate": 0.0,
+      "meets_target": true,
       "null_ci_high": 0.01716151619513562,
       "null_ci_low": 0.0,
+      "null_rate": 0.0,
       "null_trials": 220,
       "power_moderate": 1.0,
       "power_moderate_ci_high": 0.9999999999999998,
       "power_moderate_trials": 60,
-      "power_strong": 1.0,
-      "meets_target": true
+      "power_strong": 1.0
     }
   ],
+  "target_fpr": 0.02,
   "thresholds": {
     "tyler": {
       "200x60": {
         "delta": 0.35,
         "delta_frac": 0.05,
-        "stability_eta_deg": 0.2,
-        "target_fpr": 0.02,
+        "design": "nested",
+        "edge_mode": "tyler",
         "fpr": 0.0,
         "fpr_ci": [
           0.0,
           0.01716151619513562
         ],
-        "trials_null": 220,
-        "run_name": "20251220_011519_ticket-10_nested-null-fpr",
-        "git_sha": "e6e798288c117a188db38c4dde85cf91972921d8",
         "generated_at": "2025-12-20T02:23:32.778018+00:00",
-        "design": "nested",
+        "git_sha": "e6e798288c117a188db38c4dde85cf91972921d8",
         "n_obs": 60,
         "n_obs_mean": 70.77272727272727,
-        "p_assets": 200
+        "p_assets": 200,
+        "replicates": 5,
+        "run_name": "20251220_011519_ticket-10_nested-null-fpr",
+        "stability_eta_deg": 0.2,
+        "target_fpr": 0.02,
+        "trials_null": 220,
+        "weeks_common": 6,
+        "years": 2
       },
       "200x70": {
         "delta": 0.35,
         "delta_frac": 0.05,
-        "stability_eta_deg": 0.2,
-        "target_fpr": 0.02,
+        "design": "nested",
+        "edge_mode": "tyler",
         "fpr": 0.0,
         "fpr_ci": [
           0.0,
           0.01716151619513562
         ],
-        "trials_null": 220,
-        "run_name": "20251220_011519_ticket-10_nested-null-fpr",
-        "git_sha": "e6e798288c117a188db38c4dde85cf91972921d8",
         "generated_at": "2025-12-20T02:23:32.778018+00:00",
-        "design": "nested",
+        "git_sha": "e6e798288c117a188db38c4dde85cf91972921d8",
         "n_obs": 70,
         "n_obs_mean": 70.77272727272727,
-        "p_assets": 200
+        "p_assets": 200,
+        "replicates": 5,
+        "run_name": "20251220_011519_ticket-10_nested-null-fpr",
+        "stability_eta_deg": 0.2,
+        "target_fpr": 0.02,
+        "trials_null": 220,
+        "weeks_common": 7,
+        "years": 2
       },
       "200x80": {
         "delta": 0.35,
         "delta_frac": 0.05,
-        "stability_eta_deg": 0.2,
-        "target_fpr": 0.02,
+        "design": "nested",
+        "edge_mode": "tyler",
         "fpr": 0.0,
         "fpr_ci": [
           0.0,
           0.01716151619513562
         ],
-        "trials_null": 220,
-        "run_name": "20251220_011519_ticket-10_nested-null-fpr",
-        "git_sha": "e6e798288c117a188db38c4dde85cf91972921d8",
         "generated_at": "2025-12-20T02:23:32.778018+00:00",
-        "design": "nested",
+        "git_sha": "e6e798288c117a188db38c4dde85cf91972921d8",
         "n_obs": 80,
         "n_obs_mean": 70.77272727272727,
-        "p_assets": 200
+        "p_assets": 200,
+        "replicates": 5,
+        "run_name": "20251220_011519_ticket-10_nested-null-fpr",
+        "stability_eta_deg": 0.2,
+        "target_fpr": 0.02,
+        "trials_null": 220,
+        "weeks_common": 8,
+        "years": 2
       }
     }
-  }
+  },
+  "timestamp_utc": "2025-12-20T02:23:32.778018Z"
 }

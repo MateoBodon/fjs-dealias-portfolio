@@ -160,6 +160,12 @@ def lookup_calibrated_delta(
     by edge mode (lowercase) whose values map ``"{p}x{t}"`` → threshold entry.
     Entries may either be plain floats or dictionaries with a ``delta_frac``
     field; any other structure is ignored. Missing entries return ``None``.
+
+    When a ``design`` is supplied the lookup is constrained to the matching
+    design block (``design_thresholds[design]`` or a top-level key named
+    after the design). If no such block exists the function returns ``None``
+    instead of silently falling back to oneway thresholds so that callers can
+    treat design mismatches as calibration-missing events.
     """
 
     if calibration_path is None:
@@ -192,6 +198,8 @@ def lookup_calibrated_delta(
                 thresholds = (
                     design_direct.get("thresholds") if "thresholds" in design_direct else design_direct
                 )
+        if thresholds is None:
+            return None
     if thresholds is None:
         thresholds = payload.get("thresholds")
     if not isinstance(thresholds, dict):

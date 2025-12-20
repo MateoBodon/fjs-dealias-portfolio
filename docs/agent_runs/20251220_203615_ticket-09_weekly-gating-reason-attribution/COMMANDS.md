@@ -594,3 +594,7 @@ RUN_NAME=20251220_203615_ticket-09_weekly-gating-reason-attribution make gpt-bun
 unzip -l docs/gpt_bundles/20251220_210439_ticket-09_20251220_203615_ticket-09_weekly-gating-reason-attribution.zip > docs/agent_runs/20251220_203615_ticket-09_weekly-gating-reason-attribution/bundle_contents.txt
 git status -sb
 git add PROGRESS.md docs/CODEX_SPRINT_TICKETS.md project_state/KNOWN_ISSUES.md docs/agent_runs/20251220_203615_ticket-09_weekly-gating-reason-attribution
+git commit -m 'Log ticket-09 gating diagnostics run' -m 'Tests run: make test-fast'
+git status -sb
+git add docs/agent_runs/20251220_203615_ticket-09_weekly-gating-reason-attribution/COMMANDS.md
+git commit -m 'Update command log' -m 'Tests run: make test-fast'

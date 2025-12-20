@@ -105,3 +105,16 @@ calm,ew,sample,,0,33,0.0
 - Tests: `. .venv/bin/activate && make test-fast` (pass).
 - Smoke: `reports/eval-ticket-15-smoke-aligned5/` (deterministic, capped max_windows=50; delta comparisons valid with n_effective=50; DM n_effective=0; cap_sources=['max_windows','window_coverage']). Not headline—capped/truncated.
 - Stop-the-line issues: none observed.
+\n## Bundle
+Path: docs/gpt_bundles/20251220_080141_ticket-15_20251220_071719_ticket-15_eval-contamination-fixup.zip
+$ unzip -l (first entries)
+Archive:  docs/gpt_bundles/20251220_080141_ticket-15_20251220_071719_ticket-15_eval-contamination-fixup.zip
+  Length      Date    Time    Name
+---------  ---------- -----   ----
+    32687  2025-12-20 08:01   DIFF.patch
+     3587  2025-12-20 08:01   AGENTS.md
+        0  2025-12-20 08:01   docs/
+     5236  2025-12-20 08:01   docs/DOCS_AND_LOGGING_SYSTEM.md
+     7823  2025-12-20 08:01   docs/CODEX_SPRINT_TICKETS.md
+        0  2025-12-20 08:01   docs/agent_runs/
+        0  2025-12-20 08:01   docs/agent_runs/20251220_071719_ticket-15_eval-contamination-fixup/

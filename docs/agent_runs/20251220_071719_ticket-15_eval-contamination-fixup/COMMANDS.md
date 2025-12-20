@@ -16,3 +16,4 @@
 [2025-12-20 07:40:40] . .venv/bin/activate && EXEC_MODE=deterministic python -m experiments.eval.run --returns-csv data/returns_daily.csv --out reports/eval-ticket-15-smoke-aligned4 --assets-top 20 --window 42 --horizon 10 --max-windows 50 --min-comparison-windows 30 --prewhiten off --overlay-delta 0.05 --gate-mode soft --gate-accept-nonisolated   (success)
 [2025-12-20 07:42:20] . .venv/bin/activate && EXEC_MODE=deterministic python -m experiments.eval.run --returns-csv data/returns_daily.csv --out reports/eval-ticket-15-smoke-aligned5 --assets-top 20 --window 42 --horizon 10 --max-windows 50 --min-comparison-windows 30 --prewhiten off --overlay-delta 0.0 --gate-mode soft --gate-accept-nonisolated   (success)
 [2025-12-20 07:46:00] . .venv/bin/activate && make test-fast
+[2025-12-20 08:01:41] . .venv/bin/activate && make gpt-bundle TICKET=ticket-15 RUN_NAME=20251220_071719_ticket-15_eval-contamination-fixup

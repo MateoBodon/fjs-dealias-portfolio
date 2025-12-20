@@ -1,0 +1,1 @@
+Task: Deterministic RC-lite run with no opaque diagnostics, uncapped or clearly labeled high coverage, comparison_valid==true for key metrics with nontrivial n_effective. Do it properly and the best way possible.

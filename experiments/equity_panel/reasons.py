@@ -72,6 +72,8 @@ class SkipAttribution:
     primary: str
     detail: str = ""
     exception_type: str | None = None
+    exception_stage: str | None = None
+    exception_message_short: str | None = None
 
 
 def normalise_diag_counts(diag_local: Mapping[str, Any] | None) -> dict[str, int]:

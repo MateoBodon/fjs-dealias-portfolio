@@ -16,16 +16,17 @@ def _reason_series(df: pd.DataFrame) -> pd.Series:
     return series[series != ""]
 
 
-def _format_reason_summary(df: pd.DataFrame, top_k: int) -> list[str]:
+def _format_reason_summary(df: pd.DataFrame, top_k: int | None) -> list[str]:
     series = _reason_series(df)
     if series.empty:
         return []
     counts = series.value_counts()
     total = float(series.shape[0])
-    lines = ["## Primary Skip Reasons"]
-    for reason, count in counts.head(top_k).items():
+    lines = ["## Primary Skip Reasons", "", "| reason | count | share |", "| --- | --- | --- |"]
+    items = counts.items() if top_k is None else counts.head(top_k).items()
+    for reason, count in items:
         share = count / total if total else 0.0
-        lines.append(f"- {reason}: {count} ({share:.2%})")
+        lines.append(f"| {reason} | {count} | {share:.2%} |")
     lines.append("")
     return lines
 
@@ -54,7 +55,7 @@ def _guardrail_totals(df: pd.DataFrame) -> list[str]:
     return lines
 
 
-def _format_reason_examples(df: pd.DataFrame, top_k: int, example_k: int = 3) -> list[str]:
+def _format_reason_examples(df: pd.DataFrame, top_k: int, example_k: int = 5) -> list[str]:
     reason_col = "skip_reason_primary" if "skip_reason_primary" in df.columns else "skip_reason"
     if reason_col not in df.columns:
         return []
@@ -63,23 +64,15 @@ def _format_reason_examples(df: pd.DataFrame, top_k: int, example_k: int = 3) ->
     if series.empty:
         return []
     counts = series.value_counts()
+    guard_cols = [col for col in df.columns if col.startswith("guard_")]
     lines: list[str] = ["## Example Windows by Reason"]
-    example_columns = {
-        "raw_detections": "raw",
-        "candidate_pool": "cand",
-        "isolated_spikes": "isolated",
-        "gating_q_max": "q",
-        "delta_frac_used": "delta",
-        "edge_mode": "edge",
-        "lambda_top_over_edge": "lambda_over_edge",
-    }
 
     def _fmt_float(val: float, precision: int = 4) -> str:
         if pd.isna(val):
             return "nan"
         return f"{float(val):.{precision}f}"
 
-    for reason, _ in counts.head(top_k).items():
+    for reason, count in counts.head(top_k).items():
         mask = reason_values == reason
         subset = df[mask].copy()
         if subset.empty:
@@ -88,27 +81,59 @@ def _format_reason_examples(df: pd.DataFrame, top_k: int, example_k: int = 3) ->
             by=["accepted", "raw_detections", "candidate_pool", "window_index"],
             ascending=[True, False, False, True],
         ).head(example_k)
-        lines.append(f"### {reason}")
+        share = count / float(series.shape[0]) if series.shape[0] else 0.0
+        lines.append(f"### {reason} ({count} | {share:.2%})")
         for _, row in subset.iterrows():
-            fields = [f"w={int(row.get('window_index', -1))}"]
-            fields.append(f"accepted={bool(row.get('accepted', False))}")
-            for col, label in example_columns.items():
-                if col not in row:
-                    continue
-                value = row[col]
-                if col == "delta_frac_used":
-                    fields.append(f"{label}={_fmt_float(value)}")
-                elif col == "lambda_top_over_edge":
-                    fields.append(f"{label}={_fmt_float(value, precision=3)}")
-                else:
-                    try:
-                        fields.append(f"{label}={int(value)}")
-                    except Exception:
-                        pass
+            window_id = int(row.get("window_index", -1))
+            fit_start = row.get("fit_start", "")
+            fit_end = row.get("fit_end", "")
+            hold_start = row.get("hold_start", "")
+            hold_end = row.get("hold_end", "")
+            label = str(row.get("label", "") or "")
+            design = str(row.get("design", "") or "")
+            estimator = str(row.get("estimator", "") or "")
+            p_val = row.get("p", pd.NA)
+            t_val = row.get("t", pd.NA)
+            reps_val = row.get("replicates", pd.NA)
+            delta_used = row.get("delta_frac_used", float("nan"))
+            edge_mode_val = str(row.get("edge_mode", ""))
+            edge_used_val = row.get("edge_used", float("nan"))
+            lambda_ratio = row.get("lambda_top_over_edge", float("nan"))
+            guard_fields = []
+            for col in guard_cols:
+                try:
+                    guard_val = int(row.get(col, 0))
+                except Exception:
+                    guard_val = 0
+                if guard_val:
+                    guard_fields.append(f"{col.replace('guard_', '')}={guard_val}")
+            guard_fields = guard_fields[:3]
             detail = str(row.get("skip_reason_detail", "")).strip()
+            parts = [
+                f"w={window_id}",
+                f"fit={fit_start}→{fit_end}",
+                f"hold={hold_start}→{hold_end}" if hold_start or hold_end else "",
+                f"label={label}" if label else "",
+                f"{design}/{estimator}" if design or estimator else "",
+                f"p={int(p_val) if pd.notna(p_val) else 'na'}",
+                f"T={int(t_val) if pd.notna(t_val) else 'na'}",
+                f"reps={int(reps_val) if pd.notna(reps_val) else 'na'}",
+                f"delta={_fmt_float(delta_used)}",
+                f"edge={edge_mode_val}@{_fmt_float(edge_used_val, precision=4)}",
+                f"λ/edge={_fmt_float(lambda_ratio, precision=3)}",
+                f"guards={'; '.join(guard_fields)}" if guard_fields else "",
+                f"accepted={bool(row.get('accepted', False))}",
+            ]
+            stage = str(row.get("exception_stage", "")).strip()
+            exc_short = str(row.get("exception_message_short", "")).strip()
+            exc_type = str(row.get("exception_type", "")).strip()
             if detail:
-                fields.append(f"detail={detail}")
-            lines.append(f"- {', '.join(fields)}")
+                parts.append(f"detail={detail}")
+            if stage or exc_type or exc_short:
+                context = " / ".join([val for val in [stage, exc_type, exc_short] if val])
+                if context:
+                    parts.append(f"exception={context}")
+            lines.append(f"- {', '.join([part for part in parts if part])}")
         lines.append("")
     return lines
 
@@ -125,7 +150,7 @@ def summarize(input_path: Path, output_path: Path, top_k: int = 5) -> None:
     lines.append(f"- Windows: {total_windows}")
     lines.append(f"- Detection rate: {detection_rate:.2%}")
 
-    lines.extend(_format_reason_summary(df, top_k))
+    lines.extend(_format_reason_summary(df, top_k=None))
 
     stat_lines = _render_stat_table(
         df,

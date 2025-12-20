@@ -1,0 +1,11 @@
+# Results
+- Branch: codex/ticket-09-weekly-gating-attribution
+- Smoke output (detection_rate=0.75 on 4 windows): experiments/equity_panel/outputs_smoke/oneway_J5_solver-auto_est-dealias_prep-prewhiten_modeoff/
+  - gating_diagnostics.csv: skip_reason_primary/detail + exception_type/stage columns present; new guard_unknown column present (sum=0); reason counts {'no_isolated_spike': 1} (accepted windows carry blank reasons). guard_other absent from columns and diag_payload.
+  - Sample (window_index, accepted, skip_reason_primary, skip_reason_detail, exception_type, exception_stage, guard_unknown):
+    - 0, False, no_isolated_spike, isolated_spikes=0, , , 0
+    - 1, True, , , , , 0
+  - weekly_diagnostics.md: counts/shares table keyed by skip_reason_primary and top-window section (top reason no_isolated_spike shown with fit/hold ranges and guard counts).
+- Unknown guard mapping: windows with unrecognised guard keys now emit skip_reason_primary=guard_unknown with detail listing the keys and guard_unknown count (see regression test).
+- Diagnostic failures: none in smoke; tests enforce exception_type + exception_stage + detail when triggered.
+- Bundle: docs/gpt_bundles/20251220_225201_ticket-09_20251220_223706_ticket-09_weekly-gating-attribution.zip (listing in `docs/agent_runs/20251220_223706_ticket-09_weekly-gating-attribution/bundle_contents.txt`).

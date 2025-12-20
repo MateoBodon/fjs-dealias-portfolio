@@ -1,0 +1,24 @@
+Archive:  docs/gpt_bundles/20251220_225201_ticket-09_20251220_223706_ticket-09_weekly-gating-attribution.zip
+  Length      Date    Time    Name
+---------  ---------- -----   ----
+     7466  2025-12-20 22:52   DIFF.patch
+     3587  2025-12-20 22:52   AGENTS.md
+        0  2025-12-20 22:52   docs/
+     5236  2025-12-20 22:52   docs/DOCS_AND_LOGGING_SYSTEM.md
+     8593  2025-12-20 22:52   docs/CODEX_SPRINT_TICKETS.md
+        0  2025-12-20 22:52   docs/agent_runs/
+        0  2025-12-20 22:52   docs/agent_runs/20251220_223706_ticket-09_weekly-gating-attribution/
+      373  2025-12-20 22:52   docs/agent_runs/20251220_223706_ticket-09_weekly-gating-attribution/META.md
+      231  2025-12-20 22:52   docs/agent_runs/20251220_223706_ticket-09_weekly-gating-attribution/TESTS.md
+     5825  2025-12-20 22:52   docs/agent_runs/20251220_223706_ticket-09_weekly-gating-attribution/PROMPT.md
+     1216  2025-12-20 22:52   docs/agent_runs/20251220_223706_ticket-09_weekly-gating-attribution/RESULTS.md
+     3166  2025-12-20 22:52   docs/agent_runs/20251220_223706_ticket-09_weekly-gating-attribution/COMMANDS.md
+    13315  2025-12-20 22:52   docs/PLAN_OF_RECORD.md
+      611  2025-12-20 22:52   LAST_COMMIT.txt
+    49091  2025-12-20 22:52   PROGRESS.md
+        0  2025-12-20 22:52   project_state/
+     5211  2025-12-20 22:52   project_state/CONFIG_REFERENCE.md
+     3308  2025-12-20 22:52   project_state/CURRENT_RESULTS.md
+     2610  2025-12-20 22:52   project_state/KNOWN_ISSUES.md
+---------                     -------
+   109839                     19 files

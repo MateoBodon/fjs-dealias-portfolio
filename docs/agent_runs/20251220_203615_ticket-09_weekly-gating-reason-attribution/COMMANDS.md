@@ -618,3 +618,4 @@ git merge --no-ff codex/ticket-09-gating-diagnostics-attribution
 git add Makefile PROGRESS.md docs/CODEX_SPRINT_TICKETS.md experiments/equity_panel/reasons.py experiments/equity_panel/run.py project_state/KNOWN_ISSUES.md tests/experiments/test_gating_diagnostics.py tests/experiments/test_skip_reasons.py tools/summarize_weekly_diagnostics.py docs/agent_runs/20251220_203615_ticket-09_weekly-gating-reason-attribution/COMMANDS.md
 git commit -m 'Merge branch codex/ticket-09-gating-diagnostics-attribution' -m 'Tests run: make test-fast'
 git status -sb
+git push origin main

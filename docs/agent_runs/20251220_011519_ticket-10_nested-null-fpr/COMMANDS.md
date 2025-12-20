@@ -67,3 +67,4 @@ PY
 - git add experiments/synthetic/nested_killtest.py experiments/synthetic/config.nested.killtest.yaml src/fjs/gating.py tests/test_calibration_lookup.py experiments/equity_panel/run.py experiments/equity_panel/config.nested.smoke.yaml experiments/equity_panel/config.nested.crisis.2020.yaml calibration/nested_edge_delta_thresholds.json reports/synthetic/nested_killtest docs/agent_runs/20251220_011519_ticket-10_nested-null-fpr
 - git add docs/agent_runs/20251220_011519_ticket-10_nested-null-fpr/COMMANDS.md docs/agent_runs/20251220_011519_ticket-10_nested-null-fpr/RESULTS.md
 - git add docs/agent_runs/20251220_011519_ticket-10_nested-null-fpr/COMMANDS.md
+- git rev-parse HEAD

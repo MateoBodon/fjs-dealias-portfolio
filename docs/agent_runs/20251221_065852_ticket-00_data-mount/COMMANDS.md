@@ -41,3 +41,5 @@ make gpt-bundle TICKET=data-mount RUN_NAME=20251221_065852_ticket-00_data-mount
 git commit -m "Update data-mount run log artifacts" -m "Tests run: not run (log-only)"
 
 git commit -m "Record data-mount bundle output" -m "Tests run: not run (bundle logging)"
+
+make gpt-bundle TICKET=data-mount RUN_NAME=20251221_065852_ticket-00_data-mount

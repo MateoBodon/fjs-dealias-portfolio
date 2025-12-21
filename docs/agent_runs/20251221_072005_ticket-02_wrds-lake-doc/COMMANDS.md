@@ -29,3 +29,7 @@ git add docs/DOCS_AND_LOGGING_SYSTEM.md PROGRESS.md docs/agent_runs/20251221_072
 git commit -m "Document WRDS lake inventory" -m "Tests run: make test-fast"
 
 git diff 27a3afcb4770ad24800efd30af1a5ee4451f806f..HEAD > docs/agent_runs/20251221_072005_ticket-02_wrds-lake-doc/DIFF.patch
+
+git add docs/agent_runs/20251221_072005_ticket-02_wrds-lake-doc/DIFF.patch docs/agent_runs/20251221_072005_ticket-02_wrds-lake-doc/COMMANDS.md
+
+git commit -m "Add WRDS lake run-log diff" -m "Tests run: not run (log-only)"

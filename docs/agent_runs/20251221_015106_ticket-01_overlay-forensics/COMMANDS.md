@@ -373,3 +373,11 @@ git merge --no-ff feat/ticket-01-overlay-forensics -m "Merge feat/ticket-01-over
 git stash pop
 git status -sb
 git push origin main
+make gpt-bundle TICKET=ticket-01_overlay-forensics RUN_NAME=20251221_015106_ticket-01_overlay-forensics
+python - <<'PY'
+from pathlib import Path
+path = Path('docs/agent_runs/20251221_015106_ticket-01_overlay-forensics/RESULTS.md')
+text = path.read_text(encoding='utf-8').rstrip()
+text += "\n- **Bundle**: `docs/gpt_bundles/20251221_033546_ticket-01_overlay-forensics_20251221_015106_ticket-01_overlay-forensics.zip` (generated via `make gpt-bundle`).\n"
+path.write_text(text + "\n", encoding='utf-8')
+PY

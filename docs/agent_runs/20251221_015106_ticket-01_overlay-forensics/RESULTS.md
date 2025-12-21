@@ -10,3 +10,5 @@
 - **Notes**:
   - `EXEC_MODE=deterministic make rc-lite-sanity` timed out three times; the final run directory was completed by rerunning the vol leg manually with the same arguments into the same `reports/rc-20251221-sanity-20251221_021657/` path. Earlier partial dirs (`reports/rc-20251221-sanity-20251221_020929/`, `reports/rc-20251221-sanity-20251221_021150/`) are incomplete and should be ignored.
   - Initial `tools/make_summary.py` attempt failed due to tuple column selection; rerun succeeded after fix.
+- **Bundle**: `docs/gpt_bundles/20251221_033546_ticket-01_overlay-forensics_20251221_015106_ticket-01_overlay-forensics.zip` (generated via `make gpt-bundle`).
+

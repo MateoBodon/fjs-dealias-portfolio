@@ -8,3 +8,4 @@
 ## Bundle
 - `docs/gpt_bundles/20251221_070138_data-mount_20251221_065852_ticket-00_data-mount.zip`
 - `docs/gpt_bundles/20251221_070232_data-mount_20251221_065852_ticket-00_data-mount.zip` (latest)
+- `docs/gpt_bundles/20251221_070336_data-mount_20251221_065852_ticket-00_data-mount.zip` (latest, final)

@@ -45,3 +45,7 @@ git commit -m "Record data-mount bundle output" -m "Tests run: not run (bundle l
 make gpt-bundle TICKET=data-mount RUN_NAME=20251221_065852_ticket-00_data-mount
 
 git commit -m "Update data-mount bundle reference" -m "Tests run: not run (bundle refresh)"
+
+make gpt-bundle TICKET=data-mount RUN_NAME=20251221_065852_ticket-00_data-mount
+
+git commit -m "Record final data-mount bundle" -m "Tests run: not run (bundle logging)"

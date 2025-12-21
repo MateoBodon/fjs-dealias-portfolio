@@ -1,3 +1,9 @@
+## 2025-12-21T06:21Z — WRDS lake inventory doc
+- **Branch/Run**: `feat/ticket-02-stop-eval-contamination` (RUN_NAME=`20251221_072005_ticket-02_wrds-lake-doc`), git sha `27a3afcb4770ad24800efd30af1a5ee4451f806f`.
+- **Commands**: `make test-fast`.
+- **Changes**: documented external WRDS lake structure (user mirror at `/Volumes/Storage/Data`) in `docs/DOCS_AND_LOGGING_SYSTEM.md` for future refresh provenance; noted that mirror is local-only and not visible in CI.
+- **Artifacts**: run log `docs/agent_runs/20251221_072005_ticket-02_wrds-lake-doc/`.
+
 ## 2025-12-21T06:00Z — data mount documentation (external WRDS mirror)
 - **Branch/Run**: `feat/ticket-02-stop-eval-contamination` (RUN_NAME=`20251221_065852_ticket-00_data-mount`), git sha `8ac9c14cd0e134aee8bf7a803891a0c476250a95`.
 - **Actions**: documented the requirement to log external data mirror paths in `docs/DOCS_AND_LOGGING_SYSTEM.md`; attempted to inspect `/Volumes/Storage/Data` but the path is not visible in this environment.

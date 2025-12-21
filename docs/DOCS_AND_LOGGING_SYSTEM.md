@@ -68,8 +68,69 @@ Record:
   - `data/registry.json` entry key for returns dataset
   - `data/factors/registry.json` entry key for factors dataset
 - local data mirror / mount path (if using external storage) and how it is linked into `data/` (symlink or bind mount)
+- external WRDS lake inventory (when available) so future refreshes can be traced
 - verification command used:
   - `python tools/verify_dataset.py ...` (or the Make target that runs it)
+
+#### External WRDS lake inventory (user-provided mirror)
+If you have a full WRDS mirror available locally, record the root path + structure here.
+This is **not** required for daily runs (we only need `data/returns_daily.csv` and
+`data/factors/ff5mom_daily.csv`), but it is the source of truth for refreshes.
+
+**Local mirror (macOS)**: `/Volumes/Storage/Data` (user-reported; not visible in CI)
+
+```
+/Volumes/Storage/Data
+  wrds/
+    raw/           # primary raw extracts
+    manifests/     # ingestion manifests (timestamped)
+    derived/       # (empty placeholder)
+    meta/          # (empty placeholder)
+    universes/     # (empty placeholder)
+
+    raw/crsp/
+      dsf/         # yearly partitions 2005–2024
+      dsf_v2/      # yearly partitions 2005–2024
+      dsenames.parquet
+      dsedelist.parquet
+      dsp500list.parquet
+      dsp500list_v2.parquet
+      msp500list.parquet
+      ccmxpf_linktable.parquet
+      ccmxpf_lnkhist.parquet
+
+    raw/comp/
+      funda/       # yearly partitions 2005–2025
+      fundq/       # yearly partitions 2005–2025
+      company.parquet
+
+    raw/optionm/
+      secnmd.parquet
+      opprcd/      # yearly partitions 2005–2025
+      secprd/      # yearly partitions 2005–2025
+      distrd/      # yearly partitions 2005–2025
+      zerocd/      # yearly partitions 2005–2025
+      zero_curve/  # empty placeholder
+      wrdsapps_opcrsphist.parquet  # OptionMetrics↔CRSP link
+
+    raw/ff/
+      factors_daily.parquet
+
+    manifests/
+      20251220_204920
+      20251220_212339
+      20251220_214010
+      20251220_214218
+      20251220_214458
+      20251220_214625
+      20251220_221935
+      20251220_223429
+      20251221_001039
+      20251221_001618
+```
+
+**Usage note:** keep the mirror outside git; symlink into `data/` only when
+regenerating `data/returns_daily.csv` or factor files.
 
 ### 3.3 Config provenance
 Record:

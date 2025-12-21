@@ -43,7 +43,7 @@ test-progress:
 	# Verbose output with progress bar (pytest-sugar), parallel if available
 	pytest -v -n auto || pytest -v
 
-.PHONY: gallery memo report rc rc-data rc-lite rc-eval rc-summary rc-ablations
+.PHONY: gallery memo report rc rc-data rc-lite rc-eval rc-summary rc-ablations rc-paper-v1-ablate
 gallery:
 	$(RC_PY) tools/build_gallery.py --config experiments/equity_panel/config.rc.yaml
 
@@ -113,6 +113,12 @@ RC_MV_GAMMA ?= 1e-4
 RC_MV_BOX ?= 0.0,0.1
 RC_MV_TURNOVER_BPS ?= 5
 RC_MV_CONDITION_CAP ?= 1000000
+PAPER_V1_CONFIG := experiments/eval/config.paper_v1.yaml
+PAPER_V1_ABLATE_STAMP := $(shell date +%Y%m%d_%H%M%S)
+PAPER_V1_ABLATE_ROOT := reports/rc-paper-v1-ablate-$(PAPER_V1_ABLATE_STAMP)
+PAPER_V1_RETURNS ?= data/returns_daily.csv
+PAPER_V1_FACTORS ?= data/factors/ff5mom_daily.csv
+PAPER_V1_OFF_FLAGS := --q-max 0
 ABLA_GRID ?= experiments/ablate/ablation_matrix_tiny.yaml
 RC_CALM_WINDOW_SAMPLE ?=
 RC_CRISIS_WINDOW_TOPK ?=
@@ -157,6 +163,19 @@ rc-ablations:
 
 rc-summary:
 	$(RC_PY) tools/make_summary.py --rc-dir $(RC_OUT_SANITY)
+
+rc-paper-v1-ablate:
+	$(RC_VERIFY_DATASET)
+	$(RC_VERIFY_FACTORS)
+	mkdir -p $(PAPER_V1_ABLATE_ROOT)
+	$(RC_PY) -m experiments.eval.run --config $(PAPER_V1_CONFIG) --returns-csv $(PAPER_V1_RETURNS) --factors-csv $(PAPER_V1_FACTORS) --shrinker sample --out $(PAPER_V1_ABLATE_ROOT)/scm_off $(PAPER_V1_OFF_FLAGS)
+	$(RC_PY) -m experiments.eval.run --config $(PAPER_V1_CONFIG) --returns-csv $(PAPER_V1_RETURNS) --factors-csv $(PAPER_V1_FACTORS) --shrinker sample --out $(PAPER_V1_ABLATE_ROOT)/scm_on
+	$(RC_PY) -m experiments.eval.run --config $(PAPER_V1_CONFIG) --returns-csv $(PAPER_V1_RETURNS) --factors-csv $(PAPER_V1_FACTORS) --shrinker oas --out $(PAPER_V1_ABLATE_ROOT)/oas_off $(PAPER_V1_OFF_FLAGS)
+	$(RC_PY) -m experiments.eval.run --config $(PAPER_V1_CONFIG) --returns-csv $(PAPER_V1_RETURNS) --factors-csv $(PAPER_V1_FACTORS) --shrinker oas --out $(PAPER_V1_ABLATE_ROOT)/oas_on
+	$(RC_PY) -m experiments.eval.run --config $(PAPER_V1_CONFIG) --returns-csv $(PAPER_V1_RETURNS) --factors-csv $(PAPER_V1_FACTORS) --shrinker rie --out $(PAPER_V1_ABLATE_ROOT)/rie_off $(PAPER_V1_OFF_FLAGS)
+	$(RC_PY) -m experiments.eval.run --config $(PAPER_V1_CONFIG) --returns-csv $(PAPER_V1_RETURNS) --factors-csv $(PAPER_V1_FACTORS) --shrinker rie --out $(PAPER_V1_ABLATE_ROOT)/rie_on
+	$(RC_PY) tools/make_summary.py --rc-dir $(PAPER_V1_ABLATE_ROOT)
+	$(RC_PY) tools/paper_v1_ablation.py --rc-dir $(PAPER_V1_ABLATE_ROOT)
 
 rc: rc-data rc-eval
 	$(MAKE) rc-ablations

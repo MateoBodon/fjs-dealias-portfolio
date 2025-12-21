@@ -2111,33 +2111,21 @@ def run_evaluation(
         elif group_count < int(config.group_min_count):
             reason = DiagnosticReason.INSUFFICIENT_GROUPS
         else:
-            try:
-                detections = detect_spikes(
-                    fit_matrix,
-                    group_labels,
-                    config=overlay_cfg,
-                    stats=detect_stats,
-                )
-                gating_info = (
-                    detect_stats.get("gating", {})
-                    if isinstance(detect_stats, dict)
-                    else {}
-                )
-                reason = (
-                    DiagnosticReason.ACCEPTED
-                    if detections
-                    else DiagnosticReason.NO_DETECTIONS
-                )
-            except np.linalg.LinAlgError:
-                jitter_scale = max(float(np.nanstd(fit_matrix)) * 1e-6, 1e-8)
-                rng_jitter = np.random.default_rng(config.seed + start + 101)
-                perturbed = fit_matrix + rng_jitter.normal(
-                    scale=jitter_scale, size=fit_matrix.shape
-                )
-                detect_stats = {}
+            if config.q_max is not None and int(config.q_max) <= 0:
+                detections = []
+                gating_info = {
+                    "mode": str(config.gate_mode or "strict"),
+                    "initial": 0,
+                    "accepted": 0,
+                    "rejected": 0,
+                    "soft_cap": None,
+                    "delta_frac_used": None,
+                }
+                reason = DiagnosticReason.NO_DETECTIONS
+            else:
                 try:
                     detections = detect_spikes(
-                        perturbed,
+                        fit_matrix,
                         group_labels,
                         config=overlay_cfg,
                         stats=detect_stats,
@@ -2152,14 +2140,38 @@ def run_evaluation(
                         if detections
                         else DiagnosticReason.NO_DETECTIONS
                     )
+                except np.linalg.LinAlgError:
+                    jitter_scale = max(float(np.nanstd(fit_matrix)) * 1e-6, 1e-8)
+                    rng_jitter = np.random.default_rng(config.seed + start + 101)
+                    perturbed = fit_matrix + rng_jitter.normal(
+                        scale=jitter_scale, size=fit_matrix.shape
+                    )
+                    detect_stats = {}
+                    try:
+                        detections = detect_spikes(
+                            perturbed,
+                            group_labels,
+                            config=overlay_cfg,
+                            stats=detect_stats,
+                        )
+                        gating_info = (
+                            detect_stats.get("gating", {})
+                            if isinstance(detect_stats, dict)
+                            else {}
+                        )
+                        reason = (
+                            DiagnosticReason.ACCEPTED
+                            if detections
+                            else DiagnosticReason.NO_DETECTIONS
+                        )
+                    except Exception:
+                        detections = []
+                        reason = DiagnosticReason.DETECTION_ERROR
+                        gating_info = {}
                 except Exception:
                     detections = []
                     reason = DiagnosticReason.DETECTION_ERROR
                     gating_info = {}
-            except Exception:
-                detections = []
-                reason = DiagnosticReason.DETECTION_ERROR
-                gating_info = {}
 
         alignment_cos_values: list[float] = []
         alignment_angle_values: list[float] = []

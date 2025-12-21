@@ -46,6 +46,7 @@ PERF_COLUMNS: Sequence[str] = (
     "delta_mse_ci_lower",
     "delta_mse_ci_upper",
     "delta_es_vs_baseline",
+    "delta_qlike_vs_baseline",
     "var95_overlay",
     "var95_baseline",
     "es95_overlay",
@@ -60,6 +61,9 @@ PERF_COLUMNS: Sequence[str] = (
     "n_effective_mse",
     "n_effective_es",
     "n_effective_qlike",
+    "comparison_valid_mse",
+    "comparison_valid_es",
+    "comparison_valid_qlike",
     "comparison_valid_dm",
     "comparison_valid_delta",
     "cap_active",
@@ -710,6 +714,40 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
             run_eligibility=tuple(run_eligibility),
         )
     if use_design_dirs:
+        perf_frames: list[pd.DataFrame] = []
+        det_frames: list[pd.DataFrame] = []
+        skip_frames: list[pd.DataFrame] = []
+        for run in eligible_runs:
+            run_artifacts = summarise_rc_directory(run.run_dir)
+            if not run_artifacts.performance.empty:
+                perf_frames.append(run_artifacts.performance)
+            if not run_artifacts.detection.empty:
+                det_frames.append(run_artifacts.detection)
+            if not run_artifacts.skip_stats.empty:
+                skip_frames.append(run_artifacts.skip_stats)
+        perf_df = (
+            pd.concat(perf_frames, ignore_index=True)
+            if perf_frames
+            else _empty_perf_df()
+        )
+        det_df = (
+            pd.concat(det_frames, ignore_index=True)
+            if det_frames
+            else _empty_det_df()
+        )
+        skip_df_all = (
+            pd.concat(skip_frames, ignore_index=True)
+            if skip_frames
+            else _empty_skip_df()
+        )
+        return SummaryArtifacts(
+            performance=perf_df,
+            detection=det_df,
+            skip_stats=skip_df_all,
+            completeness=completeness,
+            run_eligibility=tuple(run_eligibility),
+        )
+    if use_design_dirs:
         summary_cap_active, summary_cap_sources, summary_window_coverage = _aggregate_completeness(
             eligible_runs
         )
@@ -763,6 +801,7 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
                 "delta_mse_ci_lower": float("nan"),
                 "delta_mse_ci_upper": float("nan"),
                 "delta_es_vs_baseline": float("nan"),
+                "delta_qlike_vs_baseline": float("nan"),
                 "var95_overlay": float("nan"),
                 "var95_baseline": float("nan"),
                 "es95_overlay": float("nan"),
@@ -777,6 +816,9 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
                 "n_effective_mse": float("nan"),
                 "n_effective_es": float("nan"),
                 "n_effective_qlike": float("nan"),
+                "comparison_valid_mse": float("nan"),
+                "comparison_valid_es": float("nan"),
+                "comparison_valid_qlike": float("nan"),
                 "comparison_valid_dm": float("nan"),
                 "comparison_valid_delta": float("nan"),
                 "cap_active": summary_cap_active,
@@ -791,6 +833,7 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
                         "delta_mse_ci_lower": _numeric(overlay_row, "delta_mse_ci_lower"),
                         "delta_mse_ci_upper": _numeric(overlay_row, "delta_mse_ci_upper"),
                         "delta_es_vs_baseline": _numeric(overlay_row, "delta_es_vs_baseline"),
+                        "delta_qlike_vs_baseline": _numeric(overlay_row, "delta_qlike_vs_baseline"),
                         "var95_overlay": _numeric(overlay_row, "var95"),
                         "es95_overlay": _numeric(overlay_row, "es95"),
                         "realised_var_overlay": _numeric(overlay_row, "realised_var"),
@@ -798,6 +841,9 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
                         "n_effective_mse": _numeric(overlay_row, "n_effective_mse"),
                         "n_effective_es": _numeric(overlay_row, "n_effective_es"),
                         "n_effective_qlike": _numeric(overlay_row, "n_effective_qlike"),
+                        "comparison_valid_mse": _numeric(overlay_row, "comparison_valid_mse"),
+                        "comparison_valid_es": _numeric(overlay_row, "comparison_valid_es"),
+                        "comparison_valid_qlike": _numeric(overlay_row, "comparison_valid_qlike"),
                         "comparison_valid_delta": _numeric(overlay_row, "comparison_valid"),
                     }
                 )

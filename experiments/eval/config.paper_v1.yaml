@@ -1,0 +1,68 @@
+# Paper v1 pinned daily eval defaults (DoW design, uncapped).
+# Overlay OFF runs should pass: --q-max 0
+# Overlay ON runs use q_max below with calibrated gating defaults.
+
+returns_csv: data/returns_daily.csv
+factors_csv: data/factors/ff5mom_daily.csv
+window: 126
+horizon: 21
+assets_top: 60
+shrinker: rie
+seed: 0
+
+# Regime thresholds
+calm_quantile: 0.2
+crisis_quantile: 0.8
+vol_ewma_span: 21
+
+# Overlay / gating defaults (ON runs)
+overlay_a_grid: 30
+overlay_delta: 0.05
+coarse_candidate: true
+require_isolated: true
+q_max: 2
+edge_mode: tyler
+
+gate_mode: soft
+gate_soft_max: null
+gate_delta_calibration: calibration/edge_delta_thresholds.json
+gate_delta_frac_min: 0.02
+gate_stability_min: 0.0001
+gate_accept_nonisolated: true
+
+# Alignment / diagnostics defaults
+alignment_top_p: 3
+q2_alignment_min_cos: null
+angle_min_cos: null
+cs_drop_top_frac: null
+
+# Prewhitening
+prewhiten: ff5mom
+use_factor_prewhiten: true
+
+# Group design
+group_design: dow
+group_min_count: 5
+group_min_replicates: 3
+min_reps_dow: 10
+min_reps_vol: 10
+
+# MV portfolio constraints
+mv_gamma: 1.0e-4
+mv_tau: 0.0
+mv_box_lo: -0.25
+mv_box_hi: 0.25
+mv_turnover_bps: 0
+mv_condition_cap: 1000000
+mv_solver: projgrad
+mv_skip_on_missing_solver: false
+
+# Validity thresholds
+min_comparison_windows: 50
+bootstrap_samples: 0
+
+# Misc
+reason_codes: true
+max_missing_asset: 0.05
+max_missing_group_row: 0.0
+ewma_halflife: 30.0

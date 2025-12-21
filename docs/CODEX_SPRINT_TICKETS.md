@@ -4,7 +4,7 @@
 
 ---
 
-## Ticket #1 (NEXT ACTION) — Overlay forensics + changed-window attribution (daily RC)
+## Ticket #1 (DONE) — Overlay forensics + changed-window attribution (daily RC)
 
 **Goal (1 sentence):** Explain *why* overlay is harmful/neutral by producing a per-window forensic table for changed windows and wiring it into summaries.
 
@@ -111,7 +111,7 @@
 
 ---
 
-## Ticket #4 — Minimal uncapped “overlay vs shrinker” ablation runner (paper-v1 grid)
+## Ticket #4 (DONE) — Minimal uncapped “overlay vs shrinker” ablation runner (paper-v1 grid)
 
 **Goal (1 sentence):** Provide a single command/config that runs SCM/OAS/RIE × (overlay on/off) uncapped and outputs one table.
 
@@ -165,3 +165,6 @@
 
 **Expected artifacts/logs:**
 - Full run log + `make gpt-bundle` bundle for advisor
+
+Ticket #6 — Replace/repair make rc-lite-sanity so it always finishes (<2–3 min) and is truly uncapped, or update AGENTS to require the new smoke target.
+This is necessary to stop “timeouts” from being the default test outcome.

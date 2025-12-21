@@ -1,0 +1,1443 @@
+diff --git a/PROGRESS.md b/PROGRESS.md
+index 57ce632..39cefe2 100644
+--- a/PROGRESS.md
++++ b/PROGRESS.md
+@@ -1,3 +1,8 @@
++## 2025-12-21T04:15Z — ticket-02 stop eval contamination (caps + solver)
++- **Branch/Run**: `feat/ticket-02-stop-eval-contamination` (RUN_NAME=`20251221_042859_ticket-02_stop-eval-contamination`), git sha `6df53dd0686292b98d709bd98f1894f14a076bed`.
++- **Commands**: `make test-fast`; `EXEC_MODE=deterministic make rc-lite-sanity` (timed out at 120s/300s/600s; dow leg completed; vol leg completed manually; weekly legs not run); `EXEC_MODE=deterministic PYTHONPATH=src:. OMP_NUM_THREADS=1 python3 experiments/eval/run.py --returns-csv data/returns_daily.csv --window 60 --horizon 10 --start 2023-01-01 --end 2023-06-30 --assets-top 50 --group-design vol --group-min-count 3 --group-min-replicates 6 --min-reps-vol 6 --edge-mode tyler --shrinker oas --prewhiten ff5mom --overlay-delta 0.05 --coarse-candidate 1 --gate-mode soft --gate-accept-nonisolated --gate-delta-calibration calibration/edge_delta_thresholds.json --gate-delta-frac-min 0.015 --q-max 2 --mv-gamma 1e-4 --mv-box 0.0,0.1 --mv-turnover-bps 5 --mv-condition-cap 1000000 --use-factor-prewhiten 1 --factor-csv data/factors/ff5mom_daily.csv --out reports/rc-20251221-sanity-20251221_045550/vol-tyler`; `PYTHONPATH=src:. python tools/make_summary.py --rc-dir reports/rc-20251221-sanity-20251221_045550`; `EXEC_MODE=deterministic python -m experiments.eval.run --returns-csv data/returns_daily.csv --window 40 --horizon 5 --out reports/smoke_cap_test --assets-top 20 --group-design dow --shrinker rie --prewhiten off --use-factor-prewhiten 0 --q-max 2 --mv-box-lo -0.25 --mv-box-hi 0.25 --mv-turnover-bps 0.0 --mv-condition-cap 1000000 --max-windows 5 --min-comparison-windows 3 --seed 123 --workers 1`; `PYTHONPATH=src:. python tools/make_summary.py --rc-dir reports/smoke_cap_test`.
++- **Results**: `tools/make_summary.py` now hard-excludes `cap_active=true` runs (and MV skip-on-missing-solver runs) from headline tables; `limitations.md` gains explicit sections listing excluded capped runs + cap_sources and smoke-only MV-skip runs; `experiments/eval/run.py` always writes cap metadata into `run.json` even on empty metrics. Capped smoke (`reports/smoke_cap_test/`) yields empty summary tables with `limitations.md` showing `cap_sources: max_windows, window_coverage`. RC-lite sanity (`reports/rc-20251221-sanity-20251221_045550/`) is capped via `date_truncation`, so summary tables are empty and limitations list both dow/vol legs as excluded.\n- **Artifacts**: Run log `docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/`; RC-lite outputs `reports/rc-20251221-sanity-20251221_045550/`; capped smoke `reports/smoke_cap_test/`.
++
+ ## 2025-12-21T01:36Z — ticket-01 overlay forensics (daily RC)
+ - **Branch/Run**: `feat/ticket-01-overlay-forensics` (RUN_NAME=`20251221_015106_ticket-01_overlay-forensics`), git sha `d3d1ac271fb7b3e0246b1e6a292dc6062fa1d062`.
+ - **Commands**: `make test-fast` (failed once due to indentation, reran and passed after fix); `EXEC_MODE=deterministic make rc-lite-sanity` (timed out; completed vol leg manually); `PYTHONPATH=src:. python tools/make_summary.py --rc-dir reports/rc-20251221-sanity-20251221_021657`.
+diff --git a/docs/CODEX_SPRINT_TICKETS.md b/docs/CODEX_SPRINT_TICKETS.md
+index fb36361..c94bc76 100644
+--- a/docs/CODEX_SPRINT_TICKETS.md
++++ b/docs/CODEX_SPRINT_TICKETS.md
+@@ -1,180 +1,167 @@
+-ticket-10: FAIL (no commits + empty DIFF.patch → not auditable/mergeable).
+-ticket-11: DONE (fixed via ticket-15; aligned Δ/DM on changed window intersections, surfaced `n_effective*` + `comparison_valid*`, skip_stats + cap metadata in run.json/summary).
+-ticket-15: DONE — ticket-11 fixup is now auditable (committed diffs, run log, bundle required).
+-ticket-09: DONE — gating diagnostics attribution fixed; run log `docs/agent_runs/20251220_223706_ticket-09_weekly-gating-attribution/`, smoke outputs `experiments/equity_panel/outputs_smoke/oneway_J5_solver-auto_est-dealias_prep-prewhiten_modeoff/` (guard_unknown surfaced when present; guard_other absent).
++# CODEX SPRINT TICKETS (NEXT SPRINT ONLY)
+ 
+-Next ticket to run (exactly one): ticket-10 nested null-FPR (see backlog below). Pause ticket-12 until ticket-10 is cleaned up or explicitly de-scoped.
++**Sprint theme:** stop guessing — instrument, isolate mechanisms, and make one advisor-ready uncapped daily result.
+ 
++---
+ 
+-# Codex Sprint Tickets (NEXT SPRINT ONLY)
++## Ticket #1 (NEXT ACTION) — Overlay forensics + changed-window attribution (daily RC)
+ 
+-Ordering principle: unblock validity first, then calibrate/extend.
++**Goal (1 sentence):** Explain *why* overlay is harmful/neutral by producing a per-window forensic table for changed windows and wiring it into summaries.
+ 
+----
++**Primary blocker addressed:** “overlay underperforms baseline” with no mechanism explanation.
++
++**Files/modules likely involved:**
++- `src/fjs/overlay.py` (capture delta_frac_used / edge stats / eigen stats)
++- `experiments/eval/run.py` (propagate into diagnostics_detail payload)
++- `tools/make_summary.py` (join metrics + diagnostics into `summary/overlay_forensics.csv`)
++- tests:
++  - `tests/tools/test_make_summary.py`
++  - `tests/experiments/test_eval_run.py`
++  - optionally `tests/fjs/test_overlay.py`
+ 
+-## Ticket #1 (ticket-09) — Fix weekly gating diagnostics attribution (kill `guard_other`)
+-**Goal (1 sentence)**  
+-Make weekly gating diagnostics actionable: every “no acceptance” window must have an attributable reason code (no `guard_other` blob, no opaque `diagnostic_failure`).
+-
+-**Status**  
+-DONE (2025-12-20). Run log `docs/agent_runs/20251220_223706_ticket-09_weekly-gating-attribution/`; smokes: real `experiments/equity_panel/outputs_smoke/oneway_J5_solver-auto_est-dealias_prep-prewhiten_modeoff/` (guard_unknown column present, guard_other absent, skip_reason_primary filled for rejected windows), synthetic diagnostic-failure `experiments/equity_panel/outputs_ticket-09_synth_failure_20251220_203615_ticket-09_weekly-gating-reason-attribution/`.
+-
+-**Files/modules likely involved**
+-- `experiments/equity_panel/run.py` (notably `_infer_skip_reason(...)` and gating diagnostics writer)
+-- `src/fjs/overlay.py` (gating summaries / reason surfaces if needed)
+-- `src/fjs/gating.py` (calibrated delta lookup surfaces if needed)
+-- `tools/summarize_weekly_diagnostics.py` (if it post-processes reason codes)
+-- Tests:
+-  - `tests/experiments/test_gating_diagnostics.py`
+-  - (possibly) `tests/test_skip_reasons.py`
+-
+-**Acceptance criteria**
+-- `gating_diagnostics.csv` includes:
+-  - a primary reason code field (e.g., `skip_reason_primary`)
+-  - optional structured detail fields (`skip_reason_detail`, `exception_type`)
+-- `weekly_diagnostics.md` includes:
+-  - counts by primary reason
+-  - top 5 windows per dominant reason (with key stats)
+-- On the smoke config, `guard_other` count/share is **0** OR provably unreachable.
+-- `diagnostic_failure` only appears with:
+-  - exception type + minimal context (which stage failed, what inputs missing)
+-- Tests pass (`make test-fast`).
+-
+-**Minimal tests/commands**
++**Acceptance criteria:**
++- For any daily eval run directory, `summary/overlay_forensics.csv` is generated by `tools/make_summary.py`.
++- The CSV includes (at minimum) these columns:
++  - identifiers: `window_end`, `window_id` (or equivalent), `design`, `shrinker`, `edge_mode`
++  - overlay actuation: `changed`, `skip_reason_primary`, `skip_reason_detail`, `delta_frac_used`, `gate_mode`
++  - spectrum: `lambda1_base`, `lambda1_treat`, `delta_lambda1`, `mp_edge`, `edge_margin`
++  - outcomes: `realized_var`, `mse_base`, `mse_treat`, `qlike_base`, `qlike_treat` (or contribution equivalents)
++- The file is **non-empty** on a real-data deterministic sanity run that has `n_effective_* > 0`.
++- `summary/limitations.md` is updated to reference the new artifact.
++
++**Minimal tests/commands to run:**
+ - `make test-fast`
+-- `pytest -m unit -k "gating_diagnostics or skip_reason"`
+-- Real-data smoke:
+-  - `EXEC_MODE=deterministic make run:equity_smoke`
++- `EXEC_MODE=deterministic make rc-lite-sanity`
++- `PYTHONPATH=src:. python tools/make_summary.py --rc-dir reports/<rc_dir>`
+ 
+-**Expected artifacts/logs**
+-- `docs/agent_runs/<RUN_NAME>/` with PROMPT/COMMANDS/RESULTS/TESTS/META
+-- Updated weekly smoke outputs:
+-  - `experiments/equity_panel/outputs_*/gating_diagnostics.csv`
+-  - `experiments/equity_panel/outputs_*/weekly_diagnostics.md`
+-- `make gpt-bundle TICKET=ticket-09 RUN_NAME=<RUN_NAME>`
++**Expected artifacts/logs:**
++- Run log: `docs/agent_runs/<RUN_NAME>/` with PROMPT/COMMANDS/RESULTS/TESTS/META
++- New artifact: `reports/<rc_dir>/summary/overlay_forensics.csv`
++- Optional: small plot generated from overlay_forensics (top harmful windows) under `reports/<rc_dir>/summary/plots/`
+ 
+ ---
+ 
+-## Ticket #2 (ticket-10) — Nested null-FPR: reproduce + calibrate (or de-scope nested)
+-**Goal (1 sentence)**  
+-Make nested design statistically defensible by demonstrating synthetic null-FPR control (or explicitly de-scope nested from paper v1 with a documented failure analysis).
+-
+-**Files/modules likely involved**
+-- `experiments/synthetic/nested_killtest.py`
+-- `experiments/synthetic/power_null.py` (if we generalize calibration)
+-- `src/fjs/gating.py` and/or `src/fjs/overlay.py` (design-aware calibration hooks)
+-- Calibration outputs:
+-  - `calibration/edge_delta_thresholds.json`
+-  - `calibration/defaults.json`
+-- Reporting:
+-  - `reports/synthetic/...` summaries and figures
+-
+-**Acceptance criteria**
+-- Nested synthetic null-FPR ≤ target (pick current target; default 2%) for the declared operating point(s).
+-- Threshold selection is:
+-  - produced by a script (not hand-edited)
+-  - recorded with git SHA + run metadata
+-- If nested cannot satisfy FPR without killing power:
+-  - update `project_state/KNOWN_ISSUES.md` + `docs/PLAN_OF_RECORD.md` to explicitly de-scope nested for paper v1
+-  - add a “why nested fails” summary (parameter sensitivity + failure mode)
+-
+-**Minimal tests/commands**
++## Ticket #2 (DONE) — Stop evaluation contamination (caps + solver + “headline eligibility”)
++
++**Goal (1 sentence):** Make it impossible to accidentally treat a capped/contaminated run as headline evidence.
++
++**Primary blockers addressed:** “evaluation contamination via caps”, “solver fallback risk”.
++
++**Files/modules likely involved:**
++- `src/meta/completeness.py` (eligibility signals)
++- `tools/make_summary.py` (hard exclusion + loud warnings)
++- `tools/summarize_rc_sanity.py` (sanity report should surface caps and exclusions)
++- `experiments/eval/run.py` (ensure `cap_active`, `cap_sources`, solver status are in `run.json` + metrics)
++- tests:
++  - `tests/tools/test_make_summary.py`
++  - `tests/experiments/test_eval_run.py`
++
++**Acceptance criteria:**
++- `tools/make_summary.py` MUST:
++  - exclude `cap_active=true` runs from `summary_perf.csv` / `summary_detection.csv`
++  - emit a clear warning section in `summary/limitations.md` listing excluded runs + cap_sources
++- Any run with `--mv-skip-on-missing-solver` is automatically labeled “smoke-only” in `limitations.md`.
++- Add a CI-safe regression test that:
++  - constructs a small capped run and asserts it is excluded from headline summary tables.
++
++**Minimal tests/commands to run:**
+ - `make test-fast`
+-- `python -m experiments.synthetic.nested_killtest --config <cfg> --out reports/synthetic/nested_killtest/<RUN_ID>`
+-- (Optional) `make calibrate-thresholds` if we unify calibration infra.
++- `EXEC_MODE=deterministic python -m experiments.eval.run ... --max-windows 5 --out reports/smoke_cap_test`
++- `PYTHONPATH=src:. python tools/make_summary.py --rc-dir reports/smoke_cap_test`
+ 
+-**Expected artifacts/logs**
+-- `reports/synthetic/nested_killtest/<RUN_ID>/` with summary markdown + tables
+-- Updated calibration JSON(s) if calibration succeeds
+-- Run log + gpt bundle for ticket-10
++**Expected artifacts/logs:**
++- Run log + updated PROGRESS entry
++- `reports/smoke_cap_test/summary/limitations.md` explicitly flags cap + exclusion
++- Run log: `docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/`
+ 
+ ---
+ 
+-## Ticket #3 (ticket-11) — Evaluation contamination via caps/selection: enforce aligned comparisons
+-**Goal (1 sentence)**  
+-Ensure loss comparisons are not biased by hidden caps/skips: DM tests and ΔLoss must be computed on aligned window sets with explicit `n_effective` and skip/cap summaries.
+-
+-**Files/modules likely involved**
+-- `experiments/eval/run.py` (alignment, skip policy, DM computations)
+-- `src/eval/metrics.py` (loss definitions; if needed)
+-- `src/finance/portfolios.py` (skip semantics already exist; ensure propagated)
+-- Summary tooling:
+-  - `tools/make_summary.py`
+-  - `tools/summarize_rc_sanity.py`
+-- Tests:
+-  - `tests/test_skip_reasons.py`
+-  - (new) regression test for “aligned DM requires same window set”
+-
+-**Acceptance criteria**
+-- Every reported ΔLoss includes:
+-  - `n_effective` (count of aligned windows)
+-  - skip counts by reason for each arm (baseline vs overlay)
+-- Any cap/truncation is recorded in run metadata and surfaced in `limitations.md`.
+-- Summary aggregation never mixes capped with uncapped runs without a clear label/segregation.
+-- Tests pass.
+-
+-**Minimal tests/commands**
++## Ticket #3 — Nested calibration coverage: unblock weekly nested or formally drop it
++
++**Goal (1 sentence):** Either expand nested calibration to cover real `(p,T)` and demonstrate nonzero acceptance in a smoke, OR explicitly remove nested from paper v1.
++
++**Primary blocker addressed:** “nested real-data blocked by calibration_missing_p_T”.
++
++**Files/modules likely involved:**
++- `src/fjs/gating.py` (`lookup_calibrated_delta` behavior and coverage checks)
++- `experiments/synthetic/nested_killtest.py` (calibration generation)
++- `experiments/equity_panel/run.py` + configs:
++  - `experiments/equity_panel/config.nested.smoke.tiny.yaml`
++- calibration artifact:
++  - `calibration/nested_edge_delta_thresholds.json`
++- docs:
++  - `docs/PLAN_OF_RECORD.md`
++  - `project_state/KNOWN_ISSUES.md`
++  - `project_state/ROADMAP.md`
++
++**Acceptance criteria:**
++- Add a diagnostic that reports the observed `(p,T)` pairs in nested weekly windows for the smoke period.
++- Choose one path:
++  - **A (fix):** calibration file includes required `(p,T)` pairs and nested smoke no longer yields `calibration_missing_p_T` for those pairs, OR
++  - **B (drop):** PLAN_OF_RECORD explicitly states nested is postponed for paper v1 and ROADMAP/KNOWN_ISSUES updated.
++
++**Minimal tests/commands to run:**
+ - `make test-fast`
+-- Targeted eval smoke (small window count):
+-  - `EXEC_MODE=deterministic make rc-lite-sanity` (already produces daily eval outputs)
++- `EXEC_MODE=deterministic make run:equity_nested_smoke_tiny`
++- `python -m experiments.synthetic.nested_killtest --config experiments/synthetic/config.nested.killtest.yaml --out reports/synthetic/nested_killtest/<run> --calibration-out calibration/nested_edge_delta_thresholds.json`
+ 
+-**Expected artifacts/logs**
+-- Updated `reports/.../summary/limitations.md` and summary CSVs showing `n_effective` + skip stats
+-- Run log + gpt bundle for ticket-11
++**Expected artifacts/logs:**
++- Run log + PROGRESS entry
++- Either updated calibration JSON + smoke output OR explicit doc pivot
+ 
+ ---
+ 
+-## Ticket #4 (ticket-12) — Portfolio solver behavior: enforce fail-loud/explicit-skip everywhere
+-**Goal (1 sentence)**  
+-Guarantee that *all* pipelines (daily + weekly) share the same “no silent fallback” contract for MV optimization.
++## Ticket #4 — Minimal uncapped “overlay vs shrinker” ablation runner (paper-v1 grid)
++
++**Goal (1 sentence):** Provide a single command/config that runs SCM/OAS/RIE × (overlay on/off) uncapped and outputs one table.
++
++**Primary blocker addressed:** “unclear if harm is double-correction with shrinkers”.
+ 
+-**Files/modules likely involved**
+-- `src/finance/portfolios.py` (contract already exists; ensure weekly uses it)
+-- `experiments/equity_panel/run.py` (propagate solver status + skip reason)
+-- Tests:
+-  - add or extend a test that simulates missing cvxpy / missing solver and asserts explicit skip or raised error
++**Files/modules likely involved:**
++- `experiments/eval/config.paper_v1.yaml` (new pinned config)
++- `Makefile` (new target, e.g., `rc-paper-v1-ablate`)
++- `tools/make_summary.py` (summary table formatting)
++- `src/report/tables.py` / `src/report/plots.py` (optional report)
+ 
+-**Acceptance criteria**
+-- With solver missing:
+-  - pipeline either fails-loud (default) OR returns `skipped=true` with `MissingSolverError` recorded
+-  - never produces equal-weight fallback
+-- Weekly outputs include `solver_status` / `skipped` fields where relevant.
+-- Tests pass.
++**Acceptance criteria:**
++- One make target (or script) produces:
++  - 6 run directories with `cap_active=false`
++  - a combined table `reports/<root>/summary/paper_v1_ablation.csv`
++  - plots: DM bars + detection rates (optional but preferred)
++- The config is pinned and committed; no ad hoc CLI-only “mystery settings”.
+ 
+-**Minimal tests/commands**
++**Minimal tests/commands to run:**
+ - `make test-fast`
+-- If repo supports it, run missing-solver smoke:
+-  - `FJS_FORCE_MISSING_CVXPY=1 EXEC_MODE=deterministic make rc-lite-sanity`
+-  - (or equivalent env knob used in existing tests)
++- `EXEC_MODE=deterministic make rc-paper-v1-ablate`
+ 
+-**Expected artifacts/logs**
+-- Run log + gpt bundle for ticket-12
++**Expected artifacts/logs:**
++- Run log + bundle via `make gpt-bundle`
++- `reports/<root>/summary/paper_v1_ablation.csv`
+ 
+ ---
+ 
+-## Ticket #5 (ticket-13) — Advisor-ready “validity RC” rerun + results refresh
+-**Goal (1 sentence)**  
+-Produce one clean, reproducible run (daily + weekly smokes) that meets validity criteria and update the advisor-facing summaries.
++## Ticket #5 — Advisor-ready RC run (one headline table, no caveats)
+ 
+-**Files/modules likely involved**
+-- No major code changes expected; focus on running + documenting.
+-- Docs to update:
+-  - `PROGRESS.md`
++**Goal (1 sentence):** Produce one uncapped daily DoW result table with forensics + limitations that can be shown to the advisor.
++
++**Primary blocker addressed:** “need serious progress fast: either mechanism + improvement or pivot trigger”.
++
++**Files/modules likely involved:**
++- Mostly execution + reporting; minimal code if tickets 1–4 land.
++- Docs updates:
+   - `project_state/CURRENT_RESULTS.md`
+-  - `project_state/KNOWN_ISSUES.md` (if any item is resolved)
+-  - `reports/memo.md` / `reports/brief.md` if those are part of the current workflow
++  - `PROGRESS.md`
+ 
+-**Acceptance criteria**
+-- `EXEC_MODE=deterministic make rc-lite-sanity` completes.
+-- Outputs include complete summaries (`summary_perf.csv`, `summary_detection.csv`, `limitations.md`, `completeness.json`).
+-- Weekly smokes produce attributable gating diagnostics (post ticket-09).
+-- Docs updated with run IDs, key metrics, and explicit limitations.
++**Acceptance criteria:**
++- Headline-eligible run: `cap_active=false`, `comparison_valid_* = 1`, `n_effective_* >= 50` (or documented why lower).
++- Artifacts exist:
++  - `summary_perf.csv`, `summary_detection.csv`, `overlay_forensics.csv`, `limitations.md`, `completeness.json`
++- CURRENT_RESULTS + PROGRESS updated with exact run id and deltas.
+ 
+-**Minimal tests/commands**
++**Minimal tests/commands to run:**
+ - `make test-fast`
+-- `EXEC_MODE=deterministic make rc-lite-sanity`
+-- `make memo` (if memo build is part of the expected artifacts)
++- `EXEC_MODE=deterministic make rc-dow` (or equivalent explicit `python -m experiments.eval.run ...`)
++- `PYTHONPATH=src:. python tools/make_summary.py --rc-dir reports/<run>`
+ 
+-**Expected artifacts/logs**
+-- New `reports/rc-.../` directory + weekly outputs directory
+-- Run log + gpt bundle for ticket-13
++**Expected artifacts/logs:**
++- Full run log + `make gpt-bundle` bundle for advisor
+diff --git a/docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/COMMANDS.md b/docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/COMMANDS.md
+new file mode 100644
+index 0000000..62b7b6e
+--- /dev/null
++++ b/docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/COMMANDS.md
+@@ -0,0 +1,283 @@
++# Commands
++
++git status --porcelain
++
++date +%Y%m%d_%H%M%S
++
++mkdir -p docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination
++
++cat > docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/PROMPT.md <<'PROMPT_EOF'
++...prompt written...
++PROMPT_EOF
++
++cat > docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/COMMANDS.md <<'EOF'
++# Commands
++
++git status --porcelain
++
++date +%Y%m%d_%H%M%S
++
++mkdir -p docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination
++
++cat > docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/PROMPT.md <<'EOF'
++...prompt written...
++EOF
++EOF
++
++cat > docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/COMMANDS.md <<'EOF'
++# Commands
++
++git status --porcelain
++
++date +%Y%m%d_%H%M%S
++
++mkdir -p docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination
++
++cat > docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/PROMPT.md <<'EOF'
++...prompt written...
++EOF
++EOF
++EOF
++
++git rev-parse HEAD
++
++git checkout -b feat/ticket-02-stop-eval-contamination
++
++sed -n "1,200p" AGENTS.md
++
++rg -n "ticket-02|Ticket 2|Ticket #2" docs/CODEX_SPRINT_TICKETS.md && sed -n "1,260p" docs/CODEX_SPRINT_TICKETS.md
++
++rg -n "cap|headline|summary|valid" docs/PLAN_OF_RECORD.md && sed -n "1,260p" docs/PLAN_OF_RECORD.md
++
++rg -n "cap_active|cap_sources|max-windows|max_windows|cap" experiments/eval/run.py src/meta/completeness.py tools/make_summary.py
++
++sed -n '2720,3820p' experiments/eval/run.py
++
++sed -n '1,260p' src/meta/completeness.py
++
++rg -n "run_manifest" -S experiments/eval/run.py tools/make_summary.py src
++
++sed -n '520,880p' tools/make_summary.py
++
++sed -n '1,220p' tools/make_summary.py
++
++rg -n "mv_skip_on_missing_solver|skip_on_missing_solver" -S experiments/eval/run.py tools/make_summary.py src tests
++
++ls reports/rc-20251220-sanity-20251220_233700
++
++ls reports/rc-20251220-sanity-20251220_233700/dow-tyler
++
++rg -n "def _write_overlay_toggle" -n experiments/eval/run.py
++
++sed -n '1120,1180p' experiments/eval/run.py
++
++rg -n "SummaryArtifacts" -S
++
++ls reports/rc-test
++
++ls reports/rc-test/dow-tyler-short | head
++
++ls reports/rc-test/dow-tyler-short | rg -n "run.json|resolved_config"
++
++python - <<'PY'
++import json
++from pathlib import Path
++path = Path('reports/rc-20251220-sanity-20251220_233700/dow-tyler/run.json')
++with path.open() as f:
++    data=json.load(f)
++print(list(data.keys())[:5])
++print('config' in data, 'execution' in data, 'windows' in data)
++print(data['config'].get('mv_skip_on_missing_solver'))
++PY
++
++rg -n "cap|contamination|solver" project_state/KNOWN_ISSUES.md && sed -n '1,200p' project_state/KNOWN_ISSUES.md
++
++sed -n '1,200p' PROGRESS.md
++
++rg -n "add_argument\\(.*returns" -n experiments/eval/run.py
++
++rg -n "returns_csv|returns-csv" experiments/eval/run.py
++
++sed -n '620,940p' experiments/eval/run.py
++
++rg -n "resolve_eval_config" -S experiments
++
++sed -n '1,220p' experiments/eval/config.py
++
++ls data
++
++python - <<'PY'
++import json
++from pathlib import Path
++for run in Path('reports/rc-test').iterdir():
++    if run.is_dir():
++        path = run / 'run.json'
++        if path.exists():
++            data = json.loads(path.read_text())
++            cap = data.get('windows', {}).get('cap_active')
++            print(run.name, cap, data.get('windows', {}).get('cap_sources'))
++PY
++
++python - <<'PY'
++import json
++from pathlib import Path
++path = Path('reports/rc-test/dow-tyler-short/run.json')
++print(path.exists())
++data = json.loads(path.read_text())
++print(data.keys())
++print(data.get('windows'))
++PY
++
++cat docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/COMMANDS.md
++
++make test-fast
++
++EXEC_MODE=deterministic make rc-lite-sanity
++EXEC_MODE=deterministic make rc-lite-sanity
++EXEC_MODE=deterministic make rc-lite-sanity
++
++EXEC_MODE=deterministic PYTHONPATH=src:. OMP_NUM_THREADS=1 python3 experiments/eval/run.py \
++	--returns-csv data/returns_daily.csv \
++	--window 60 \
++	--horizon 10 \
++	--start 2023-01-01 \
++	--end 2023-06-30 \
++	--assets-top 50 \
++	--group-design vol \
++	--group-min-count 3 \
++	--group-min-replicates 6 \
++	--min-reps-vol 6 \
++	--edge-mode tyler \
++	--shrinker oas \
++	--prewhiten ff5mom \
++	--overlay-delta 0.05 \
++	--coarse-candidate 1 \
++	--gate-mode soft \
++	--gate-accept-nonisolated \
++	--gate-delta-calibration calibration/edge_delta_thresholds.json \
++	--gate-delta-frac-min 0.015 \
++	--q-max 2 \
++	--mv-gamma 1e-4 \
++	--mv-box 0.0,0.1 \
++	--mv-turnover-bps 5 \
++	--mv-condition-cap 1000000 \
++	--use-factor-prewhiten 1 \
++	--factor-csv data/factors/ff5mom_daily.csv \
++	--out reports/rc-20251221-sanity-20251221_045550/vol-tyler
++
++ls reports/rc-20251221-sanity-20251221_045550
++
++PYTHONPATH=src:. python tools/make_summary.py --rc-dir reports/rc-20251221-sanity-20251221_045550
++
++EXEC_MODE=deterministic python -m experiments.eval.run --returns-csv data/returns_daily.csv --window 40 --horizon 5 --out reports/smoke_cap_test --assets-top 20 --group-design dow --shrinker rie --prewhiten off --use-factor-prewhiten 0 --q-max 2 --mv-box-lo -0.25 --mv-box-hi 0.25 --mv-turnover-bps 0.0 --mv-condition-cap 1000000 --max-windows 5 --min-comparison-windows 3 --seed 123 --workers 1
++
++PYTHONPATH=src:. python tools/make_summary.py --rc-dir reports/smoke_cap_test
++
++sed -n '1,160p' reports/smoke_cap_test/summary/limitations.md
++
++python - <<'PY'
++import pandas as pd
++from pathlib import Path
++perf = pd.read_csv(Path('reports/smoke_cap_test/summary/summary_perf.csv'))
++det = pd.read_csv(Path('reports/smoke_cap_test/summary/summary_detection.csv'))
++print('perf rows', perf.shape)
++print('det rows', det.shape)
++print(perf.head(5).to_string(index=False))
++PY
++
++rg -n "rc-lite-sanity" Makefile
++
++sed -n '178,260p' Makefile
++
++git status --porcelain
++
++sed -n '1,160p' reports/rc-20251221-sanity-20251221_045550/summary/limitations.md
++
++python - <<'PY'
++import pandas as pd
++from pathlib import Path
++perf = pd.read_csv(Path('reports/rc-20251221-sanity-20251221_045550/summary/summary_perf.csv'))
++det = pd.read_csv(Path('reports/rc-20251221-sanity-20251221_045550/summary/summary_detection.csv'))
++print(perf.shape, det.shape)
++PY
++
++date -u +
++date -u +%Y-%m-%dT%H:%MZ
++
++printf '\ndate -u +%Y-%m-%dT%H:%MZ\n' >> docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/COMMANDS.md
++
++python - <<'PY'
++import json
++from pathlib import Path
++reg = json.loads(Path('data/registry.json').read_text())
++entry = reg.get('returns_daily.csv')
++print('returns_daily.csv', entry)
++fac = json.loads(Path('data/factors/registry.json').read_text())
++fac_entry = fac.get('ff5mom_daily.csv')
++print('ff5mom_daily.csv', fac_entry)
++PY
++
++python - <<'PY'
++import json
++from pathlib import Path
++reg = json.loads(Path('data/registry.json').read_text())
++print(list(reg.keys())[:10])
++PY
++
++python - <<'PY'
++import json
++from pathlib import Path
++reg = json.loads(Path('data/registry.json').read_text())
++datasets = reg.get('datasets', {})
++print(list(datasets.keys())[:10])
++print(datasets.get('returns_daily.csv'))
++PY
++
++python - <<'PY'
++import json
++from pathlib import Path
++reg = json.loads(Path('data/registry.json').read_text())
++entry = reg.get('datasets', {}).get('data/returns_daily.csv')
++print(entry)
++fac = json.loads(Path('data/factors/registry.json').read_text())
++fac_entry = fac.get('datasets', {}).get('data/factors/ff5mom_daily.csv')
++print(fac_entry)
++PY
++
++python - <<'PY'
++import hashlib
++from pathlib import Path
++paths = [
++    Path('experiments/eval/config.yaml'),
++    Path('experiments/eval/thresholds.json'),
++    Path('calibration/edge_delta_thresholds.json'),
++]
++for path in paths:
++    data = path.read_bytes()
++    h = hashlib.sha256(data).hexdigest()
++    print(path, h)
++PY
++
++cat > docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/TESTS.md <<'EOF'
++...updated TESTS.md...
++EOF
++
++printf '\ncat > docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/TESTS.md <<\'EOF\'\n...\nEOF\n' >> docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/COMMANDS.md
++
++cat > docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/META.md <<'EOF'
++...updated META.md...
++EOF
++
++cat > docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/RESULTS.md <<'EOF'
++...updated RESULTS.md...
++EOF
++
++git add experiments/eval/run.py tools/make_summary.py src/meta/completeness.py tests/tools/test_make_summary.py
++
++git commit -m "Guard summary eligibility against caps and solver skips" -m "Tests run: make test-fast"
++
++git rev-parse 6df53dd
++
++cat > docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/META.md <<'EOF'
++...updated META.md with code commit...
++EOF
+diff --git a/docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/META.md b/docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/META.md
+new file mode 100644
+index 0000000..685d714
+--- /dev/null
++++ b/docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/META.md
+@@ -0,0 +1,17 @@
++# Meta
++
++- Date: 2025-12-21
++- Run name: 20251221_042859_ticket-02_stop-eval-contamination
++- Git SHA (start): eb880be520eab2f58d50c2efed8b55385ce93488
++- Git SHA (code commit): 6df53dd0686292b98d709bd98f1894f14a076bed
++- Environment: sandbox_mode=danger-full-access, approval_policy=never, network_access=enabled
++- Conflict: AGENTS.md requires a clean git status before starting; user requested proceeding with existing local changes kept uncommitted. Proceeding per user instruction.
++
++## Data registries
++- data/returns_daily.csv: sha256=96ac7dd318245cf1a8b434bb358a9344bf282992fc9fe66f0282023696563197 (registry: data/registry.json)
++- data/factors/ff5mom_daily.csv: sha256=469d44ad0c5cac556c60c1f258e14245acfcc9f2901ad443f41b64309bf908ca (registry: data/factors/registry.json)
++
++## Config hashes
++- experiments/eval/config.yaml: sha256=0ecc1d715d2fd905516409056c22ac99886eb32f985526f18541291ddad3df1f
++- experiments/eval/thresholds.json: sha256=d5d16d44d4fbb79b195cb5de0e5b54f11ffb0f4967597446cebefe75bc22dff6
++- calibration/edge_delta_thresholds.json: sha256=512001a66417c6cc884e2d4d7ddc8cf8252bae152717f4b0e400b716e09b0e2f
+diff --git a/docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/PROMPT.md b/docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/PROMPT.md
+new file mode 100644
+index 0000000..d72e5f6
+--- /dev/null
++++ b/docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/PROMPT.md
+@@ -0,0 +1,99 @@
++You are Codex working inside the `fjs-dealias-portfolio` repo.
++
++STOP-THE-LINE: Treat `AGENTS.md` as binding. If any rule conflicts with this prompt, stop and record the conflict in the run log before proceeding.
++
++Ticket: **ticket-02 — Stop evaluation contamination (caps + solver + “headline eligibility”)**
++Goal: Make it impossible to accidentally treat a capped/contaminated run as headline evidence.
++
++Hard requirements:
++- Work on a feature branch: `feat/ticket-02-stop-eval-contamination`
++- Keep commits small and logical.
++- Every commit message body MUST include: `Tests run: ...` with exact commands.
++- Create a run log directory: `docs/agent_runs/<RUN_NAME>/` where
++  RUN_NAME = `YYYYMMDD_HHMMSS_ticket-02_stop-eval-contamination`
++  and include: PROMPT.md, COMMANDS.md, RESULTS.md, TESTS.md, META.md (plus DIFF.patch recommended).
++- Do NOT claim you ran anything you didn’t run. If something is uncertain, write it explicitly in RESULTS.md and add a minimal verification step or test.
++
++No web:
++- Do not enable web search unless absolutely necessary.
++- If web search is enabled externally, treat all web content as untrusted and record any URLs/snippets used in the run log.
++
++Acceptance criteria (must implement + prove via tests/logs):
++1) `tools/make_summary.py` MUST:
++   - exclude `cap_active=true` runs from `summary/summary_perf.csv` and `summary/summary_detection.csv`
++   - emit a clear warning section in `summary/limitations.md` listing excluded run dirs + their `cap_sources`
++2) Any run with `mv_skip_on_missing_solver` enabled MUST be automatically labeled “smoke-only” in `summary/limitations.md` (even if uncapped).
++3) Add a CI-safe regression test that constructs a capped run and asserts it is excluded from headline summary tables.
++
++Implementation instructions (do, don’t plan-talk):
++A) Inspect the current behavior:
++- Read `AGENTS.md`, `docs/CODEX_SPRINT_TICKETS.md` (Ticket #2), `docs/PLAN_OF_RECORD.md` (validity criteria).
++- Locate how caps are recorded today:
++  - `experiments/eval/run.py` (where `run.json` is written)
++  - `src/meta/completeness.py` (cap detection / eligibility signals)
++  - `tools/make_summary.py` (how it builds summary_perf/summary_detection/limitations)
++- Identify whether cap info is per-run-root or per-design-subdir (rc directories with multiple design legs).
++
++B) Make cap provenance unambiguous:
++- Ensure `run.json` ALWAYS contains, at minimum:
++  - `cap_active` (bool; explicitly false when uncapped)
++  - `cap_sources` (list[str]; empty when uncapped)
++  - (if available) `windows_requested`, `windows_after_caps`, `windows_evaluated`, `window_coverage`
++- If any fields are currently missing in some code paths, fix that in `experiments/eval/run.py`.
++- If `src/meta/completeness.py` computes these, make it consistent and document which source of truth is used.
++
++C) Enforce exclusion in `tools/make_summary.py`:
++- When summarizing an RC directory that contains multiple run/design subdirectories:
++  - compute completeness for each sub-run
++  - EXCLUDE any sub-run with `cap_active=true` from:
++    - `summary_perf.csv`
++    - `summary_detection.csv`
++  - In `limitations.md`, add a clearly labeled section, e.g.:
++    “Excluded smoke-only runs (capped)”
++    listing each excluded path + cap_sources.
++- If the RC directory itself is a single run and it is capped, summary tables should be empty (or not written) AND limitations.md must say “capped → excluded from headline summaries”.
++- Do NOT “solve” this by excluding everything or by turning caps off. The point is *auditability* and *hard guarding*.
++
++D) Enforce solver-skip labeling:
++- Detect when a run used `mv_skip_on_missing_solver` (from resolved config / run.json / diagnostics).
++- Add to `limitations.md` a section like:
++  “Smoke-only: MV skip-on-missing-solver enabled”
++  (and consider also excluding these from headline tables unless PLAN_OF_RECORD says otherwise).
++
++E) Tests (must be CI-safe and deterministic):
++- Add/extend a regression test (likely under `tests/tools/test_make_summary.py`) that:
++  - creates a tiny RC-like directory structure in a temp dir with at least two design runs:
++    - one uncapped (cap_active=false)
++    - one capped (cap_active=true, cap_sources includes "max_windows")
++  - runs the relevant summary function(s)
++  - asserts:
++    - capped design rows are NOT present in summary_perf/summary_detection
++    - limitations.md contains the excluded run path and its cap_sources
++- Do NOT require a large real dataset inside unit tests. Prefer minimal fixtures.
++
++F) Real-data smoke (fast, capped on purpose):
++- Run a deterministic capped smoke that is quick:
++  - `EXEC_MODE=deterministic python -m experiments.eval.run ... --max-windows 5 --out reports/smoke_cap_test`
++- Then:
++  - `PYTHONPATH=src:. python tools/make_summary.py --rc-dir reports/smoke_cap_test`
++- Verify in the outputs:
++  - `summary/limitations.md` clearly flags cap_active + exclusion
++  - `summary_perf.csv` / `summary_detection.csv` are empty or contain only uncapped components (depending on structure)
++- Record exact commands and the key file snippets (paths + a few lines) in RESULTS.md.
++
++G) Documentation updates:
++- Update `PROGRESS.md` with the run + what changed.
++- Update `docs/CODEX_SPRINT_TICKETS.md`: mark Ticket #2 DONE and link to the run log directory.
++- If this resolves a known blocker, update `project_state/KNOWN_ISSUES.md` accordingly (or explicitly note “still open because …”).
++
++H) Finish cleanly:
++- Ensure `make test-fast` passes.
++- Ensure git status is clean.
++- Generate the review bundle:
++  - `make gpt-bundle TICKET=ticket-02 RUN_NAME=<RUN_NAME>`
++- In `docs/agent_runs/<RUN_NAME>/RESULTS.md`, record the produced bundle path under `docs/gpt_bundles/`.
++
++Deliverable is the bundle. Do not merge to main. Stop after bundle generation.
++
++User follow-up:
++"those are mine,go ahead and dont commit them, but keep them local, then conitnue"
+diff --git a/docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/RESULTS.md b/docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/RESULTS.md
+new file mode 100644
+index 0000000..fc657b9
+--- /dev/null
++++ b/docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/RESULTS.md
+@@ -0,0 +1,33 @@
++# Results
++
++- Conflict recorded: AGENTS.md requires a clean git status before starting; user explicitly requested proceeding with a dirty working tree and to keep their local changes uncommitted. Proceeding per user request.
++
++## Code changes
++- `tools/make_summary.py`: exclude capped runs (and mv_skip_on_missing_solver runs) from `summary_perf.csv` / `summary_detection.csv`; add limitations sections listing excluded capped runs with cap_sources and smoke-only MV-skip runs; empty summaries now carry headers to avoid downstream errors.
++- `experiments/eval/run.py`: ensure `run.json` is written even when `metrics_df` is empty, including `cap_active`, `cap_sources`, and window coverage fields.
++- `src/meta/completeness.py`: document run_manifest/run.json as the source of truth for cap/window metadata.
++- `tests/tools/test_make_summary.py`: added regression test building a tiny RC directory with one capped + one uncapped design; asserts capped run excluded and limitations list cap_sources.
++
++## RC-lite sanity (deterministic)
++- `EXEC_MODE=deterministic make rc-lite-sanity` timed out after 120s, 300s, and 600s while running the vol leg; dow leg completed; vol leg completed manually; weekly legs not run.
++- Manual completion: `reports/rc-20251221-sanity-20251221_045550/{dow-tyler,vol-tyler}`.
++- Summary run: `PYTHONPATH=src:. python tools/make_summary.py --rc-dir reports/rc-20251221-sanity-20251221_045550`.
++- Limitations snippet (caps surfaced by date truncation):
++  - `reports/rc-20251221-sanity-20251221_045550/summary/limitations.md`
++    - `## Excluded smoke-only runs (capped)`
++    - `- reports/rc-20251221-sanity-20251221_045550/dow-tyler (cap_sources: date_truncation)`
++    - `- reports/rc-20251221-sanity-20251221_045550/vol-tyler (cap_sources: date_truncation, window_coverage)`
++- Summary tables are empty (capped exclusions):
++  - `reports/rc-20251221-sanity-20251221_045550/summary/summary_perf.csv` rows: 0
++  - `reports/rc-20251221-sanity-20251221_045550/summary/summary_detection.csv` rows: 0
++
++## Capped smoke (required)
++- Run: `EXEC_MODE=deterministic python -m experiments.eval.run ... --max-windows 5 --out reports/smoke_cap_test`.
++- Summary: `PYTHONPATH=src:. python tools/make_summary.py --rc-dir reports/smoke_cap_test`.
++- Limitations snippet:
++  - `reports/smoke_cap_test/summary/limitations.md`
++    - `## Excluded smoke-only runs (capped)`
++    - `- reports/smoke_cap_test (cap_sources: max_windows, window_coverage)`
++- Summary tables are empty as expected:
++  - `reports/smoke_cap_test/summary/summary_perf.csv` rows: 0
++  - `reports/smoke_cap_test/summary/summary_detection.csv` rows: 0
+diff --git a/docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/TESTS.md b/docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/TESTS.md
+new file mode 100644
+index 0000000..cccfbea
+--- /dev/null
++++ b/docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/TESTS.md
+@@ -0,0 +1,8 @@
++# Tests
++
++- `make test-fast` (pass; 69 passed, 162 deselected, 1 warning: PytestConfigWarning unknown timeout option).
++- `EXEC_MODE=deterministic make rc-lite-sanity` (timed out at 120s, 300s, 600s; dow leg completed; vol leg completed manually; weekly legs not run).
++- `EXEC_MODE=deterministic PYTHONPATH=src:. OMP_NUM_THREADS=1 python3 experiments/eval/run.py ... --group-design vol --out reports/rc-20251221-sanity-20251221_045550/vol-tyler` (pass).
++- `PYTHONPATH=src:. python tools/make_summary.py --rc-dir reports/rc-20251221-sanity-20251221_045550` (pass).
++- `EXEC_MODE=deterministic python -m experiments.eval.run ... --max-windows 5 --out reports/smoke_cap_test` (pass).
++- `PYTHONPATH=src:. python tools/make_summary.py --rc-dir reports/smoke_cap_test` (pass).
+diff --git a/experiments/eval/run.py b/experiments/eval/run.py
+index e49ed55..1dd237d 100644
+--- a/experiments/eval/run.py
++++ b/experiments/eval/run.py
+@@ -3096,6 +3096,56 @@ def run_evaluation(
+             columns=["regime", "portfolio", "estimator", "skip_reason", "windows", "skip_count", "skip_share"]
+         ).to_csv(skip_all_path, index=False)
+         outputs_skip["all"] = skip_all_path
++        overlay_toggle_path = out_dir / "overlay_toggle.md"
++        _write_overlay_toggle(overlay_toggle_path, pd.DataFrame())
++        flip_dm_path = out_dir / "dm_flip_only.csv"
++        pd.DataFrame(
++            columns=["portfolio", "baseline", "test", "stat", "p_value", "n_effective"]
++        ).to_csv(flip_dm_path, index=False)
++        plot_paths = _paths_to_strings(outputs_plots)
++        run_metadata = {
++            "git_sha": _current_git_sha(),
++            "out_dir": str(out_dir),
++            "config": resolved_payload,
++            "execution": {
++                "mode": resolved_payload.get("exec_mode", "deterministic"),
++                "thread_caps": runtime.thread_caps_snapshot(),
++            },
++            "windows": {
++                "windows_requested": windows_requested,
++                "windows_after_caps": windows_after_caps,
++                "windows_evaluated": windows_evaluated,
++                "window_coverage": windows_coverage,
++                "cap_active": caps_active,
++                "cap_sources": cap_sources,
++            },
++            "use_factor_prewhiten": bool(config.use_factor_prewhiten),
++            "factors": (
++                {
++                    "key": factor_entry.key,
++                    "path": str(factor_entry.path),
++                    "sha256": factor_entry.sha256,
++                    "start_date": factor_entry.start_date,
++                    "end_date": factor_entry.end_date,
++                    "source": factor_entry.source,
++                    "note": factor_entry.note,
++                }
++                if factor_entry is not None
++                else None
++            ),
++            "outputs": {
++                "metrics": _paths_to_strings(outputs_metrics),
++                "risk": _paths_to_strings(outputs_risk),
++                "dm": _paths_to_strings(outputs_dm),
++                "dm_flip_only": str(flip_dm_path),
++                "diagnostics": _paths_to_strings(outputs_diag),
++                "diagnostics_detail": _paths_to_strings(outputs_diag_detail),
++                "skip_stats": _paths_to_strings(outputs_skip),
++                "plots": plot_paths,
++                "overlay_toggle": str(overlay_toggle_path),
++            },
++        }
++        _write_run_metadata(out_dir / "run.json", run_metadata)
+         return EvalOutputs(
+             outputs_metrics,
+             outputs_risk,
+diff --git a/project_state/KNOWN_ISSUES.md b/project_state/KNOWN_ISSUES.md
+index 271c82f..5a06f17 100644
+--- a/project_state/KNOWN_ISSUES.md
++++ b/project_state/KNOWN_ISSUES.md
+@@ -1,19 +1,15 @@
+ ---
+-generated: 2025-12-20T20:36:15+00:00
+-git_sha: 39e2889e353f54cbd502162f8aca5e9b3cc212b0
+-git_branch: codex/ticket-09-gating-diagnostics-attribution
++generated: 2025-12-20T23:30:37Z
++git_sha: a7d76d8cf7f5fe4c9765c335530064170a0ca87a
++git_branch: chore/project_state_refresh
+ commands:
+-  - manual update during ticket-09 (gating diagnostics attribution)
++  - python tools/generate_project_state.py
++  - python - <<'PY' (rebuild project_state docs)
+ ---
+ 
+-# Known Issues / Limitations
++# Known Issues
+ 
+-- **Evaluation contamination (aligned windows)** — RESOLVED in tickets 11/15: Δ/DM now use aligned window intersections with `n_effective_*` and `comparison_valid*` surfaced; caps/truncation recorded in run metadata and excluded from headline aggregates. Residual risk: tiny caps can still invalidate comparisons when aligned sample < `min_comparison_windows` (default 30); monitor n_effective in smoke outputs before citing results.
+-
+-- **Nested calibration refreshed (2025-12-20)** — Synthetic kill-test (p=200, weeks 6–8, reps=5, tyler) shows 0/220 null detections (Wilson hi=0.017) with power 1.0 on moderate/strong spikes at delta_frac=0.05; calibration saved to `calibration/nested_edge_delta_thresholds.json` (RUN_NAME `20251220_011519_ticket-10_nested-null-fpr`) with embedded metadata/config hash. Real-data nested smoke rechecked (deterministic, max_windows=3) and still blocked: all 3 windows skipped with `calibration_missing_p_T` (p≈188, T=70/80 outside calibrated grid) and stability guards; delta_frac fell back to config 0.008. Need calibrated coverage for smaller p to unlock nested acceptance.
+-- **Guardrail attribution unclear** — RESOLVED in ticket-09: gating diagnostics emit explicit skip_reason_primary/detail plus exception_type/stage/message_short; `guard_other` is unreachable in smokes (0 counts) and unknown guard keys now surface as `guard_unknown` with key detail. Monitor future smokes for regressions.
+-- **Crisis degradation risk** — Crisis 2020/2022 configs have shown harmful overlay in past runs; keep gates strict and validate completeness before using crisis outputs.
+-- **Vol-state acceptance low** — Vol-state design remains below target detection/acceptance (≈0–0.7% in recent runs) despite prewhitening tweaks.
+-- **Cache staleness** — `.cache/` keys do not encode reporting/evaluation code; invalidate caches when changing summary logic or gating defaults.
+-- **Optional dependencies** — `cvxpy` is required for MV optimisation; absence now raises `MissingSolverError` unless `mv_skip_on_missing_solver` is set (skip produces flagged empty weights). Matplotlib is optional; plots are skipped when missing.
+-- **Large outputs** — Historical outputs in `experiments/equity_panel/outputs_*` and `reports/` can be heavy; avoid deleting or overwriting, create new timestamped dirs instead.
++- **Nested calibration coverage gap**: Weekly nested smokes show `calibration_missing_p_T` for `p~188` and `Tin{70,80}` (see `experiments/equity_panel/outputs_nested_smoke_tiny/`).
++- **Weekly detection scarcity**: Many weekly/nested runs still report zero detections; overlay is effectively off in those windows (see `experiments/equity_panel/outputs_nested_smoke*/summary.json`).
++- **Capped runs not headline (resolved 2025-12-21)**: `tools/make_summary.py` now excludes `cap_active=true` runs from headline tables and lists cap sources in limitations (ticket-02).
++- **Heavy ablation runtime**: `make rc-ablations` can time out on local hosts; use smaller grids or remote hosts.
+diff --git a/src/meta/completeness.py b/src/meta/completeness.py
+index 0daccc3..ac88c55 100644
+--- a/src/meta/completeness.py
++++ b/src/meta/completeness.py
+@@ -107,6 +107,7 @@ def evaluate_eval_run(
+     present = run_dir.exists()
+     missing_files: list[str] = []
+ 
++    # Source of truth for cap/window metadata: run_manifest.json when present, else run.json.
+     manifest = _load_json(run_dir / "run_manifest.json")
+     manifest_source = "run_manifest.json"
+     if not manifest:
+diff --git a/tests/tools/test_make_summary.py b/tests/tools/test_make_summary.py
+index 846c631..89f2d70 100644
+--- a/tests/tools/test_make_summary.py
++++ b/tests/tools/test_make_summary.py
+@@ -18,6 +18,118 @@ def _copy_sample_rc(tmp_path: Path) -> Path:
+     return dest
+ 
+ 
++def _write_minimal_design_run(
++    run_dir: Path,
++    *,
++    cap_active: bool,
++    cap_sources: list[str],
++    mv_skip_on_missing_solver: bool,
++    overlay_delta: float,
++    detection_rate: float,
++) -> None:
++    run_dir.mkdir(parents=True, exist_ok=True)
++    run_payload = {
++        "config": {"mv_skip_on_missing_solver": mv_skip_on_missing_solver},
++        "windows": {
++            "cap_active": cap_active,
++            "cap_sources": cap_sources,
++            "windows_requested": 10,
++            "windows_after_caps": 10,
++            "windows_evaluated": 10,
++            "window_coverage": 1.0,
++        },
++    }
++    (run_dir / "run.json").write_text(json.dumps(run_payload), encoding="utf-8")
++    full_dir = run_dir / "full"
++    full_dir.mkdir(parents=True, exist_ok=True)
++    metrics_df = pd.DataFrame(
++        [
++            {
++                "regime": "full",
++                "estimator": "overlay",
++                "portfolio": "ew",
++                "delta_mse_vs_baseline": overlay_delta,
++                "delta_mse_ci_lower": overlay_delta - 0.1,
++                "delta_mse_ci_upper": overlay_delta + 0.1,
++                "delta_es_vs_baseline": overlay_delta,
++                "var95": 0.1,
++                "es95": 0.2,
++                "realised_var": 0.3,
++                "realised_es": 0.4,
++                "n_effective_mse": 5,
++                "n_effective_es": 5,
++                "n_effective_qlike": 5,
++                "comparison_valid": 1,
++            },
++            {
++                "regime": "full",
++                "estimator": "baseline",
++                "portfolio": "ew",
++                "var95": 0.05,
++                "es95": 0.15,
++                "realised_var": 0.25,
++                "realised_es": 0.35,
++            },
++        ]
++    )
++    metrics_df.to_csv(full_dir / "metrics.csv", index=False)
++    dm_df = pd.DataFrame(
++        [
++            {
++                "regime": "full",
++                "portfolio": "ew",
++                "baseline": "baseline",
++                "dm_stat": overlay_delta,
++                "p_value": 0.5,
++                "n_effective": 5,
++                "comparison_valid": 1,
++            }
++        ]
++    )
++    dm_df.to_csv(full_dir / "dm.csv", index=False)
++    diag_df = pd.DataFrame(
++        [
++            {
++                "regime": "full",
++                "detections": 1,
++                "detection_rate": detection_rate,
++                "isolation_share": 0.2,
++                "edge_margin_mean": 0.3,
++                "stability_margin_mean": 0.4,
++                "alignment_cos_mean": 0.5,
++                "alignment_angle_mean": 0.6,
++            }
++        ]
++    )
++    diag_df.to_csv(full_dir / "diagnostics.csv", index=False)
++    detail_df = pd.DataFrame(
++        [
++            {
++                "regime": "full",
++                "detections": 1,
++                "detection_rate": detection_rate,
++                "isolation_share": 0.2,
++                "edge_margin_mean": 0.3,
++                "stability_margin_mean": 0.4,
++                "alignment_cos_mean": 0.5,
++                "alignment_angle_mean": 0.6,
++            }
++        ]
++    )
++    detail_df.to_csv(full_dir / "diagnostics_detail.csv", index=False)
++    pd.DataFrame(
++        columns=[
++            "regime",
++            "portfolio",
++            "estimator",
++            "skip_reason",
++            "windows",
++            "skip_count",
++            "skip_share",
++        ]
++    ).to_csv(full_dir / "skip_stats.csv", index=False)
++
++
+ def test_summarise_rc_directory(tmp_path: Path) -> None:
+     rc_dir = _copy_sample_rc(tmp_path)
+     artifacts = summarise_rc_directory(rc_dir)
+@@ -93,3 +205,40 @@ def test_summarise_rc_directory(tmp_path: Path) -> None:
+         "qlike_treat",
+     }
+     assert required_overlay_cols.issubset(overlay_df.columns)
++
++
++def test_make_summary_excludes_capped_design_runs(tmp_path: Path) -> None:
++    rc_root = tmp_path / "reports" / "rc-caps"
++    uncapped_dir = rc_root / "design-uncapped"
++    capped_dir = rc_root / "design-capped"
++    _write_minimal_design_run(
++        uncapped_dir,
++        cap_active=False,
++        cap_sources=[],
++        mv_skip_on_missing_solver=False,
++        overlay_delta=1.0,
++        detection_rate=0.1,
++    )
++    _write_minimal_design_run(
++        capped_dir,
++        cap_active=True,
++        cap_sources=["max_windows"],
++        mv_skip_on_missing_solver=False,
++        overlay_delta=100.0,
++        detection_rate=0.9,
++    )
++
++    write_summaries([rc_root])
++    summary_dir = rc_root / "summary"
++    perf_df = pd.read_csv(summary_dir / "summary_perf.csv")
++    det_df = pd.read_csv(summary_dir / "summary_detection.csv")
++
++    perf_row = perf_df[(perf_df["regime"] == "full") & (perf_df["portfolio"] == "ew")].iloc[0]
++    det_row = det_df[(det_df["regime"] == "full")].iloc[0]
++
++    assert perf_row["delta_mse_vs_baseline"] == 1.0
++    assert det_row["detection_rate_mean"] == 0.1
++
++    limits = (summary_dir / "limitations.md").read_text(encoding="utf-8")
++    assert str(capped_dir.resolve()) in limits
++    assert "max_windows" in limits
+diff --git a/tools/make_summary.py b/tools/make_summary.py
+index bf276d1..f96ef4a 100644
+--- a/tools/make_summary.py
++++ b/tools/make_summary.py
+@@ -38,6 +38,78 @@ OVERLAY_FORENSICS_COLUMNS: Sequence[str] = (
+     "qlike_base",
+     "qlike_treat",
+ )
++PERF_COLUMNS: Sequence[str] = (
++    "rc_run",
++    "regime",
++    "portfolio",
++    "delta_mse_vs_baseline",
++    "delta_mse_ci_lower",
++    "delta_mse_ci_upper",
++    "delta_es_vs_baseline",
++    "var95_overlay",
++    "var95_baseline",
++    "es95_overlay",
++    "es95_baseline",
++    "realised_var_overlay",
++    "realised_var_baseline",
++    "realised_es_overlay",
++    "realised_es_baseline",
++    "dm_stat",
++    "dm_p_value",
++    "n_effective",
++    "n_effective_mse",
++    "n_effective_es",
++    "n_effective_qlike",
++    "comparison_valid_dm",
++    "comparison_valid_delta",
++    "cap_active",
++    "cap_sources",
++    "window_coverage",
++)
++DET_COLUMNS: Sequence[str] = (
++    "rc_run",
++    "regime",
++    "windows",
++    "detection_windows",
++    "detections_mean",
++    "detection_rate_mean",
++    "detection_rate_median",
++    "isolation_share_mean",
++    "isolation_share_median",
++    "edge_margin_mean",
++    "edge_margin_median",
++    "edge_margin_p10",
++    "edge_margin_p90",
++    "stability_margin_mean",
++    "stability_margin_median",
++    "stability_margin_p10",
++    "stability_margin_p90",
++    "isolation_share_p10",
++    "isolation_share_p90",
++    "alignment_cos_mean",
++    "alignment_cos_median",
++    "alignment_cos_p10",
++    "alignment_cos_p90",
++    "alignment_angle_mean",
++    "alignment_angle_median",
++    "reason_code_mode",
++    "calm_threshold_mean",
++    "crisis_threshold_mean",
++    "vol_signal_mean",
++    "resolved_config_path",
++    "cap_active",
++    "cap_sources",
++    "window_coverage",
++)
++SKIP_COLUMNS: Sequence[str] = (
++    "regime",
++    "portfolio",
++    "estimator",
++    "skip_reason",
++    "windows",
++    "skip_count",
++    "skip_share",
++)
+ 
+ 
+ @dataclass(frozen=True, slots=True)
+@@ -46,6 +118,16 @@ class SummaryArtifacts:
+     detection: pd.DataFrame
+     skip_stats: pd.DataFrame
+     completeness: CompletenessResult | None = None
++    run_eligibility: tuple["RunEligibility", ...] = ()
++
++
++@dataclass(frozen=True, slots=True)
++class RunEligibility:
++    run_dir: Path
++    display_path: str
++    completeness: CompletenessResult
++    mv_skip_on_missing_solver: bool
++    excluded_from_summary: bool
+ 
+ 
+ def _read_csv(path: Path) -> pd.DataFrame:
+@@ -66,6 +148,57 @@ def _read_json(path: Path) -> dict[str, Any]:
+         return {}
+ 
+ 
++def _empty_perf_df() -> pd.DataFrame:
++    return pd.DataFrame(columns=PERF_COLUMNS)
++
++
++def _empty_det_df() -> pd.DataFrame:
++    return pd.DataFrame(columns=DET_COLUMNS)
++
++
++def _empty_skip_df() -> pd.DataFrame:
++    return pd.DataFrame(columns=SKIP_COLUMNS)
++
++
++def _is_run_dir(path: Path) -> bool:
++    if not path.is_dir():
++        return False
++    if (path / "run.json").exists() or (path / "run_manifest.json").exists():
++        return True
++    return any((path / regime).is_dir() for regime in REGIMES)
++
++
++def _discover_design_dirs(rc_dir: Path) -> list[Path]:
++    candidates = [
++        child
++        for child in rc_dir.iterdir()
++        if child.is_dir() and child.name != "summary" and _is_run_dir(child)
++    ]
++    return sorted(candidates)
++
++
++def _read_mv_skip_on_missing_solver(run_dir: Path) -> bool:
++    payload = _read_json(run_dir / "run.json")
++    config = payload.get("config")
++    if isinstance(config, dict) and "mv_skip_on_missing_solver" in config:
++        return bool(config.get("mv_skip_on_missing_solver"))
++    return bool(payload.get("mv_skip_on_missing_solver", False))
++
++
++def _aggregate_completeness(eligible_runs: Sequence[RunEligibility]) -> tuple[bool, list[str], float | None]:
++    if not eligible_runs:
++        return False, [], None
++    cap_active = any(run.completeness.cap_active for run in eligible_runs)
++    cap_sources = sorted({src for run in eligible_runs for src in run.completeness.cap_sources})
++    coverages = [
++        run.completeness.window_coverage
++        for run in eligible_runs
++        if run.completeness.window_coverage is not None
++    ]
++    coverage = min(coverages) if coverages else None
++    return cap_active, cap_sources, coverage
++
++
+ def _normalise(series: pd.Series, value: str) -> pd.Series:
+     if series.empty:
+         return series
+@@ -542,7 +675,51 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
+         run_type="rc",
+     )
+     root_detail = _read_csv(rc_dir / "diagnostics_detail.csv")
+-    design_dirs = [child for child in rc_dir.iterdir() if child.is_dir() and child.name != "summary"]
++    design_dirs = _discover_design_dirs(rc_dir)
++    root_has_metrics = any((rc_dir / regime / "metrics.csv").exists() for regime in REGIMES)
++    use_design_dirs = (not root_has_metrics) and bool(design_dirs)
++    run_dirs = design_dirs if use_design_dirs else [rc_dir]
++    run_eligibility: list[RunEligibility] = []
++    for run_dir in run_dirs:
++        run_comp = evaluate_eval_run(
++            run_dir,
++            label=run_dir.name,
++            require_manifest=False,
++            allow_unknown_coverage=True,
++            run_type="rc",
++        )
++        mv_skip = _read_mv_skip_on_missing_solver(run_dir)
++        excluded = run_comp.cap_active or mv_skip
++        run_eligibility.append(
++            RunEligibility(
++                run_dir=run_dir,
++                display_path=_display_path(run_dir),
++                completeness=run_comp,
++                mv_skip_on_missing_solver=mv_skip,
++                excluded_from_summary=excluded,
++            )
++        )
++    eligible_runs = [run for run in run_eligibility if not run.excluded_from_summary]
++    eligible_dirs = [run.run_dir for run in eligible_runs]
++    if not eligible_dirs:
++        return SummaryArtifacts(
++            performance=_empty_perf_df(),
++            detection=_empty_det_df(),
++            skip_stats=_empty_skip_df(),
++            completeness=completeness,
++            run_eligibility=tuple(run_eligibility),
++        )
++    if use_design_dirs:
++        summary_cap_active, summary_cap_sources, summary_window_coverage = _aggregate_completeness(
++            eligible_runs
++        )
++    else:
++        run_comp = run_eligibility[0].completeness if run_eligibility else completeness
++        summary_cap_active = bool(run_comp.cap_active) if run_comp else False
++        summary_cap_sources = list(run_comp.cap_sources) if run_comp else []
++        summary_window_coverage = run_comp.window_coverage if run_comp else None
++
++    data_dirs = eligible_dirs if use_design_dirs else [rc_dir]
+     perf_records: list[dict[str, object]] = []
+     det_records: list[dict[str, object]] = []
+     skip_frames: list[pd.DataFrame] = []
+@@ -553,14 +730,14 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
+         diag_path = rc_dir / regime / "diagnostics.csv"
+         skip_path = rc_dir / regime / "skip_stats.csv"
+ 
+-        use_design_dirs = not metrics_path.exists() and any((d / regime).exists() for d in design_dirs)
++        use_design_dirs_for_regime = not metrics_path.exists() and any((d / regime).exists() for d in data_dirs)
+ 
+-        if use_design_dirs:
+-            metrics_df = _concat_if_exists(d / regime / "metrics.csv" for d in design_dirs)
+-            dm_df = _concat_if_exists(d / regime / "dm.csv" for d in design_dirs)
+-            diag_df = _concat_if_exists(d / regime / "diagnostics.csv" for d in design_dirs)
+-            detail_df = _concat_if_exists(d / regime / "diagnostics_detail.csv" for d in design_dirs)
+-            skip_df = _concat_if_exists(d / regime / "skip_stats.csv" for d in design_dirs)
++        if use_design_dirs_for_regime:
++            metrics_df = _concat_if_exists(d / regime / "metrics.csv" for d in data_dirs)
++            dm_df = _concat_if_exists(d / regime / "dm.csv" for d in data_dirs)
++            diag_df = _concat_if_exists(d / regime / "diagnostics.csv" for d in data_dirs)
++            detail_df = _concat_if_exists(d / regime / "diagnostics_detail.csv" for d in data_dirs)
++            skip_df = _concat_if_exists(d / regime / "skip_stats.csv" for d in data_dirs)
+         else:
+             metrics_df = _read_csv(metrics_path)
+             dm_df = _read_csv(dm_path)
+@@ -602,9 +779,9 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
+                 "n_effective_qlike": float("nan"),
+                 "comparison_valid_dm": float("nan"),
+                 "comparison_valid_delta": float("nan"),
+-                "cap_active": completeness.cap_active,
+-                "cap_sources": ",".join(completeness.cap_sources),
+-                "window_coverage": completeness.window_coverage,
++                "cap_active": summary_cap_active,
++                "cap_sources": ",".join(summary_cap_sources),
++                "window_coverage": summary_window_coverage,
+             }
+ 
+             if overlay_row is not None:
+@@ -709,16 +886,28 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
+             "crisis_threshold_mean": _numeric(diag_row, "crisis_threshold"),
+             "vol_signal_mean": _numeric(diag_row, "vol_signal"),
+             "resolved_config_path": _string(diag_row, "resolved_config_path"),
+-            "cap_active": completeness.cap_active,
+-            "cap_sources": ",".join(completeness.cap_sources),
+-            "window_coverage": completeness.window_coverage,
++            "cap_active": summary_cap_active,
++            "cap_sources": ",".join(summary_cap_sources),
++            "window_coverage": summary_window_coverage,
+         }
+         det_records.append(det_record)
+ 
+     perf_df = pd.DataFrame(perf_records)
+     det_df = pd.DataFrame(det_records)
+     skip_df_all = pd.concat(skip_frames, ignore_index=True) if skip_frames else pd.DataFrame()
+-    return SummaryArtifacts(performance=perf_df, detection=det_df, skip_stats=skip_df_all, completeness=completeness)
++    if perf_df.empty:
++        perf_df = _empty_perf_df()
++    if det_df.empty:
++        det_df = _empty_det_df()
++    if skip_df_all.empty:
++        skip_df_all = _empty_skip_df()
++    return SummaryArtifacts(
++        performance=perf_df,
++        detection=det_df,
++        skip_stats=skip_df_all,
++        completeness=completeness,
++        run_eligibility=tuple(run_eligibility),
++    )
+ 
+ 
+ def _discover_rc_dirs(root: Path, patterns: Iterable[str] | None, all_runs: bool, rc_dir: Path | None) -> list[Path]:
+@@ -773,31 +962,66 @@ def write_summaries(rc_dirs: Iterable[Path]) -> dict[Path, SummaryArtifacts]:
+             artifacts.performance, artifacts.detection, directory.name
+         )
+         comp = artifacts.completeness
++        run_eligibility = artifacts.run_eligibility
++        single_run = (
++            comp is not None
++            and len(run_eligibility) == 1
++            and run_eligibility[0].run_dir.resolve() == directory.resolve()
++        )
+         if comp is not None:
+             kill_data["completeness"] = comp.as_dict()
+-            if not comp.is_complete:
+-                limitations.append(comp.incomplete_reason or "run marked incomplete")
+-            if comp.window_coverage is not None and comp.window_coverage < 1.0:
+-                limitations.append(
+-                    f"window coverage {comp.window_coverage:.3g} < 1.0; excluded from aggregates."
+-                )
+-            if comp.cap_active:
+-                reason = ", ".join(comp.cap_sources) if comp.cap_sources else "cap_active=true"
+-                limitations.append(f"run capped ({reason}); excluded from aggregates.")
++            if single_run:
++                if not comp.is_complete:
++                    limitations.append(comp.incomplete_reason or "run marked incomplete")
++                if comp.window_coverage is not None and comp.window_coverage < 1.0:
++                    limitations.append(
++                        f"window coverage {comp.window_coverage:.3g} < 1.0; excluded from aggregates."
++                    )
++                if comp.cap_active:
++                    reason = ", ".join(comp.cap_sources) if comp.cap_sources else "cap_active=true"
++                    limitations.append(f"run capped ({reason}); excluded from aggregates.")
+         limitations.extend(overlay_warnings)
+         if overlay_df.empty:
+             limitations.append("overlay_forensics.csv empty or missing changed windows (see diagnostics_detail.csv).")
+         limitations.append(
+             "Overlay forensics: see summary/overlay_forensics.csv for changed-window diagnostics and loss deltas."
+         )
++        invalid_rows = artifacts.performance[
++            (artifacts.performance.get("comparison_valid_delta") == 0)
++            | (artifacts.performance.get("comparison_valid_dm") == 0)
++        ]
++        if not invalid_rows.empty:
++            limitations.append(
++                "Some comparisons marked invalid due to insufficient aligned windows (see summary_perf.csv)."
++            )
+ 
+         kill_path = summary_dir / "kill_criteria.json"
+         kill_path.write_text(json.dumps(kill_data, indent=2, sort_keys=True), encoding="utf-8")
++        limitation_lines: list[str] = []
++        capped_runs = [run for run in run_eligibility if run.completeness.cap_active]
++        if capped_runs:
++            limitation_lines.append("## Excluded smoke-only runs (capped)")
++            for run in capped_runs:
++                cap_note = ", ".join(run.completeness.cap_sources) if run.completeness.cap_sources else "cap_active=true"
++                limitation_lines.append(f"- {run.display_path} (cap_sources: {cap_note})")
++        mv_skip_runs = [run for run in run_eligibility if run.mv_skip_on_missing_solver]
++        if mv_skip_runs:
++            if limitation_lines:
++                limitation_lines.append("")
++            limitation_lines.append("## Smoke-only: MV skip-on-missing-solver enabled")
++            for run in mv_skip_runs:
++                suffix = "excluded from headline summaries" if run.excluded_from_summary else "not excluded"
++                limitation_lines.append(f"- {run.display_path} ({suffix})")
+         if limitations:
+             deduped = list(dict.fromkeys(limitations))
+-            text = "\n".join(f"- {item}" for item in deduped)
+-        else:
++            if limitation_lines:
++                limitation_lines.append("")
++            limitation_lines.append("## Other limitations")
++            limitation_lines.extend(f"- {item}" for item in deduped)
++        if not limitation_lines:
+             text = "No critical limitations detected under current criteria."
++        else:
++            text = "\n".join(limitation_lines)
+         limitations_path = summary_dir / "limitations.md"
+         limitations_path.write_text(text, encoding="utf-8")
+         print(f"[make_summary] Wrote {_display_path(kill_path)}")
+@@ -807,14 +1031,6 @@ def write_summaries(rc_dirs: Iterable[Path]) -> dict[Path, SummaryArtifacts]:
+             comp_path = summary_dir / "completeness.json"
+             comp_path.write_text(json.dumps(comp.as_dict(), indent=2, sort_keys=True), encoding="utf-8")
+             print(f"[make_summary] Wrote {_display_path(comp_path)}")
+-        invalid_rows = artifacts.performance[
+-            (artifacts.performance.get("comparison_valid_delta") == 0)
+-            | (artifacts.performance.get("comparison_valid_dm") == 0)
+-        ]
+-        if not invalid_rows.empty:
+-            limitations.append(
+-                "Some comparisons marked invalid due to insufficient aligned windows (see summary_perf.csv)."
+-            )
+     return outputs
+ 
+ 

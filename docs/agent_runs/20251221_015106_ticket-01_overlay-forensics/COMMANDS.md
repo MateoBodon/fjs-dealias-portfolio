@@ -329,3 +329,9 @@ entry = """## 2025-12-21T01:36Z — ticket-01 overlay forensics (daily RC)
 """
 path.write_text(entry + existing, encoding='utf-8')
 PY
+git add experiments/eval/run.py tools/make_summary.py tests/tools/test_make_summary.py tests/experiments/test_eval_run.py docs/agent_runs/20251221_015106_ticket-01_overlay-forensics
+git diff --cached --stat
+git commit -m "Add overlay forensics summary" -m "Tests run: make test-fast"
+git add PROGRESS.md docs/agent_runs/20251221_015106_ticket-01_overlay-forensics/COMMANDS.md
+git diff --cached --stat
+git commit -m "Update progress for ticket-01 overlay forensics" -m "Tests run: make test-fast"

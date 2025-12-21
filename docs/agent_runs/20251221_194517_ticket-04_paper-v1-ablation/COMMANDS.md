@@ -231,3 +231,6 @@ PY
 - git status --porcelain
 - git add Makefile experiments/eval/config.paper_v1.yaml experiments/eval/run.py tools/make_summary.py tools/paper_v1_ablation.py tests/tools/test_paper_v1_ablation.py
 - git commit -m "feat: add paper v1 ablation runner" -m "Tests run: make test-fast"
+- git add PROGRESS.md docs/CODEX_SPRINT_TICKETS.md docs/agent_runs/20251221_194517_ticket-04_paper-v1-ablation
+- git commit -m "docs: record ticket-04 ablation run" -m "Tests run: make test-fast"
+- git status --porcelain

@@ -367,3 +367,7 @@ PY
 git log -n 3 --pretty=fuller
 rg -n "overlay_forensics|cap_active|cap_sources|skip_reason|missing_solver|silent|fallback|max_windows|filter" docs/agent_runs/20251221_015106_ticket-01_overlay-forensics/DIFF.patch | head -n 120
 rg -n "overlay_forensics|changed_flag|cap_active|filter|max_windows|skip_reason" -n docs/agent_runs/20251221_015106_ticket-01_overlay-forensics/DIFF.patch | head -n 200
+git stash push -u -m "pre-merge local files"
+git checkout main
+git merge --no-ff feat/ticket-01-overlay-forensics -m "Merge feat/ticket-01-overlay-forensics"
+git stash pop

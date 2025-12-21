@@ -1,0 +1,182 @@
+diff --git a/PROGRESS.md b/PROGRESS.md
+index 046658e..b7383db 100644
+--- a/PROGRESS.md
++++ b/PROGRESS.md
+@@ -1,3 +1,9 @@
++## 2025-12-21T06:21Z — WRDS lake inventory doc
++- **Branch/Run**: `feat/ticket-02-stop-eval-contamination` (RUN_NAME=`20251221_072005_ticket-02_wrds-lake-doc`), git sha `27a3afcb4770ad24800efd30af1a5ee4451f806f`.
++- **Commands**: `make test-fast`.
++- **Changes**: documented external WRDS lake structure (user mirror at `/Volumes/Storage/Data`) in `docs/DOCS_AND_LOGGING_SYSTEM.md` for future refresh provenance; noted that mirror is local-only and not visible in CI.
++- **Artifacts**: run log `docs/agent_runs/20251221_072005_ticket-02_wrds-lake-doc/`.
++
+ ## 2025-12-21T06:00Z — data mount documentation (external WRDS mirror)
+ - **Branch/Run**: `feat/ticket-02-stop-eval-contamination` (RUN_NAME=`20251221_065852_ticket-00_data-mount`), git sha `8ac9c14cd0e134aee8bf7a803891a0c476250a95`.
+ - **Actions**: documented the requirement to log external data mirror paths in `docs/DOCS_AND_LOGGING_SYSTEM.md`; attempted to inspect `/Volumes/Storage/Data` but the path is not visible in this environment.
+diff --git a/docs/DOCS_AND_LOGGING_SYSTEM.md b/docs/DOCS_AND_LOGGING_SYSTEM.md
+index 4e71d8d..b712205 100644
+--- a/docs/DOCS_AND_LOGGING_SYSTEM.md
++++ b/docs/DOCS_AND_LOGGING_SYSTEM.md
+@@ -68,9 +68,70 @@ Record:
+   - `data/registry.json` entry key for returns dataset
+   - `data/factors/registry.json` entry key for factors dataset
+ - local data mirror / mount path (if using external storage) and how it is linked into `data/` (symlink or bind mount)
++- external WRDS lake inventory (when available) so future refreshes can be traced
+ - verification command used:
+   - `python tools/verify_dataset.py ...` (or the Make target that runs it)
+ 
++#### External WRDS lake inventory (user-provided mirror)
++If you have a full WRDS mirror available locally, record the root path + structure here.
++This is **not** required for daily runs (we only need `data/returns_daily.csv` and
++`data/factors/ff5mom_daily.csv`), but it is the source of truth for refreshes.
++
++**Local mirror (macOS)**: `/Volumes/Storage/Data` (user-reported; not visible in CI)
++
++```
++/Volumes/Storage/Data
++  wrds/
++    raw/           # primary raw extracts
++    manifests/     # ingestion manifests (timestamped)
++    derived/       # (empty placeholder)
++    meta/          # (empty placeholder)
++    universes/     # (empty placeholder)
++
++    raw/crsp/
++      dsf/         # yearly partitions 2005–2024
++      dsf_v2/      # yearly partitions 2005–2024
++      dsenames.parquet
++      dsedelist.parquet
++      dsp500list.parquet
++      dsp500list_v2.parquet
++      msp500list.parquet
++      ccmxpf_linktable.parquet
++      ccmxpf_lnkhist.parquet
++
++    raw/comp/
++      funda/       # yearly partitions 2005–2025
++      fundq/       # yearly partitions 2005–2025
++      company.parquet
++
++    raw/optionm/
++      secnmd.parquet
++      opprcd/      # yearly partitions 2005–2025
++      secprd/      # yearly partitions 2005–2025
++      distrd/      # yearly partitions 2005–2025
++      zerocd/      # yearly partitions 2005–2025
++      zero_curve/  # empty placeholder
++      wrdsapps_opcrsphist.parquet  # OptionMetrics↔CRSP link
++
++    raw/ff/
++      factors_daily.parquet
++
++    manifests/
++      20251220_204920
++      20251220_212339
++      20251220_214010
++      20251220_214218
++      20251220_214458
++      20251220_214625
++      20251220_221935
++      20251220_223429
++      20251221_001039
++      20251221_001618
++```
++
++**Usage note:** keep the mirror outside git; symlink into `data/` only when
++regenerating `data/returns_daily.csv` or factor files.
++
+ ### 3.3 Config provenance
+ Record:
+ - exact CLI invocation (including flags)
+diff --git a/docs/agent_runs/20251221_072005_ticket-02_wrds-lake-doc/COMMANDS.md b/docs/agent_runs/20251221_072005_ticket-02_wrds-lake-doc/COMMANDS.md
+new file mode 100644
+index 0000000..c825faf
+--- /dev/null
++++ b/docs/agent_runs/20251221_072005_ticket-02_wrds-lake-doc/COMMANDS.md
+@@ -0,0 +1,25 @@
++# Commands
++
++date +%Y%m%d_%H%M%S
++
++mkdir -p docs/agent_runs/20251221_072005_ticket-02_wrds-lake-doc
++
++cat > docs/agent_runs/20251221_072005_ticket-02_wrds-lake-doc/PROMPT.md <<'EOF'
++...prompt written...
++EOF
++
++git rev-parse HEAD
++
++apply_patch (docs/DOCS_AND_LOGGING_SYSTEM.md)
++
++apply_patch (PROGRESS.md)
++
++make test-fast
++
++cat > docs/agent_runs/20251221_072005_ticket-02_wrds-lake-doc/TESTS.md <<'EOF'
++...updated TESTS.md...
++EOF
++
++cat > docs/agent_runs/20251221_072005_ticket-02_wrds-lake-doc/RESULTS.md <<'EOF'
++...updated RESULTS.md...
++EOF
+diff --git a/docs/agent_runs/20251221_072005_ticket-02_wrds-lake-doc/META.md b/docs/agent_runs/20251221_072005_ticket-02_wrds-lake-doc/META.md
+new file mode 100644
+index 0000000..84d1341
+--- /dev/null
++++ b/docs/agent_runs/20251221_072005_ticket-02_wrds-lake-doc/META.md
+@@ -0,0 +1,8 @@
++# Meta
++
++- Date: 2025-12-21
++- Run name: 20251221_072005_ticket-02_wrds-lake-doc
++- Git SHA (start): 27a3afcb4770ad24800efd30af1a5ee4451f806f
++- Branch: feat/ticket-02-stop-eval-contamination
++- Environment: sandbox_mode=danger-full-access, approval_policy=never, network_access=enabled
++- Conflict: AGENTS.md requires a clean git status before starting; user requested proceeding with existing local changes kept uncommitted.
+diff --git a/docs/agent_runs/20251221_072005_ticket-02_wrds-lake-doc/PROMPT.md b/docs/agent_runs/20251221_072005_ticket-02_wrds-lake-doc/PROMPT.md
+new file mode 100644
+index 0000000..4d2c867
+--- /dev/null
++++ b/docs/agent_runs/20251221_072005_ticket-02_wrds-lake-doc/PROMPT.md
+@@ -0,0 +1,21 @@
++document what is available in case we ever need it for refrenshing etc, If you want me to document the WRDS lake structure (as you listed) in a repo doc so future GPT runs see it, then go aheard and make sure this entire checklist is complete, once it is merge into main, all docs/info files should not be commited but preserved on local docs/agent_runs/<RUN_NAME>/ exists and contains PROMPT/COMMANDS/RESULTS/TESTS/META (+ DIFF.patch recommended).
++
++ Branch is feat/ticket-02-stop-eval-contamination, commits are small, and each commit body includes Tests run:.
++
++ make test-fast passes (and is recorded in both TESTS.md and commit bodies).
++
++ In a capped smoke run (--max-windows), tools/make_summary.py:
++
++ excludes capped runs from summary_perf.csv and summary_detection.csv
++
++ writes summary/limitations.md with a clear “excluded” section listing paths + cap_sources
++
++ Any run with mv_skip_on_missing_solver is labeled smoke-only in limitations.md (and excluded from headline tables if that’s the implemented policy).
++
++ run.json consistently includes cap_active / cap_sources (explicit false/empty when uncapped), no schema ambiguity.
++
++ Bundle generated and path recorded in docs/agent_runs/<RUN_NAME>/RESULTS.md:
++
++docs/gpt_bundles/<stamp>_ticket-02_<RUN_NAME>.zip
++
++ No “fix” achieved by disabling functionality (no always-exclude / always-accept / turning caps off silently).
+diff --git a/docs/agent_runs/20251221_072005_ticket-02_wrds-lake-doc/RESULTS.md b/docs/agent_runs/20251221_072005_ticket-02_wrds-lake-doc/RESULTS.md
+new file mode 100644
+index 0000000..6030cc0
+--- /dev/null
++++ b/docs/agent_runs/20251221_072005_ticket-02_wrds-lake-doc/RESULTS.md
+@@ -0,0 +1,6 @@
++# Results
++
++- Conflict recorded: AGENTS.md requires a clean git status before starting; working tree is dirty with user local changes. Proceeding per user request.
++- Documented WRDS lake structure (user mirror at `/Volumes/Storage/Data`) in `docs/DOCS_AND_LOGGING_SYSTEM.md` for future refresh provenance.
++- `PROGRESS.md` updated with this documentation run.
++- Note: `/Volumes/Storage/Data` is local-only and not visible in this environment.
+diff --git a/docs/agent_runs/20251221_072005_ticket-02_wrds-lake-doc/TESTS.md b/docs/agent_runs/20251221_072005_ticket-02_wrds-lake-doc/TESTS.md
+new file mode 100644
+index 0000000..c5293b7
+--- /dev/null
++++ b/docs/agent_runs/20251221_072005_ticket-02_wrds-lake-doc/TESTS.md
+@@ -0,0 +1,3 @@
++# Tests
++
++- `make test-fast` (pass; 69 passed, 162 deselected, 1 warning: PytestConfigWarning unknown timeout option).

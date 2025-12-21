@@ -29,3 +29,9 @@ EOF
 cat > docs/agent_runs/20251221_065852_ticket-00_data-mount/TESTS.md <<'EOF'
 ...written TESTS.md...
 EOF
+
+git add docs/DOCS_AND_LOGGING_SYSTEM.md PROGRESS.md docs/agent_runs/20251221_065852_ticket-00_data-mount
+
+git commit -m "Document external WRDS data mirror location" -m "Tests run: not run (doc-only)"
+
+git diff 8ac9c14cd0e134aee8bf7a803891a0c476250a95..HEAD > docs/agent_runs/20251221_065852_ticket-00_data-mount/DIFF.patch

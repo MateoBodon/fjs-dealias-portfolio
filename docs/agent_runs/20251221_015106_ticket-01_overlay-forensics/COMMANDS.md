@@ -316,3 +316,16 @@ make test-fast
 git diff > docs/agent_runs/20251221_015106_ticket-01_overlay-forensics/DIFF.patch
 git diff --stat
 git status -sb
+python - <<'PY'
+from pathlib import Path
+path = Path('PROGRESS.md')
+existing = path.read_text(encoding='utf-8')
+entry = """## 2025-12-21T01:36Z — ticket-01 overlay forensics (daily RC)
+- **Branch/Run**: `feat/ticket-01-overlay-forensics` (RUN_NAME=`20251221_015106_ticket-01_overlay-forensics`), git sha `d3d1ac271fb7b3e0246b1e6a292dc6062fa1d062`.
+- **Commands**: `make test-fast` (failed once due to indentation, reran and passed after fix); `EXEC_MODE=deterministic make rc-lite-sanity` (timed out; completed vol leg manually); `PYTHONPATH=src:. python tools/make_summary.py --rc-dir reports/rc-20251221-sanity-20251221_021657`.
+- **Results**: `summary/overlay_forensics.csv` emitted for `reports/rc-20251221-sanity-20251221_021657/` (214 changed-window rows); `summary/limitations.md` now points to overlay_forensics for ΔMSE/ΔQLIKE attribution; `summary/completeness.json` reports `cap_active=false`.
+- **Artifacts**: run log `docs/agent_runs/20251221_015106_ticket-01_overlay-forensics/`; RC-lite outputs `reports/rc-20251221-sanity-20251221_021657/`.
+
+"""
+path.write_text(entry + existing, encoding='utf-8')
+PY

@@ -335,3 +335,35 @@ git commit -m "Add overlay forensics summary" -m "Tests run: make test-fast"
 git add PROGRESS.md docs/agent_runs/20251221_015106_ticket-01_overlay-forensics/COMMANDS.md
 git diff --cached --stat
 git commit -m "Update progress for ticket-01 overlay forensics" -m "Tests run: make test-fast"
+python - <<'PY'
+import pandas as pd
+from pathlib import Path
+rc_dir = Path('reports/rc-20251221-sanity-20251221_021657')
+forensics = rc_dir / 'summary' / 'overlay_forensics.csv'
+print('exists', forensics.exists())
+if not forensics.exists():
+    raise SystemExit(1)
+
+df = pd.read_csv(forensics)
+print('rows', len(df))
+required = {
+    'window_end','window_id','design','shrinker','edge_mode',
+    'changed','skip_reason_primary','skip_reason_detail','gate_mode','delta_frac_used',
+    'lambda1_base','lambda1_treat','delta_lambda1','mp_edge','edge_margin',
+    'realized_var','mse_base','mse_treat','qlike_base','qlike_treat'
+}
+missing = required - set(df.columns)
+print('missing', missing)
+print('changed unique', sorted(df['changed'].dropna().unique().tolist())[:5])
+PY
+rg -n "overlay_forensics" reports/rc-20251221-sanity-20251221_021657/summary/limitations.md
+python - <<'PY'
+import json
+from pathlib import Path
+comp = json.loads(Path('reports/rc-20251221-sanity-20251221_021657/summary/completeness.json').read_text())
+print('cap_active', comp.get('cap_active'))
+print('cap_sources', comp.get('cap_sources'))
+PY
+git log -n 3 --pretty=fuller
+rg -n "overlay_forensics|cap_active|cap_sources|skip_reason|missing_solver|silent|fallback|max_windows|filter" docs/agent_runs/20251221_015106_ticket-01_overlay-forensics/DIFF.patch | head -n 120
+rg -n "overlay_forensics|changed_flag|cap_active|filter|max_windows|skip_reason" -n docs/agent_runs/20251221_015106_ticket-01_overlay-forensics/DIFF.patch | head -n 200

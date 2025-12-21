@@ -35,3 +35,7 @@ git add docs/agent_runs/20251221_072005_ticket-02_wrds-lake-doc/DIFF.patch docs/
 git commit -m "Add WRDS lake run-log diff" -m "Tests run: not run (log-only)"
 
 make gpt-bundle TICKET=ticket-02 RUN_NAME=20251221_072005_ticket-02_wrds-lake-doc
+
+git add docs/agent_runs/20251221_072005_ticket-02_wrds-lake-doc/COMMANDS.md docs/agent_runs/20251221_072005_ticket-02_wrds-lake-doc/RESULTS.md
+
+git commit -m "Record WRDS lake bundle output" -m "Tests run: not run (bundle logging)"

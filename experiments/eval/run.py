@@ -3096,6 +3096,56 @@ def run_evaluation(
             columns=["regime", "portfolio", "estimator", "skip_reason", "windows", "skip_count", "skip_share"]
         ).to_csv(skip_all_path, index=False)
         outputs_skip["all"] = skip_all_path
+        overlay_toggle_path = out_dir / "overlay_toggle.md"
+        _write_overlay_toggle(overlay_toggle_path, pd.DataFrame())
+        flip_dm_path = out_dir / "dm_flip_only.csv"
+        pd.DataFrame(
+            columns=["portfolio", "baseline", "test", "stat", "p_value", "n_effective"]
+        ).to_csv(flip_dm_path, index=False)
+        plot_paths = _paths_to_strings(outputs_plots)
+        run_metadata = {
+            "git_sha": _current_git_sha(),
+            "out_dir": str(out_dir),
+            "config": resolved_payload,
+            "execution": {
+                "mode": resolved_payload.get("exec_mode", "deterministic"),
+                "thread_caps": runtime.thread_caps_snapshot(),
+            },
+            "windows": {
+                "windows_requested": windows_requested,
+                "windows_after_caps": windows_after_caps,
+                "windows_evaluated": windows_evaluated,
+                "window_coverage": windows_coverage,
+                "cap_active": caps_active,
+                "cap_sources": cap_sources,
+            },
+            "use_factor_prewhiten": bool(config.use_factor_prewhiten),
+            "factors": (
+                {
+                    "key": factor_entry.key,
+                    "path": str(factor_entry.path),
+                    "sha256": factor_entry.sha256,
+                    "start_date": factor_entry.start_date,
+                    "end_date": factor_entry.end_date,
+                    "source": factor_entry.source,
+                    "note": factor_entry.note,
+                }
+                if factor_entry is not None
+                else None
+            ),
+            "outputs": {
+                "metrics": _paths_to_strings(outputs_metrics),
+                "risk": _paths_to_strings(outputs_risk),
+                "dm": _paths_to_strings(outputs_dm),
+                "dm_flip_only": str(flip_dm_path),
+                "diagnostics": _paths_to_strings(outputs_diag),
+                "diagnostics_detail": _paths_to_strings(outputs_diag_detail),
+                "skip_stats": _paths_to_strings(outputs_skip),
+                "plots": plot_paths,
+                "overlay_toggle": str(overlay_toggle_path),
+            },
+        }
+        _write_run_metadata(out_dir / "run.json", run_metadata)
         return EvalOutputs(
             outputs_metrics,
             outputs_risk,

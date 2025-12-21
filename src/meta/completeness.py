@@ -107,6 +107,7 @@ def evaluate_eval_run(
     present = run_dir.exists()
     missing_files: list[str] = []
 
+    # Source of truth for cap/window metadata: run_manifest.json when present, else run.json.
     manifest = _load_json(run_dir / "run_manifest.json")
     manifest_source = "run_manifest.json"
     if not manifest:

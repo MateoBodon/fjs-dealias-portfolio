@@ -38,6 +38,78 @@ OVERLAY_FORENSICS_COLUMNS: Sequence[str] = (
     "qlike_base",
     "qlike_treat",
 )
+PERF_COLUMNS: Sequence[str] = (
+    "rc_run",
+    "regime",
+    "portfolio",
+    "delta_mse_vs_baseline",
+    "delta_mse_ci_lower",
+    "delta_mse_ci_upper",
+    "delta_es_vs_baseline",
+    "var95_overlay",
+    "var95_baseline",
+    "es95_overlay",
+    "es95_baseline",
+    "realised_var_overlay",
+    "realised_var_baseline",
+    "realised_es_overlay",
+    "realised_es_baseline",
+    "dm_stat",
+    "dm_p_value",
+    "n_effective",
+    "n_effective_mse",
+    "n_effective_es",
+    "n_effective_qlike",
+    "comparison_valid_dm",
+    "comparison_valid_delta",
+    "cap_active",
+    "cap_sources",
+    "window_coverage",
+)
+DET_COLUMNS: Sequence[str] = (
+    "rc_run",
+    "regime",
+    "windows",
+    "detection_windows",
+    "detections_mean",
+    "detection_rate_mean",
+    "detection_rate_median",
+    "isolation_share_mean",
+    "isolation_share_median",
+    "edge_margin_mean",
+    "edge_margin_median",
+    "edge_margin_p10",
+    "edge_margin_p90",
+    "stability_margin_mean",
+    "stability_margin_median",
+    "stability_margin_p10",
+    "stability_margin_p90",
+    "isolation_share_p10",
+    "isolation_share_p90",
+    "alignment_cos_mean",
+    "alignment_cos_median",
+    "alignment_cos_p10",
+    "alignment_cos_p90",
+    "alignment_angle_mean",
+    "alignment_angle_median",
+    "reason_code_mode",
+    "calm_threshold_mean",
+    "crisis_threshold_mean",
+    "vol_signal_mean",
+    "resolved_config_path",
+    "cap_active",
+    "cap_sources",
+    "window_coverage",
+)
+SKIP_COLUMNS: Sequence[str] = (
+    "regime",
+    "portfolio",
+    "estimator",
+    "skip_reason",
+    "windows",
+    "skip_count",
+    "skip_share",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +118,16 @@ class SummaryArtifacts:
     detection: pd.DataFrame
     skip_stats: pd.DataFrame
     completeness: CompletenessResult | None = None
+    run_eligibility: tuple["RunEligibility", ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class RunEligibility:
+    run_dir: Path
+    display_path: str
+    completeness: CompletenessResult
+    mv_skip_on_missing_solver: bool
+    excluded_from_summary: bool
 
 
 def _read_csv(path: Path) -> pd.DataFrame:
@@ -64,6 +146,57 @@ def _read_json(path: Path) -> dict[str, Any]:
         return json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {}
+
+
+def _empty_perf_df() -> pd.DataFrame:
+    return pd.DataFrame(columns=PERF_COLUMNS)
+
+
+def _empty_det_df() -> pd.DataFrame:
+    return pd.DataFrame(columns=DET_COLUMNS)
+
+
+def _empty_skip_df() -> pd.DataFrame:
+    return pd.DataFrame(columns=SKIP_COLUMNS)
+
+
+def _is_run_dir(path: Path) -> bool:
+    if not path.is_dir():
+        return False
+    if (path / "run.json").exists() or (path / "run_manifest.json").exists():
+        return True
+    return any((path / regime).is_dir() for regime in REGIMES)
+
+
+def _discover_design_dirs(rc_dir: Path) -> list[Path]:
+    candidates = [
+        child
+        for child in rc_dir.iterdir()
+        if child.is_dir() and child.name != "summary" and _is_run_dir(child)
+    ]
+    return sorted(candidates)
+
+
+def _read_mv_skip_on_missing_solver(run_dir: Path) -> bool:
+    payload = _read_json(run_dir / "run.json")
+    config = payload.get("config")
+    if isinstance(config, dict) and "mv_skip_on_missing_solver" in config:
+        return bool(config.get("mv_skip_on_missing_solver"))
+    return bool(payload.get("mv_skip_on_missing_solver", False))
+
+
+def _aggregate_completeness(eligible_runs: Sequence[RunEligibility]) -> tuple[bool, list[str], float | None]:
+    if not eligible_runs:
+        return False, [], None
+    cap_active = any(run.completeness.cap_active for run in eligible_runs)
+    cap_sources = sorted({src for run in eligible_runs for src in run.completeness.cap_sources})
+    coverages = [
+        run.completeness.window_coverage
+        for run in eligible_runs
+        if run.completeness.window_coverage is not None
+    ]
+    coverage = min(coverages) if coverages else None
+    return cap_active, cap_sources, coverage
 
 
 def _normalise(series: pd.Series, value: str) -> pd.Series:
@@ -542,7 +675,51 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
         run_type="rc",
     )
     root_detail = _read_csv(rc_dir / "diagnostics_detail.csv")
-    design_dirs = [child for child in rc_dir.iterdir() if child.is_dir() and child.name != "summary"]
+    design_dirs = _discover_design_dirs(rc_dir)
+    root_has_metrics = any((rc_dir / regime / "metrics.csv").exists() for regime in REGIMES)
+    use_design_dirs = (not root_has_metrics) and bool(design_dirs)
+    run_dirs = design_dirs if use_design_dirs else [rc_dir]
+    run_eligibility: list[RunEligibility] = []
+    for run_dir in run_dirs:
+        run_comp = evaluate_eval_run(
+            run_dir,
+            label=run_dir.name,
+            require_manifest=False,
+            allow_unknown_coverage=True,
+            run_type="rc",
+        )
+        mv_skip = _read_mv_skip_on_missing_solver(run_dir)
+        excluded = run_comp.cap_active or mv_skip
+        run_eligibility.append(
+            RunEligibility(
+                run_dir=run_dir,
+                display_path=_display_path(run_dir),
+                completeness=run_comp,
+                mv_skip_on_missing_solver=mv_skip,
+                excluded_from_summary=excluded,
+            )
+        )
+    eligible_runs = [run for run in run_eligibility if not run.excluded_from_summary]
+    eligible_dirs = [run.run_dir for run in eligible_runs]
+    if not eligible_dirs:
+        return SummaryArtifacts(
+            performance=_empty_perf_df(),
+            detection=_empty_det_df(),
+            skip_stats=_empty_skip_df(),
+            completeness=completeness,
+            run_eligibility=tuple(run_eligibility),
+        )
+    if use_design_dirs:
+        summary_cap_active, summary_cap_sources, summary_window_coverage = _aggregate_completeness(
+            eligible_runs
+        )
+    else:
+        run_comp = run_eligibility[0].completeness if run_eligibility else completeness
+        summary_cap_active = bool(run_comp.cap_active) if run_comp else False
+        summary_cap_sources = list(run_comp.cap_sources) if run_comp else []
+        summary_window_coverage = run_comp.window_coverage if run_comp else None
+
+    data_dirs = eligible_dirs if use_design_dirs else [rc_dir]
     perf_records: list[dict[str, object]] = []
     det_records: list[dict[str, object]] = []
     skip_frames: list[pd.DataFrame] = []
@@ -553,14 +730,14 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
         diag_path = rc_dir / regime / "diagnostics.csv"
         skip_path = rc_dir / regime / "skip_stats.csv"
 
-        use_design_dirs = not metrics_path.exists() and any((d / regime).exists() for d in design_dirs)
+        use_design_dirs_for_regime = not metrics_path.exists() and any((d / regime).exists() for d in data_dirs)
 
-        if use_design_dirs:
-            metrics_df = _concat_if_exists(d / regime / "metrics.csv" for d in design_dirs)
-            dm_df = _concat_if_exists(d / regime / "dm.csv" for d in design_dirs)
-            diag_df = _concat_if_exists(d / regime / "diagnostics.csv" for d in design_dirs)
-            detail_df = _concat_if_exists(d / regime / "diagnostics_detail.csv" for d in design_dirs)
-            skip_df = _concat_if_exists(d / regime / "skip_stats.csv" for d in design_dirs)
+        if use_design_dirs_for_regime:
+            metrics_df = _concat_if_exists(d / regime / "metrics.csv" for d in data_dirs)
+            dm_df = _concat_if_exists(d / regime / "dm.csv" for d in data_dirs)
+            diag_df = _concat_if_exists(d / regime / "diagnostics.csv" for d in data_dirs)
+            detail_df = _concat_if_exists(d / regime / "diagnostics_detail.csv" for d in data_dirs)
+            skip_df = _concat_if_exists(d / regime / "skip_stats.csv" for d in data_dirs)
         else:
             metrics_df = _read_csv(metrics_path)
             dm_df = _read_csv(dm_path)
@@ -602,9 +779,9 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
                 "n_effective_qlike": float("nan"),
                 "comparison_valid_dm": float("nan"),
                 "comparison_valid_delta": float("nan"),
-                "cap_active": completeness.cap_active,
-                "cap_sources": ",".join(completeness.cap_sources),
-                "window_coverage": completeness.window_coverage,
+                "cap_active": summary_cap_active,
+                "cap_sources": ",".join(summary_cap_sources),
+                "window_coverage": summary_window_coverage,
             }
 
             if overlay_row is not None:
@@ -709,16 +886,28 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
             "crisis_threshold_mean": _numeric(diag_row, "crisis_threshold"),
             "vol_signal_mean": _numeric(diag_row, "vol_signal"),
             "resolved_config_path": _string(diag_row, "resolved_config_path"),
-            "cap_active": completeness.cap_active,
-            "cap_sources": ",".join(completeness.cap_sources),
-            "window_coverage": completeness.window_coverage,
+            "cap_active": summary_cap_active,
+            "cap_sources": ",".join(summary_cap_sources),
+            "window_coverage": summary_window_coverage,
         }
         det_records.append(det_record)
 
     perf_df = pd.DataFrame(perf_records)
     det_df = pd.DataFrame(det_records)
     skip_df_all = pd.concat(skip_frames, ignore_index=True) if skip_frames else pd.DataFrame()
-    return SummaryArtifacts(performance=perf_df, detection=det_df, skip_stats=skip_df_all, completeness=completeness)
+    if perf_df.empty:
+        perf_df = _empty_perf_df()
+    if det_df.empty:
+        det_df = _empty_det_df()
+    if skip_df_all.empty:
+        skip_df_all = _empty_skip_df()
+    return SummaryArtifacts(
+        performance=perf_df,
+        detection=det_df,
+        skip_stats=skip_df_all,
+        completeness=completeness,
+        run_eligibility=tuple(run_eligibility),
+    )
 
 
 def _discover_rc_dirs(root: Path, patterns: Iterable[str] | None, all_runs: bool, rc_dir: Path | None) -> list[Path]:
@@ -773,31 +962,66 @@ def write_summaries(rc_dirs: Iterable[Path]) -> dict[Path, SummaryArtifacts]:
             artifacts.performance, artifacts.detection, directory.name
         )
         comp = artifacts.completeness
+        run_eligibility = artifacts.run_eligibility
+        single_run = (
+            comp is not None
+            and len(run_eligibility) == 1
+            and run_eligibility[0].run_dir.resolve() == directory.resolve()
+        )
         if comp is not None:
             kill_data["completeness"] = comp.as_dict()
-            if not comp.is_complete:
-                limitations.append(comp.incomplete_reason or "run marked incomplete")
-            if comp.window_coverage is not None and comp.window_coverage < 1.0:
-                limitations.append(
-                    f"window coverage {comp.window_coverage:.3g} < 1.0; excluded from aggregates."
-                )
-            if comp.cap_active:
-                reason = ", ".join(comp.cap_sources) if comp.cap_sources else "cap_active=true"
-                limitations.append(f"run capped ({reason}); excluded from aggregates.")
+            if single_run:
+                if not comp.is_complete:
+                    limitations.append(comp.incomplete_reason or "run marked incomplete")
+                if comp.window_coverage is not None and comp.window_coverage < 1.0:
+                    limitations.append(
+                        f"window coverage {comp.window_coverage:.3g} < 1.0; excluded from aggregates."
+                    )
+                if comp.cap_active:
+                    reason = ", ".join(comp.cap_sources) if comp.cap_sources else "cap_active=true"
+                    limitations.append(f"run capped ({reason}); excluded from aggregates.")
         limitations.extend(overlay_warnings)
         if overlay_df.empty:
             limitations.append("overlay_forensics.csv empty or missing changed windows (see diagnostics_detail.csv).")
         limitations.append(
             "Overlay forensics: see summary/overlay_forensics.csv for changed-window diagnostics and loss deltas."
         )
+        invalid_rows = artifacts.performance[
+            (artifacts.performance.get("comparison_valid_delta") == 0)
+            | (artifacts.performance.get("comparison_valid_dm") == 0)
+        ]
+        if not invalid_rows.empty:
+            limitations.append(
+                "Some comparisons marked invalid due to insufficient aligned windows (see summary_perf.csv)."
+            )
 
         kill_path = summary_dir / "kill_criteria.json"
         kill_path.write_text(json.dumps(kill_data, indent=2, sort_keys=True), encoding="utf-8")
+        limitation_lines: list[str] = []
+        capped_runs = [run for run in run_eligibility if run.completeness.cap_active]
+        if capped_runs:
+            limitation_lines.append("## Excluded smoke-only runs (capped)")
+            for run in capped_runs:
+                cap_note = ", ".join(run.completeness.cap_sources) if run.completeness.cap_sources else "cap_active=true"
+                limitation_lines.append(f"- {run.display_path} (cap_sources: {cap_note})")
+        mv_skip_runs = [run for run in run_eligibility if run.mv_skip_on_missing_solver]
+        if mv_skip_runs:
+            if limitation_lines:
+                limitation_lines.append("")
+            limitation_lines.append("## Smoke-only: MV skip-on-missing-solver enabled")
+            for run in mv_skip_runs:
+                suffix = "excluded from headline summaries" if run.excluded_from_summary else "not excluded"
+                limitation_lines.append(f"- {run.display_path} ({suffix})")
         if limitations:
             deduped = list(dict.fromkeys(limitations))
-            text = "\n".join(f"- {item}" for item in deduped)
-        else:
+            if limitation_lines:
+                limitation_lines.append("")
+            limitation_lines.append("## Other limitations")
+            limitation_lines.extend(f"- {item}" for item in deduped)
+        if not limitation_lines:
             text = "No critical limitations detected under current criteria."
+        else:
+            text = "\n".join(limitation_lines)
         limitations_path = summary_dir / "limitations.md"
         limitations_path.write_text(text, encoding="utf-8")
         print(f"[make_summary] Wrote {_display_path(kill_path)}")
@@ -807,14 +1031,6 @@ def write_summaries(rc_dirs: Iterable[Path]) -> dict[Path, SummaryArtifacts]:
             comp_path = summary_dir / "completeness.json"
             comp_path.write_text(json.dumps(comp.as_dict(), indent=2, sort_keys=True), encoding="utf-8")
             print(f"[make_summary] Wrote {_display_path(comp_path)}")
-        invalid_rows = artifacts.performance[
-            (artifacts.performance.get("comparison_valid_delta") == 0)
-            | (artifacts.performance.get("comparison_valid_dm") == 0)
-        ]
-        if not invalid_rows.empty:
-            limitations.append(
-                "Some comparisons marked invalid due to insufficient aligned windows (see summary_perf.csv)."
-            )
     return outputs
 
 

@@ -1,0 +1,16 @@
+- **Branch**: feat/ticket-01-overlay-forensics
+- **Git SHA**: a7d76d8cf7f5fe4c9765c335530064170a0ca87a (working tree dirty at start; pre-existing changes present).
+- **Run dir**: `reports/rc-20251221-sanity-20251221_021657/` (daily RC lite sanity).
+- **Exec mode**: deterministic (Make target invoked with `EXEC_MODE=deterministic`; runtime default is deterministic if unset).
+- **Python / OS**: Python 3.12.3 on Linux container.
+- **Datasets (registry + hashes)**:
+  - `data/returns_daily.csv` — registry entry `datasets/data/returns_daily.csv`, sha256 `96ac7dd318245cf1a8b434bb358a9344bf282992fc9fe66f0282023696563197`.
+  - `data/factors/ff5mom_daily.csv` — registry entry `datasets/data/factors/ff5mom_daily.csv`, sha256 `469d44ad0c5cac556c60c1f258e14245acfcc9f2901ad443f41b64309bf908ca`.
+- **Verification commands**:
+  - `python tools/verify_dataset.py data/returns_daily.csv --registry data/registry.json`
+  - `python tools/verify_dataset.py data/factors/ff5mom_daily.csv --registry data/factors/registry.json`
+- **Resolved config hashes**:
+  - `reports/rc-20251221-sanity-20251221_021657/dow-tyler/resolved_config.json` — sha256 `8ec8e1ea66ef6fe6ba33c1a4d39f9743647b124f0156a6cbc83e849d7add6633`.
+  - `reports/rc-20251221-sanity-20251221_021657/vol-tyler/resolved_config.json` — sha256 `d5b6ec6a30b5987fd84a08eb5dd5cd65e9ae2c0afeb815b29cc64299812b7a05`.
+- **Runtime notes**:
+  - `run.json` does not include `cap_active`; `summary/completeness.json` used for cap/coverage (`cap_active=false`).

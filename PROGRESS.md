@@ -1,3 +1,16 @@
+## 2025-12-21T01:36Z — ticket-01 overlay forensics (daily RC)
+- **Branch/Run**: `feat/ticket-01-overlay-forensics` (RUN_NAME=`20251221_015106_ticket-01_overlay-forensics`), git sha `d3d1ac271fb7b3e0246b1e6a292dc6062fa1d062`.
+- **Commands**: `make test-fast` (failed once due to indentation, reran and passed after fix); `EXEC_MODE=deterministic make rc-lite-sanity` (timed out; completed vol leg manually); `PYTHONPATH=src:. python tools/make_summary.py --rc-dir reports/rc-20251221-sanity-20251221_021657`.
+- **Results**: `summary/overlay_forensics.csv` emitted for `reports/rc-20251221-sanity-20251221_021657/` (214 changed-window rows); `summary/limitations.md` now points to overlay_forensics for ΔMSE/ΔQLIKE attribution; `summary/completeness.json` reports `cap_active=false`.
+- **Artifacts**: run log `docs/agent_runs/20251221_015106_ticket-01_overlay-forensics/`; RC-lite outputs `reports/rc-20251221-sanity-20251221_021657/`.
+
+## 2025-12-20T23:26Z — project_state rebuild (doc-only)
+- **Branch/Run**: `chore/project_state_refresh` (RUN_NAME=`20251220_232502_project_state_rebuild`), git sha `a7d76d8cf7f5fe4c9765c335530064170a0ca87a`.
+- **Commands**: `python tools/generate_project_state.py`; `python - <<'PY'` (rebuild project_state docs + ASCII normalization + header refresh).
+- **Changes**: regenerated `project_state/_generated/{repo_inventory.json,symbol_index.json,import_graph.json,make_targets.txt}`, rewrote all `project_state/*.md`, updated `tools/generate_project_state.py` for module naming + scope.
+- **Artifacts**: run log `docs/agent_runs/20251220_232502_project_state_rebuild/`; bundle `docs/gpt_bundles/project_state_20251220_232605_a7d76d8.zip`.
+- **Tests**: `make test-fast` (69 passed, 161 deselected, 1 warning: PytestConfigWarning for unknown timeout option).
+
 ## 2025-12-20T22:47Z — ticket-09 guard attribution (guard_unknown surfacing)
 - **Branch/Run**: `codex/ticket-09-weekly-gating-attribution` (RUN_NAME=`20251220_223706_ticket-09_weekly-gating-attribution`), git sha `00159178ef9f9dac4f06fc048d62d88df1bb908f`.
 - **Commands**: `pytest tests/experiments/test_gating_diagnostics.py`; `make test-fast` (first attempt timed out at 10s, reran with 120s timeout and passed); `EXEC_MODE=deterministic make run:equity_smoke`.

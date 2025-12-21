@@ -14,6 +14,30 @@ from meta.completeness import CompletenessResult, evaluate_eval_run
 
 REGIMES: Sequence[str] = ("full", "calm", "crisis")
 PORTFOLIOS: Sequence[str] = ("ew", "mv")
+OVERLAY_FORENSICS_COLUMNS: Sequence[str] = (
+    "window_end",
+    "window_id",
+    "regime",
+    "portfolio",
+    "design",
+    "shrinker",
+    "edge_mode",
+    "changed",
+    "skip_reason_primary",
+    "skip_reason_detail",
+    "gate_mode",
+    "delta_frac_used",
+    "lambda1_base",
+    "lambda1_treat",
+    "delta_lambda1",
+    "mp_edge",
+    "edge_margin",
+    "realized_var",
+    "mse_base",
+    "mse_treat",
+    "qlike_base",
+    "qlike_treat",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +55,15 @@ def _read_csv(path: Path) -> pd.DataFrame:
         return pd.read_csv(path)
     except (pd.errors.EmptyDataError, OSError):
         return pd.DataFrame()
+
+
+def _read_json(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
 
 
 def _normalise(series: pd.Series, value: str) -> pd.Series:
@@ -171,6 +204,16 @@ def _string(series: pd.Series, key: str, default: str = "") -> str:
     return str(series[key])
 
 
+def _series_or_default(df: pd.DataFrame, column: str, default: Any) -> pd.Series:
+    if column in df.columns:
+        return df[column]
+    return pd.Series([default] * len(df), index=df.index)
+
+
+def _numeric_series(df: pd.DataFrame, column: str) -> pd.Series:
+    return pd.to_numeric(_series_or_default(df, column, np.nan), errors="coerce")
+
+
 def _load_detail(rc_dir: Path, regime: str, root_detail: pd.DataFrame) -> pd.DataFrame:
     regime_detail = _read_csv(rc_dir / regime / "diagnostics_detail.csv")
     if not regime_detail.empty:
@@ -183,6 +226,177 @@ def _load_detail(rc_dir: Path, regime: str, root_detail: pd.DataFrame) -> pd.Dat
     mask = _normalise(data["regime"], regime)
     filtered = data[mask]
     return filtered.reset_index(drop=True)
+
+
+def _load_resolved_config(design_dir: Path, detail_df: pd.DataFrame) -> tuple[dict[str, Any], Path | None]:
+    config_path = design_dir / "resolved_config.json"
+    if not config_path.exists() and "resolved_config_path" in detail_df.columns:
+        candidates = detail_df["resolved_config_path"].dropna().astype(str)
+        if not candidates.empty:
+            config_path = Path(candidates.iloc[0])
+    payload = _read_json(config_path) if config_path.exists() else {}
+    return payload, config_path if config_path.exists() else None
+
+
+def _overlay_forensics_for_design(design_dir: Path) -> tuple[pd.DataFrame, list[str]]:
+    warnings: list[str] = []
+    metrics_path = design_dir / "metrics_detail.csv"
+    diag_path = design_dir / "diagnostics_detail.csv"
+    metrics_df = _read_csv(metrics_path)
+    diag_df = _read_csv(diag_path)
+
+    if not metrics_path.exists():
+        warnings.append(f"overlay_forensics missing metrics_detail.csv in {design_dir.name}")
+    elif metrics_df.empty:
+        warnings.append(f"overlay_forensics metrics_detail.csv empty in {design_dir.name}")
+    if not diag_path.exists():
+        warnings.append(f"overlay_forensics missing diagnostics_detail.csv in {design_dir.name}")
+    elif diag_df.empty:
+        warnings.append(f"overlay_forensics diagnostics_detail.csv empty in {design_dir.name}")
+    if metrics_df.empty or diag_df.empty:
+        return pd.DataFrame(columns=OVERLAY_FORENSICS_COLUMNS), warnings
+
+    if "window_id" not in metrics_df.columns or "regime" not in metrics_df.columns:
+        warnings.append(f"overlay_forensics metrics_detail missing window_id/regime in {design_dir.name}")
+        return pd.DataFrame(columns=OVERLAY_FORENSICS_COLUMNS), warnings
+    if "window_id" not in diag_df.columns or "regime" not in diag_df.columns:
+        warnings.append(f"overlay_forensics diagnostics_detail missing window_id/regime in {design_dir.name}")
+        return pd.DataFrame(columns=OVERLAY_FORENSICS_COLUMNS), warnings
+
+    metrics_df = metrics_df.copy()
+    diag_df = diag_df.copy()
+    metrics_df["regime"] = metrics_df["regime"].astype(str).str.strip().str.lower()
+    diag_df["regime"] = diag_df["regime"].astype(str).str.strip().str.lower()
+    metrics_df["window_id"] = pd.to_numeric(metrics_df["window_id"], errors="coerce")
+    diag_df["window_id"] = pd.to_numeric(diag_df["window_id"], errors="coerce")
+    metrics_df["portfolio"] = (
+        _series_or_default(metrics_df, "portfolio", "").astype(str).str.strip().str.lower()
+    )
+    metrics_df["estimator_norm"] = (
+        _series_or_default(metrics_df, "estimator", "").astype(str).str.strip().str.lower()
+    )
+
+    metrics_subset = metrics_df[metrics_df["estimator_norm"].isin({"overlay", "baseline"})]
+    if metrics_subset.empty:
+        warnings.append(f"overlay_forensics found no overlay/baseline rows in {design_dir.name}")
+        return pd.DataFrame(columns=OVERLAY_FORENSICS_COLUMNS), warnings
+
+    pivot = metrics_subset.pivot_table(
+        index=["window_id", "regime", "portfolio"],
+        columns="estimator_norm",
+        values=["realised_var", "sq_error", "qlike"],
+        aggfunc="first",
+    )
+    pivot.columns = [f"{metric}_{est}" for metric, est in pivot.columns]
+    pivot = pivot.reset_index()
+
+    config_payload, config_path = _load_resolved_config(design_dir, diag_df)
+    shrinker = str(config_payload.get("shrinker") or "")
+    edge_mode = str(config_payload.get("edge_mode") or "")
+    design = str(config_payload.get("group_design") or "")
+    if not design and "group_design" in diag_df.columns:
+        design_series = diag_df["group_design"].dropna().astype(str).str.strip()
+        if not design_series.empty:
+            design = design_series.iloc[0]
+    if not design:
+        design = design_dir.name
+    if not shrinker:
+        warnings.append(f"overlay_forensics missing shrinker in {design_dir.name}")
+    if not edge_mode:
+        warnings.append(f"overlay_forensics missing edge_mode in {design_dir.name}")
+    if config_path is None:
+        warnings.append(f"overlay_forensics missing resolved_config.json in {design_dir.name}")
+
+    diag_df["design"] = design
+    diag_df["shrinker"] = shrinker
+    diag_df["edge_mode"] = edge_mode
+    if "window_start" in diag_df.columns:
+        diag_df["window_end"] = diag_df["window_start"]
+    else:
+        diag_df["window_end"] = ""
+
+    diag_df["changed"] = (
+        pd.to_numeric(_series_or_default(diag_df, "changed_flag", 0), errors="coerce")
+        .fillna(0)
+        .astype(int)
+    )
+    diag_df["skip_reason_primary"] = (
+        _series_or_default(diag_df, "reason_code", "").fillna("").astype(str)
+    )
+    detail_series = _series_or_default(diag_df, "baseline_errors", "").fillna("").astype(str)
+    mv_skip = _series_or_default(diag_df, "mv_skip_reason", "").fillna("").astype(str)
+    diag_df["skip_reason_detail"] = detail_series.where(detail_series != "", mv_skip)
+    diag_df["gate_mode"] = _series_or_default(diag_df, "gating_mode", "").fillna("").astype(str)
+    diag_df["delta_frac_used"] = _numeric_series(diag_df, "gating_delta_frac")
+    diag_df["lambda1_base"] = _numeric_series(diag_df, "lambda1_base")
+    diag_df["lambda1_treat"] = _numeric_series(diag_df, "lambda1_treat")
+    diag_df["delta_lambda1"] = _numeric_series(diag_df, "delta_lambda1")
+    diag_df["mp_edge"] = _numeric_series(diag_df, "mp_edge")
+    mp_edge_margin = _numeric_series(diag_df, "mp_edge_margin")
+    edge_mean = _numeric_series(diag_df, "edge_margin_mean")
+    diag_df["edge_margin"] = mp_edge_margin.where(mp_edge_margin.notna(), edge_mean)
+
+    merged = pivot.merge(diag_df, on=["window_id", "regime"], how="left")
+
+    realised_base = _numeric_series(merged, "realised_var_baseline")
+    realised_treat = _numeric_series(merged, "realised_var_overlay")
+    merged["realized_var"] = realised_treat.where(realised_treat.notna(), realised_base)
+    merged["mse_base"] = _numeric_series(merged, "sq_error_baseline")
+    merged["mse_treat"] = _numeric_series(merged, "sq_error_overlay")
+    merged["qlike_base"] = _numeric_series(merged, "qlike_baseline")
+    merged["qlike_treat"] = _numeric_series(merged, "qlike_overlay")
+
+    if "window_end" not in merged.columns:
+        merged["window_end"] = ""
+
+    filtered = merged[merged["changed"].fillna(0).astype(int) == 1].copy()
+    string_cols = {
+        "window_end",
+        "regime",
+        "portfolio",
+        "design",
+        "shrinker",
+        "edge_mode",
+        "skip_reason_primary",
+        "skip_reason_detail",
+        "gate_mode",
+    }
+    for col in OVERLAY_FORENSICS_COLUMNS:
+        if col not in filtered.columns:
+            if col in string_cols:
+                filtered[col] = ""
+            else:
+                filtered[col] = np.nan
+    filtered = filtered[list(OVERLAY_FORENSICS_COLUMNS)]
+    sort_cols = [col for col in ["design", "edge_mode", "shrinker", "regime", "window_id", "portfolio"] if col in filtered.columns]
+    if sort_cols and not filtered.empty:
+        filtered = filtered.sort_values(sort_cols, kind="mergesort")
+    return filtered, warnings
+
+
+def _build_overlay_forensics(rc_dir: Path) -> tuple[pd.DataFrame, list[str]]:
+    warnings: list[str] = []
+    design_dirs = [child for child in rc_dir.iterdir() if child.is_dir() and child.name != "summary"]
+    if (rc_dir / "metrics_detail.csv").exists() or (rc_dir / "diagnostics_detail.csv").exists():
+        design_dirs = [rc_dir]
+    frames: list[pd.DataFrame] = []
+    for design_dir in design_dirs:
+        frame, warn = _overlay_forensics_for_design(design_dir)
+        warnings.extend(warn)
+        if not frame.empty:
+            frames.append(frame)
+    if frames:
+        combined = pd.concat(frames, ignore_index=True)
+    else:
+        combined = pd.DataFrame(columns=OVERLAY_FORENSICS_COLUMNS)
+    if not combined.empty:
+        combined = combined[list(OVERLAY_FORENSICS_COLUMNS)]
+    else:
+        combined = combined.reindex(columns=list(OVERLAY_FORENSICS_COLUMNS))
+    sort_cols = [col for col in ["design", "edge_mode", "shrinker", "regime", "window_id", "portfolio"] if col in combined.columns]
+    if sort_cols and not combined.empty:
+        combined = combined.sort_values(sort_cols, kind="mergesort")
+    return combined, warnings
 
 
 def _row_for(perf_df: pd.DataFrame, regime: str, portfolio: str | None = None) -> pd.Series:
@@ -550,6 +764,11 @@ def write_summaries(rc_dirs: Iterable[Path]) -> dict[Path, SummaryArtifacts]:
         print(f"[make_summary] Wrote {_display_path(det_path)}")
         print(f"[make_summary] Wrote {_display_path(skip_path)}")
 
+        overlay_df, overlay_warnings = _build_overlay_forensics(directory)
+        overlay_path = summary_dir / "overlay_forensics.csv"
+        overlay_df.to_csv(overlay_path, index=False)
+        print(f"[make_summary] Wrote {_display_path(overlay_path)}")
+
         kill_data, limitations = _evaluate_kill_criteria(
             artifacts.performance, artifacts.detection, directory.name
         )
@@ -565,6 +784,12 @@ def write_summaries(rc_dirs: Iterable[Path]) -> dict[Path, SummaryArtifacts]:
             if comp.cap_active:
                 reason = ", ".join(comp.cap_sources) if comp.cap_sources else "cap_active=true"
                 limitations.append(f"run capped ({reason}); excluded from aggregates.")
+        limitations.extend(overlay_warnings)
+        if overlay_df.empty:
+            limitations.append("overlay_forensics.csv empty or missing changed windows (see diagnostics_detail.csv).")
+        limitations.append(
+            "Overlay forensics: see summary/overlay_forensics.csv for changed-window diagnostics and loss deltas."
+        )
 
         kill_path = summary_dir / "kill_criteria.json"
         kill_path.write_text(json.dumps(kill_data, indent=2, sort_keys=True), encoding="utf-8")

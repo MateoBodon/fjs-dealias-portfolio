@@ -1419,6 +1419,25 @@ def _safe_condition_number(matrix: np.ndarray) -> float:
         return float("inf")
 
 
+def _safe_max_eigenvalue(matrix: np.ndarray) -> float:
+    try:
+        arr = np.asarray(matrix, dtype=np.float64)
+    except Exception:
+        return float("nan")
+    if arr.ndim != 2 or arr.shape[0] == 0 or arr.shape[0] != arr.shape[1]:
+        return float("nan")
+    try:
+        eigvals = np.linalg.eigvalsh(arr)
+    except Exception:
+        return float("nan")
+    if eigvals.size == 0:
+        return float("nan")
+    finite = eigvals[np.isfinite(eigvals)]
+    if finite.size == 0:
+        return float("nan")
+    return float(finite.max())
+
+
 def _qlike_loss(forecast_var: float, realised_var: float) -> float:
     if not np.isfinite(forecast_var):
         return float("nan")
@@ -2253,6 +2272,24 @@ def run_evaluation(
         if overlay_cov.size and baseline_cov.size:
             diff_norm = float(np.max(np.abs(overlay_cov - baseline_cov)))
         changed_flag = bool(diff_norm > 1e-10)
+        mp_edge_values: list[float] = []
+        for det in detections:
+            val = det.get("z_plus")
+            if val is None or (isinstance(val, float) and np.isnan(val)):
+                val = det.get("edge_scale")
+            try:
+                val_float = float(val)
+            except (TypeError, ValueError):
+                continue
+            if np.isfinite(val_float):
+                mp_edge_values.append(val_float)
+        mp_edge_value = _safe_nanmean(mp_edge_values)
+        lambda1_base = _safe_max_eigenvalue(baseline_cov)
+        lambda1_treat = _safe_max_eigenvalue(overlay_cov)
+        if np.isfinite(lambda1_base) and np.isfinite(lambda1_treat):
+            delta_lambda1 = float(lambda1_treat - lambda1_base)
+        else:
+            delta_lambda1 = float("nan")
         condition_flag = bool(
             mv_condition_cap > 0.0
             and (not np.isfinite(baseline_cond) or baseline_cond > mv_condition_cap)
@@ -2683,6 +2720,10 @@ def run_evaluation(
             "baseline_errors": baseline_error_str,
             "factor_present": bool(factor_present),
             "changed_flag": int(changed_flag),
+            "lambda1_base": lambda1_base,
+            "lambda1_treat": lambda1_treat,
+            "delta_lambda1": delta_lambda1,
+            "mp_edge": mp_edge_value,
         }
         detail_fields = _detail_defaults()
         detail_fields.update(
@@ -2851,6 +2892,7 @@ def run_evaluation(
                 changed_windows_by_regime[regime_name] = set(
                     diag_ids.loc[regime_mask & changed_mask, "window_id"]
                 )
+    forced_union: set[int] | None = None
     if forced_changed_windows:
         forced_sets = {name: set(ids) for name, ids in forced_changed_windows.items()}
         if "full" not in forced_sets and forced_sets:
@@ -2858,6 +2900,11 @@ def run_evaluation(
         for regime_name in _REGIMES:
             forced_sets.setdefault(regime_name, changed_windows_by_regime.get(regime_name, set()))
         changed_windows_by_regime = forced_sets
+        forced_union = set().union(*forced_sets.values()) if forced_sets else set()
+    if forced_union and {"window_id", "changed_flag"}.issubset(diagnostics_df.columns):
+        window_ids = pd.to_numeric(diagnostics_df["window_id"], errors="coerce")
+        mask = window_ids.isin(list(forced_union))
+        diagnostics_df.loc[mask, "changed_flag"] = 1
     bootstrap_samples = max(0, int(config.bootstrap_samples))
     rng_bootstrap = np.random.default_rng(config.seed + 97)
     bootstrap_bands: dict[tuple[str, str], tuple[float, float]] = {}
@@ -2923,6 +2970,10 @@ def run_evaluation(
         "baseline_errors",
         "factor_present",
         "changed_flag",
+        "lambda1_base",
+        "lambda1_treat",
+        "delta_lambda1",
+        "mp_edge",
         "design_ok",
         "mp_edge_margin",
         "alignment_cos_p50",

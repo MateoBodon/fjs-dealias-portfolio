@@ -207,6 +207,10 @@ def test_run_evaluation_emits_artifacts(
         "raw_outliers_found",
         "pre_mp_edge_margin",
         "pre_alignment_cos",
+        "lambda1_base",
+        "lambda1_treat",
+        "delta_lambda1",
+        "mp_edge",
     }.issubset(detail_df.columns)
     if not detail_df.empty:
         assert detail_df["reps_by_label"].astype(str).str.len().gt(0).any()
@@ -343,6 +347,11 @@ def test_run_evaluation_delta_respects_changed_window_filter(
     dm_df = pd.read_csv(outputs.dm["full"])
     dm_row = dm_df[(dm_df["portfolio"] == "ew") & (dm_df["baseline"] == "baseline")].iloc[0]
     assert int(dm_row["n_effective"]) == 1
+
+    detail_df = pd.read_csv(outputs.diagnostics_detail["full"])
+    if not detail_df.empty:
+        forced_mask = detail_df["window_id"].astype(int) == 0
+        assert int(detail_df.loc[forced_mask, "changed_flag"].max()) == 1
 
 
 @pytest.mark.unit

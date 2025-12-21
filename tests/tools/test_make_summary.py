@@ -10,9 +10,9 @@ from tools.make_summary import summarise_rc_directory, write_summaries
 
 
 def _copy_sample_rc(tmp_path: Path) -> Path:
-    src = Path("reports/rc-20251103")
+    src = Path("reports/rc-test")
     if not src.exists():
-        raise RuntimeError("Sample RC artifacts missing under reports/rc-20251103.")
+        raise RuntimeError("Sample RC artifacts missing under reports/rc-test.")
     dest = tmp_path / "reports" / src.name
     shutil.copytree(src, dest)
     return dest
@@ -53,8 +53,10 @@ def test_summarise_rc_directory(tmp_path: Path) -> None:
     summary_dir = rc_dir / "summary"
     perf_path = summary_dir / "summary_perf.csv"
     det_path = summary_dir / "summary_detection.csv"
+    overlay_path = summary_dir / "overlay_forensics.csv"
     assert perf_path.exists()
     assert det_path.exists()
+    assert overlay_path.exists()
 
     kill_path = summary_dir / "kill_criteria.json"
     limits_path = summary_dir / "limitations.md"
@@ -66,3 +68,28 @@ def test_summarise_rc_directory(tmp_path: Path) -> None:
     loaded_det = pd.read_csv(det_path)
     assert "regime" in loaded_det.columns
     assert set(loaded_det["regime"]) == {"full", "calm", "crisis"}
+
+    overlay_df = pd.read_csv(overlay_path)
+    required_overlay_cols = {
+        "window_end",
+        "window_id",
+        "design",
+        "shrinker",
+        "edge_mode",
+        "changed",
+        "skip_reason_primary",
+        "skip_reason_detail",
+        "gate_mode",
+        "delta_frac_used",
+        "lambda1_base",
+        "lambda1_treat",
+        "delta_lambda1",
+        "mp_edge",
+        "edge_margin",
+        "realized_var",
+        "mse_base",
+        "mse_treat",
+        "qlike_base",
+        "qlike_treat",
+    }
+    assert required_overlay_cols.issubset(overlay_df.columns)

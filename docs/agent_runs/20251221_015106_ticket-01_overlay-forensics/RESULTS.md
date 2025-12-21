@@ -1,0 +1,12 @@
+- **Code changes**:
+  - `experiments/eval/run.py`: added per-window `lambda1_base`, `lambda1_treat`, `delta_lambda1`, `mp_edge` to diagnostics detail; forced `changed_flag` override when `forced_changed_windows` is used; added safe eigenvalue helper.
+  - `tools/make_summary.py`: new overlay-forensics builder (joins `metrics_detail.csv` + `diagnostics_detail.csv`), emits `summary/overlay_forensics.csv`, and appends overlay-forensics note/warnings to `summary/limitations.md`.
+  - Tests updated: `tests/tools/test_make_summary.py`, `tests/experiments/test_eval_run.py`.
+- **New/updated artifacts (rc-lite-sanity run)**:
+  - Run dir: `reports/rc-20251221-sanity-20251221_021657/` (dow + vol designs).
+  - `summary/overlay_forensics.csv` created via `tools/make_summary.py` (214 rows; `changed=1` only).
+  - `summary/limitations.md` now references overlay_forensics as the per-window “why ΔMSE/ΔQLIKE moved” source.
+  - `summary/completeness.json` reports `cap_active=false`, `cap_sources=[]`.
+- **Notes**:
+  - `EXEC_MODE=deterministic make rc-lite-sanity` timed out three times; the final run directory was completed by rerunning the vol leg manually with the same arguments into the same `reports/rc-20251221-sanity-20251221_021657/` path. Earlier partial dirs (`reports/rc-20251221-sanity-20251221_020929/`, `reports/rc-20251221-sanity-20251221_021150/`) are incomplete and should be ignored.
+  - Initial `tools/make_summary.py` attempt failed due to tuple column selection; rerun succeeded after fix.

@@ -19,3 +19,4 @@
 - Notes on failed attempts:
   - First rc-paper-v1-ablate run failed on invalid shrinker `scm` (fixed by mapping SCM→`sample`).
   - Several early runs were interrupted during overlay ON runs; final run completed at `reports/rc-paper-v1-ablate-20251221_205751/`.
+- Bundle: `docs/gpt_bundles/20251221_211157_ticket-04_20251221_194517_ticket-04_paper-v1-ablation.zip`

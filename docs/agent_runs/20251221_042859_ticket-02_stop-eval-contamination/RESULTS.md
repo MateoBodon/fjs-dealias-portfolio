@@ -31,3 +31,6 @@
 - Summary tables are empty as expected:
   - `reports/smoke_cap_test/summary/summary_perf.csv` rows: 0
   - `reports/smoke_cap_test/summary/summary_detection.csv` rows: 0
+
+## Bundle
+- `docs/gpt_bundles/20251221_052207_ticket-02_20251221_042859_ticket-02_stop-eval-contamination.zip`

@@ -287,3 +287,11 @@ git add PROGRESS.md docs/CODEX_SPRINT_TICKETS.md project_state/KNOWN_ISSUES.md d
 git diff eb880be520eab2f58d50c2efed8b55385ce93488..HEAD > docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/DIFF.patch
 
 git add docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/DIFF.patch docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/COMMANDS.md
+
+make gpt-bundle TICKET=ticket-02 RUN_NAME=20251221_042859_ticket-02_stop-eval-contamination
+
+cat >> docs/agent_runs/20251221_042859_ticket-02_stop-eval-contamination/RESULTS.md <<'EOF'
+...added bundle path...
+EOF
+
+git status --porcelain

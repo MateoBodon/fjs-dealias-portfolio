@@ -239,3 +239,13 @@ PY
 - git commit -m "docs: update ticket-04 command log" -m "Tests run: make test-fast"
 - git add docs/agent_runs/20251221_194517_ticket-04_paper-v1-ablation/COMMANDS.md docs/agent_runs/20251221_194517_ticket-04_paper-v1-ablation/RESULTS.md
 - git commit -m "docs: finalize ticket-04 run log" -m "Tests run: make test-fast"
+- python - <<'PY'
+import json
+from pathlib import Path
+
+run_json = Path('reports/rc-paper-v1-ablate-20251221_205751/scm_on/run.json')
+payload = json.loads(run_json.read_text())
+print(payload.get('windows'))
+PY
+- git add docs/agent_runs/20251221_194517_ticket-04_paper-v1-ablation/COMMANDS.md
+- git commit -m "docs: update ticket-04 command log" -m "Tests run: make test-fast"

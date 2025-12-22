@@ -9,6 +9,7 @@ Generates machine-derived artifacts under project_state/_generated:
 - make_targets.txt: extracted Makefile targets.
 
 Only stdlib is used. Excludes heavy/data/output directories to stay fast.
+AST indexing is limited to src/, experiments/, and tools/ Python files.
 """
 
 from __future__ import annotations
@@ -36,6 +37,7 @@ EXCLUDE_DIR_NAMES = {
     "reports",
     "data",
     "results",
+    "agent_runs",
 }
 
 # Directory prefixes (relative) to skip entirely
@@ -134,7 +136,7 @@ def collect_files() -> Tuple[List[dict], List[dict]]:
 def module_name_from_path(py_path: Path) -> str:
     rel = rel_path(py_path)
     parts = list(rel.parts)
-    if parts[0] in {"src", "experiments", "tools", "tests", "scripts"}:
+    if parts and parts[0] == "src":
         parts = parts[1:]
     if parts[-1] == "__init__.py":
         parts = parts[:-1]
@@ -145,19 +147,71 @@ def module_name_from_path(py_path: Path) -> str:
 
 def get_py_files() -> List[Path]:
     py_files: List[Path] = []
-    for root, dirs, files in os.walk(ROOT):
-        rel_root = rel_path(Path(root))
-        dirs[:] = [
-            d for d in dirs if not should_skip_dir(rel_root / d)
-        ]
-        for fname in files:
-            if not fname.endswith(".py"):
+    roots = [ROOT / "src", ROOT / "experiments", ROOT / "tools"]
+    for base in roots:
+        if not base.exists():
+            continue
+        for root, dirs, files in os.walk(base):
+            rel_root = rel_path(Path(root))
+            dirs[:] = [d for d in dirs if not should_skip_dir(rel_root / d)]
+            if should_skip_dir(rel_root):
                 continue
-            rel_file = rel_root / fname
-            if any(str(rel_file).replace("\\", "/").startswith(prefix) for prefix in EXCLUDE_PREFIXES):
-                continue
-            py_files.append(ROOT / rel_file)
+            for fname in files:
+                if not fname.endswith(".py"):
+                    continue
+                rel_file = rel_root / fname
+                if any(
+                    str(rel_file).replace("\\", "/").startswith(prefix)
+                    for prefix in EXCLUDE_PREFIXES
+                ):
+                    continue
+                py_files.append(ROOT / rel_file)
     return py_files
+
+
+def _format_default(node: ast.AST | None) -> str:
+    if node is None:
+        return ""
+    try:
+        return ast.unparse(node)
+    except Exception:  # noqa: BLE001
+        return "..."
+
+
+def _format_signature(args: ast.arguments) -> str:
+    parts: List[str] = []
+
+    posonly = list(args.posonlyargs)
+    pos_args = list(args.args)
+    total_pos = posonly + pos_args
+    defaults = list(args.defaults)
+    default_start = len(total_pos) - len(defaults)
+
+    def fmt_arg(arg: ast.arg, idx: int) -> str:
+        default = ""
+        if idx >= default_start and defaults:
+            default = _format_default(defaults[idx - default_start])
+        return f"{arg.arg}={default}" if default else arg.arg
+
+    for idx, arg in enumerate(total_pos):
+        parts.append(fmt_arg(arg, idx))
+
+    if posonly:
+        parts.insert(len(posonly), "/")
+
+    if args.vararg:
+        parts.append(f"*{args.vararg.arg}")
+    elif args.kwonlyargs:
+        parts.append("*")
+
+    for kw_arg, kw_default in zip(args.kwonlyargs, args.kw_defaults):
+        default = _format_default(kw_default) if kw_default is not None else ""
+        parts.append(f"{kw_arg.arg}={default}" if default else kw_arg.arg)
+
+    if args.kwarg:
+        parts.append(f"**{args.kwarg.arg}")
+
+    return "(" + ", ".join(parts) + ")"
 
 
 def parse_symbols(py_files: Iterable[Path]) -> Tuple[Dict[str, dict], Dict[str, List[str]]]:
@@ -188,21 +242,30 @@ def parse_symbols(py_files: Iterable[Path]) -> Tuple[Dict[str, dict], Dict[str, 
         for node in tree.body:
             if isinstance(node, ast.ClassDef):
                 doc = ast.get_docstring(node)
+                bases = []
+                for base in node.bases:
+                    try:
+                        bases.append(ast.unparse(base))
+                    except Exception:  # noqa: BLE001
+                        bases.append("...")
                 classes.append(
                     {
                         "name": node.name,
                         "lineno": node.lineno,
                         "doc": (doc.splitlines()[0] if doc else ""),
+                        "bases": bases,
                     }
                 )
-            elif isinstance(node, ast.FunctionDef):
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 doc = ast.get_docstring(node)
+                signature = _format_signature(node.args)
                 functions.append(
                     {
                         "name": node.name,
                         "lineno": node.lineno,
                         "doc": (doc.splitlines()[0] if doc else ""),
-                        "args": [arg.arg for arg in node.args.args],
+                        "signature": signature,
+                        "async": isinstance(node, ast.AsyncFunctionDef),
                     }
                 )
         symbol_index[rel_str] = {

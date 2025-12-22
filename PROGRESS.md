@@ -1,3 +1,10 @@
+## 2025-12-22T21:06Z — project_state rebuild (doc-only)
+- **Branch/Run**: `chore/project_state_refresh` (RUN_NAME=`20251222_205400_project_state_rebuild`), git sha `a7d76d8cf7f5fe4c9765c335530064170a0ca87a`.
+- **Commands**: `python3 tools/generate_project_state.py`; `python3 - <<'PY'` (emit FUNCTION_INDEX/DEPENDENCY_GRAPH); `python3 - <<'PY'` (write project_state docs); `zip -r docs/gpt_bundles/project_state_20251222_205400_a7d76d8.zip ...`.
+- **Changes**: regenerated `project_state/_generated` artifacts, rewrote all `project_state/*.md` with updated module inventory and run summaries; updated `tools/generate_project_state.py` to scope AST indexing to src/experiments/tools and include signatures/bases; noted missing `experiments/eval/config.paper_v1.yaml` in Known Issues.
+- **Tests**: Not run (documentation-only).
+- **Artifacts**: run log `docs/agent_runs/20251222_205400_project_state_rebuild/`; bundle `docs/gpt_bundles/project_state_20251222_205400_a7d76d8.zip`.
+
 ## 2025-12-20T22:47Z — ticket-09 guard attribution (guard_unknown surfacing)
 - **Branch/Run**: `codex/ticket-09-weekly-gating-attribution` (RUN_NAME=`20251220_223706_ticket-09_weekly-gating-attribution`), git sha `00159178ef9f9dac4f06fc048d62d88df1bb908f`.
 - **Commands**: `pytest tests/experiments/test_gating_diagnostics.py`; `make test-fast` (first attempt timed out at 10s, reran with 120s timeout and passed); `EXEC_MODE=deterministic make run:equity_smoke`.

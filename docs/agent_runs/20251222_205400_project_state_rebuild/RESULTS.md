@@ -12,5 +12,5 @@
 - Updated `PROGRESS.md` with this rebuild entry.
 
 ## Artifacts
-- Project state bundle: `docs/gpt_bundles/project_state_20251222_205400_d78a128.zip`.
+- Project state bundle: `docs/gpt_bundles/project_state_20251222_205400_4dfb862.zip`.
 - Updated docs: `project_state/` (all required files), `_generated/` indices, `PROGRESS.md`.

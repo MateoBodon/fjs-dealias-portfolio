@@ -104,4 +104,7 @@ git add project_state tools/generate_project_state.py PROGRESS.md docs/agent_run
 git commit -m "Rebuild project_state @ a7d76d8" -m "Tests: not run (doc-only)"
 STAMP=20251222_205400; SHORT=$(git rev-parse --short HEAD); zip -r docs/gpt_bundles/project_state_${STAMP}_${SHORT}.zip project_state PROGRESS.md docs/PLAN_OF_RECORD.md docs/DOCS_AND_LOGGING_SYSTEM.md
 python3 - <<'PY' (update PROGRESS.md entry with latest sha + zip)
+STAMP=20251222_205400; SHORT=$(git rev-parse --short HEAD); zip -r docs/gpt_bundles/project_state_${STAMP}_${SHORT}.zip project_state PROGRESS.md docs/PLAN_OF_RECORD.md docs/DOCS_AND_LOGGING_SYSTEM.md
+python3 - <<'PY' (update PROGRESS.md entry with latest sha + zip)
+cat <<'EOF' > docs/agent_runs/20251222_205400_project_state_rebuild/RESULTS.md (update zip path)
 ```

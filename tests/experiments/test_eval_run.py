@@ -22,6 +22,7 @@ from experiments.eval.run import (
     load_daily_panel,
     run_evaluation,
 )
+from tools.make_summary import write_summaries
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -304,12 +305,58 @@ def test_run_evaluation_marks_comparison_valid_and_caps(
     assert windows_block.get("cap_active") is True
     assert "max_windows" in windows_block.get("cap_sources", [])
     coverage = windows_block.get("window_coverage")
-    assert coverage is None or coverage < 1.0
+    assert coverage is not None
+    assert 0.0 < coverage <= 1.0
 
     skip_df = pd.read_csv(outputs.skip_stats["all"])
     assert not skip_df.empty
     expected_skip_cols = {"regime", "portfolio", "estimator", "skip_reason", "windows", "skip_count", "skip_share"}
     assert expected_skip_cols <= set(skip_df.columns)
+
+
+def test_holdout_empty_windows_do_not_trigger_window_coverage_cap(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    tmp_dir = tmp_path_factory.mktemp("holdout_empty")
+    dates = pd.date_range("2024-01-01", periods=14, freq="B")
+    rng = np.random.default_rng(2025)
+    returns = rng.normal(scale=0.01, size=(len(dates), 3))
+    returns[-2:, :] = np.nan
+    frame = pd.DataFrame(returns, index=dates, columns=["A", "B", "C"])
+    returns_csv = tmp_dir / "returns.csv"
+    frame.reset_index().rename(columns={"index": "date"}).to_csv(returns_csv, index=False)
+    config = EvalConfig(
+        returns_csv=returns_csv,
+        factors_csv=None,
+        window=10,
+        horizon=2,
+        out_dir=tmp_dir,
+        shrinker="rie",
+        seed=101,
+        use_factor_prewhiten=False,
+        group_design="week",
+        group_min_count=1,
+        group_min_replicates=1,
+        assets_top=3,
+        min_comparison_windows=1,
+        mv_condition_cap=1e12,
+        mv_turnover_bps=0.0,
+        workers=1,
+    )
+    run_evaluation(config)
+
+    payload = json.loads((tmp_dir / "run.json").read_text(encoding="utf-8"))
+    windows_block = payload.get("windows", {})
+    assert windows_block.get("cap_active") is False
+    assert windows_block.get("cap_sources") == []
+    assert windows_block.get("windows_dropped_holdout_empty", 0) > 0
+    assert windows_block.get("windows_requested") == windows_block.get("windows_evaluated")
+    coverage = windows_block.get("window_coverage")
+    assert coverage is not None and np.isclose(coverage, 1.0)
+
+    write_summaries([tmp_dir])
+    limitations = (tmp_dir / "summary" / "limitations.md").read_text(encoding="utf-8")
+    assert "holdout_empty" in limitations
 
 
 def test_run_evaluation_delta_respects_changed_window_filter(

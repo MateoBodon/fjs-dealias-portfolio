@@ -10,6 +10,7 @@ from typing import Any, Callable, Iterable, Sequence
 import numpy as np
 import pandas as pd
 
+from experiments.eval.diagnostics import DiagnosticReason
 from meta.completeness import CompletenessResult, evaluate_eval_run
 
 REGIMES: Sequence[str] = ("full", "calm", "crisis")
@@ -187,6 +188,33 @@ def _read_mv_skip_on_missing_solver(run_dir: Path) -> bool:
     if isinstance(config, dict) and "mv_skip_on_missing_solver" in config:
         return bool(config.get("mv_skip_on_missing_solver"))
     return bool(payload.get("mv_skip_on_missing_solver", False))
+
+
+def _read_window_drop_reasons(run_dir: Path) -> dict[str, int]:
+    payload = _read_json(run_dir / "run.json")
+    windows = payload.get("windows") if isinstance(payload, dict) else None
+    if not isinstance(windows, dict):
+        return {}
+    dropped = windows.get("windows_dropped_reasons") or {}
+    if not isinstance(dropped, dict):
+        dropped = {}
+    cleaned: dict[str, int] = {}
+    for key, value in dropped.items():
+        try:
+            count = int(value)
+        except (TypeError, ValueError):
+            continue
+        if count > 0:
+            cleaned[str(key)] = count
+    holdout_key = DiagnosticReason.HOLDOUT_EMPTY.value
+    holdout_val = windows.get("windows_dropped_holdout_empty")
+    try:
+        holdout_count = int(holdout_val) if holdout_val is not None else 0
+    except (TypeError, ValueError):
+        holdout_count = 0
+    if holdout_count > 0:
+        cleaned.setdefault(holdout_key, holdout_count)
+    return cleaned
 
 
 def _aggregate_completeness(eligible_runs: Sequence[RunEligibility]) -> tuple[bool, list[str], float | None]:
@@ -1026,6 +1054,17 @@ def write_summaries(rc_dirs: Iterable[Path]) -> dict[Path, SummaryArtifacts]:
                 if comp.cap_active:
                     reason = ", ".join(comp.cap_sources) if comp.cap_sources else "cap_active=true"
                     limitations.append(f"run capped ({reason}); excluded from aggregates.")
+        if run_eligibility:
+            for run in run_eligibility:
+                dropped = _read_window_drop_reasons(run.run_dir)
+                if dropped:
+                    reason_str = ", ".join(
+                        f"{key}: {count}" for key, count in sorted(dropped.items())
+                    )
+                    prefix = "" if single_run else f"{run.display_path}: "
+                    limitations.append(
+                        f"{prefix}windows dropped from planning ({reason_str})."
+                    )
         limitations.extend(overlay_warnings)
         if overlay_df.empty:
             limitations.append("overlay_forensics.csv empty or missing changed windows (see diagnostics_detail.csv).")

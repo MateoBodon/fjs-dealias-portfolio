@@ -1820,6 +1820,8 @@ def run_evaluation(
                 DiagnosticReason.BALANCE_FAILURE.value if config.reason_codes else ""
             )
             diag_record = {
+                "window_id": start,
+                "window_start": hold_start.isoformat(),
                 "regime": regime,
                 "detections": 0,
                 "detection_rate": 0.0,
@@ -1988,6 +1990,8 @@ def run_evaluation(
                 DiagnosticReason.BALANCE_FAILURE.value if config.reason_codes else ""
             )
             diag_record = {
+                "window_id": start,
+                "window_start": hold_start.isoformat(),
                 "regime": regime,
                 "detections": 0,
                 "detection_rate": 0.0,
@@ -2043,6 +2047,8 @@ def run_evaluation(
                 DiagnosticReason.HOLDOUT_EMPTY.value if config.reason_codes else ""
             )
             diag_record = {
+                "window_id": start,
+                "window_start": hold_start.isoformat(),
                 "regime": regime,
                 "detections": 0,
                 "detection_rate": 0.0,
@@ -2060,6 +2066,7 @@ def run_evaluation(
                 "gating_soft_cap": overlay_cfg.gate_soft_max,
                 "gating_delta_frac": overlay_cfg.gate_delta_frac_min,
                 "reason_code": reason_value,
+                "drop_reason": DiagnosticReason.HOLDOUT_EMPTY.value,
                 "resolved_config_path": resolved_path_str,
                 "calm_threshold": float(calm_cut),
                 "crisis_threshold": float(crisis_cut),
@@ -2767,12 +2774,15 @@ def run_evaluation(
 
     total_days = raw_returns.shape[0]
     start_indices: Iterable[int]
-    windows_requested = max(total_days - config.window - config.horizon + 1, 0)
-    start_indices = range(0, windows_requested)
+    windows_candidate = max(total_days - config.window - config.horizon + 1, 0)
+    start_indices = range(0, windows_candidate)
     if config.max_windows is not None:
         max_windows = max(0, int(config.max_windows))
         start_indices = list(start_indices)[:max_windows]
     windows_after_caps = len(start_indices)
+    windows_requested = windows_after_caps
+    windows_dropped_holdout_empty = 0
+    windows_dropped_reasons: dict[str, int] = {}
     worker_setting = config.workers
     if mv_tau > 0.0:
         worker_setting = 1
@@ -2806,6 +2816,8 @@ def run_evaluation(
         diagnostics_df["vol_state_label"] = ""
     if "window_start" not in diagnostics_df.columns:
         diagnostics_df["window_start"] = ""
+    if "drop_reason" not in diagnostics_df.columns:
+        diagnostics_df["drop_reason"] = np.nan
     if "raw_detection_count" not in diagnostics_df.columns:
         diagnostics_df["raw_detection_count"] = 0
     if "substitution_fraction" not in diagnostics_df.columns:
@@ -2857,6 +2869,18 @@ def run_evaluation(
         diagnostics_df["residual_energy_mean"] = np.nan
     if "acceptance_delta" not in diagnostics_df.columns:
         diagnostics_df["acceptance_delta"] = np.nan
+    drop_counts = diagnostics_df["drop_reason"].dropna().value_counts()
+    if not drop_counts.empty:
+        windows_dropped_reasons = {
+            str(reason): int(count) for reason, count in drop_counts.items()
+        }
+        windows_dropped_holdout_empty = int(
+            windows_dropped_reasons.get(DiagnosticReason.HOLDOUT_EMPTY.value, 0)
+        )
+        windows_requested = max(
+            windows_after_caps - windows_dropped_holdout_empty, 0
+        )
+
     metrics_df, diagnostics_df = _limit_windows_by_regime(
         metrics_df,
         diagnostics_df,
@@ -2944,6 +2968,7 @@ def run_evaluation(
         "gating_delta_frac",
         "q_multi_rejections",
         "reason_code",
+        "drop_reason",
         "resolved_config_path",
         "calm_threshold",
         "crisis_threshold",
@@ -3012,6 +3037,7 @@ def run_evaluation(
                     "prewhiten_factors",
                     "reps_by_label",
                     "bracket_status",
+                    "drop_reason",
                 }:
                     diagnostics_df[column] = ""
                 elif column in {
@@ -3124,8 +3150,12 @@ def run_evaluation(
                 "thread_caps": runtime.thread_caps_snapshot(),
             },
             "windows": {
-                "windows_requested": windows_requested,
+                "windows_candidate": windows_candidate,
                 "windows_after_caps": windows_after_caps,
+                "windows_planned": windows_requested,
+                "windows_requested": windows_requested,
+                "windows_dropped_holdout_empty": windows_dropped_holdout_empty,
+                "windows_dropped_reasons": windows_dropped_reasons,
                 "windows_evaluated": windows_evaluated,
                 "window_coverage": windows_coverage,
                 "cap_active": caps_active,
@@ -3833,8 +3863,12 @@ def run_evaluation(
             "thread_caps": runtime.thread_caps_snapshot(),
         },
         "windows": {
-            "windows_requested": windows_requested,
+            "windows_candidate": windows_candidate,
             "windows_after_caps": windows_after_caps,
+            "windows_planned": windows_requested,
+            "windows_requested": windows_requested,
+            "windows_dropped_holdout_empty": windows_dropped_holdout_empty,
+            "windows_dropped_reasons": windows_dropped_reasons,
             "windows_evaluated": windows_evaluated,
             "window_coverage": windows_coverage,
             "cap_active": caps_active,

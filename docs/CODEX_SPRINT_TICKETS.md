@@ -140,7 +140,7 @@
 
 ---
 
-## Ticket #5 — Advisor-ready RC run (one headline table, no caveats)
+## Ticket #5 (FAIL) — Advisor-ready RC run (one headline table, no caveats)
 
 **Goal (1 sentence):** Produce one uncapped daily DoW result table with forensics + limitations that can be shown to the advisor.
 
@@ -166,5 +166,33 @@
 **Expected artifacts/logs:**
 - Full run log + `make gpt-bundle` bundle for advisor
 
-Ticket #6 — Replace/repair make rc-lite-sanity so it always finishes (<2–3 min) and is truly uncapped, or update AGENTS to require the new smoke target.
+**Status:** FAIL — ticket-05 daily DoW paper-v1 run flagged `cap_active=true` due to `window_coverage` from holdout-empty windows; headline tables excluded.
+
+---
+
+## Ticket #6 (DONE) — Window coverage planning for holdout-empty windows (daily eval)
+
+**Goal (1 sentence):** Ensure uncapped daily eval runs are not flagged `cap_active` when the only missing windows are holdout-empty; log dropped windows and keep headline tables non-empty.
+
+**Primary blocker addressed:** “uncapped paper-v1 run flagged `window_coverage` due to holdout_empty planning.”
+
+**Files/modules likely involved:**
+- `experiments/eval/run.py` (window planning + drop reasons)
+- `tools/make_summary.py` (limitations surfacing)
+- tests:
+  - `tests/experiments/test_eval_run.py`
+
+**Acceptance criteria:**
+- `windows_requested` reflects evaluable windows (post holdout-empty drop); `windows_dropped_holdout_empty` logged.
+- `cap_active=false` on uncapped daily DoW paper-v1 run with holdout-empty windows.
+- `summary_perf.csv`, `summary_detection.csv`, and `overlay_forensics.csv` are non-empty.
+- Regression test added to prevent `window_coverage` caps driven by holdout-empty windows.
+
+**Status:** DONE — see `reports/rc-ticket-06-20251222_063304/` and run log `docs/agent_runs/20251222_014730_ticket-06_window-coverage/`.
+
+---
+
+## Ticket #7 — Re-run Ticket #5 after Ticket #6 fix: one advisor-ready daily DoW paper-v1 table (uncapped), update PROGRESS.md + project_state/CURRENT_RESULTS.md, bundle for advisor.
+
+## Ticket #8 — Replace/repair make rc-lite-sanity so it always finishes (<2–3 min) and is truly uncapped, or update AGENTS to require the new smoke target.
 This is necessary to stop “timeouts” from being the default test outcome.

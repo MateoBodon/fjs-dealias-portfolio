@@ -8,6 +8,12 @@ commands:
 
 # Current Results (latest validated drops)
 
+- **2025-12-22 — Daily DoW paper-v1 (ticket-06, git 8a5579b)**  
+  - Deterministic daily DoW run (`experiments/eval/config.paper_v1.yaml`, FF5+MOM prewhiten) with uncapped windows: `cap_active=false`, `window_coverage=1.0`, `n_effective=1749` (full regime).  
+  - Full-regime detection_rate_mean ≈ 4.16% (1751/1774 windows); window drops logged as `holdout_empty: 115` (excluded from planning, not treated as caps).  
+  - Performance deltas (full regime): EW ΔMSE ≈ +2.64e-11 (harmful), MV ΔMSE ≈ −6.65e-13 (slight improvement).  
+  - Artifacts: `reports/rc-ticket-06-20251222_063304/summary/{summary_perf.csv,summary_detection.csv,overlay_forensics.csv,limitations.md}`; run dir `reports/rc-ticket-06-20251222_063304/dow-paper-v1/`.
+
 - **2025-12-20 — Nested synthetic calibration (ticket-10, git e6e7982)**  
   - Synthetic nested (p=200, years=2, weeks 6–8, reps=5, tyler, delta=0.35, delta_frac=0.05): null detections 0/220 → FPR 0 with Wilson hi 0.017; power 1.0 on moderate/strong.  
   - Calibration written to `calibration/nested_edge_delta_thresholds.json` with run metadata; nested configs now point to this file; lookup is design-aware.

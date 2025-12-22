@@ -46,3 +46,6 @@ Detection + change rates (full regime):
 - python3 scripts/check_data_policy.py: PASS (check_data_policy: OK)
 - Secret scan (rg): hits in docs/CLOUD.md, src/utils/credentials.py, project_state indexes, and agent logs; no secrets committed.
 - Restricted-data scan (tracked files): no matches (rg exit 123).
+
+## Review bundle
+- docs/gpt_bundles/20251222_210859_ticket-07_20251222_183526_ticket-07_advisor-ready-dow.zip

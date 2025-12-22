@@ -30,3 +30,4 @@ Run root: `reports/rc-ticket-06-20251222_063304/`
 ## Artifacts
 - Run outputs: `reports/rc-ticket-06-20251222_063304/dow-paper-v1/`
 - Summary directory: `reports/rc-ticket-06-20251222_063304/summary/`
+- GPT bundle: `docs/gpt_bundles/20251222_090028_ticket-06_20251222_014730_ticket-06_window-coverage.zip`

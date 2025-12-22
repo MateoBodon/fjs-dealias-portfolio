@@ -698,4 +698,9 @@ make gpt-bundle TICKET=ticket-07 RUN_NAME=20251222_183526_ticket-07_advisor-read
 git status -sb
 git add docs/agent_runs/20251222_183526_ticket-07_advisor-ready-dow/RESULTS.md docs/agent_runs/20251222_183526_ticket-07_advisor-ready-dow/COMMANDS.md
 git commit -m "Update ticket-07 run log bundle path" -m "Tests run: make test-fast"
+git add docs/agent_runs/20251222_183526_ticket-07_advisor-ready-dow/COMMANDS.md
+git commit -m "Update ticket-07 command log" -m "Tests run: make test-fast"
+git status -sb
+git add docs/agent_runs/20251222_183526_ticket-07_advisor-ready-dow/COMMANDS.md
+git commit -m "Finalize ticket-07 command log" -m "Tests run: make test-fast"
 git status -sb

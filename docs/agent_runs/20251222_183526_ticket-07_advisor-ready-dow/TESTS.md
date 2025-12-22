@@ -1,0 +1,4 @@
+- make test-fast
+  - status: PASS
+  - runtime: 13.04s
+  - summary: 69 passed, 164 deselected, 1 warning (PytestConfigWarning: Unknown config option: timeout)

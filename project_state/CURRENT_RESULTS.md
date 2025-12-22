@@ -1,12 +1,20 @@
 ---
-generated: 2025-12-20T02:25:00+00:00
-git_sha: e6e798288c117a188db38c4dde85cf91972921d8
-git_branch: ticket-10-nested-null-fpr
+generated: 2025-12-22T19:56:00+00:00
+git_sha: 2cb5bfdce66324fff011d994d552a4b9bc42740c
+git_branch: feat/ticket-07-advisor-ready-dow
 commands:
-  - source .venv/bin/activate && python -m experiments.synthetic.nested_killtest --config experiments/synthetic/config.nested.killtest.yaml --out reports/synthetic/nested_killtest/20251220_011519_ticket-10_nested-null-fpr --calibration-out calibration/nested_edge_delta_thresholds.json --run-name 20251220_011519_ticket-10_nested-null-fpr --target-fpr 0.02
+  - make test-fast
+  - PYTHONPATH=src:. python experiments/eval/run.py --config experiments/eval/config.paper_v1.yaml --returns-csv data/returns_daily.csv --factors-csv data/factors/ff5mom_daily.csv --out reports/rc-ticket-07-20251222_183800/dow-paper-v1 --exec-mode deterministic
+  - PYTHONPATH=src:. python tools/make_summary.py --rc-dir reports/rc-ticket-07-20251222_183800
 ---
 
 # Current Results (latest validated drops)
+
+- **2025-12-22 — Daily DoW paper-v1 (ticket-07, git 2cb5bfd)**  
+  - Deterministic daily DoW run (`experiments/eval/config.paper_v1.yaml`, FF5+MOM prewhiten) with uncapped windows: `cap_active=false`, `window_coverage=1.0`, `n_effective=1749` (full regime).  
+  - Full-regime detection_rate_mean ≈ 4.16% (1751/1774 windows); window drops logged as `holdout_empty: 115` (excluded from planning, not treated as caps).  
+  - Performance deltas (full regime): EW ΔQLIKE ≈ −0.06719 (ΔMSE ≈ +2.64e-11), MV ΔQLIKE ≈ −0.03576 (ΔMSE ≈ −6.65e-13).  
+  - Artifacts: `reports/rc-ticket-07-20251222_183800/summary/{summary_perf.csv,summary_detection.csv,overlay_forensics.csv,limitations.md,advisor_snapshot.md}`; run dir `reports/rc-ticket-07-20251222_183800/dow-paper-v1/`.
 
 - **2025-12-22 — Daily DoW paper-v1 (ticket-06, git 8a5579b)**  
   - Deterministic daily DoW run (`experiments/eval/config.paper_v1.yaml`, FF5+MOM prewhiten) with uncapped windows: `cap_active=false`, `window_coverage=1.0`, `n_effective=1749` (full regime).  

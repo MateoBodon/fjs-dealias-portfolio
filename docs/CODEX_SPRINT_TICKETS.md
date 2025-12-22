@@ -194,5 +194,7 @@
 
 ## Ticket #7 — Re-run Ticket #5 after Ticket #6 fix: one advisor-ready daily DoW paper-v1 table (uncapped), update PROGRESS.md + project_state/CURRENT_RESULTS.md, bundle for advisor.
 
+**Status:** DONE — outputs `reports/rc-ticket-07-20251222_183800/dow-paper-v1/`, summary `reports/rc-ticket-07-20251222_183800/summary/`, run log `docs/agent_runs/20251222_183526_ticket-07_advisor-ready-dow/`.
+
 ## Ticket #8 — Replace/repair make rc-lite-sanity so it always finishes (<2–3 min) and is truly uncapped, or update AGENTS to require the new smoke target.
 This is necessary to stop “timeouts” from being the default test outcome.

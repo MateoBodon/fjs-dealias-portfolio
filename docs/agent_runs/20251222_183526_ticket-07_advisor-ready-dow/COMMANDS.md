@@ -704,3 +704,149 @@ git status -sb
 git add docs/agent_runs/20251222_183526_ticket-07_advisor-ready-dow/COMMANDS.md
 git commit -m "Finalize ticket-07 command log" -m "Tests run: make test-fast"
 git status -sb
+python - <<'PY'
+import json
+from pathlib import Path
+path = Path('reports/rc-ticket-07-20251222_183800/dow-paper-v1/run.json')
+with path.open() as f:
+    data = json.load(f)
+windows = data.get('windows', {})
+print('cap_active', windows.get('cap_active'))
+print('cap_sources', windows.get('cap_sources'))
+print('window_coverage', windows.get('window_coverage'))
+print('windows_requested', windows.get('windows_requested'))
+print('windows_evaluated', windows.get('windows_evaluated'))
+PY
+python - <<'PY'
+import csv
+from pathlib import Path
+path = Path('reports/rc-ticket-07-20251222_183800/summary/summary_perf.csv')
+with path.open() as f:
+    rows = list(csv.DictReader(f))
+issues = []
+for r in rows:
+    for key in ('comparison_valid_mse','comparison_valid_es','comparison_valid_qlike','comparison_valid_delta'):
+        if r.get(key) not in ('1', '1.0', 1, 1.0, 'True', 'true'):
+            issues.append((r['regime'], r['portfolio'], key, r.get(key)))
+    for key in ('n_effective','n_effective_mse','n_effective_es','n_effective_qlike'):
+        try:
+            if float(r.get(key, 0)) < 50:
+                issues.append((r['regime'], r['portfolio'], key, r.get(key)))
+        except ValueError:
+            issues.append((r['regime'], r['portfolio'], key, r.get(key)))
+print('issues', issues)
+PY
+python - <<'PY'
+from pathlib import Path
+import csv
+base = Path('reports/rc-ticket-07-20251222_183800/summary')
+checks = {}
+for name in ['summary_perf.csv','summary_detection.csv','overlay_forensics.csv']:
+    path = base / name
+    if not path.exists():
+        checks[name] = 'missing'
+        continue
+    with path.open() as f:
+        rows = list(csv.reader(f))
+    checks[name] = f"rows={len(rows)-1}"
+lim = base / 'limitations.md'
+checks['limitations.md'] = 'exists' if lim.exists() else 'missing'
+comp = base / 'completeness.json'
+checks['completeness.json'] = f"bytes={comp.stat().st_size}" if comp.exists() else 'missing'
+print(checks)
+PY
+git diff main...HEAD -- tools/make_summary.py
+bash -c 'python3 scripts/check_data_policy.py; echo exit_code=$?'
+rg -n "WRDS_PASSWORD|WRDS_USERNAME|password|token|secret" -S .
+bash -c 'git ls-files | xargs rg -n "strike,.*market_iv|\\bsecid\\b|best_bid|best_ask|best_offer" -S; echo exit_code=$?'
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: docs/agent_runs/20251222_183526_ticket-07_advisor-ready-dow/RESULTS.md
+@@
+ ## Headline eligibility checks
+ From reports/rc-ticket-07-20251222_183800/dow-paper-v1/run.json (windows block):
+ ```
+ cap_active: False
+ cap_sources: []
+ window_coverage: 1.0
+ windows_requested: 3512
+ windows_evaluated: 3512
+ windows_dropped_holdout_empty: 115
+ windows_dropped_reasons: {'holdout_empty': 115}
+ ```
+@@
+ Summary artifacts (non-empty):
+ ```
+ summary_perf.csv: rows=6
+ summary_detection.csv: rows=3
+ overlay_forensics.csv: rows=6996
+ limitations.md: exists, no "run capped" section
++completeness.json: bytes=398
+ ```
+@@
+ ## Data/security checks
+-- python3 scripts/check_data_policy.py: PASS (check_data_policy: OK)
+-- Secret scan (rg): hits in docs/CLOUD.md, src/utils/credentials.py, project_state indexes, and agent logs; no secrets committed.
+-- Restricted-data scan (tracked files): no matches (rg exit 123).
++- python3 scripts/check_data_policy.py: PASS (check_data_policy: OK), exit_code=0
++- Secret scan (rg): hits in docs/CLOUD.md, src/utils/credentials.py, project_state indexes, PROGRESS, and agent logs; no secrets committed.
++- Restricted-data scan (tracked files): hits only in PROMPT/COMMANDS/PROGRESS where the scan command string appears; no data artifacts flagged (rg exit 123).
++
++## Checklist verification
++- summary_perf: comparison_valid_* all 1 and n_effective_* >= 50 (issues=[])
++- tools/make_summary.py diff vs main: no changes
+*** End Patch
+PATCH
+git log --format='%h %s%n%b' -n 6
+rg -n "ticket-07 advisor-ready" PROGRESS.md
+sed -n '1,40p' project_state/CURRENT_RESULTS.md
+rg -n "Ticket #7" -n docs/CODEX_SPRINT_TICKETS.md
+sed -n '195,210p' docs/CODEX_SPRINT_TICKETS.md
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: docs/agent_runs/20251222_183526_ticket-07_advisor-ready-dow/RESULTS.md
+@@
+ ## Checklist verification
+ - summary_perf: comparison_valid_* all 1 and n_effective_* >= 50 (issues=[])
+ - tools/make_summary.py diff vs main: no changes
++- PROGRESS.md includes ticket-07 entry with commands/paths/git SHA
++- project_state/CURRENT_RESULTS.md front-matter updated to ticket-07 run
++- docs/CODEX_SPRINT_TICKETS.md marks Ticket #7 DONE with run paths
+*** End Patch
+PATCH
+make gpt-bundle TICKET=ticket-07 RUN_NAME=20251222_183526_ticket-07_advisor-ready-dow
+python - <<'PY'
+import zipfile
+from pathlib import Path
+path = Path('docs/gpt_bundles/20251222_212820_ticket-07_20251222_183526_ticket-07_advisor-ready-dow.zip')
+req_files = [
+    'AGENTS.md',
+    'PROGRESS.md',
+    'docs/PLAN_OF_RECORD.md',
+    'docs/DOCS_AND_LOGGING_SYSTEM.md',
+    'docs/CODEX_SPRINT_TICKETS.md',
+    'project_state/CURRENT_RESULTS.md',
+    'project_state/KNOWN_ISSUES.md',
+    'project_state/CONFIG_REFERENCE.md',
+    'DIFF.patch',
+    'LAST_COMMIT.txt',
+]
+run_dir_prefix = 'docs/agent_runs/20251222_183526_ticket-07_advisor-ready-dow/'
+with zipfile.ZipFile(path) as z:
+    names = set(z.namelist())
+missing = [f for f in req_files if f not in names]
+run_dir_ok = any(name.startswith(run_dir_prefix) for name in names)
+print('bundle', path)
+print('missing', missing)
+print('run_dir_present', run_dir_ok)
+PY
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: docs/agent_runs/20251222_183526_ticket-07_advisor-ready-dow/RESULTS.md
+@@
+ ## Review bundle
+-- docs/gpt_bundles/20251222_210859_ticket-07_20251222_183526_ticket-07_advisor-ready-dow.zip
++- docs/gpt_bundles/20251222_212820_ticket-07_20251222_183526_ticket-07_advisor-ready-dow.zip
++- bundle contains: AGENTS.md, PROGRESS.md, docs/{PLAN_OF_RECORD,DOCS_AND_LOGGING_SYSTEM,CODEX_SPRINT_TICKETS}.md, project_state/{CURRENT_RESULTS,KNOWN_ISSUES,CONFIG_REFERENCE}.md, run log dir, DIFF.patch, LAST_COMMIT.txt
+*** End Patch
+PATCH

@@ -696,3 +696,6 @@ git add PROGRESS.md project_state/CURRENT_RESULTS.md docs/CODEX_SPRINT_TICKETS.m
 git commit -m "Log ticket-07 advisor-ready DoW run" -m "Tests run: make test-fast"
 make gpt-bundle TICKET=ticket-07 RUN_NAME=20251222_183526_ticket-07_advisor-ready-dow
 git status -sb
+git add docs/agent_runs/20251222_183526_ticket-07_advisor-ready-dow/RESULTS.md docs/agent_runs/20251222_183526_ticket-07_advisor-ready-dow/COMMANDS.md
+git commit -m "Update ticket-07 run log bundle path" -m "Tests run: make test-fast"
+git status -sb

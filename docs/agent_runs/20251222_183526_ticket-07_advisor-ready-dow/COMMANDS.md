@@ -850,3 +850,14 @@ apply_patch <<'PATCH'
 +- bundle contains: AGENTS.md, PROGRESS.md, docs/{PLAN_OF_RECORD,DOCS_AND_LOGGING_SYSTEM,CODEX_SPRINT_TICKETS}.md, project_state/{CURRENT_RESULTS,KNOWN_ISSUES,CONFIG_REFERENCE}.md, run log dir, DIFF.patch, LAST_COMMIT.txt
 *** End Patch
 PATCH
+git status -sb
+git add docs/agent_runs/20251222_183526_ticket-07_advisor-ready-dow/COMMANDS.md docs/agent_runs/20251222_183526_ticket-07_advisor-ready-dow/RESULTS.md
+git commit -m "Update ticket-07 run log checks" -m "Tests run: make test-fast"
+git status -sb
+git add docs/agent_runs/20251222_183526_ticket-07_advisor-ready-dow/COMMANDS.md docs/agent_runs/20251222_183526_ticket-07_advisor-ready-dow/RESULTS.md
+git commit -m "Finalize ticket-07 run log + bundle" -m "Tests run: make test-fast"
+git status -sb
+git checkout main
+git merge feat/ticket-07-advisor-ready-dow
+git push origin main
+git status -sb

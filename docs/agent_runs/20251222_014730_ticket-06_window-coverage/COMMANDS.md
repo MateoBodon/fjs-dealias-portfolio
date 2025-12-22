@@ -486,3 +486,7 @@ apply_patch <<'PATCH'
 *** End Patch
 PATCH
 git status -sb
+git add PROGRESS.md project_state/CURRENT_RESULTS.md project_state/KNOWN_ISSUES.md docs/CODEX_SPRINT_TICKETS.md docs/agent_runs/20251222_014730_ticket-06_window-coverage
+git commit -m "Document ticket-06 run and update sprint tickets" -m "Tests run: make test-fast"
+git add docs/agent_runs/20251222_014730_ticket-06_window-coverage/RESULTS.md docs/agent_runs/20251222_014730_ticket-06_window-coverage/COMMANDS.md
+git commit -m "Record ticket-06 bundle and logs" -m "Tests run: make test-fast"

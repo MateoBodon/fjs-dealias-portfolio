@@ -17,3 +17,8 @@ make test-fast (holdout_empty metadata fix)
 - Result: PASS
 - Warnings: PytestConfigWarning: Unknown config option: timeout
 - Summary: 69 passed, 164 deselected, 1 warning in 13.02s
+
+make test-fast (checklist rerun)
+- Result: PASS
+- Warnings: PytestConfigWarning: Unknown config option: timeout
+- Summary: 69 passed, 164 deselected, 1 warning in 13.02s

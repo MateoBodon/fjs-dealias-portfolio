@@ -490,3 +490,53 @@ git add PROGRESS.md project_state/CURRENT_RESULTS.md project_state/KNOWN_ISSUES.
 git commit -m "Document ticket-06 run and update sprint tickets" -m "Tests run: make test-fast"
 git add docs/agent_runs/20251222_014730_ticket-06_window-coverage/RESULTS.md docs/agent_runs/20251222_014730_ticket-06_window-coverage/COMMANDS.md
 git commit -m "Record ticket-06 bundle and logs" -m "Tests run: make test-fast"
+make test-fast
+cat >> docs/agent_runs/20251222_014730_ticket-06_window-coverage/TESTS.md <<'EOF2'
+
+make test-fast (checklist rerun)
+- Result: PASS
+- Warnings: PytestConfigWarning: Unknown config option: timeout
+- Summary: 69 passed, 164 deselected, 1 warning in 13.02s
+EOF2
+python - <<'PY'
+import json
+from pathlib import Path
+import pandas as pd
+
+run_root = Path('reports/rc-ticket-06-20251222_063304/dow-paper-v1')
+summary_root = Path('reports/rc-ticket-06-20251222_063304/summary')
+
+run_json = json.loads((run_root / 'run.json').read_text())
+windows = run_json.get('windows', {})
+print('cap_active', windows.get('cap_active'))
+print('cap_sources', windows.get('cap_sources'))
+print('window_coverage', windows.get('window_coverage'))
+print('windows_requested', windows.get('windows_requested'))
+print('windows_evaluated', windows.get('windows_evaluated'))
+print('windows_dropped_holdout_empty', windows.get('windows_dropped_holdout_empty'))
+print('windows_dropped_reasons', windows.get('windows_dropped_reasons'))
+
+perf = pd.read_csv(summary_root / 'summary_perf.csv')
+det = pd.read_csv(summary_root / 'summary_detection.csv')
+print('summary_perf_rows', len(perf))
+print('summary_detection_rows', len(det))
+
+valid_cols = [c for c in perf.columns if c.startswith('comparison_valid')]
+print('comparison_valid_min', perf[valid_cols].min().to_dict())
+print('n_effective_min', perf['n_effective'].min())
+
+limitations = (summary_root / 'limitations.md').read_text()
+print('limitations_has_excluded_caps', 'Excluded smoke-only runs (capped)' in limitations)
+print('limitations_has_holdout_drop', 'windows dropped from planning' in limitations)
+PY
+ls -la docs/agent_runs/20251222_014730_ticket-06_window-coverage
+git status -sb
+git diff --name-only main..HEAD
+git log -3 --format=fuller
+git add docs/agent_runs/20251222_014730_ticket-06_window-coverage/TESTS.md docs/agent_runs/20251222_014730_ticket-06_window-coverage/COMMANDS.md
+git commit -m "Update ticket-06 checklist logs" -m "Tests run: make test-fast"
+git checkout main
+git pull
+git merge feat/ticket-06-window-coverage
+git push origin main
+git status -sb

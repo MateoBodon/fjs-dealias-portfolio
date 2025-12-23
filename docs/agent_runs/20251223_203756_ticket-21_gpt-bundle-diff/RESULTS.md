@@ -4,7 +4,7 @@
   - Documented bundle audit contract and added stop-the-line rule for reviewable bundles.
   - Optional fixed bundle stamp for reproducible output names.
 - Bundle (manual smoke): `docs/gpt_bundles/20251223_204539_ticket-21_20251223_203756_ticket-21_gpt-bundle-diff.zip`.
-  - DIFF.patch bytes: 2011 (non-empty).
+  - DIFF.patch non-empty (verified via `wc -c`).
 - Bundle (final): `docs/gpt_bundles/20251223_205150_ticket-21_20251223_203756_ticket-21_gpt-bundle-diff.zip`.
-  - DIFF.patch bytes: 2887 (non-empty).
+  - DIFF.patch non-empty (verified via `wc -c`).
 - Limitations: DIFF.patch captures the latest commit only (git show HEAD).

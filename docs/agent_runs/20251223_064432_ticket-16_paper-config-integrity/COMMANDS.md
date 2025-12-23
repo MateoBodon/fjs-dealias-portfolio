@@ -80,3 +80,22 @@ for path in paths:
     print(path, h)
 PY
 - date -u +%Y-%m-%dT%H:%MZ
+- cat > docs/agent_runs/20251223_064432_ticket-16_paper-config-integrity/COMMANDS.md <<'EOF' ... EOF
+- cat > docs/agent_runs/20251223_064432_ticket-16_paper-config-integrity/RESULTS.md <<'EOF' ... EOF
+- cat > docs/agent_runs/20251223_064432_ticket-16_paper-config-integrity/TESTS.md <<'EOF' ... EOF
+- git rev-parse HEAD
+- cat > docs/agent_runs/20251223_064432_ticket-16_paper-config-integrity/META.md <<'EOF' ... EOF
+- rg -n "reports/" .gitignore
+- git status --short
+- git status --short reports/rc-20251223-sanity-20251223_064808
+- git status --short --untracked-files=all reports/rc-20251223-sanity-20251223_064808
+- ls docs/agent_runs/20251223_064432_ticket-16_paper-config-integrity
+- git add AGENTS.md docs/CODEX_SPRINT_TICKETS.md docs/DOCS_AND_LOGGING_SYSTEM.md docs/PLAN_OF_RECORD.md experiments/eval/config.py experiments/eval/run.py project_state/KNOWN_ISSUES.md tests/experiments/test_eval_run.py
+- git commit -m "feat: enforce eval config integrity" -m "Tests:\n- make test-fast\n- EXEC_MODE=deterministic make rc-lite-sanity"
+- apply_patch (docs/agent_runs/20251223_064432_ticket-16_paper-config-integrity/META.md)
+- cat >> PROGRESS.md <<'EOF' ... EOF
+- git diff 8229054d2a17489e0c9fc9f7ad130de7fe64d4fc > docs/agent_runs/20251223_064432_ticket-16_paper-config-integrity/DIFF.patch
+- git status --short
+- git add PROGRESS.md docs/agent_runs/20251223_064432_ticket-16_paper-config-integrity reports/rc-20251223-sanity-20251223_064808/regime.csv
+- git commit -m "docs: log ticket-16 run" -m "Tests:\n- make test-fast\n- EXEC_MODE=deterministic make rc-lite-sanity"
+- git status --short

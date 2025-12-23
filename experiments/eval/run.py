@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import random
@@ -417,6 +418,26 @@ def _current_git_sha() -> str:
         return output.decode("utf-8").strip()
     except Exception:
         return "unknown"
+
+
+def _git_dirty() -> bool:
+    try:
+        output = subprocess.check_output(
+            ["git", "status", "--porcelain"],
+            cwd=PROJECT_ROOT,
+            stderr=subprocess.DEVNULL,
+        )
+        return bool(output.strip())
+    except Exception:
+        return True
+
+
+def _sha256_path(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(8192), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _write_run_metadata(path: Path, payload: Mapping[str, object]) -> None:
@@ -1696,8 +1717,11 @@ def run_evaluation(
             "source": factor_entry.source,
             "note": factor_entry.note,
         }
-    resolved_path.write_text(json.dumps(resolved_payload, indent=2, sort_keys=True, default=str))
+    resolved_path.write_text(
+        json.dumps(resolved_payload, indent=2, sort_keys=True, default=str)
+    )
     resolved_path_str = str(resolved_path)
+    resolved_config_hash = _sha256_path(resolved_path)
 
     overlay_cfg = OverlayConfig(
         shrinker=config.shrinker,
@@ -3143,8 +3167,11 @@ def run_evaluation(
         plot_paths = _paths_to_strings(outputs_plots)
         run_metadata = {
             "git_sha": _current_git_sha(),
+            "git_dirty": _git_dirty(),
             "out_dir": str(out_dir),
             "config": resolved_payload,
+            "resolved_config_path": resolved_path_str,
+            "resolved_config_hash": resolved_config_hash,
             "execution": {
                 "mode": resolved_payload.get("exec_mode", "deterministic"),
                 "thread_caps": runtime.thread_caps_snapshot(),
@@ -3856,8 +3883,11 @@ def run_evaluation(
         )
     run_metadata = {
         "git_sha": _current_git_sha(),
+        "git_dirty": _git_dirty(),
         "out_dir": str(out_dir),
         "config": resolved_payload,
+        "resolved_config_path": resolved_path_str,
+        "resolved_config_hash": resolved_config_hash,
         "execution": {
             "mode": resolved_payload.get("exec_mode", "deterministic"),
             "thread_caps": runtime.thread_caps_snapshot(),

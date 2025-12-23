@@ -1,239 +1,178 @@
-# DOCS + LOGGING SYSTEM (ENFORCED)
+# DOCS_AND_LOGGING_SYSTEM.md (enforced protocol)
 
-**Last updated:** 2025-12-21  
-**Rule:** If it isn’t logged, it didn’t happen. No run log ⇒ no merge. No tests recorded ⇒ no merge.
-
----
-
-## 1) Directory layout (hard-coded conventions)
-
-### 1.1 Prompts (human + agent)
-- `docs/prompts/`
-  - `ticket-XX_<slug>.md` — canonical prompts used for Codex/agents
-  - `analysis_notes_<slug>.md` — scratch notes (optional)
-  - **Rule:** every agent run must copy its exact prompt into the run log.
-
-### 1.2 Agent run logs (mandatory)
-- `docs/agent_runs/<RUN_NAME>/`
-  - `PROMPT.md` — exact prompt text (verbatim)
-  - `COMMANDS.md` — every command executed (copy/paste-able)
-  - `RESULTS.md` — what changed + what the results were (include file paths)
-  - `TESTS.md` — tests run + pass/fail + runtime
-  - `META.md` — provenance + config hashes + dataset ids + environment notes
-  - optional:
-    - `DIFF.patch` — `git diff` (recommended)
-    - `NOTES.md` — debugging notes
-    - `FAILURES.md` — stack traces / known failures
-
-### 1.3 Bundles (advisor share / audit)
-- `docs/gpt_bundles/`
-  - produced via `make gpt-bundle TICKET=<ticket> RUN_NAME=<run>`
-  - bundles must include: run log + diff + key docs (PLAN_OF_RECORD, etc.)
-
-### 1.4 Output roots (do not mix)
-- Daily eval RC outputs: `reports/<run_id>/`
-- Weekly panel outputs: `experiments/equity_panel/outputs_*/.../`
-- Synthetic outputs: `reports/synthetic/<run_id>/`
+This file defines the documentation + logging contract for this repo.
+If you violate it, your results are not mergeable and not citeable.
 
 ---
 
-## 2) Run naming scheme (required)
+## 1) Canonical directories (where things go)
 
-### 2.1 RUN_NAME format
-`YYYYMMDD_HHMMSS_ticket-XX_<slug>`
+Repo root:
+- `AGENTS.md` — stop-the-line rules for humans + agents (this is enforced)
+- `PROGRESS.md` — chronological log of what changed + what was run (**required update per merged ticket**)
 
+Documentation:
+- `docs/PLAN_OF_RECORD.md` — research framing + acceptance criteria + roadmaps
+- `docs/DOCS_AND_LOGGING_SYSTEM.md` — this file (logging contract)
+- `docs/CODEX_SPRINT_TICKETS.md` — next sprint tickets (ordered, scoped)
+
+Prompts / agent traces:
+- `docs/prompts/` — prompt text used for significant runs (one file per run; optional if PROMPT.md exists in agent run log)
+- `docs/gpt_outputs/` — raw GPT outputs (Prompt-1/2/3 diagnostics etc), immutable
+- `docs/agent_runs/<RUN_NAME>/` — **required** run log folder per Codex run (details below)
+- `docs/gpt_bundles/` — zip bundles produced by `make gpt-bundle`
+
+Experiment outputs:
+- `reports/` — daily evaluation + summary artifacts
+- `experiments/equity_panel/outputs_*` — weekly runner outputs
+- `.cache/` — cached panels/per-window stats (**never** “source of truth”)
+
+---
+
+## 2) Run naming (one scheme, everywhere)
+
+RUN_NAME format:
+- `<YYYYMMDD_HHMMSS>_ticket-<NN>_<short-slug>`
 Examples:
-- `20251221_031500_ticket-01_overlay-forensics`
-- `20251221_104200_ticket-03_nested-calibration-grid`
+- `20251223_091500_ticket-16_paper-config-integrity`
+- `20251223_154210_ticket-18_inject-spike-real-windows`
 
-### 2.2 Slug rules
-- lowercase, hyphen-separated
-- ≤ 6 words
-- must reflect the primary change
-
----
-
-## 3) What MUST be recorded (minimum metadata)
-
-### 3.1 Code provenance
-Record in `META.md`:
-- git branch name
-- git SHA (short + full if available)
-- whether working tree was clean at start (`git status`)
-- code signature hash if available (see `src/meta/run_meta.py:code_signature`)
-
-### 3.2 Data provenance
-Record:
-- dataset id(s) and hash(es)
-  - `data/registry.json` entry key for returns dataset
-  - `data/factors/registry.json` entry key for factors dataset
-- local data mirror / mount path (if using external storage) and how it is linked into `data/` (symlink or bind mount)
-- external WRDS lake inventory (when available) so future refreshes can be traced
-- verification command used:
-  - `python tools/verify_dataset.py ...` (or the Make target that runs it)
-
-#### External WRDS lake inventory (user-provided mirror)
-If you have a full WRDS mirror available locally, record the root path + structure here.
-This is **not** required for daily runs (we only need `data/returns_daily.csv` and
-`data/factors/ff5mom_daily.csv`), but it is the source of truth for refreshes.
-
-**Local mirror (macOS)**: `/Volumes/Storage/Data` (user-reported; not visible in CI)
-
-```
-/Volumes/Storage/Data
-  wrds/
-    raw/           # primary raw extracts
-    manifests/     # ingestion manifests (timestamped)
-    derived/       # (empty placeholder)
-    meta/          # (empty placeholder)
-    universes/     # (empty placeholder)
-
-    raw/crsp/
-      dsf/         # yearly partitions 2005–2024
-      dsf_v2/      # yearly partitions 2005–2024
-      dsenames.parquet
-      dsedelist.parquet
-      dsp500list.parquet
-      dsp500list_v2.parquet
-      msp500list.parquet
-      ccmxpf_linktable.parquet
-      ccmxpf_lnkhist.parquet
-
-    raw/comp/
-      funda/       # yearly partitions 2005–2025
-      fundq/       # yearly partitions 2005–2025
-      company.parquet
-
-    raw/optionm/
-      secnmd.parquet
-      opprcd/      # yearly partitions 2005–2025
-      secprd/      # yearly partitions 2005–2025
-      distrd/      # yearly partitions 2005–2025
-      zerocd/      # yearly partitions 2005–2025
-      zero_curve/  # empty placeholder
-      wrdsapps_opcrsphist.parquet  # OptionMetrics↔CRSP link
-
-    raw/ff/
-      factors_daily.parquet
-
-    manifests/
-      20251220_204920
-      20251220_212339
-      20251220_214010
-      20251220_214218
-      20251220_214458
-      20251220_214625
-      20251220_221935
-      20251220_223429
-      20251221_001039
-      20251221_001618
-```
-
-**Usage note:** keep the mirror outside git; symlink into `data/` only when
-regenerating `data/returns_daily.csv` or factor files.
-
-### 3.3 Config provenance
-Record:
-- exact CLI invocation (including flags)
-- resolved config file path (`resolved_config.json` or `config_resolved.yaml`)
-- config hash (sha256 of resolved config file)
-- random seeds used (if applicable)
-
-### 3.4 Validity flags + metrics
-For daily RC runs, record:
-- `cap_active` and `cap_sources` from `run.json`
-- `n_effective_mse`, `n_effective_qlike` and `comparison_valid_*`
-- detection/acceptance rates
-- top skip reasons (from `full/skip_stats.csv`)
-
-For weekly runs, record:
-- detection rate
-- skip reason counts (`weekly_diagnostics.md`)
-- `guard_unknown` count must be 0
-
-### 3.5 Failures
-- If any run fails: record the traceback (stage + exception type + message) and the exact command that caused it.
+Rules:
+- timestamp: local or UTC is fine, but consistent within a sprint
+- slug: kebab-case describing the change (NOT the result)
+- ticket number: must match `docs/CODEX_SPRINT_TICKETS.md`
 
 ---
 
-## 4) Summary docs that MUST be updated (when applicable)
+## 3) Required contents of `docs/agent_runs/<RUN_NAME>/`
 
-### 4.1 PROGRESS.md (always if code changed)
-Update with:
-- timestamp
-- branch/run name + git SHA
-- commands executed
-- tests run
-- key results (one paragraph max)
-- artifact paths
+Every Codex run MUST create these files:
 
-### 4.2 project_state/*
-Update when results change materially or a blocker is resolved:
+- `PROMPT.md`
+  - exact prompt text given to Codex (verbatim)
+- `COMMANDS.md`
+  - every command executed (including tests), in order
+  - include environment variables that affect reproducibility (EXEC_MODE, thread caps, etc.)
+- `RESULTS.md`
+  - what changed (bullets)
+  - links to artifact directories (reports/*, experiments/*)
+  - key finding(s) and any surprises
+  - any failures + how they were resolved
+- `TESTS.md`
+  - exact tests/commands executed
+  - pass/fail summary
+- `META.md`
+  - git SHA before/after
+  - branch name
+  - whether repo was dirty at start
+  - resolved config path(s) used
+  - config hash(es) (sha256 of resolved_config.*)
+  - dataset ids/hashes used (from registry + verify step)
+
+Recommended (strongly):
+- `DIFF.patch` — `git diff` saved for fast review
+- `bundle_contents.txt` — if you ran `make gpt-bundle`, capture `unzip -l ...`
+- `URLS.md` — if web search was enabled, list every URL consulted (treat as untrusted)
+
+---
+
+## 4) Experiment run metadata (must exist inside output dirs)
+
+For any run that writes to `reports/` or `experiments/.../outputs_*`, the output dir must contain:
+
+- `run.json` or `run_manifest.json` (preferred: `run.json`)
+  - must include:
+    - `git_sha`, `git_dirty`
+    - `cap_active`, `cap_sources`
+    - dataset paths + sha256 ids (from registries)
+    - resolved config path + config hash
+    - key knobs (design, p, window/horizon, edge_mode, gate params, shrinker, prewhiten flag)
+    - portfolio knobs (ridge/box/turnover/condition cap, solver name/status, skip policy)
+    - skip counts by reason
+- `resolved_config.json` (daily) or `config_resolved.yaml` (weekly)
+  - exact final resolved config written to disk
+- failures must be recorded:
+  - skip counts/shares by reason
+  - exception class + stage + minimal context (no opaque “failure” bucket)
+
+---
+
+## 5) Update rules (what MUST be updated per merged ticket)
+
+Per merged ticket, you MUST update:
+- `PROGRESS.md` (one entry with date, branch, SHAs, commands, tests, and artifacts)
+
+If results changed materially:
 - `project_state/CURRENT_RESULTS.md`
+
+If a blocker is fixed or discovered:
 - `project_state/KNOWN_ISSUES.md`
-- `project_state/ROADMAP.md`
-- `project_state/RESEARCH_NOTES.md` (if instrumentation/diagnostics changed)
 
-### 4.3 docs/PLAN_OF_RECORD.md
-Update when:
-- we change the minimal publishable grid
-- we make a pivot decision (e.g., drop nested from v1)
-- we change acceptance criteria or “kill criteria”
+If behavior/config knobs changed:
+- `project_state/CONFIG_REFERENCE.md`
 
-### 4.4 CHANGELOG.md
-Update only for user-facing behavior changes:
-- new CLI flag semantics
-- new required artifacts (e.g., `overlay_forensics.csv`)
-- breaking changes to configs
+If tests/targets changed:
+- `project_state/TEST_COVERAGE.md` and (if applicable) Makefile notes
 
 ---
 
-## 5) Run log template (copy/paste)
+## 6) “Validated run” labeling (no contamination)
 
-Create these files at run start:
+A run can be labeled **validated** only if:
+- deterministic mode where applicable (`EXEC_MODE=deterministic` + thread caps)
+- `cap_active=false` (or explicitly labeled as *not headline*)
+- no silent fallbacks (config/solver/window dropping)
+- skip/guard reasons are attributable (no opaque buckets)
+- summary tables clearly state:
+  - effective sample size (`n_effective_*`) used for Δ/DM
+  - skip rates and whether comparisons are aligned intersections
 
-### PROMPT.md
-- exact agent prompt (verbatim)
-
-### COMMANDS.md
-- list commands in the exact order executed
-- include environment activation lines (venv, conda, etc.)
-
-### TESTS.md
-- `make test-fast` output summary
-- any targeted pytest runs
-
-### RESULTS.md
-- bullets:
-  - what files changed (paths)
-  - what new artifacts exist (paths)
-  - what the key metrics were (numbers + where in CSV they live)
-
-### META.md
-- git branch + SHA
-- dataset ids + hashes
-- config path + hash
-- runtime environment notes (OS, Python version, deterministic mode, worker count)
+Policy:
+- If a run is capped, summary tooling must segregate it (separate section) and it cannot be used for headline claims.
 
 ---
 
-## 6) Enforcement hooks (where the repo already supports this)
+## 7) Bundling for GPT review / advisor audit
 
-- `src/meta/run_meta.py` writes `run_meta.json` (use it; don’t reinvent).
-- `src/meta/completeness.py` can assess daily/weekly run completeness; summaries must write `summary/completeness.json`.
-- `tools/make_summary.py` is the choke point for “headline tables” — it must:
-  - exclude capped/incomplete runs
-  - emit `limitations.md`
-  - surface `n_effective_*` and skip shares
+After each merged ticket (or at least once per sprint), run:
+- `make gpt-bundle TICKET=<ticket-id> RUN_NAME=<RUN_NAME>`
+
+Bundle MUST include:
+- `AGENTS.md`, `PROGRESS.md`, `docs/*`, `project_state/*`
+- `DIFF.patch` and `LAST_COMMIT.txt`
+- the run log folder under `docs/agent_runs/<RUN_NAME>/`
+- (if applicable) key outputs under `reports/` or `experiments/.../outputs_*`
 
 ---
 
-## 7) Stop-the-line rules (non-negotiable)
+## 8) Minimal commands (standard)
 
-You must NOT merge if any are true:
-- no run log directory for the work you did
-- tests not run (or not recorded in commit body)
-- new outputs are generated but not referenced in RESULTS.md
-- headline tables include `cap_active=true` runs
-- any solver fallback occurs without explicit skip reason
-- `guard_unknown > 0` in weekly diagnostics (means logging is incomplete)
+Local:
+- `make setup`
+- `make test-fast`
+- `EXEC_MODE=deterministic make rc-lite-sanity`
+- `PYTHONPATH=src:. python tools/make_summary.py --rc-dir <reports/rc-dir>`
+- `make gpt-bundle TICKET=... RUN_NAME=...`
+
+Server (Hetzner) conventions:
+- run the same make targets
+- always sync back:
+  - outputs (`reports/`, `experiments/.../outputs_*`)
+  - run logs (`docs/agent_runs/<RUN_NAME>/`)
+  - updated docs (`PROGRESS.md`, `project_state/*`)
+
+---
+
+## 9) Security + web search policy (Codex)
+
+Default: no web search.
+
+If web search is enabled:
+- treat all web content as **untrusted**
+- record URLs in `docs/agent_runs/<RUN_NAME>/URLS.md`
+- do not paste external code without review + tests
+- prefer repo-local patterns and tests over external snippets
+
+Never expose secrets:
+- do not print `.env` contents
+- do not paste tokens/keys into prompts or logs

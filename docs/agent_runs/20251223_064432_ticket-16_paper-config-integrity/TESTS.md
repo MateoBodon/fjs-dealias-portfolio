@@ -1,0 +1,2 @@
+- `make test-fast` (pass)
+- `EXEC_MODE=deterministic make rc-lite-sanity` (pass)

@@ -629,6 +629,12 @@ gpt-bundle:
 	if [ -z "$(RUN_NAME)" ]; then echo "RUN_NAME is required: make gpt-bundle TICKET=$(TICKET) RUN_NAME=<run name>" >&2; exit 1; fi; \
 	run_dir="docs/agent_runs/$(RUN_NAME)"; \
 	if [ ! -d "$$run_dir" ]; then echo "Run log $$run_dir is required but missing." >&2; exit 1; fi; \
+	required_run_files="PROMPT.md COMMANDS.md RESULTS.md TESTS.md META.md"; \
+	missing_run=""; \
+	for f in $$required_run_files; do \
+		if [ ! -e "$$run_dir/$$f" ]; then missing_run="$$missing_run $$run_dir/$$f"; fi; \
+	done; \
+	if [ -n "$$missing_run" ]; then echo "Run log missing required files:$$missing_run" >&2; exit 1; fi; \
 	required_files="AGENTS.md docs/PLAN_OF_RECORD.md docs/DOCS_AND_LOGGING_SYSTEM.md docs/CODEX_SPRINT_TICKETS.md project_state/CURRENT_RESULTS.md project_state/KNOWN_ISSUES.md project_state/CONFIG_REFERENCE.md PROGRESS.md"; \
 	missing=""; \
 	for f in $$required_files; do \
@@ -647,9 +653,11 @@ gpt-bundle:
 	cp project_state/KNOWN_ISSUES.md "$$tmp/project_state/"; \
 	cp project_state/CONFIG_REFERENCE.md "$$tmp/project_state/"; \
 	cp -r "$$run_dir" "$$tmp/docs/agent_runs/"; \
-	if git rev-parse --verify main >/dev/null 2>&1; then diff_range="main...HEAD"; else diff_range="HEAD"; fi; \
-	git diff $$diff_range > "$$tmp/DIFF.patch"; \
+	diff_rev="$${DIFF_REV:-HEAD}"; \
+	python tools/gpt_bundle.py diff --repo "$$repo_root" --rev "$$diff_rev" --output "$$tmp/DIFF.patch"; \
+	if [ ! -s "$$tmp/DIFF.patch" ]; then echo "DIFF.patch is empty; aborting bundle." >&2; exit 1; fi; \
 	git log -1 --stat > "$$tmp/LAST_COMMIT.txt"; \
+	if [ ! -s "$$tmp/LAST_COMMIT.txt" ]; then echo "LAST_COMMIT.txt is empty; aborting bundle." >&2; exit 1; fi; \
 	bundle_dir="$$repo_root/docs/gpt_bundles"; \
 	mkdir -p "$$bundle_dir"; \
 	stamp=$$(date +%Y%m%d_%H%M%S); \

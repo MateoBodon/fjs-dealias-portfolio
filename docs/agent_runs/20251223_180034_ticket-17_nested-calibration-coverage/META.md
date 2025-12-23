@@ -1,7 +1,7 @@
 - run_name: 20251223_180034_ticket-17_nested-calibration-coverage
 - branch: codex/ticket-17-nested-calibration-coverage
 - git_sha_before: ac61464fdb8c9a50c9b0e2afef11009f361443c3
-- git_sha_after: (pending commit)
+- git_sha_after: b2221e8241edee8cfcf76fb454d8b1a8a51f8add
 - dirty_at_start: false
 - datasets:
   - data/returns_daily.csv sha256=96ac7dd318245cf1a8b434bb358a9344bf282992fc9fe66f0282023696563197

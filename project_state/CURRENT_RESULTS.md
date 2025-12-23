@@ -9,7 +9,7 @@ commands:
 ---
 # Current Results (latest validated drops)
 
-- **2025-12-23 — Nested calibration grid coverage (ticket-17, git ac61464)**  
+- **2025-12-23 — Nested calibration grid coverage (ticket-17, git b2221e8)**  
   - Synthetic nested calibration refreshed to cover p=188 and p=200 (years=2, weeks 6–8, reps=5, tyler, delta_frac=0.05): null detections 0/220 → Wilson hi 0.017 for both p values.  
   - `calibration/nested_edge_delta_thresholds.json` now includes `188x{60,70,80}` plus `200x{60,70,80}` with run_name/timestamp/git_sha/config_hash metadata; thresholds mirrored under `design_thresholds.nested`.  
   - Tiny deterministic nested smoke (`max_windows=3`, capped/non-headline) no longer skips on `calibration_missing_p_T`; skip reasons are `instability_in_a_neighborhood` (2) and `no_isolated_spike` (1).  

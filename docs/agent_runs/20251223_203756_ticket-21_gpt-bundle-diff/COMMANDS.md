@@ -42,3 +42,9 @@
 - git rev-parse HEAD
 - date -u +%Y-%m-%dT%H:%M:%SZ
 - cat <<'EOF' > docs/agent_runs/20251223_203756_ticket-21_gpt-bundle-diff/META.md
+- BUNDLE_STAMP=20251223_205150 make gpt-bundle TICKET=ticket-21 RUN_NAME=20251223_203756_ticket-21_gpt-bundle-diff
+- unzip -p docs/gpt_bundles/20251223_205150_ticket-21_20251223_203756_ticket-21_gpt-bundle-diff.zip DIFF.patch | wc -c
+- cat <<'EOF' > docs/agent_runs/20251223_203756_ticket-21_gpt-bundle-diff/RESULTS.md
+- git rev-parse HEAD
+- date -u +%Y-%m-%dT%H:%M:%SZ
+- cat <<'EOF' > docs/agent_runs/20251223_203756_ticket-21_gpt-bundle-diff/META.md

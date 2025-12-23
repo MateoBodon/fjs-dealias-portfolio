@@ -6,5 +6,5 @@
 - Bundle (manual smoke): `docs/gpt_bundles/20251223_204539_ticket-21_20251223_203756_ticket-21_gpt-bundle-diff.zip`.
   - DIFF.patch bytes: 2011 (non-empty).
 - Bundle (final): `docs/gpt_bundles/20251223_205150_ticket-21_20251223_203756_ticket-21_gpt-bundle-diff.zip`.
-  - DIFF.patch bytes: 12373 (non-empty).
+  - DIFF.patch bytes: 2887 (non-empty).
 - Limitations: DIFF.patch captures the latest commit only (git show HEAD).

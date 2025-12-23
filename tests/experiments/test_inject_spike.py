@@ -1,0 +1,64 @@
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import pytest
+
+from experiments.eval import inject_spike
+
+
+@pytest.mark.unit
+def test_injection_increases_top_eigenvalue() -> None:
+    rng = np.random.default_rng(0)
+    base = np.zeros((60, 12), dtype=np.float64)
+    basis = inject_spike._make_injection_basis(base, rng)
+    injected_low = inject_spike._apply_injection(base, basis, mu=1.0)
+    injected_high = inject_spike._apply_injection(base, basis, mu=4.0)
+
+    def top_eig(matrix: np.ndarray) -> float:
+        cov = np.cov(matrix, rowvar=False, ddof=1)
+        eigvals = np.linalg.eigvalsh(cov)
+        return float(eigvals.max())
+
+    base_top = top_eig(base)
+    low_top = top_eig(injected_low)
+    high_top = top_eig(injected_high)
+
+    assert low_top > base_top + 1e-9
+    assert high_top > low_top + 1e-9
+
+
+@pytest.mark.unit
+def test_curve_csv_writer_columns(tmp_path: Path) -> None:
+    rows = [
+        {
+            "mu": 0.0,
+            "detection_rate": 0.1,
+            "acceptance_rate": 0.05,
+            "n_windows": 10,
+            "n_detected": 1,
+            "n_accepted": 0,
+        },
+        {
+            "mu": 1.0,
+            "detection_rate": 0.6,
+            "acceptance_rate": 0.4,
+            "n_windows": 10,
+            "n_detected": 6,
+            "n_accepted": 4,
+        },
+    ]
+    df = inject_spike._build_curve_dataframe(rows)
+    out_path = tmp_path / "curve.csv"
+    df.to_csv(out_path, index=False)
+
+    loaded = pd.read_csv(out_path)
+    assert not loaded.empty
+    assert list(loaded.columns) == [
+        "mu",
+        "detection_rate",
+        "acceptance_rate",
+        "n_windows",
+        "n_detected",
+        "n_accepted",
+    ]

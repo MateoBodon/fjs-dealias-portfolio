@@ -99,3 +99,14 @@ PY
 - git add PROGRESS.md docs/agent_runs/20251223_064432_ticket-16_paper-config-integrity reports/rc-20251223-sanity-20251223_064808/regime.csv
 - git commit -m "docs: log ticket-16 run" -m "Tests:\n- make test-fast\n- EXEC_MODE=deterministic make rc-lite-sanity"
 - git status --short
+- git add docs/agent_runs/20251223_064432_ticket-16_paper-config-integrity/COMMANDS.md
+- git commit -m "docs: expand ticket-16 command log" -m "Tests:\n- make test-fast\n- EXEC_MODE=deterministic make rc-lite-sanity"
+- git diff 8229054d2a17489e0c9fc9f7ad130de7fe64d4fc..HEAD > docs/agent_runs/20251223_064432_ticket-16_paper-config-integrity/DIFF.patch
+- git add docs/agent_runs/20251223_064432_ticket-16_paper-config-integrity/DIFF.patch
+- git commit -m "docs: refresh ticket-16 diff patch" -m "Tests:\n- make test-fast\n- EXEC_MODE=deterministic make rc-lite-sanity"
+- git status --short
+- cat > docs/agent_runs/20251223_064432_ticket-16_paper-config-integrity/COMMANDS.md <<'EOF' ... EOF (final refresh)
+- git diff 8229054d2a17489e0c9fc9f7ad130de7fe64d4fc..HEAD > docs/agent_runs/20251223_064432_ticket-16_paper-config-integrity/DIFF.patch
+- git add docs/agent_runs/20251223_064432_ticket-16_paper-config-integrity/COMMANDS.md docs/agent_runs/20251223_064432_ticket-16_paper-config-integrity/DIFF.patch
+- git commit -m "docs: finalize ticket-16 logs" -m "Tests:\n- make test-fast\n- EXEC_MODE=deterministic make rc-lite-sanity"
+- git status --short

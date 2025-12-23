@@ -338,3 +338,11 @@ unzip -p docs/gpt_bundles/20251223_212500_ticket-22_20251223_204129_ticket-22_gp
 unzip -p docs/gpt_bundles/20251223_212500_ticket-22_20251223_204129_ticket-22_gpt-bundle-range-diff.zip DIFF.patch | rg -n "tools/gpt_bundle.py"
 unzip -p docs/gpt_bundles/20251223_212500_ticket-22_20251223_204129_ticket-22_gpt-bundle-range-diff.zip DIFF.patch | rg -n "AGENTS.md"
 BUNDLE_STAMP=20251223_212700 make gpt-bundle TICKET=ticket-22 RUN_NAME=20251223_204129_ticket-22_gpt-bundle-range-diff
+git rev-parse HEAD
+python - <<'PY' (append COMMANDS.md)
+python - <<'PY' (update PROGRESS.md sha to 4589320...)
+python - <<'PY' (update META.md sha to 4589320...)
+python - <<'PY' (append COMMANDS.md)
+git add PROGRESS.md docs/agent_runs/20251223_204129_ticket-22_gpt-bundle-range-diff/META.md docs/agent_runs/20251223_204129_ticket-22_gpt-bundle-range-diff/COMMANDS.md
+python - <<'PY' (append COMMANDS.md)
+git commit -m "chore: sync ticket-22 sha" -m "Tests: not run (not yet)"

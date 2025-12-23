@@ -187,3 +187,4 @@ EOF_RESULTS
 git status -sb
 git add docs/agent_runs/20251223_195953_ticket-17_checklist-merge/COMMANDS.md docs/agent_runs/20251223_195953_ticket-17_checklist-merge/RESULTS.md docs/agent_runs/20251223_195953_ticket-17_checklist-merge/bundle_contents.txt
 git commit -m "ticket-17: log merge and bundle" -m "Update checklist run log with merge/push/bundle outputs." -m "Tests: make test-fast"
+git push origin main

@@ -1,5 +1,5 @@
 ## 2025-12-23T19:50Z — ticket-21 gpt-bundle diff auditability
-- **Branch/Run**: `codex/ticket-21-gpt-bundle-diff` (RUN_NAME=`20251223_203756_ticket-21_gpt-bundle-diff`), git sha `7d313be2760c34759778f8fc31b7487508d96e47`.
+- **Branch/Run**: `codex/ticket-21-gpt-bundle-diff` (RUN_NAME=`20251223_203756_ticket-21_gpt-bundle-diff`), git sha `001908dab818701f53ba90016bbca48e8087774c`.
 - **Commands**: `make test-fast` (x3); `make gpt-bundle TICKET=ticket-21 RUN_NAME=20251223_203756_ticket-21_gpt-bundle-diff`; `unzip -l docs/gpt_bundles/20251223_204539_ticket-21_20251223_203756_ticket-21_gpt-bundle-diff.zip`; `unzip -p docs/gpt_bundles/20251223_204539_ticket-21_20251223_203756_ticket-21_gpt-bundle-diff.zip DIFF.patch | head -n 20`; `unzip -p docs/gpt_bundles/20251223_204539_ticket-21_20251223_203756_ticket-21_gpt-bundle-diff.zip DIFF.patch | wc -c`; `BUNDLE_STAMP=20251223_205150 make gpt-bundle TICKET=ticket-21 RUN_NAME=20251223_203756_ticket-21_gpt-bundle-diff`.
 - **Changes**: gpt-bundle now emits DIFF.patch via git show helper (non-empty on clean trees), validates required run log files, and supports a fixed bundle stamp; added regression test for diff generation; docs updated to codify bundle auditability.
 - **Results**: manual smoke bundle DIFF.patch bytes=2011 (non-empty); final bundle path recorded below.

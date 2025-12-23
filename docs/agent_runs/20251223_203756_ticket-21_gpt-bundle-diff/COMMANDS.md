@@ -56,3 +56,7 @@
 - make test-fast
 - cat <<'EOF' > docs/agent_runs/20251223_203756_ticket-21_gpt-bundle-diff/TESTS.md
 - python - <<'PY' (update PROGRESS.md make test-fast count)
+- git rev-parse HEAD
+- date -u +%Y-%m-%dT%H:%M:%SZ
+- cat <<'EOF' > docs/agent_runs/20251223_203756_ticket-21_gpt-bundle-diff/META.md
+- python - <<'PY' (update PROGRESS.md git sha for ticket-21 entry)

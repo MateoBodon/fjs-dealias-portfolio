@@ -49,6 +49,21 @@ def _make_factors_csv(tmp_path: pytest.TempPathFactory) -> str:
     return str(path)
 
 
+def test_missing_explicit_config_fails(tmp_path: Path) -> None:
+    missing_path = tmp_path / "missing-config.yaml"
+    returns_path = tmp_path / "returns.csv"
+    returns_path.write_text("date,A\n2024-01-02,0.01\n", encoding="utf-8")
+    with pytest.raises(FileNotFoundError, match="Config file not found"):
+        resolve_eval_config({"config": str(missing_path), "returns_csv": str(returns_path)})
+
+
+def test_paper_config_path_loads() -> None:
+    config_path = PROJECT_ROOT / "experiments/eval/config.paper_v1.yaml"
+    result = resolve_eval_config({"config": str(config_path)})
+    assert result.config.config_path == config_path
+    assert result.resolved["config_path"] == str(config_path)
+
+
 def test_aligned_delta_and_dm_use_window_intersection() -> None:
     metrics = pd.DataFrame(
         [
@@ -219,6 +234,10 @@ def test_run_evaluation_emits_artifacts(
     assert run_json.exists()
     run_payload = json.loads(run_json.read_text(encoding="utf-8"))
     assert run_payload["config"]["use_factor_prewhiten"] is False
+    assert run_payload["resolved_config_path"].endswith("resolved_config.json")
+    assert isinstance(run_payload["resolved_config_hash"], str)
+    assert len(run_payload["resolved_config_hash"]) == 64
+    assert isinstance(run_payload["git_dirty"], bool)
     prewhiten_diag = Path(out_dir) / "prewhiten_diagnostics.csv"
     prewhiten_summary = Path(out_dir) / "prewhiten_summary.json"
     overlay_toggle = Path(out_dir) / "overlay_toggle.md"

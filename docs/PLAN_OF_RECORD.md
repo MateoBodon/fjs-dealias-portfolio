@@ -1,272 +1,348 @@
-# Plan of Record — FJS De-aliasing Overlay for Portfolio Risk
+# PLAN OF RECORD — FJS De‑aliasing Overlay for Portfolio Risk (fjs-dealias-portfolio)
 
-Last updated: 2025-12-19  
-Primary “ground truth” references:
-- `project_state/PIPELINE_FLOW.md`, `ARCHITECTURE.md`, `DATAFLOW.md`, `CURRENT_RESULTS.md`, `KNOWN_ISSUES.md`, `OPEN_QUESTIONS.md`, `ROADMAP.md`
-- `PROGRESS.md` (repo root)
+Last updated: 2025-12-23
 
-## 0) Non-negotiables (stop bullsh*t early)
-- No claims based on:
-  - capped/truncated evaluations (window caps, condition caps) without explicit labeling + sensitivity checks
-  - silent fallbacks (especially portfolio solver fallbacks)
-  - “acceptance=0” designs where the overlay never actually applies
-  - diagnostics that lump failures into `guard_other` or `diagnostic_failure` without actionable attribution
-- Every code change must be traceable to:
-  - a run log in `docs/agent_runs/<RUN_NAME>/` and
-  - passing tests (`make test-fast` at minimum)
-- “Pipeline valid” is a prerequisite for “research result”. If pipeline validity fails, we stop and fix validity.
+**Ground-truth status references (must stay in sync):**
+- `PROGRESS.md` (provenance for every run + change)
+- `project_state/CURRENT_RESULTS.md` (latest validated drops)
+- `project_state/KNOWN_ISSUES.md` (current blockers)
+- `project_state/PIPELINE_FLOW.md`, `project_state/DATAFLOW.md`, `project_state/EXPERIMENTS.md`, `project_state/CONFIG_REFERENCE.md`
+- Prompt‑1 diagnosis (if not already checked in, add it under `docs/gpt_outputs/`): `20251222_prompt1_diagnosis.md`
 
-## 1) Research framing (what we are actually trying to learn)
+---
 
-### 1.1 Estimand(s)
-We care about out-of-sample risk forecasting and portfolio risk, not “pretty spectra”.
+## 0) Stop-the-line rules (non‑negotiables)
 
-For each rolling window t:
-- Input: returns matrix \(R_t \in \mathbb{R}^{T \times p}\) (after optional factor prewhitening).
-- Build covariance estimate \(\hat\Sigma_t\).
-- Construct portfolio weights \(w_t\) under a fixed portfolio rule (EW and constrained MV).
-- Observe forward realized risk over horizon h (e.g., 21d):
-  - realized variance \( \hat\sigma^2_{t+h}(w_t) \)
-  - tail metrics (VaR/ES) computed from forward returns.
+A run is **not mergeable** and **not citeable** (for advisor or paper) if any of these are violated:
 
-Primary estimands:
-- **ΔLoss** between treatment and baseline on aligned windows:
-  - ΔMSE (variance forecast error)
-  - ΔQLIKE (variance forecast QLIKE)
-  - ΔVaR/ΔES errors (if implemented consistently)
-- **Operational impact**:
-  - detection rate / acceptance rate
-  - weight change statistics (turnover, % changed, etc.)
-  - skip rates (conditioning cap, solver missing, balance failure)
+- **No headlines from capped / truncated evals**:
+  - Any run with `cap_active=true` is *non‑headline* and must be excluded from primary summary tables.
+  - Capped runs are allowed only as smoke/debug and must be labeled everywhere (`cap_sources` + limitations).
+- **No silent fallbacks, ever**:
+  - Missing config files → **hard error**, not “defaults”.
+  - Missing portfolio solver → **fail-loud** OR explicit **skip with reason** (never EW fallback).
+  - Any “treatment collapses to baseline” must be logged with an explicit reason code.
+- **No “treatment=never” results**:
+  - If overlay acceptance ~0 or the overlay does not materially change Σ or weights, you cannot claim anything about its effect.
+  - You must report acceptance and “changed-window” counts alongside any ΔLoss.
+- **Every ticket must leave an audit trail**:
+  - A run log under `docs/agent_runs/<RUN_NAME>/` (see `docs/DOCS_AND_LOGGING_SYSTEM.md`)
+  - Tests run (`make test-fast` minimum) and recorded in the log + commit body.
+- **Pipeline validity gates research**:
+  - If validity fails, we stop and fix validity before running more grids.
+
+---
+
+## 1) Crisp research framing (estimand, treatment, baselines, design)
+
+### 1.1 Estimands (what we are actually evaluating)
+
+For each rolling window \(t\), with returns \(R_t \in \mathbb{R}^{T \times p}\) (optionally factor‑prewhitened):
+
+1) Estimate covariance \(\hat\Sigma_t\).
+2) Produce portfolio weights \(w_t\) using a fixed portfolio rule.
+3) Measure forward realized risk over horizon \(h\) (e.g., 21 trading days).
+
+**Primary estimands (paper-grade):**
+- Variance forecast losses (aligned windows only):
+  - **MSE** of variance forecast error
+  - **QLIKE** (variance forecast QLIKE)
+- Portfolio operational metrics:
+  - acceptance / detection rate
+  - skip rate by reason
+  - weight stability / turnover
+  - fraction of windows where treatment changes Σ and/or \(w\)
+
+**Optional (appendix / if implemented consistently):**
+- tail metrics (VaR/ES) errors on forward returns
+
+**Strict rule:** All Δ metrics and DM tests must use **the intersection of valid windows** (repo already enforces `comparison_valid_*` + `n_effective_*`).
 
 ### 1.2 Treatment vs baseline (what changes)
-Treatment = **FJS/MANOVA de-aliasing overlay** applied to a base covariance estimate, gated by detection diagnostics.
 
-Implementation anchors:
-- Detection / gating / overlay: `src/fjs/overlay.py`, `src/fjs/gating.py`, `src/fjs/mp.py`
+**Baseline:** a “base” covariance estimator \(\hat\Sigma^{base}_t\), e.g. shrinkage / spectral shrinkage / factor / robust scatter.
+
+**Treatment:** **FJS/MANOVA de‑aliasing overlay**, applied **on top of** \(\hat\Sigma^{base}_t\), gated by detection diagnostics and guardrails.
+
+- Detection produces a set of spike directions \(\{\hat v_i\}_{i=1}^k\) and aliased spike eigenvalues \(\{\hat\lambda_i\}\).
+- De‑aliasing maps \(\hat\lambda_i \mapsto \hat\mu_i\) (e.g., via \(\hat\mu=\hat\lambda/t_r(\hat\lambda,a)\) as in your one‑pager).
+- Overlay produces a corrected covariance:
+
+\[
+\hat\Sigma^{treat}_t
+= \hat\Sigma^{base}_t \;+\; \sum_{i=1}^k \Delta_i \hat v_i \hat v_i^\top
+\]
+
+where \(\Delta_i\) is the implemented correction (must be documented exactly).
+
+**Implementation anchors (must match the math above):**
+- Detection/gating: `src/fjs/gating.py`, `src/fjs/mp.py`
+- Overlay operator: `src/fjs/overlay.py` (**paper must write down the exact operator used here**)
 - Robust edge modes: `src/fjs/robust.py`
-- Portfolio solver + explicit skip/fail-loud semantics: `src/finance/portfolios.py`
+- Base estimators: `src/baselines/covariance.py` (LW/OAS/RIE/QuEST etc), `src/finance/factors.py` (prewhitening + factor utilities)
+- Portfolio solve: `src/finance/portfolios.py`
 
-Define:
-- Base covariance (baseline): \(\hat\Sigma^{base}_t\)
-- Treatment covariance: \(\hat\Sigma^{treat}_t = \text{Overlay}(\hat\Sigma^{base}_t, \text{detect\_spikes}(R_t, g_t), \text{cfg})\)
-- Gating: if guardrails fail, treatment collapses to baseline (but must be logged as “no-op due to guard reason X”, not silently).
+**Hard requirement:** If gating rejects or guardrails fire, treatment must no-op to baseline **with an explicit reason code**, not silence.
 
-Baselines we must compare against (minimal set):
-- SCM + shrinkage baselines: Ledoit–Wolf / OAS (`src/finance/ledoit.py`)
-- RIE/QUEST shrinker (`src/finance/rie.py`)
-- Robust scatter (Tyler/Huber) as the MP edge mode / base (`src/fjs/robust.py`)
-- Factor prewhitening toggle (FF5+MOM) as a controlled ablation (`src/eval/metrics.py` + factor utilities)
+### 1.3 Minimal baseline set (publishable minimum)
 
-### 1.3 Data design (what statistical structure is assumed)
-Repo supports:
-- Daily evaluation runner: `experiments/eval/run.py`
-  - group designs: `dow`, `vol`, `week`, `dowxvol`
-- Weekly equity panel runner: `experiments/equity_panel/run.py`
-  - designs: `oneway`, `dow`, `vol`, `nested`
-  - optional `--gating-diagnostics` emits per-window guardrails
+We do not get publishability comparing “overlay vs SCM only”.
 
-Data sources (current default):
-- returns: `data/returns_daily.csv` (see `project_state/DATAFLOW.md`)
-- factors: `data/factors/ff5mom_daily.csv`
+Minimum baselines for a defensible study:
+- Shrinkage: **OAS**, **Ledoit–Wolf** (`src/baselines/covariance.py`)
+- Spectral shrinker: **RIE/QuEST** (`src/baselines/covariance.py`)
+- Factor baseline and/or factor prewhitening ablation:
+  - prewhitening toggle (`src/finance/factors.py`) is mandatory as an ablation
+  - if factor covariance estimator exists as a direct baseline, include it
 
-“Publishable” designs (minimum viable):
-- **Daily DoW** (one-way balanced grouping) — works today but effect is currently weak/negative in sanity summaries.
-- **Daily vol-state** — currently balance is fragile; must be made robust or dropped.
-- **Nested weekly** calibration refreshed (Dec 20 2025): synthetic null-FPR now ≤2% (0/220, CI hi 0.017) with full power at delta_frac=0.05; still optional for paper v1 until real-data acceptance is rechecked.
+### 1.4 Data design (what structure we assume)
 
-## 2) Minimal assumptions for the theory to apply (and whether we respect them)
+Repo currently supports:
+- **Daily eval runner**: `experiments/eval/run.py`
+  - `group_design ∈ {dow, week, vol, dowxvol}`
+- **Weekly equity panel**: `experiments/equity_panel/run.py`
+  - `design ∈ {oneway, dow, vol, nested}`
 
-### 2.1 Minimal assumptions (what we need, not what we wish)
-For MP-edge + spike detection + de-aliasing to be meaningful:
-- High-dimensional regime: p and T of similar order (p/T not tiny).
-- Returns (after optional factor prewhitening) are approximately:
-  - mean-zero
-  - weakly dependent (windowed dependence tolerated, but must be checked via robustness)
-  - approximately elliptical / sub-Gaussian is “good enough” for empirical MP-ish behavior
-- Balanced design:
-  - one-way: equal replicates per group
-  - nested: equal reps per subgroup; correct labeling (e.g., year/week)
-- Calibration: gating thresholds chosen to target a null-FPR (synthetic harness), not tuned on the same real data being evaluated.
+**Plan-of-record position (blunt):**
+- **Primary paper design should be `week` (daily) or `oneway` (weekly)** — many groups with small replicates is closer to the random‑effects “balanced design” intuition.
+- **Daily DoW (`dow`) is secondary/ablation** because it’s only 5 groups; theory match is questionable and likely explains tiny empirical effects.
+- **Nested weekly is “paper‑optional” until calibration coverage matches real p,T and real windows stop skipping.**
 
-### 2.2 Where the repo matches vs violates assumptions (current)
-Matches / partially matches:
-- Balanced-window construction exists (`src/eval/balance.py`) and “balance failure” is logged.
-- Factor prewhitening exists and is measurable (telemetry).
-- Synthetic harness exists for FPR/power calibration (`experiments/synthetic/*`).
+---
 
-Violations / high-risk approximations:
-- Time dependence is real and strong; we rely on windowing + robust estimators + factor prewhitening, but we must quantify sensitivity (block bootstrap / regime slicing).
-- Nested design currently shows high null FPR + near-zero acceptance (KNOWN_ISSUES). That means we do *not* have valid control over false discovery in the one place where “MANOVA” is most central.
+## 2) Minimal assumptions needed for FJS/MANOVA theory to be relevant
+
+You do not need perfect assumptions; you need:
+- High‑dimensional regime: \(p\) comparable to effective sample (so MP edge/outlier separation is meaningful).
+- Balanced design (critical): equal replicates per group (one‑way) / per subgroup (nested).
+- Random-effects / variance component structure is a usable approximation for the grouped returns (finance mapping is not literal; must be defended empirically).
+- Calibration is fixed from **synthetic null/power** and not tuned on the evaluation set.
+- Time dependence / heteroskedasticity is acknowledged and stress‑tested (block bootstrap, crisis slicing, robustness).
+
+**Repo alignment (current):**
+- Balanced-window construction exists (`src/eval/balance.py`).
+- Synthetic calibration suite exists (incl. nested kill-test) under `experiments/synthetic/`.
+- Prewhitening and robust scatter are first-class toggles (`project_state/CONFIG_REFERENCE.md`).
+
+**Known broken/blocked:**
+- Nested real-data windows can be skipped due to missing calibrated \((p,T)\) grid points (`calibration_missing_p_T` for p≈188, T=70/80). This blocks nested claims.
+
+---
 
 ## 3) Minimal publishable package (what we must deliver)
 
-### 3.1 A “paper v1” that is actually defensible
-Minimum contribution:
-1) A **well-instrumented**, calibrated de-aliasing overlay pipeline with:
-   - explicit gating reasons (no `guard_other`)
-   - explicit skip reasons (no silent drop/fallback)
-   - validated synthetic null-FPR control
-2) A **small but clean** real-data study showing either:
-   - improvement in out-of-sample risk losses in at least one regime/design (with stability checks), OR
-   - a crisp negative result: “overlay does not help under realistic dependence; gating prevents harm; improvement requires XYZ conditions”, backed by controlled ablations.
+### 3.1 “Pipeline validity” deliverable (engineering contribution, mandatory)
 
-### 3.2 Minimal experimental grid (do not expand before this is clean)
-Real data (daily runner `experiments/eval/run.py`):
-- Designs: `dow` and `vol`
-- Universe: top-60 (or top-50 if that’s the current stable sanity default)
-- Window/horizon: 126×21 (current norm)
-- Prewhitening: off vs FF5+MOM on (paired)
-- Estimators:
-  - baseline: `oas`, `lw`, `quest` (RIE)
-  - treatment: `dealias` overlay on top of a fixed base + edge-mode (Tyler vs SCM)
-- Portfolios:
-  - EW (sanity)
-  - MV constrained (box + ridge + turnover; BUT must log when constraints bind / when cap skips happen)
+A calibrated, well‑instrumented overlay pipeline with:
+- no silent fallbacks (config, solver, skip policies)
+- attributable gating/skip reasons (no `guard_other` blob, no opaque `diagnostic_failure`)
+- synthetic null‑FPR controlled at a declared target operating point
+- run metadata + reproducibility (dataset hashes + git SHA + resolved config)
 
-Synthetic validation:
-- One-way null + power:
-  - target null-FPR = 2% (or whatever current calibration target is)
-  - show power curves vs μ
-- Nested null “kill-test”:
-  - must demonstrate null-FPR control before we claim anything nested
+### 3.2 Real-data “paper v1” deliverable (minimum viable grid)
 
-## 4) Acceptance criteria for “pipeline is valid” (gate to proceed)
+**One primary design + one ablation only** (do not explode the grid before this is clean).
+
+Primary: daily `week` design (`experiments/eval/run.py`, Make: `make rc-week`)
+
+Ablation: daily `dow` design (`make rc-dow`)
+
+Fixed evaluation settings (unless advisor overrides):
+- Universe: top‑60 assets (or current stable default)
+- Window/horizon: 126×21
+- Prewhitening: OFF vs ON (FF5+MOM), paired
+- Edge modes: `scm` vs `tyler` (paired)
+- Baselines: `oas`, `lw`, `quest/rie` (minimum)
+- Treatment: overlay on top of each chosen baseline (or at minimum, overlay on top of a single pinned base + a robustness base)
+
+Portfolios:
+- EW (sanity)
+- Constrained min‑var (MV): must log constraint binding, skips, solver status
+
+**Required reporting for paper v1 runs:**
+- ΔMSE, ΔQLIKE, DM tests + `n_effective_*`
+- acceptance/detection rate + skip reason histogram
+- **conditional effects** on windows where treatment changes Σ/weights
+- crisis-sliced (2020/2022) safety table (even if secondary)
+
+### 3.3 Synthetic deliverable (paper appendix, mandatory for credibility)
+
+- One‑way null + power curves:
+  - target null FPR (e.g., 2%) and power vs spike strength
+- Nested kill-test:
+  - must pass null‑FPR target at relevant p,T grid cells *before* nested real-data claims
+- Injection sensitivity on *real windows*:
+  - demonstrate detection/acceptance responds monotonically to injected spike magnitude under realistic noise
+
+---
+
+## 4) Acceptance criteria: “the pipeline is valid”
 
 A run is “valid for research conclusions” only if ALL are true:
 
-### 4.1 Code / tests
+### 4.1 Tests
 - `make test-fast` passes.
-- Any changed behavior has a unit test or integration test covering it.
+- Any changed behavior has a unit/integration test.
 
 ### 4.2 Data integrity
-- `tools/verify_dataset.py` passes for every dataset used (and hashes are recorded in run metadata).
+- `python tools/verify_dataset.py ...` passes for every dataset used.
+- Dataset hashes are recorded in run metadata.
 
-### 4.3 No silent fallbacks
-- Portfolio optimization:
-  - missing solver is either fail-loud OR explicit skip with `skipped=true` and reason; never “equal-weight fallback”.
-- No silent window dropping:
-  - any skip due to condition cap / infeasible optimizer / balance failure must appear in diagnostics and summary tables.
+### 4.3 Config integrity
+- Paper/RC targets must load a **real config file** (no defaults fallback).
+- Missing config path → **hard error** with a clear message.
+- Run metadata records: config path + config hash + resolved config dump.
 
-### 4.4 Diagnostics are attributable
-- Weekly and daily gating outputs must not contain:
-  - `guard_other` unless it is provably unreachable, OR it includes a structured `guard_detail` explaining which guard fired.
-  - `diagnostic_failure` without a stack/exception class + minimal context.
+### 4.4 No silent fallbacks
+- MV solve:
+  - missing solver → fail-loud OR explicit skip with `skipped=true` and `skip_reason=missing_solver`
+  - never “equal-weight fallback”
+- Window selection:
+  - any skip due to caps/coverage/balance/conditioning must be counted + attributed.
 
-### 4.5 Calibration validity
-- Synthetic null-FPR is at or below target for every mode we claim (edge_mode × design).
-- Calibrated thresholds are versioned and referenced by path + git SHA in run metadata.
+### 4.5 Cap discipline
+- Headline tables must exclude `cap_active=true` runs.
+- Capped runs must surface cap sources in `limitations.md`.
 
-## 5) Roadmap
+### 4.6 Diagnostics are attributable
+- No opaque buckets:
+  - `guard_other` should be absent, or unreachable by construction.
+  - `diagnostic_failure` must include exception type + stage + minimal context.
+- Daily + weekly diagnostics must include:
+  - `skip_reason_primary` counts
+  - guard tallies
+  - acceptance/detection rates
 
-### Horizon 1: 1–2 weeks (debug + validity + advisor-ready RC run)
-Goal: get to a state where **one** RC-lite run can be defended without embarrassment.
+### 4.7 Calibration validity
+- Synthetic null‑FPR ≤ target for all claimed modes (design × edge_mode × relevant p,T bins).
+- Calibration artifacts are versioned, with audit metadata (run_name, timestamp, git_sha, config_hash).
 
-1) Fix weekly gating attribution (remove `guard_other` dominance)
-- Code: `experiments/equity_panel/run.py` (especially `_infer_skip_reason(...)` and gating diagnostics writer)
-- Tests: `tests/experiments/test_gating_diagnostics.py` (+ add regression test: no `guard_other`)
-- Command (smoke):
-  - `EXEC_MODE=deterministic make run:equity_smoke`
-  - plus one direct weekly run with `--gating-diagnostics` using `experiments/equity_panel/config.smoke.yaml`
-- Plots/tables:
-  - `weekly_diagnostics.md` must include: top reasons + examples
-  - `gating_diagnostics.csv` must include: reason codes + key stats
+---
 
-2) Nested null-FPR triage (do not “tune until it looks good”)
-- Run:
-  - `python -m experiments.synthetic.nested_killtest --config <nested-killtest-config> --out reports/synthetic/nested_killtest/<RUN_ID>`
-- Output:
-  - markdown summary + FPR table by threshold
-- Decision:
-  - If we cannot hit null-FPR ≤ target without killing all power, nested is postponed for paper v1.
+## 5) Roadmap (with commands + required artifacts)
 
-3) Evaluation contamination checks (caps/selection bias)
-- Daily runner must report:
-  - skip shares per reason
-  - aligned window counts for DM tests (`n_effective`)
-  - whether comparisons are on intersection sets
-- Code hotspots:
-  - `experiments/eval/run.py` (alignment + skip policy)
-  - `tools/make_summary.py` / `tools/summarize_rc_sanity.py` (do not mix capped and uncapped without labels)
-- Plots/tables:
-  - a “skip reason histogram” per design
-  - a “cap binding rate” table (if we can compute)
+### Horizon 1: 1–2 weeks (debug/validity + advisor-ready RC run)
 
-4) Produce one advisor-ready run with strict validity
-- Command:
+**Goal:** one uncapped, config‑correct RC run with meaningful `n_effective`, plus injection sensitivity proof.
+
+1) Fix “paper-v1” config integrity (no silent fallback) **DONE (ticket-16, 2025-12-23)**
+- Code:
+  - `experiments/eval/config.py`
+  - `Makefile`
+  - add/restore: `experiments/eval/config.paper_v1.yaml` (or update targets to a real existing config)
+- Tests:
+  - `tests/experiments/test_eval_run.py` (missing-config must fail)
+- Commands:
+  - `make test-fast`
+  - `EXEC_MODE=deterministic make rc-dow` (or paper target after fix)
+- Artifacts:
+  - run log `docs/agent_runs/<RUN_NAME>/...`
+  - paper config exists + is referenced; `run.json` records resolved config path/hash
+
+2) Extend nested calibration grid to cover real p,T and remove `calibration_missing_p_T`
+- Code/data:
+  - `experiments/synthetic/nested_killtest.py`
+  - `experiments/synthetic/config.nested.killtest.yaml`
+  - `calibration/nested_edge_delta_thresholds.json`
+- Commands:
+  - `make test-fast`
+  - `python -m experiments.synthetic.nested_killtest --config experiments/synthetic/config.nested.killtest.yaml --out reports/synthetic/nested_killtest/<RUN_ID> --calibration-out calibration/nested_edge_delta_thresholds.json`
+  - `EXEC_MODE=deterministic make run:equity_nested_smoke_tiny`
+- Artifacts:
+  - updated calibration JSON with audit metadata and new p,T cells
+  - nested smoke no longer skips with `calibration_missing_p_T`
+
+3) Injection sensitivity on real windows (prove detection works when spike exists)
+- Code:
+  - `experiments/eval/inject_spike.py`
+  - `tools/make_summary.py` (or a dedicated injector summary tool)
+- Commands:
+  - `make test-fast`
+  - `make inject-spike`
+- Artifacts:
+  - CSV/plot: injected_mu → detection_rate, acceptance_rate
+  - baseline false positives on non-injected windows reported
+
+4) Advisor-ready uncapped RC run (primary design = `week`)
+- Commands:
+  - `make test-fast`
+  - `EXEC_MODE=throughput make rc-week RC_WORKERS=$(nproc)`
+  - `PYTHONPATH=src:. python tools/make_summary.py --rc-dir reports/<rc-week-dir>`
+- Required artifacts (in reports dir):
+  - `run.json` with `cap_active=false`
+  - `resolved_config.json`
+  - `summary/summary_perf.csv`, `summary/summary_detection.csv`, `summary/completeness.json`, `summary/limitations.md`
+  - skip stats and regime slicing (if supported)
+- Required doc updates:
+  - `PROGRESS.md` (one entry with exact commands + artifact paths)
+  - `project_state/CURRENT_RESULTS.md` (add the new validated run)
+
+5) Add conditional-effect reporting (changed windows only)
+- Code:
+  - `tools/make_summary.py`
+  - `tools/summarize_rc_sanity.py`
+  - (where appropriate) `experiments/eval/run.py` and `src/evaluation/*`
+- Commands:
+  - `make test-fast`
   - `EXEC_MODE=deterministic make rc-lite-sanity`
-  - Then: `PYTHONPATH=src:. python3 tools/make_summary.py --rc-dir <rc-dir>`
-- Required outputs:
-  - `summary/summary_perf.csv`
-  - `summary/summary_detection.csv`
-  - `summary/limitations.md` (auto-generated, but must mention any caps/skips)
-  - `summary/completeness.json` (must say complete + uncapped)
-- Update:
-  - `project_state/CURRENT_RESULTS.md` and `PROGRESS.md` with run IDs + deltas
+- Artifacts:
+  - tables including conditional ΔLoss on changed windows
+  - weight-change magnitude summaries (median ‖Δw‖, turnover delta, changed fraction)
 
-### Horizon 2: 4–8 weeks (full experiment grid + robustness)
-Goal: enough evidence for a coherent draft.
+### Horizon 2: 4–8 weeks (full experiment grid + robustness checks)
 
-1) Full daily grid (real data)
-- Designs: `dow`, `vol`, (optional `week`, `dowxvol` if stable)
-- Prewhitening: off vs on (paired)
-- Edge modes: `scm`, `tyler`
-- Shrinkers: `lw`, `oas`, `quest`
-- Gate regimes:
-  - strict vs soft (if both exist)
-  - calibrated delta_frac vs fixed delta_frac sensitivity
-- Deliverables:
-  - grid summary tables (ΔLoss + DM tests + acceptance/skip)
-  - regime-sliced results (calm vs crisis)
+**Only start after Horizon 1 is clean.**
 
-2) Crisis safety checks
-- Must show overlay does not systematically degrade during crisis windows.
-- Require:
-  - explicit guardrails that reduce acceptance in crisis if unstable
-  - crisis-only table of ΔQLIKE / ΔES errors + skip rates
-
-3) Only if nested is fixed: nested real-data evaluation
-- First: nested null-FPR synthetic passes.
-- Then: weekly nested on real data must have:
-  - acceptance within a sane band (2–6% target from ROADMAP/KNOWN_ISSUES)
-  - attributable skip reasons (not “other”)
+- Full daily grid (minimal but complete):
+  - designs: `week` (primary), `dow` (secondary), optional `dowxvol` if balance stable
+  - prewhitening: off/on
+  - edge modes: `scm`/`tyler`
+  - baselines: `oas`, `lw`, `quest/rie`, (+ factor estimator if available)
+  - gate modes: strict vs soft, calibrated vs fixed (if both exist)
+- Robustness:
+  - regime slicing: calm vs crisis (explicit 2020/2022 windows)
+  - block bootstrap CIs for Δ metrics
+  - sensitivity sweep over key guardrails (delta_frac, stability_eta)
+- Required artifacts:
+  - a single consolidated grid table (ΔLoss + DM + acceptance/skip)
+  - crisis-only safety table
+  - diagnostic plots (acceptance vs regime, guard distributions)
 
 ### Horizon 3: Paper-level (submission readiness)
-Goal: referee-proof story and reproducible artifacts.
 
-- Lock a “paper configuration”:
-  - pinned dataset hashes
-  - pinned calibration JSON(s)
-  - pinned config YAMLs
-- Add simulations that match violations of assumptions:
-  - dependence (AR/vol clustering)
-  - factor mis-specification
-  - heavy tails
-- Add ablations that isolate mechanism:
-  - effect of prewhitening alone
-  - effect of robust edge alone
-  - overlay on/off holding everything else fixed
-- Produce camera-ready:
-  - main tables (ΔQLIKE/ΔMSE/ΔES), acceptance/skip, FPR/power
-  - appendix plots (ROC curves, gating diagnostics distributions, sensitivity)
+- Lock a paper configuration:
+  - pinned YAML configs + pinned calibration JSONs
+  - dataset hashes and exact date ranges frozen
+  - deterministic paper make target
+- Write down the estimator precisely:
+  - mathematically define overlay operator (must match `src/fjs/overlay.py`)
+  - add a “operator verification” unit test (toy diagonal case + known spike)
+- Add “assumption violation” simulations:
+  - time dependence, vol clustering, heavy tails, factor mis-specification
+- Produce camera-ready outputs:
+  - main tables: ΔQLIKE/ΔMSE (+ tail metrics if defensible), acceptance/skip, FPR/power
+  - appendix: ROC-like diagnostics, gating distributions, sensitivity plots
 
-## 6) Reporting outputs we will standardize (must exist for every “valid” run)
-- Run metadata:
-  - `run.json` + `resolved_config.{json|yaml}` in the run directory
-  - dataset hash list
-  - git SHA + dirty flag
-- Core tables:
-  - `summary_perf.csv` (loss deltas + DM)
-  - `summary_detection.csv` (detection/acceptance/skip)
-  - `limitations.md` (auto text listing caps/skips/known failure modes)
-- Diagnostics:
-  - daily: `diagnostics.csv`, `diagnostics_detail.csv`
-  - weekly: `gating_diagnostics.csv`, `weekly_diagnostics.md`
+---
 
-## 7) Decision gates / pivot triggers (be explicit)
-- If after fixing diagnostics + calibration, the overlay is:
-  - acceptance >0 but ΔLoss is consistently ≥0 (harmful) across designs,
-  - and this is robust to reasonable ablations (prewhitening, edge_mode),
-  => pivot framing to: “de-aliasing is fragile under time dependence; gating is required; conditions for benefit are X”.
-- If nested null-FPR cannot be controlled without killing power,
-  => drop nested from paper v1; keep as “future work” with a documented failure analysis.
+## 6) Standardized outputs for every valid run
+
+Every “valid” run directory must contain:
+- `run.json` (cap_active, cap_sources, dataset ids/hashes, git sha, config path/hash)
+- `resolved_config.json` (resolved final config)
+- `skip_stats.csv` (counts/shares by reason)
+- `metrics.csv` / `metrics_detail.csv` (+ DM tables if enabled)
+- `summary/summary_perf.csv`, `summary/summary_detection.csv`
+- `summary/completeness.json`
+- `summary/limitations.md` (auto text listing caps/skips/known failure modes)
+
+---
+
+## 7) Decision gates / pivot triggers (explicit)
+
+- If (after Horizon 1 fixes) conditional ΔQLIKE/ΔMSE on changed windows is ~0 and acceptance is non-trivial:
+  - pivot framing to: **“aliasing signatures are rare or already handled by shrinkage; gating prevents harm; conditions for benefit are X.”**
+- If acceptance remains near zero even after injection shows detectability:
+  - pivot to **design mapping**: the grouping structure is not producing the intended variance-component signal.
+- If nested cannot be made live at real p,T without losing FPR control:
+  - nested stays “future work” with documented failure analysis; paper v1 excludes it.

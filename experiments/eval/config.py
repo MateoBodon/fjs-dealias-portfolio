@@ -120,6 +120,11 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
     thresholds_path = args.get("thresholds")
 
     config_path_obj = Path(config_path) if config_path else None
+    if config_path_obj is not None and not config_path_obj.exists():
+        raise FileNotFoundError(
+            f"Config file not found: {config_path_obj}. "
+            "Provide a valid --config path or remove the flag."
+        )
     thresholds_path_obj = Path(thresholds_path) if thresholds_path else None
 
     defaults = dict(DEFAULTS)
@@ -379,7 +384,7 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         vol_ewma_span=int(merged.get("vol_ewma_span", DEFAULTS["vol_ewma_span"])),
         config_path=(
             config_path_obj
-            if (config_path_obj and config_path_obj.exists())
+            if config_path_obj is not None
             else (DEFAULT_CONFIG_PATH if DEFAULT_CONFIG_PATH.exists() else None)
         ),
         thresholds_path=(

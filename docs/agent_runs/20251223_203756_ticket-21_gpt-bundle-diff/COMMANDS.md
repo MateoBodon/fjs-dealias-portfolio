@@ -1,0 +1,38 @@
+- ls
+- date +%Y%m%d_%H%M%S
+- RUN_NAME=20251223_203756_ticket-21_gpt-bundle-diff mkdir -p docs/agent_runs/$RUN_NAME && cat <<'EOF' > docs/agent_runs/$RUN_NAME/PROMPT.md
+- for f in COMMANDS.md RESULTS.md TESTS.md META.md; do : > docs/agent_runs/$RUN_NAME/$f; done
+- git status -sb
+- git checkout -b codex/ticket-21-gpt-bundle-diff
+- rg -n "gpt-bundle" -S Makefile tools scripts docs
+- rg -n "^gpt-bundle:" -n Makefile && sed -n '620,740p' Makefile
+- rg -n "DIFF.patch|LAST_COMMIT|gpt_bundles|bundle" -S tools scripts src tests
+- sed -n '1,200p' tests/test_gpt_bundle.py
+- rg -n "DIFF.patch|gpt-bundle|bundle" -n docs/DOCS_AND_LOGGING_SYSTEM.md && sed -n '120,210p' docs/DOCS_AND_LOGGING_SYSTEM.md
+- sed -n '1,200p' AGENTS.md
+- cat <<'PY' > tools/gpt_bundle.py
+- apply_patch (Makefile gpt-bundle updates)
+- cat <<'PY' > tests/test_gpt_bundle_diff.py
+- sed -n '1,120p' tests/test_gpt_bundle.py
+- apply_patch (tests/test_gpt_bundle.py snippets)
+- apply_patch (docs/DOCS_AND_LOGGING_SYSTEM.md bundle contract)
+- apply_patch (AGENTS.md bundle reviewable rule)
+- make test-fast
+- date -u +%Y-%m-%dT%H:%M:%SZ
+- RUN_NAME=20251223_203756_ticket-21_gpt-bundle-diff make gpt-bundle TICKET=ticket-21 RUN_NAME=20251223_203756_ticket-21_gpt-bundle-diff
+- unzip -l docs/gpt_bundles/20251223_204539_ticket-21_20251223_203756_ticket-21_gpt-bundle-diff.zip
+- unzip -p docs/gpt_bundles/20251223_204539_ticket-21_20251223_203756_ticket-21_gpt-bundle-diff.zip DIFF.patch | head -n 20
+- unzip -p docs/gpt_bundles/20251223_204539_ticket-21_20251223_203756_ticket-21_gpt-bundle-diff.zip DIFF.patch | wc -c
+- git rev-parse HEAD
+- cat <<'EOF' > docs/agent_runs/20251223_203756_ticket-21_gpt-bundle-diff/META.md
+- apply_patch (Makefile: BUNDLE_STAMP support)
+- git add Makefile
+- git commit -m "feat: allow fixed bundle stamp" -m "Tests: not run (pending)"
+- make test-fast
+- cat <<'EOF' > docs/agent_runs/20251223_203756_ticket-21_gpt-bundle-diff/RESULTS.md
+- git rev-parse HEAD
+- date -u +%Y-%m-%dT%H:%M:%SZ
+- cat <<'EOF' > docs/agent_runs/20251223_203756_ticket-21_gpt-bundle-diff/META.md
+- date +%Y%m%d_%H%M%S
+- python - <<'PY' (prepend PROGRESS.md entry)
+- cat <<'EOF' > docs/agent_runs/20251223_203756_ticket-21_gpt-bundle-diff/RESULTS.md

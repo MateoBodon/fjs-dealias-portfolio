@@ -1,0 +1,10 @@
+- Changes:
+  - gpt-bundle now generates DIFF.patch via git show helper (non-empty even on clean tree) and validates run log files.
+  - Added diff generation helper and regression test to prevent empty DIFF.patch.
+  - Documented bundle audit contract and added stop-the-line rule for reviewable bundles.
+  - Optional fixed bundle stamp for reproducible output names.
+- Bundle (manual smoke): `docs/gpt_bundles/20251223_204539_ticket-21_20251223_203756_ticket-21_gpt-bundle-diff.zip`.
+  - DIFF.patch bytes: 2011 (non-empty).
+- Bundle (final): `docs/gpt_bundles/20251223_205150_ticket-21_20251223_203756_ticket-21_gpt-bundle-diff.zip`.
+  - DIFF.patch bytes: pending (run after final commit).
+- Limitations: DIFF.patch captures the latest commit only (git show HEAD).

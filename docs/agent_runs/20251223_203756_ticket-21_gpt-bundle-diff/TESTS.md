@@ -1,0 +1,6 @@
+- make test-fast (initial)
+  - warnings: DeprecationWarning about datetime.utcnow (from Makefile), PytestConfigWarning unknown config option: timeout
+  - result: 70 passed, 168 deselected, 1 warning in 13.09s
+- make test-fast (rerun after BUNDLE_STAMP change)
+  - warnings: DeprecationWarning about datetime.utcnow (from Makefile), PytestConfigWarning unknown config option: timeout
+  - result: 70 passed, 168 deselected, 1 warning in 13.09s

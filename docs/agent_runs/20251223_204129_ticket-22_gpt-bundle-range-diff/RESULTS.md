@@ -1,3 +1,3 @@
 - Updated gpt-bundle to emit merge-base range diffs, include BUNDLE_META.md, and fail loud on missing base refs or empty diffs.
-- Bundle (manual smoke): `docs/gpt_bundles/20251223_212500_ticket-22_20251223_204129_ticket-22_gpt-bundle-range-diff.zip`.
-- Bundle (reviewer): `docs/gpt_bundles/20251223_212700_ticket-22_20251223_204129_ticket-22_gpt-bundle-range-diff.zip`.
+- Bundle (manual smoke): `docs/gpt_bundles/20251223_214500_ticket-22_20251223_204129_ticket-22_gpt-bundle-range-diff.zip`.
+- Bundle (reviewer): `docs/gpt_bundles/20251223_214700_ticket-22_20251223_204129_ticket-22_gpt-bundle-range-diff.zip`.

@@ -346,3 +346,17 @@ python - <<'PY' (append COMMANDS.md)
 git add PROGRESS.md docs/agent_runs/20251223_204129_ticket-22_gpt-bundle-range-diff/META.md docs/agent_runs/20251223_204129_ticket-22_gpt-bundle-range-diff/COMMANDS.md
 python - <<'PY' (append COMMANDS.md)
 git commit -m "chore: sync ticket-22 sha" -m "Tests: not run (not yet)"
+make test-fast
+python - <<'PY' (append COMMANDS.md)
+run_name=20251223_204129_ticket-22_gpt-bundle-range-diff; cat <<'EOF' > docs/agent_runs/$run_name/TESTS.md\n- Command: `make test-fast`\n- Result: 71 passed, 168 deselected, 1 warning in 13.03s\n- Warning: PytestConfigWarning: Unknown config option: timeout\nEOF
+python - <<'PY' (append COMMANDS.md)
+git status -sb
+python - <<'PY' (append COMMANDS.md)
+python - <<'PY' (update PROGRESS.md bundle stamps + test time)
+python - <<'PY' (rewrite RESULTS.md with new bundle paths)
+python - <<'PY' (append COMMANDS.md)
+git status -sb
+python - <<'PY' (append COMMANDS.md)
+git add PROGRESS.md docs/agent_runs/20251223_204129_ticket-22_gpt-bundle-range-diff/RESULTS.md docs/agent_runs/20251223_204129_ticket-22_gpt-bundle-range-diff/TESTS.md docs/agent_runs/20251223_204129_ticket-22_gpt-bundle-range-diff/COMMANDS.md
+python - <<'PY' (append COMMANDS.md)
+git commit -m "chore: refresh ticket-22 logs" -m "Tests: make test-fast"

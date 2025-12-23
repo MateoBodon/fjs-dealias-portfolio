@@ -1,0 +1,13 @@
+- run_name: 20251223_195953_ticket-17_checklist-merge
+- branch: codex/ticket-17-nested-calibration-coverage
+- git_sha_before: 6b8836ab0dcb40e2e49e5e32d83d2e8160064df0
+- git_sha_after: 6b8836ab0dcb40e2e49e5e32d83d2e8160064df0
+- dirty_at_start: false
+- datasets:
+  - none (inspection-only; no new runs)
+- config_hashes:
+  - none (inspection-only)
+- resolved_config:
+  - none (inspection-only)
+- notes:
+  - checklist verification only; no new run outputs generated in this session

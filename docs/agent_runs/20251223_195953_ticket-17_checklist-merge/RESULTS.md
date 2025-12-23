@@ -1,0 +1,6 @@
+- Verified tiny nested smoke output (`experiments/equity_panel/outputs_nested_smoke_tiny/nested_J5_solver-auto_est-dealias_prep-prewhiten_modeoff/gating_diagnostics.csv`) has `calibration_missing_p_T=0`; skip reasons: `instability_in_a_neighborhood=2`, `no_isolated_spike=1`.
+- Calibration remains strict (no silent mapping); lookup still fails loudly on missing cells and tests enforce coverage for p=188 with n_obs 70/80.
+- Synthetic null FPR for new p=188 cells (null scenario, `nested_killtest_trials.csv`): n_obs 60/70/80 = 0/65, 0/79, 0/76 (0.0 ≤ 0.02); calibration metadata shows Wilson hi 0.017.
+- Auditability verified: run log folder created with required files; prior updates in `PROGRESS.md`, `project_state/KNOWN_ISSUES.md`, and `project_state/CURRENT_RESULTS.md` already reflect ticket-17.
+- Repo hygiene verified: committed artifacts are limited to `reports/synthetic/nested_killtest/20251223_180034_ticket-17_nested-calibration-coverage/` (explicitly tracked by `.gitignore` allowlist); calibration JSON includes run_name/timestamp/git_sha/config_hash metadata.
+- Bundle: per prompt, to generate after merge/push; DIFF.patch status to be checked then.

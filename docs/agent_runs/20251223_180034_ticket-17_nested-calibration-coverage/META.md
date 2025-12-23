@@ -1,0 +1,13 @@
+- run_name: 20251223_180034_ticket-17_nested-calibration-coverage
+- branch: codex/ticket-17-nested-calibration-coverage
+- git_sha_before: ac61464fdb8c9a50c9b0e2afef11009f361443c3
+- git_sha_after: (pending commit)
+- dirty_at_start: false
+- datasets:
+  - data/returns_daily.csv sha256=96ac7dd318245cf1a8b434bb358a9344bf282992fc9fe66f0282023696563197
+  - synthetic killtest (no external datasets)
+- config_hashes:
+  - experiments/synthetic/config.nested.killtest.yaml sha256=5bc9ef33d2fa4848cf7b239b242df7399662ab6ffe76cac899f4c76aa89c199d
+  - experiments/equity_panel/config.nested.smoke.tiny.yaml sha256=33454ca3e0f9f7fba74c1874824031cf1f8eb0df09c27f9c3ecfe075c7db876c
+- resolved_config:
+  - reports/synthetic/nested_killtest/20251223_180034_ticket-17_nested-calibration-coverage/resolved_config.json sha256=b1d4486ff12d8e34fd506eb94543a5c6952ffda97a5e03563ad337dec789c6eb

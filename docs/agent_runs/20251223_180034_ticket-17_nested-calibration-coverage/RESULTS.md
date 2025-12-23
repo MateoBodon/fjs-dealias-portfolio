@@ -1,0 +1,5 @@
+- Baseline deterministic nested smoke (`EXEC_MODE=deterministic make run:equity_nested_smoke_tiny`) skip_reason histogram: `calibration_missing_p_T=3` (from `gating_diagnostics.csv`); observed `(p,T)` pairs: `(188,70)` and `(188,80)`.
+- Nested killtest rerun (n_assets_options `[188, 200]`) wrote `reports/synthetic/nested_killtest/20251223_180034_ticket-17_nested-calibration-coverage/` with null FPR 0/220 for p=188 (Wilson hi 0.017162 ≤ 0.02) and p=200; selected delta_frac=0.05.
+- `calibration/nested_edge_delta_thresholds.json` updated with audit metadata (run_name/timestamp_utc/git_sha/config_hash) and thresholds for `188x{60,70,80}` plus existing `200x{60,70,80}`; mirrored under `design_thresholds.nested`.
+- Post-fix deterministic nested smoke: no `calibration_missing_p_T`; skip reasons now `instability_in_a_neighborhood=2`, `no_isolated_spike=1`.
+- Artifacts: `calibration/nested_edge_delta_thresholds.json`; `reports/synthetic/nested_killtest/20251223_180034_ticket-17_nested-calibration-coverage/`; `experiments/equity_panel/outputs_nested_smoke_tiny/nested_J5_solver-auto_est-dealias_prep-prewhiten_modeoff/`.

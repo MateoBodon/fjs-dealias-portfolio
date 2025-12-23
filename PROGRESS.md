@@ -1,3 +1,11 @@
+## 2025-12-23T18:26Z — ticket-17 nested calibration coverage
+- **Branch/Run**: `codex/ticket-17-nested-calibration-coverage` (RUN_NAME=`20251223_180034_ticket-17_nested-calibration-coverage`), git sha `ac61464fdb8c9a50c9b0e2afef11009f361443c3`.
+- **Commands**: `make test-fast`; `EXEC_MODE=deterministic make run:equity_nested_smoke_tiny`; `python -m experiments.synthetic.nested_killtest --config experiments/synthetic/config.nested.killtest.yaml --out reports/synthetic/nested_killtest/20251223_180034_ticket-17_nested-calibration-coverage --calibration-out calibration/nested_edge_delta_thresholds.json`; `make test-fast`.
+- **Changes**: nested killtest now supports multi-asset grids (`n_assets_options`) and emits schema-1 calibration JSON with audit metadata + design_thresholds; killtest writes `resolved_config.json` + hashes in `run.json`; config updated to include p=188; nested calibration JSON refreshed with `188x{60,70,80}` and metadata; tests added to assert nested calibration coverage and lookup for p=188.
+- **Results**: nested killtest null FPR 0/220 for p=188 (Wilson hi 0.017); deterministic tiny nested smoke now skips due to `instability_in_a_neighborhood`/`no_isolated_spike` (no `calibration_missing_p_T`).
+- **Tests**: `make test-fast` (pass).
+- **Artifacts**: `reports/synthetic/nested_killtest/20251223_180034_ticket-17_nested-calibration-coverage/`; `experiments/equity_panel/outputs_nested_smoke_tiny/nested_J5_solver-auto_est-dealias_prep-prewhiten_modeoff/`; run log `docs/agent_runs/20251223_180034_ticket-17_nested-calibration-coverage/`.
+
 ## 2025-12-22T21:06Z — project_state rebuild (doc-only)
 - **Branch/Run**: `chore/project_state_refresh` (RUN_NAME=`20251222_205400_project_state_rebuild`), git sha `4dfb862085cd47cba810cedc4ea1bc5489ce0bfe`.
 - **Commands**: `python3 tools/generate_project_state.py`; `python3 - <<'PY'` (emit FUNCTION_INDEX/DEPENDENCY_GRAPH); `python3 - <<'PY'` (write project_state docs); `zip -r docs/gpt_bundles/project_state_20251222_205400_4dfb862.zip ...`.

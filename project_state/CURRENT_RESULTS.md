@@ -9,6 +9,11 @@ commands:
 ---
 # Current Results (latest validated drops)
 
+- **2025-12-23 — Nested calibration grid coverage (ticket-17, git ac61464)**  
+  - Synthetic nested calibration refreshed to cover p=188 and p=200 (years=2, weeks 6–8, reps=5, tyler, delta_frac=0.05): null detections 0/220 → Wilson hi 0.017 for both p values.  
+  - `calibration/nested_edge_delta_thresholds.json` now includes `188x{60,70,80}` plus `200x{60,70,80}` with run_name/timestamp/git_sha/config_hash metadata; thresholds mirrored under `design_thresholds.nested`.  
+  - Tiny deterministic nested smoke (`max_windows=3`, capped/non-headline) no longer skips on `calibration_missing_p_T`; skip reasons are `instability_in_a_neighborhood` (2) and `no_isolated_spike` (1).  
+  - Artifacts: `reports/synthetic/nested_killtest/20251223_180034_ticket-17_nested-calibration-coverage/`; `experiments/equity_panel/outputs_nested_smoke_tiny/nested_J5_solver-auto_est-dealias_prep-prewhiten_modeoff/`.
 - **2025-12-22 — Daily DoW paper-v1 (ticket-07, git 2cb5bfd)**  
   - Deterministic daily DoW run (`experiments/eval/config.paper_v1.yaml`, FF5+MOM prewhiten) with uncapped windows: `cap_active=false`, `window_coverage=1.0`, `n_effective=1749` (full regime).  
   - Full-regime detection_rate_mean ≈ 4.16% (1751/1774 windows); window drops logged as `holdout_empty: 115` (excluded from planning, not treated as caps).  

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 
 from synthetic.calibration import CalibrationConfig, _simulate_panel
 from synthetic.threshold_eval import evaluate_threshold_grid
 from fjs.overlay import OverlayConfig, detect_spikes
 from fjs.balanced import mean_squares
+from fjs.gating import lookup_calibrated_delta
 
 
 def test_threshold_eval_matches_detect_spikes() -> None:
@@ -65,3 +68,11 @@ def test_threshold_eval_matches_detect_spikes() -> None:
                     stats=stats,
                 )
                 assert bool(detections) == bool(matrix[delta_idx, stability_idx])
+
+
+def test_nested_calibration_lookup_p188() -> None:
+    path = Path("calibration/nested_edge_delta_thresholds.json")
+    assert path.exists(), "nested calibration missing"
+    for n_obs in (70, 80):
+        delta = lookup_calibrated_delta("tyler", 188, n_obs, calibration_path=path, design="nested")
+        assert delta is not None and delta > 0.0

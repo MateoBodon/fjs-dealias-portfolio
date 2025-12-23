@@ -1,4 +1,5 @@
 n_assets: 200
+n_assets_options: [188, 200]
 years: 2
 weeks_options: [6, 7, 8]
 replicates: 5

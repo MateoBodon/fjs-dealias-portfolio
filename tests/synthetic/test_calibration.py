@@ -61,6 +61,21 @@ def test_edge_delta_thresholds_real_run() -> None:
         assert entry["p_bin"] == "64-96"
 
 
+def test_nested_calibration_includes_p188() -> None:
+    path = Path("calibration/nested_edge_delta_thresholds.json")
+    assert path.exists(), "nested calibration missing"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    thresholds = (
+        payload.get("design_thresholds", {})
+        .get("nested", {})
+        .get("thresholds", payload.get("thresholds", {}))
+    )
+    tyler = thresholds.get("tyler")
+    assert isinstance(tyler, dict), "tyler thresholds missing for nested calibration"
+    for key in ("188x60", "188x70", "188x80"):
+        assert key in tyler, f"missing nested threshold {key}"
+
+
 def test_calibration_deterministic_small_grid() -> None:
     config = CalibrationConfig(
         p_assets=4,

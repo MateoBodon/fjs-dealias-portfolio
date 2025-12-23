@@ -1,4 +1,7 @@
 git status -sb
+git add docs/agent_runs/20251223_180034_ticket-17_nested-calibration-coverage/COMMANDS.md docs/agent_runs/20251223_180034_ticket-17_nested-calibration-coverage/RESULTS.md docs/agent_runs/20251223_180034_ticket-17_nested-calibration-coverage/DIFF.patch docs/agent_runs/20251223_180034_ticket-17_nested-calibration-coverage/bundle_contents.txt
+git commit -m "ticket-17: finalize run log artifacts" -m "Add DIFF.patch and bundle contents to the ticket-17 run log." -m "Tests: make test-fast"
+git status -sb
 git checkout -b codex/ticket-17-nested-calibration-coverage
 date +%Y%m%d_%H%M%S
 RUN_NAME=20251223_180034_ticket-17_nested-calibration-coverage
@@ -135,38 +138,6 @@ sed -n '1,120p' docs/agent_runs/$RUN_NAME/COMMANDS.md
 sed -n '1,200p' AGENTS.md
 sed -n '1,240p' docs/DOCS_AND_LOGGING_SYSTEM.md
 make test-fast
-python - <<'PY'
-import hashlib
-from pathlib import Path
-for path_str in [
-    'experiments/synthetic/config.nested.killtest.yaml',
-    'experiments/equity_panel/config.nested.smoke.tiny.yaml',
-]:
-    path = Path(path_str)
-    digest = hashlib.sha256(path.read_bytes()).hexdigest()
-    print(path_str, digest)
-PY
-python - <<'PY'
-import json
-from pathlib import Path
-registry = json.loads(Path('data/registry.json').read_text())
-print(registry['datasets']['data/returns_daily.csv']['sha256'])
-PY
-git rev-parse HEAD
-git branch --show-current
-git status --porcelain=v1
-git status -sb
-rg -n "reports" .gitignore
-git add experiments/synthetic/nested_killtest.py experiments/synthetic/config.nested.killtest.yaml tests/synthetic/test_calibration.py tests/test_threshold_eval.py
-git commit -m "ticket-17: extend nested killtest grid" -m "Support multi-asset calibration grids and audit metadata output for nested killtest, plus p=188 config coverage and regression tests." -m "Tests: make test-fast"
-git add calibration/nested_edge_delta_thresholds.json reports/synthetic/nested_killtest/20251223_180034_ticket-17_nested-calibration-coverage
-git commit -m "ticket-17: refresh nested calibration grid" -m "Regenerate nested calibration JSON with p=188 coverage and store synthetic killtest artifacts." -m "Tests: make test-fast"
-git status -sb
-git add PROGRESS.md project_state/CURRENT_RESULTS.md project_state/KNOWN_ISSUES.md docs/agent_runs/20251223_180034_ticket-17_nested-calibration-coverage
-git commit -m "ticket-17: update docs and run log" -m "Refresh PROGRESS/project_state and add ticket-17 run log." -m "Tests: make test-fast"
-git status -sb
-git add PROGRESS.md project_state/CURRENT_RESULTS.md docs/agent_runs/20251223_180034_ticket-17_nested-calibration-coverage/META.md
-git commit -m "ticket-17: finalize metadata" -m "Update PROGRESS/CURRENT_RESULTS and run metadata with final git SHA." -m "Tests: make test-fast"
 EXEC_MODE=deterministic make run:equity_nested_smoke_tiny
 ls -1t experiments/equity_panel/outputs_nested_smoke_tiny | head
 ls -1t experiments/equity_panel/outputs_nested_smoke_tiny/nested_J5_solver-auto_est-dealias_prep-prewhiten_modeoff | head
@@ -329,7 +300,7 @@ from pathlib import Path
 path = Path('reports/synthetic/nested_killtest/20251223_180034_ticket-17_nested-calibration-coverage/summary.csv')
 df = pd.read_csv(path)
 print(df)
-print('\\nnull rows p=188')
+print('\nnull rows p=188')
 print(df[(df['scenario']=='null') & (df['p_assets']==188)].to_string(index=False))
 PY
 sed -n '1,20p' reports/synthetic/nested_killtest/20251223_180034_ticket-17_nested-calibration-coverage/summary.csv
@@ -385,3 +356,44 @@ PY
 sed -n '1,200p' experiments/equity_panel/config.nested.smoke.tiny.yaml
 sed -n '1,200p' data/registry.json
 make test-fast
+python - <<'PY'
+import hashlib
+from pathlib import Path
+for path_str in [
+    'experiments/synthetic/config.nested.killtest.yaml',
+    'experiments/equity_panel/config.nested.smoke.tiny.yaml',
+]:
+    path = Path(path_str)
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    print(path_str, digest)
+PY
+python - <<'PY'
+import json
+from pathlib import Path
+registry = json.loads(Path('data/registry.json').read_text())
+print(registry['datasets']['data/returns_daily.csv']['sha256'])
+PY
+git rev-parse HEAD
+git branch --show-current
+git status --porcelain=v1
+git status -sb
+rg -n "reports" .gitignore
+git add experiments/synthetic/nested_killtest.py experiments/synthetic/config.nested.killtest.yaml tests/synthetic/test_calibration.py tests/test_threshold_eval.py
+git commit -m "ticket-17: extend nested killtest grid" -m "Support multi-asset calibration grids and audit metadata output for nested killtest, plus p=188 config coverage and regression tests." -m "Tests: make test-fast"
+git add calibration/nested_edge_delta_thresholds.json reports/synthetic/nested_killtest/20251223_180034_ticket-17_nested-calibration-coverage
+git commit -m "ticket-17: refresh nested calibration grid" -m "Regenerate nested calibration JSON with p=188 coverage and store synthetic killtest artifacts." -m "Tests: make test-fast"
+git status -sb
+git add PROGRESS.md project_state/CURRENT_RESULTS.md project_state/KNOWN_ISSUES.md docs/agent_runs/20251223_180034_ticket-17_nested-calibration-coverage
+git commit -m "ticket-17: update docs and run log" -m "Refresh PROGRESS/project_state and add ticket-17 run log." -m "Tests: make test-fast"
+git status -sb
+git add PROGRESS.md project_state/CURRENT_RESULTS.md docs/agent_runs/20251223_180034_ticket-17_nested-calibration-coverage/META.md
+git commit -m "ticket-17: finalize metadata" -m "Update PROGRESS/CURRENT_RESULTS and run metadata with final git SHA." -m "Tests: make test-fast"
+git add docs/agent_runs/20251223_180034_ticket-17_nested-calibration-coverage/COMMANDS.md
+git commit -m "ticket-17: log commands" -m "Update run log COMMANDS with full command history." -m "Tests: make test-fast"
+git status -sb
+RUN_NAME=20251223_180034_ticket-17_nested-calibration-coverage
+git diff > docs/agent_runs/$RUN_NAME/DIFF.patch
+RUN_NAME=20251223_180034_ticket-17_nested-calibration-coverage
+make gpt-bundle TICKET=ticket-17 RUN_NAME=$RUN_NAME
+unzip -l docs/gpt_bundles/20251223_194233_ticket-17_20251223_180034_ticket-17_nested-calibration-coverage.zip | tee docs/agent_runs/20251223_180034_ticket-17_nested-calibration-coverage/bundle_contents.txt
+git status -sb

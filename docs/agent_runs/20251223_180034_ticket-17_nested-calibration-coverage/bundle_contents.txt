@@ -1,0 +1,25 @@
+Archive:  docs/gpt_bundles/20251223_194233_ticket-17_20251223_180034_ticket-17_nested-calibration-coverage.zip
+  Length      Date    Time    Name
+---------  ---------- -----   ----
+   129236  2025-12-23 19:42   DIFF.patch
+     3439  2025-12-23 19:42   AGENTS.md
+        0  2025-12-23 19:42   docs/
+     6109  2025-12-23 19:42   docs/DOCS_AND_LOGGING_SYSTEM.md
+     7649  2025-12-23 19:42   docs/CODEX_SPRINT_TICKETS.md
+        0  2025-12-23 19:42   docs/agent_runs/
+        0  2025-12-23 19:42   docs/agent_runs/20251223_180034_ticket-17_nested-calibration-coverage/
+      896  2025-12-23 19:42   docs/agent_runs/20251223_180034_ticket-17_nested-calibration-coverage/META.md
+        0  2025-12-23 19:42   docs/agent_runs/20251223_180034_ticket-17_nested-calibration-coverage/DIFF.patch
+      240  2025-12-23 19:42   docs/agent_runs/20251223_180034_ticket-17_nested-calibration-coverage/TESTS.md
+     5936  2025-12-23 19:42   docs/agent_runs/20251223_180034_ticket-17_nested-calibration-coverage/PROMPT.md
+     1129  2025-12-23 19:42   docs/agent_runs/20251223_180034_ticket-17_nested-calibration-coverage/RESULTS.md
+    18630  2025-12-23 19:42   docs/agent_runs/20251223_180034_ticket-17_nested-calibration-coverage/COMMANDS.md
+    16149  2025-12-23 19:42   docs/PLAN_OF_RECORD.md
+      360  2025-12-23 19:42   LAST_COMMIT.txt
+    62664  2025-12-23 19:42   PROGRESS.md
+        0  2025-12-23 19:42   project_state/
+     4492  2025-12-23 19:42   project_state/CONFIG_REFERENCE.md
+     5525  2025-12-23 19:42   project_state/CURRENT_RESULTS.md
+     1078  2025-12-23 19:42   project_state/KNOWN_ISSUES.md
+---------                     -------
+   263532                     20 files

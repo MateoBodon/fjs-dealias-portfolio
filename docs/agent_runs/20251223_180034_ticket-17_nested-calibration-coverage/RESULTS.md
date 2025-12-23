@@ -3,3 +3,5 @@
 - `calibration/nested_edge_delta_thresholds.json` updated with audit metadata (run_name/timestamp_utc/git_sha/config_hash) and thresholds for `188x{60,70,80}` plus existing `200x{60,70,80}`; mirrored under `design_thresholds.nested`.
 - Post-fix deterministic nested smoke: no `calibration_missing_p_T`; skip reasons now `instability_in_a_neighborhood=2`, `no_isolated_spike=1`.
 - Artifacts: `calibration/nested_edge_delta_thresholds.json`; `reports/synthetic/nested_killtest/20251223_180034_ticket-17_nested-calibration-coverage/`; `experiments/equity_panel/outputs_nested_smoke_tiny/nested_J5_solver-auto_est-dealias_prep-prewhiten_modeoff/`.
+- Bundle: `docs/gpt_bundles/20251223_194233_ticket-17_20251223_180034_ticket-17_nested-calibration-coverage.zip`; contents listed in `docs/agent_runs/20251223_180034_ticket-17_nested-calibration-coverage/bundle_contents.txt`.
+- Patch: `docs/agent_runs/20251223_180034_ticket-17_nested-calibration-coverage/DIFF.patch` (empty since working tree was clean at save time).

@@ -104,6 +104,7 @@ RC_WINDOW ?= 126
 RC_HORIZON ?= 21
 RC_START ?= 2018-01-01
 RC_END ?= 2024-12-31
+RC_ASSETS_TOP ?= 150
 RC_GATE_DELTA_FRAC_MIN ?= 0.02
 RC_GATE_DELTA_FRAC_MIN_VOL ?= 0.015
 RC_Q_MAX ?= 2
@@ -331,7 +332,7 @@ RC_DOWXVOL_PREWHITEN ?= $(RC_DOW_PREWHITEN)
 RC_SENS_START ?= 2024-05-01
 RC_SENS_END ?= 2024-10-31
 RC_SENS_LABEL ?= rc-sensitivity-$(RC_DATE)
-RC_INJECT_OUT ?= reports/figures
+RC_INJECT_OUT ?= reports/inject_spike
 
 .PHONY: rc-dow rc-vol rc-week rc-dowxvol
 rc-dow:
@@ -516,7 +517,7 @@ inject-spike:
 		--horizon $(RC_HORIZON) \
 		--start $(RC_START) \
 		--end $(RC_END) \
-		--assets-top 150 \
+		--assets-top $(RC_ASSETS_TOP) \
 		--config experiments/eval/config.yaml \
 		--thresholds experiments/eval/thresholds.json \
 		--group-design week \
@@ -534,7 +535,7 @@ inject-spike-coarse:
 		--horizon $(RC_HORIZON) \
 		--start $(RC_START) \
 		--end $(RC_END) \
-		--assets-top 150 \
+		--assets-top $(RC_ASSETS_TOP) \
 		--config experiments/eval/config.yaml \
 		--thresholds experiments/eval/thresholds.json \
 		--group-design week \

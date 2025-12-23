@@ -18,6 +18,7 @@ REQUIRED_SNIPPETS = [
     "tools/gpt_bundle.py diff",
     "DIFF.patch",
     "LAST_COMMIT.txt",
+    "BUNDLE_META.md",
 ]
 
 

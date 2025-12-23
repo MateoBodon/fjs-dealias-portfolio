@@ -653,9 +653,9 @@ gpt-bundle:
 	cp project_state/KNOWN_ISSUES.md "$$tmp/project_state/"; \
 	cp project_state/CONFIG_REFERENCE.md "$$tmp/project_state/"; \
 	cp -r "$$run_dir" "$$tmp/docs/agent_runs/"; \
-	diff_rev="$${DIFF_REV:-HEAD}"; \
-	python tools/gpt_bundle.py diff --repo "$$repo_root" --rev "$$diff_rev" --output "$$tmp/DIFF.patch"; \
+	python tools/gpt_bundle.py diff --repo "$$repo_root" --output "$$tmp/DIFF.patch" --meta-output "$$tmp/BUNDLE_META.md" --run-name "$(RUN_NAME)" --ticket "$(TICKET)"; \
 	if [ ! -s "$$tmp/DIFF.patch" ]; then echo "DIFF.patch is empty; aborting bundle." >&2; exit 1; fi; \
+	if [ ! -s "$$tmp/BUNDLE_META.md" ]; then echo "BUNDLE_META.md is empty; aborting bundle." >&2; exit 1; fi; \
 	git log -1 --stat > "$$tmp/LAST_COMMIT.txt"; \
 	if [ ! -s "$$tmp/LAST_COMMIT.txt" ]; then echo "LAST_COMMIT.txt is empty; aborting bundle." >&2; exit 1; fi; \
 	bundle_dir="$$repo_root/docs/gpt_bundles"; \

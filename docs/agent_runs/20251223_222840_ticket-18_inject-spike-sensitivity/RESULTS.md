@@ -1,0 +1,12 @@
+- Updated injection sensitivity tooling to emit curve + metadata; see code + tests for details.
+- Real-data smoke run (small): `reports/inject_spike/20251223_225141/`
+  - curve: `reports/inject_spike/20251223_225141/curve.csv`
+  - plot: `reports/inject_spike/20251223_225141/curve.png`
+  - run metadata: `reports/inject_spike/20251223_225141/run.json`
+  - resolved config: `reports/inject_spike/20251223_225141/resolved_config.json`
+  - selected windows: `reports/inject_spike/20251223_225141/selected_windows.csv`
+  - summary: baseline detection/acceptance = 0.0; μ=3,6,9 detection/acceptance = 0.0 (acceptance drought noted).
+- Additional minimal run (μ=3 only): `reports/inject_spike/20251223_224954/` (baseline + μ=3; detection/acceptance = 0.0).
+- Aborted attempts (run.json written manually for audit):
+  - `reports/inject_spike/20251223_224624/` failed (insufficient observations for window+horizon).
+  - `reports/inject_spike/20251223_224638/` interrupted (KeyboardInterrupt during baseline detection pass).

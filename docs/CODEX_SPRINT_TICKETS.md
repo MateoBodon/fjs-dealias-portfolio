@@ -13,7 +13,7 @@ Rule: do not expand the experiment grid until Tickets 1–4 are done.
 
 ## Ticket #22 — gpt-bundle range diff + bundle meta
 
-**Status:** IN-PROGRESS
+**Status:** DONE
 
 **Goal (1 sentence):** Make `make gpt-bundle` produce a reviewable full-range diff (merge-base..HEAD) with explicit base/head metadata.
 
@@ -83,6 +83,8 @@ Rule: do not expand the experiment grid until Tickets 1–4 are done.
 ---
 
 ## Ticket #18 — Injection sensitivity on real windows (detection/acceptance vs μ)
+
+**Status:** DONE
 
 **Goal (1 sentence):** Prove the detection + gating stack responds to known spikes under real-data noise by running injection sensitivity and producing a μ→(detection, acceptance) curve.
 

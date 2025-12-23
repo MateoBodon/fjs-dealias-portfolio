@@ -1,0 +1,4 @@
+- make test-fast
+  - status: passed
+  - warning: PytestConfigWarning Unknown config option: timeout
+  - details: 73 passed, 168 deselected, 1 warning in 13.11s

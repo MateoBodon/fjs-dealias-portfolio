@@ -9,3 +9,4 @@ Artifacts:
 - Sanity summary: `reports/rc-20251223-sanity-20251223_064808/summary_sanity.json`.
 
 Failures: none.
+- GPT bundle: `docs/gpt_bundles/20251223_072300_ticket-16_20251223_064432_ticket-16_paper-config-integrity.zip`

@@ -110,3 +110,4 @@ PY
 - git add docs/agent_runs/20251223_064432_ticket-16_paper-config-integrity/COMMANDS.md docs/agent_runs/20251223_064432_ticket-16_paper-config-integrity/DIFF.patch
 - git commit -m "docs: finalize ticket-16 logs" -m "Tests:\n- make test-fast\n- EXEC_MODE=deterministic make rc-lite-sanity"
 - git status --short
+- make gpt-bundle TICKET=ticket-16 RUN_NAME=20251223_064432_ticket-16_paper-config-integrity

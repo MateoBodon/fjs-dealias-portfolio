@@ -374,3 +374,8 @@ python - <<'PY' (append COMMANDS.md)
 git add docs/agent_runs/20251223_204129_ticket-22_gpt-bundle-range-diff/COMMANDS.md
 git commit -m "chore: log bundle verification" -m "Tests: make test-fast"
 python - <<'PY' (append COMMANDS.md)
+git fetch origin
+git checkout main
+git merge --ff-only codex/ticket-22-gpt-bundle-range-diff
+git push origin main
+python - <<'PY' (append COMMANDS.md)

@@ -166,3 +166,24 @@ git status -sb
 git add docs/agent_runs/20251223_195953_ticket-17_checklist-merge/COMMANDS.md
 git add docs/agent_runs/20251223_195953_ticket-17_checklist-merge
 git commit -m "ticket-17: checklist verification log" -m "Record checklist verification run log." -m "Tests: make test-fast"
+git fetch origin
+git checkout main
+git merge --ff-only codex/ticket-17-nested-calibration-coverage
+git push origin main
+RUN_NAME=20251223_195953_ticket-17_checklist-merge
+make gpt-bundle TICKET=ticket-17 RUN_NAME=$RUN_NAME
+unzip -l docs/gpt_bundles/20251223_201001_ticket-17_20251223_195953_ticket-17_checklist-merge.zip | rg "DIFF.patch|LAST_COMMIT.txt"
+RUN_NAME=20251223_195953_ticket-17_checklist-merge
+unzip -l docs/gpt_bundles/20251223_201001_ticket-17_20251223_195953_ticket-17_checklist-merge.zip > docs/agent_runs/$RUN_NAME/bundle_contents.txt
+cat <<'EOF_RESULTS' > docs/agent_runs/$RUN_NAME/RESULTS.md
+- Verified tiny nested smoke output (`experiments/equity_panel/outputs_nested_smoke_tiny/nested_J5_solver-auto_est-dealias_prep-prewhiten_modeoff/gating_diagnostics.csv`) has `calibration_missing_p_T=0`; skip reasons: `instability_in_a_neighborhood=2`, `no_isolated_spike=1`.
+- Calibration remains strict (no silent mapping); lookup still fails loudly on missing cells and tests enforce coverage for p=188 with n_obs 70/80.
+- Synthetic null FPR for new p=188 cells (null scenario, `nested_killtest_trials.csv`): n_obs 60/70/80 = 0/65, 0/79, 0/76 (0.0 ≤ 0.02); calibration metadata shows Wilson hi 0.017.
+- Auditability verified: run log folder created with required files; prior updates in `PROGRESS.md`, `project_state/KNOWN_ISSUES.md`, and `project_state/CURRENT_RESULTS.md` already reflect ticket-17.
+- Repo hygiene verified: committed artifacts are limited to `reports/synthetic/nested_killtest/20251223_180034_ticket-17_nested-calibration-coverage/` (explicitly tracked by `.gitignore` allowlist); calibration JSON includes run_name/timestamp/git_sha/config_hash metadata.
+- Bundle: `docs/gpt_bundles/20251223_201001_ticket-17_20251223_195953_ticket-17_checklist-merge.zip`; top-level `DIFF.patch` in bundle is empty post-merge (diff main...HEAD), so Ticket #21 should address bundling if non-empty diffs are required.
+- Bundle contents: `docs/agent_runs/20251223_195953_ticket-17_checklist-merge/bundle_contents.txt`.
+EOF_RESULTS
+git status -sb
+git add docs/agent_runs/20251223_195953_ticket-17_checklist-merge/COMMANDS.md docs/agent_runs/20251223_195953_ticket-17_checklist-merge/RESULTS.md docs/agent_runs/20251223_195953_ticket-17_checklist-merge/bundle_contents.txt
+git commit -m "ticket-17: log merge and bundle" -m "Update checklist run log with merge/push/bundle outputs." -m "Tests: make test-fast"

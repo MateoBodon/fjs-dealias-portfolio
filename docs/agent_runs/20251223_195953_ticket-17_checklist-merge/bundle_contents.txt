@@ -1,0 +1,25 @@
+Archive:  docs/gpt_bundles/20251223_201001_ticket-17_20251223_195953_ticket-17_checklist-merge.zip
+  Length      Date    Time    Name
+---------  ---------- -----   ----
+        0  2025-12-23 20:10   DIFF.patch
+     3439  2025-12-23 20:10   AGENTS.md
+        0  2025-12-23 20:10   docs/
+     6109  2025-12-23 20:10   docs/DOCS_AND_LOGGING_SYSTEM.md
+     7649  2025-12-23 20:10   docs/CODEX_SPRINT_TICKETS.md
+        0  2025-12-23 20:10   docs/agent_runs/
+        0  2025-12-23 20:10   docs/agent_runs/20251223_195953_ticket-17_checklist-merge/
+      478  2025-12-23 20:10   docs/agent_runs/20251223_195953_ticket-17_checklist-merge/META.md
+    12119  2025-12-23 20:10   docs/agent_runs/20251223_195953_ticket-17_checklist-merge/DIFF.patch
+       87  2025-12-23 20:10   docs/agent_runs/20251223_195953_ticket-17_checklist-merge/TESTS.md
+     1344  2025-12-23 20:10   docs/agent_runs/20251223_195953_ticket-17_checklist-merge/PROMPT.md
+     1170  2025-12-23 20:10   docs/agent_runs/20251223_195953_ticket-17_checklist-merge/RESULTS.md
+     7732  2025-12-23 20:10   docs/agent_runs/20251223_195953_ticket-17_checklist-merge/COMMANDS.md
+    16149  2025-12-23 20:10   docs/PLAN_OF_RECORD.md
+      681  2025-12-23 20:10   LAST_COMMIT.txt
+    62664  2025-12-23 20:10   PROGRESS.md
+        0  2025-12-23 20:10   project_state/
+     4492  2025-12-23 20:10   project_state/CONFIG_REFERENCE.md
+     5525  2025-12-23 20:10   project_state/CURRENT_RESULTS.md
+     1078  2025-12-23 20:10   project_state/KNOWN_ISSUES.md
+---------                     -------
+   130716                     20 files

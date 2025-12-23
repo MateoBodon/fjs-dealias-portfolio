@@ -3,4 +3,5 @@
 - Synthetic null FPR for new p=188 cells (null scenario, `nested_killtest_trials.csv`): n_obs 60/70/80 = 0/65, 0/79, 0/76 (0.0 ≤ 0.02); calibration metadata shows Wilson hi 0.017.
 - Auditability verified: run log folder created with required files; prior updates in `PROGRESS.md`, `project_state/KNOWN_ISSUES.md`, and `project_state/CURRENT_RESULTS.md` already reflect ticket-17.
 - Repo hygiene verified: committed artifacts are limited to `reports/synthetic/nested_killtest/20251223_180034_ticket-17_nested-calibration-coverage/` (explicitly tracked by `.gitignore` allowlist); calibration JSON includes run_name/timestamp/git_sha/config_hash metadata.
-- Bundle: per prompt, to generate after merge/push; DIFF.patch status to be checked then.
+- Bundle: `docs/gpt_bundles/20251223_201001_ticket-17_20251223_195953_ticket-17_checklist-merge.zip`; top-level `DIFF.patch` in bundle is empty post-merge (diff main...HEAD), so Ticket #21 should address bundling if non-empty diffs are required.
+- Bundle contents: `docs/agent_runs/20251223_195953_ticket-17_checklist-merge/bundle_contents.txt`.

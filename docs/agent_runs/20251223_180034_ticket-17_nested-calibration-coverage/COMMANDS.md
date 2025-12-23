@@ -155,6 +155,18 @@ PY
 git rev-parse HEAD
 git branch --show-current
 git status --porcelain=v1
+git status -sb
+rg -n "reports" .gitignore
+git add experiments/synthetic/nested_killtest.py experiments/synthetic/config.nested.killtest.yaml tests/synthetic/test_calibration.py tests/test_threshold_eval.py
+git commit -m "ticket-17: extend nested killtest grid" -m "Support multi-asset calibration grids and audit metadata output for nested killtest, plus p=188 config coverage and regression tests." -m "Tests: make test-fast"
+git add calibration/nested_edge_delta_thresholds.json reports/synthetic/nested_killtest/20251223_180034_ticket-17_nested-calibration-coverage
+git commit -m "ticket-17: refresh nested calibration grid" -m "Regenerate nested calibration JSON with p=188 coverage and store synthetic killtest artifacts." -m "Tests: make test-fast"
+git status -sb
+git add PROGRESS.md project_state/CURRENT_RESULTS.md project_state/KNOWN_ISSUES.md docs/agent_runs/20251223_180034_ticket-17_nested-calibration-coverage
+git commit -m "ticket-17: update docs and run log" -m "Refresh PROGRESS/project_state and add ticket-17 run log." -m "Tests: make test-fast"
+git status -sb
+git add PROGRESS.md project_state/CURRENT_RESULTS.md docs/agent_runs/20251223_180034_ticket-17_nested-calibration-coverage/META.md
+git commit -m "ticket-17: finalize metadata" -m "Update PROGRESS/CURRENT_RESULTS and run metadata with final git SHA." -m "Tests: make test-fast"
 EXEC_MODE=deterministic make run:equity_nested_smoke_tiny
 ls -1t experiments/equity_panel/outputs_nested_smoke_tiny | head
 ls -1t experiments/equity_panel/outputs_nested_smoke_tiny/nested_J5_solver-auto_est-dealias_prep-prewhiten_modeoff | head

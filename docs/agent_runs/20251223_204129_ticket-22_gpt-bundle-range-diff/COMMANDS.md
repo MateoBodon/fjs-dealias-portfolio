@@ -328,3 +328,13 @@ git add PROGRESS.md docs/agent_runs/20251223_204129_ticket-22_gpt-bundle-range-d
 python - <<'PY' (append to docs/agent_runs/20251223_204129_ticket-22_gpt-bundle-range-diff/COMMANDS.md)
 git add docs/agent_runs/20251223_204129_ticket-22_gpt-bundle-range-diff/COMMANDS.md
 git commit -m "chore: finalize ticket-22 log" -m "Tests: make test-fast"
+git status -sb
+git add docs/agent_runs/20251223_204129_ticket-22_gpt-bundle-range-diff/COMMANDS.md
+git commit -m "chore: log final commands" -m "Tests: make test-fast"
+BUNDLE_STAMP=20251223_212500 make gpt-bundle TICKET=ticket-22 RUN_NAME=20251223_204129_ticket-22_gpt-bundle-range-diff
+unzip -l docs/gpt_bundles/20251223_212500_ticket-22_20251223_204129_ticket-22_gpt-bundle-range-diff.zip
+unzip -p docs/gpt_bundles/20251223_212500_ticket-22_20251223_204129_ticket-22_gpt-bundle-range-diff.zip BUNDLE_META.md
+unzip -p docs/gpt_bundles/20251223_212500_ticket-22_20251223_204129_ticket-22_gpt-bundle-range-diff.zip DIFF.patch | head -n 30
+unzip -p docs/gpt_bundles/20251223_212500_ticket-22_20251223_204129_ticket-22_gpt-bundle-range-diff.zip DIFF.patch | rg -n "tools/gpt_bundle.py"
+unzip -p docs/gpt_bundles/20251223_212500_ticket-22_20251223_204129_ticket-22_gpt-bundle-range-diff.zip DIFF.patch | rg -n "AGENTS.md"
+BUNDLE_STAMP=20251223_212700 make gpt-bundle TICKET=ticket-22 RUN_NAME=20251223_204129_ticket-22_gpt-bundle-range-diff

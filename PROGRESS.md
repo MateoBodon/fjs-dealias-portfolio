@@ -1,3 +1,10 @@
+## 2025-12-22T21:06Z — project_state rebuild (doc-only)
+- **Branch/Run**: `chore/project_state_refresh` (RUN_NAME=`20251222_205400_project_state_rebuild`), git sha `4dfb862085cd47cba810cedc4ea1bc5489ce0bfe`.
+- **Commands**: `python3 tools/generate_project_state.py`; `python3 - <<'PY'` (emit FUNCTION_INDEX/DEPENDENCY_GRAPH); `python3 - <<'PY'` (write project_state docs); `zip -r docs/gpt_bundles/project_state_20251222_205400_4dfb862.zip ...`.
+- **Changes**: regenerated `project_state/_generated` artifacts, rewrote all `project_state/*.md` with updated module inventory and run summaries; updated `tools/generate_project_state.py` to scope AST indexing to src/experiments/tools and include signatures/bases; noted missing `experiments/eval/config.paper_v1.yaml` in Known Issues.
+- **Tests**: Not run (documentation-only).
+- **Artifacts**: run log `docs/agent_runs/20251222_205400_project_state_rebuild/`; bundle `docs/gpt_bundles/project_state_20251222_205400_4dfb862.zip`.
+
 ## 2025-12-21T06:21Z — WRDS lake inventory doc
 - **Branch/Run**: `feat/ticket-02-stop-eval-contamination` (RUN_NAME=`20251221_072005_ticket-02_wrds-lake-doc`), git sha `27a3afcb4770ad24800efd30af1a5ee4451f806f`.
 - **Commands**: `make test-fast`.

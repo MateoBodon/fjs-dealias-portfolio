@@ -1,13 +1,12 @@
 ---
-generated: 2025-12-22T19:56:00+00:00
-git_sha: 2cb5bfdce66324fff011d994d552a4b9bc42740c
-git_branch: feat/ticket-07-advisor-ready-dow
+generated: 2025-12-22T21:04:17Z
+git_sha: a7d76d8cf7f5fe4c9765c335530064170a0ca87a
+git_branch: chore/project_state_refresh
 commands:
-  - make test-fast
-  - PYTHONPATH=src:. python experiments/eval/run.py --config experiments/eval/config.paper_v1.yaml --returns-csv data/returns_daily.csv --factors-csv data/factors/ff5mom_daily.csv --out reports/rc-ticket-07-20251222_183800/dow-paper-v1 --exec-mode deterministic
-  - PYTHONPATH=src:. python tools/make_summary.py --rc-dir reports/rc-ticket-07-20251222_183800
+  - python3 tools/generate_project_state.py
+  - python3 - <<'PY' (emit FUNCTION_INDEX.md + DEPENDENCY_GRAPH.md)
+  - python3 - <<'PY' (write project_state docs)
 ---
-
 # Current Results (latest validated drops)
 
 - **2025-12-22 — Daily DoW paper-v1 (ticket-07, git 2cb5bfd)**  
@@ -38,4 +37,4 @@ commands:
 - **2025-11-21 — Latest full RC-lite (deterministic)**
   - DoW/vol (Tyler edge, FF5+MOM, top-60, first 200 windows): detection≈4.3%, acceptance≈detection, percent_changed≈100%, ΔMSE(EW)=+1.75e-13, ΔMSE(MV)=−2.54e-14. Artefacts in `reports/rc-20251121/` (`metrics_summary.json`, `run_manifest.json`).
 
-Older runs (AWS RCs, sensitivity sweeps, prewhiten studies) remain catalogued in `reports/rc-20251113/`, `reports/rc-sensitivity/`, and `reports/aws/`; see PROGRESS.md for provenance.
+Older RC-lite (2025-11-21) and prewhitening/vol acceptance studies remain under `reports/rc-20251121/` and `reports/rc-20251113/`; see PROGRESS.md for provenance.

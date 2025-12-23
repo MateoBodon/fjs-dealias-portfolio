@@ -1,17 +1,16 @@
 ---
-generated: 2025-12-19T21:04:10+01:00
-git_sha: ce4c1b224c43028bb5388efdebbe0e8eb52e6c61
+generated: 2025-12-22T21:04:17Z
+git_sha: a7d76d8cf7f5fe4c9765c335530064170a0ca87a
 git_branch: chore/project_state_refresh
 commands:
-  - python3 tools/generate_project_state.py (latest run excludes heavy caches/outputs)
-  - python3 - <<'PY' (emit project_state docs and indexes)
+  - python3 tools/generate_project_state.py
+  - python3 - <<'PY' (emit FUNCTION_INDEX.md + DEPENDENCY_GRAPH.md)
+  - python3 - <<'PY' (write project_state docs)
 ---
-
 # Research Notes
 
-- **Overlay rarely fires on balanced panels** — Despite calibrated delta_frac grids, many designs still show zero detections (nested, vol-state) or heavy `guard_other` counts (ticket-07 diagnostics). Synthetic micro smokes failing with `diagnostic_failure` suggest gate diagnostics need finer attribution.
-- **MV solver handling clarified** — `finance.portfolios` now fails loud by default when `cvxpy` is missing; skip path is explicit (`skip_on_missing_solver`, propagated through metrics). No more EW fallback when solver absent.
-- **Crisis performance still fragile** — Prior RC-lite runs (2025-11-21) show small acceptance with mixed ΔMSE signs; crisis slices (2020/2022) remain riskier and are gated via `config.crisis.*.yaml`.
-- **Calibration defaults** — `calibration/defaults.json` and `calibration/edge_delta_thresholds.json` (2025-11-21) remain in force; energy_floor≈0.108 for SCM edge at 2% FPR. Any re-tune must log before/after thresholds.
-- **Prewhitening impact** — FF5+MOM prewhitening is the default in eval/equity flows; factor registries are enforced. Vol-state acceptance remains low even with prewhitening, indicating gating issues beyond factor alignment.
-- **Completeness tooling** — `meta/completeness.py`, `tools/make_summary.py`, and `tools/summarize_rc_sanity.py` now surface missing sections and harmful overlay effects; helps avoid silently treating incomplete RC drops as valid.
+- **Window coverage fix pending in this branch** — The ticket-05 daily DoW run is capped by `window_coverage`; later branches mention a fix, but this branch still records the capped attempt (see `reports/rc-ticket-05-20251221_221902/summary/limitations.md`).
+- **Weekly gating diagnostics improved** — Ticket-09 smoke adds `guard_unknown` and explicit skip_reason columns; `guard_other` is absent in the latest smoke (see `experiments/equity_panel/outputs_smoke/.../weekly_diagnostics.md`).
+- **Nested calibration gap remains** — Nested weekly smokes report `calibration_missing_p_T` for p≈188 and T∈{70,80}; calibrated grid does not cover these regimes.
+- **MV solver handling is fail-loud** — `finance.portfolios` raises on missing cvxpy unless explicitly skipped (`mv_skip_on_missing_solver`); no equal-weight fallback.
+- **RC-lite sanity shows harmful deltas** — Deterministic sanity run remains valid but overlay ΔMSE > 0 in summary, so delta comparisons are marked invalid in summary tables (see `reports/rc-20251220-sanity-20251220_233700/summary/summary_perf.csv`).

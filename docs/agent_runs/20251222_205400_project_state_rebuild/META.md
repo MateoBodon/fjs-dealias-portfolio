@@ -1,0 +1,34 @@
+# Meta
+
+- run_name: 20251222_205400_project_state_rebuild
+- timestamp_utc: 2025-12-22T21:11:03Z
+- git_branch: chore/project_state_refresh
+- git_sha: a7d76d8cf7f5fe4c9765c335530064170a0ca87a
+- git_status: ## chore/project_state_refresh
+ M project_state/ARCHITECTURE.md
+ M project_state/CHANGELOG.md
+ M project_state/CONFIG_REFERENCE.md
+ M project_state/CURRENT_RESULTS.md
+ M project_state/DATAFLOW.md
+ M project_state/DEPENDENCY_GRAPH.md
+ M project_state/EXPERIMENTS.md
+ M project_state/FUNCTION_INDEX.md
+ M project_state/INDEX.md
+ M project_state/KNOWN_ISSUES.md
+ M project_state/MODULE_SUMMARIES.md
+ M project_state/OPEN_QUESTIONS.md
+ M project_state/PIPELINE_FLOW.md
+ M project_state/RESEARCH_NOTES.md
+ M project_state/ROADMAP.md
+ M project_state/SERVER_ENVIRONMENT.md
+ M project_state/STYLE_GUIDE.md
+ M project_state/TEST_COVERAGE.md
+ M project_state/_generated/import_graph.json
+ M project_state/_generated/make_targets.txt
+ M project_state/_generated/repo_inventory.json
+ M project_state/_generated/symbol_index.json
+ M tools/generate_project_state.py
+?? docs/agent_runs/20251222_205400_project_state_rebuild/
+- python_version: Python 3.12.3
+- os: Linux Ubuntu-2404-noble-amd64-base 6.8.0-85-generic #85-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 18 15:26:59 UTC 2025 x86_64 x86_64 x86_64 GNU/Linux
+- notes: project_state rebuild (doc-only)

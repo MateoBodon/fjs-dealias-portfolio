@@ -1,66 +1,173 @@
 ---
-generated: 2025-12-19T21:04:10+01:00
-git_sha: ce4c1b224c43028bb5388efdebbe0e8eb52e6c61
+generated: 2025-12-22T21:06:25Z
+git_sha: a7d76d8cf7f5fe4c9765c335530064170a0ca87a
 git_branch: chore/project_state_refresh
 commands:
-  - python3 tools/generate_project_state.py (latest run excludes heavy caches/outputs)
-  - python3 - <<'PY' (emit project_state docs and indexes)
+  - python3 tools/generate_project_state.py
+  - python3 - <<'PY' (emit FUNCTION_INDEX.md + DEPENDENCY_GRAPH.md)
 ---
+
 
 # Dependency Graph
 
-Source: project_state/_generated/import_graph.json (internal imports only).
 
-**Top fan-out (modules importing many peers)**
+Source: `project_state/_generated/import_graph.json` (internal imports among src/, experiments/, tools/).
 
-module                         | fan_out | imports (truncated)                                                                                             
------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------
-equity_panel.run               | 21      | baselines, evaluation, evaluation.evaluate, experiments.prewhiten, finance.eval, finance.io…                    
-eval.run                       | 16      | baselines, baselines.covariance, baselines.factors, eval.balance, eval.clean, evaluation.dm…                    
-finance.eval                   | 7       | evaluation.factor, finance.factors, finance.ledoit, finance.robust, finance.shrinkage, fjs.balanced…            
-eval.inject_spike              | 6       | eval.balance, eval.clean, experiments.daily.grouping, experiments.eval.config, experiments.eval.run, fjs.overlay
-synthetic_oneway.run           | 6       | fjs.balanced, fjs.dealias, fjs.spectra, meta.run_meta, pairing, plotting                                        
-fjs.overlay                    | 5       | baselines.covariance, finance.ledoit, finance.shrinkage, fjs.dealias, fjs.gating                                
-test_pipeline_smoke            | 5       | experiments.equity_panel, experiments.synthetic_oneway, finance, fjs, fjs.dealias                               
-synthetic.power_null           | 5       | evaluation.evaluate, experiments.synthetic_oneway.run, finance.eval, fjs.dealias, fjs.robust                    
-synthetic.nested_killtest      | 5       | experiments.equity_panel.run, fjs.balanced_nested, fjs.dealias, fjs.gating, fjs.robust                          
-test_threshold_eval            | 4       | fjs.balanced, fjs.overlay, synthetic.calibration, synthetic.threshold_eval                                      
-test_dealias_search            | 4       | finance.io, fjs.balanced, fjs.dealias, fjs.mp                                                                   
-synthetic.calibrate_thresholds | 4       | experiments.synthetic.harness_utils, fjs, meta, synthetic.calibration                                           
-fjs.dealias                    | 3       | fjs.balanced, fjs.mp, fjs.theta_solver                                                                          
-build_gallery                  | 3       | report.gather, report.plots, report.tables                                                                      
-test_dealias_guardrails        | 3       | fjs.balanced, fjs.dealias, fjs.mp                                                                               
-test_diagnostics               | 3       | experiments.equity_panel, io, tools.summarize_run                                                               
-test_shrinkage                 | 3       | finance.ledoit, finance.robust, finance.shrinkage                                                               
-test_dealias                   | 3       | fjs.balanced, fjs.dealias, fjs.mp                                                                               
-test_theta_solver              | 3       | fjs.balanced, fjs.dealias, fjs.theta_solver                                                                     
-experiments.test_eval_run      | 3       | experiments.eval.config, experiments.eval.diagnostics, experiments.eval.run                                     
+## Summary
+- modules: 93
+- internal edges: 121
+- isolated modules (no internal in/out): 19
 
-**Top fan-in (modules that many peers import)**
+## Top fan-out (internal imports)
+- `experiments.equity_panel.run` -> 22
+- `experiments.eval.run` -> 16
+- `finance.eval` -> 7
+- `experiments.eval.inject_spike` -> 6
+- `experiments.synthetic.nested_killtest` -> 5
+- `experiments.synthetic.power_null` -> 5
+- `experiments.synthetic_oneway.run` -> 5
+- `fjs.overlay` -> 5
+- `experiments.synthetic.calibrate_thresholds` -> 4
+- `fjs.dealias` -> 3
+- `tools.build_gallery` -> 3
+- `baselines.covariance` -> 2
+- `experiments.ablate.run` -> 2
+- `experiments.daily` -> 2
+- `experiments.daily.run` -> 2
 
-module                              | fan_in
------------------------------------ | ------
-fjs.dealias                         | 17    
-fjs.balanced                        | 12    
-fjs.mp                              | 8     
-evaluation.evaluate                 | 8     
-experiments.equity_panel            | 8     
-report.gather                       | 6     
-experiments.eval.run                | 6     
-experiments.synthetic.harness_utils | 5     
-finance.shrinkage                   | 5     
-fjs.gating                          | 5     
-fjs.robust                          | 5     
-evaluation.dm                       | 4     
-finance.ledoit                      | 4     
-finance.io                          | 4     
-baselines.covariance                | 4     
-fjs.overlay                         | 4     
-finance.factors                     | 3     
-evaluation.factor                   | 3     
-finance.robust                      | 3     
-fjs.spectra                         | 3     
+## Top fan-in (imported by others)
+- `fjs.dealias` <- 7
+- `fjs.balanced` <- 6
+- `experiments.eval.run` <- 5
+- `evaluation.evaluate` <- 4
+- `experiments.synthetic.harness_utils` <- 4
+- `finance.shrinkage` <- 4
+- `fjs.robust` <- 4
+- `baselines` <- 3
+- `evaluation.dm` <- 3
+- `finance.ledoit` <- 3
+- `fjs.gating` <- 3
+- `fjs.mp` <- 3
+- `fjs.spectra` <- 3
+- `report.gather` <- 3
+- `baselines.covariance` <- 2
 
-**Notes**
-- Modules are named from file paths (src/ stripped). Relative imports were resolved best-effort.
-- rc/evaluation entrypoints (experiments/equity_panel/run.py, experiments/eval/run.py) dominate fan-out; core math modules (fjs.*) are high fan-in.
+## Adjacency list (grouped by top-level package)
+### `baselines`
+- `baselines` -> (none)
+- `baselines.covariance` -> `finance.ledoit`, `finance.shrinkage`
+- `baselines.factors` -> (none)
+
+### `eval`
+- `eval` -> (none)
+- `eval.balance` -> (none)
+- `eval.clean` -> (none)
+
+### `evaluation`
+- `evaluation` -> (none)
+- `evaluation.dm` -> (none)
+- `evaluation.evaluate` -> `evaluation.dm`
+- `evaluation.factor` -> `finance.factors`
+
+### `experiments`
+- `experiments` -> (none)
+- `experiments.ablate` -> (none)
+- `experiments.ablate.run` -> `experiments.eval.run`, `tools.make_summary`
+- `experiments.daily` -> `experiments.config`, `experiments.grouping`
+- `experiments.daily.config` -> (none)
+- `experiments.daily.grouping` -> (none)
+- `experiments.daily.run` -> `experiments.daily.config`, `experiments.eval.run`
+- `experiments.equity_panel` -> (none)
+- `experiments.equity_panel.reasons` -> (none)
+- `experiments.equity_panel.run` -> `baselines`, `evaluation`, `evaluation.evaluate`, `experiments.equity_panel.reasons`, `experiments.prewhiten`, `finance.eval`, `finance.io`, `finance.portfolio`, `finance.portfolios`, `finance.returns`, `finance.robust`, `fjs.balanced`, `fjs.balanced_nested`, `fjs.dealias`, `fjs.gating`, `fjs.mp`, `fjs.robust`, `fjs.spectra`, `meta`, `meta.cache`, `meta.run_meta`, `plotting`
+- `experiments.equity_panel.sweep_acceptance` -> `experiments.equity_panel.run`
+- `experiments.etf_panel.run` -> `experiments.eval.run`
+- `experiments.eval.config` -> `experiments.eval.run`
+- `experiments.eval.diagnostics` -> (none)
+- `experiments.eval.inject_spike` -> `eval.balance`, `eval.clean`, `experiments.daily.grouping`, `experiments.eval.config`, `experiments.eval.run`, `fjs.overlay`
+- `experiments.eval.run` -> `baselines`, `baselines.covariance`, `baselines.factors`, `eval.balance`, `eval.clean`, `evaluation.dm`, `evaluation.evaluate`, `evaluation.factor`, `experiments.daily.grouping`, `experiments.eval.config`, `experiments.eval.diagnostics`, `experiments.prewhiten`, `finance`, `finance.portfolio`, `fjs.overlay`, `meta`
+- `experiments.eval.sensitivity` -> `evaluation.dm`, `tools.verify_dataset`
+- `experiments.prewhiten` -> `baselines`
+- `experiments.synthetic` -> `experiments.synthetic.harness_utils`
+- `experiments.synthetic.calibrate_thresholds` -> `experiments.synthetic.harness_utils`, `fjs`, `meta`, `synthetic.calibration`
+- `experiments.synthetic.harness_utils` -> `experiments.synthetic_oneway.run`, `fjs.robust`
+- `experiments.synthetic.nested_killtest` -> `experiments.equity_panel.run`, `fjs.balanced_nested`, `fjs.dealias`, `fjs.gating`, `fjs.robust`
+- `experiments.synthetic.null` -> `experiments.synthetic.harness_utils`
+- `experiments.synthetic.power` -> `experiments.synthetic.harness_utils`
+- `experiments.synthetic.power_null` -> `evaluation.evaluate`, `experiments.synthetic_oneway.run`, `finance.eval`, `fjs.dealias`, `fjs.robust`
+- `experiments.synthetic_oneway` -> (none)
+- `experiments.synthetic_oneway.run` -> `fjs.balanced`, `fjs.dealias`, `fjs.spectra`, `meta.run_meta`, `plotting`
+
+### `finance`
+- `finance` -> `eval`, `io`
+- `finance.design` -> (none)
+- `finance.eval` -> `evaluation.factor`, `finance.factors`, `finance.ledoit`, `finance.robust`, `finance.shrinkage`, `fjs.balanced`, `fjs.dealias`
+- `finance.factors` -> (none)
+- `finance.io` -> (none)
+- `finance.ledoit` -> `finance.shrinkage`
+- `finance.loader` -> `finance.io`
+- `finance.portfolio` -> (none)
+- `finance.portfolios` -> (none)
+- `finance.returns` -> (none)
+- `finance.robust` -> (none)
+- `finance.shrinkage` -> (none)
+
+### `fjs`
+- `fjs` -> (none)
+- `fjs.balanced` -> (none)
+- `fjs.balanced_nested` -> (none)
+- `fjs.dealias` -> `fjs.balanced`, `fjs.mp`, `fjs.theta_solver`
+- `fjs.gating` -> (none)
+- `fjs.mp` -> (none)
+- `fjs.overlay` -> `baselines.covariance`, `finance.ledoit`, `finance.shrinkage`, `fjs.dealias`, `fjs.gating`
+- `fjs.robust` -> (none)
+- `fjs.spectra` -> (none)
+- `fjs.theta_solver` -> `fjs.mp`
+
+### `io`
+- `io.crsp_daily` -> (none)
+- `io.wrds_connect` -> `utils.credentials`
+
+### `meta`
+- `meta.cache` -> (none)
+- `meta.completeness` -> (none)
+- `meta.run_meta` -> (none)
+- `meta.runtime` -> (none)
+
+### `plotting`
+- `plotting` -> `utils`
+- `plotting.utils` -> `evaluation.evaluate`, `fjs.spectra`
+
+### `report`
+- `report` -> (none)
+- `report.gather` -> (none)
+- `report.plots` -> (none)
+- `report.tables` -> (none)
+
+### `synthetic`
+- `synthetic` -> (none)
+- `synthetic.calibration` -> `fjs.balanced`, `synthetic.threshold_eval`
+- `synthetic.threshold_eval` -> `fjs.balanced`, `fjs.dealias`
+
+### `tools`
+- `tools.aggregate_runs` -> (none)
+- `tools.build_brief` -> `report.gather`
+- `tools.build_gallery` -> `report.gather`, `report.plots`, `report.tables`
+- `tools.build_memo` -> `report.gather`
+- `tools.clean_outputs` -> (none)
+- `tools.generate_project_state` -> (none)
+- `tools.list_runs` -> (none)
+- `tools.make_summary` -> `meta.completeness`
+- `tools.plot_rc_hist` -> (none)
+- `tools.prewhiten_effect` -> (none)
+- `tools.reduce_calibration` -> `experiments.synthetic`
+- `tools.run_monitor` -> (none)
+- `tools.shard_grid` -> `experiments.synthetic.calibrate_thresholds`
+- `tools.summarize_rc_sanity` -> `meta.completeness`
+- `tools.summarize_run` -> (none)
+- `tools.summarize_weekly_diagnostics` -> (none)
+- `tools.update_registry` -> (none)
+- `tools.verify_dataset` -> (none)
+
+### `utils`
+- `utils.credentials` -> (none)

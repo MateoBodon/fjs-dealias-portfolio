@@ -32,7 +32,7 @@
     },
     {
       "path": ".gitignore",
-      "size_bytes": 1082,
+      "size_bytes": 1235,
       "category": "other"
     },
     {
@@ -42,7 +42,7 @@
     },
     {
       "path": "AGENTS.md",
-      "size_bytes": 11316,
+      "size_bytes": 3587,
       "category": "other"
     },
     {
@@ -62,12 +62,12 @@
     },
     {
       "path": "Makefile",
-      "size_bytes": 22961,
+      "size_bytes": 23254,
       "category": "other"
     },
     {
       "path": "PROGRESS.md",
-      "size_bytes": 37199,
+      "size_bytes": 49091,
       "category": "other"
     },
     {
@@ -127,7 +127,7 @@
     },
     {
       "path": "README.md",
-      "size_bytes": 33945,
+      "size_bytes": 6456,
       "category": "other"
     },
     {
@@ -821,6 +821,11 @@
       "category": "other"
     },
     {
+      "path": "calibration/nested_edge_delta_thresholds.json",
+      "size_bytes": 7951,
+      "category": "other"
+    },
+    {
       "path": "calibration/rc-20251104/fpr_heatmap.png",
       "size_bytes": 50062,
       "category": "other"
@@ -872,182 +877,27 @@
     },
     {
       "path": "docs/CODEX_SPRINT_TICKETS.md",
-      "size_bytes": 4115,
+      "size_bytes": 8593,
       "category": "docs"
     },
     {
       "path": "docs/DOCS_AND_LOGGING_SYSTEM.md",
-      "size_bytes": 1475,
+      "size_bytes": 5236,
       "category": "docs"
     },
     {
       "path": "docs/PLAN_OF_RECORD.md",
-      "size_bytes": 1040,
+      "size_bytes": 13315,
       "category": "docs"
     },
     {
-      "path": "docs/agent_runs/20251219_044404_ticket-05_rc-sanity-summary-hardening/COMMANDS.md",
-      "size_bytes": 14058,
+      "path": "docs/gpt_outputs/20251219_prompt1_diagnosis.md",
+      "size_bytes": 6314,
       "category": "docs"
     },
     {
-      "path": "docs/agent_runs/20251219_044404_ticket-05_rc-sanity-summary-hardening/META.json",
-      "size_bytes": 507,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_044404_ticket-05_rc-sanity-summary-hardening/PROMPT.md",
-      "size_bytes": 6149,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_044404_ticket-05_rc-sanity-summary-hardening/RESULTS.md",
-      "size_bytes": 1170,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_044404_ticket-05_rc-sanity-summary-hardening/TESTS.md",
-      "size_bytes": 308,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/COMMANDS.md",
-      "size_bytes": 8539,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/META.json",
-      "size_bytes": 130,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/PROMPT.md",
-      "size_bytes": 5805,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/RESULTS.md",
-      "size_bytes": 1572,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/TESTS.md",
-      "size_bytes": 212,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_072353_ticket-06_gpt-bundle-restore/bundle_contents.txt",
-      "size_bytes": 1617,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/COMMANDS.md",
-      "size_bytes": 62057,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/META.json",
-      "size_bytes": 200,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/PROMPT.md",
-      "size_bytes": 17509,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/RESULTS.md",
-      "size_bytes": 1418,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/TESTS.md",
-      "size_bytes": 625,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/bundle_contents.txt",
-      "size_bytes": 1683,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_173231_ticket-07_weekly-drought-diagnostics/config.synthetic.yaml",
-      "size_bytes": 563,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_192721_ticket-08_solver-fallback-fail-loud/COMMANDS.md",
-      "size_bytes": 1431,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_192721_ticket-08_solver-fallback-fail-loud/META.json",
-      "size_bytes": 288,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_192721_ticket-08_solver-fallback-fail-loud/PROMPT.md",
-      "size_bytes": 4334,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_192721_ticket-08_solver-fallback-fail-loud/RESULTS.md",
-      "size_bytes": 554,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_192721_ticket-08_solver-fallback-fail-loud/TESTS.md",
-      "size_bytes": 64,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_202301_ticket-08_solver-missing-proof/COMMANDS.md",
-      "size_bytes": 5759,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_202301_ticket-08_solver-missing-proof/META.json",
-      "size_bytes": 252,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_202301_ticket-08_solver-missing-proof/PROMPT.md",
-      "size_bytes": 5524,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_202301_ticket-08_solver-missing-proof/RESULTS.md",
-      "size_bytes": 1235,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_202301_ticket-08_solver-missing-proof/TESTS.md",
-      "size_bytes": 173,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_210410_project_state_rebuild/COMMANDS.md",
-      "size_bytes": 675,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_210410_project_state_rebuild/META.json",
-      "size_bytes": 289,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_210410_project_state_rebuild/PROMPT.md",
-      "size_bytes": 340,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_210410_project_state_rebuild/RESULTS.md",
-      "size_bytes": 407,
-      "category": "docs"
-    },
-    {
-      "path": "docs/agent_runs/20251219_210410_project_state_rebuild/TESTS.md",
-      "size_bytes": 167,
+      "path": "docs/gpt_outputs/20251220_prompt1_diagnosis.md",
+      "size_bytes": 38514,
       "category": "docs"
     },
     {
@@ -4007,12 +3857,17 @@
     },
     {
       "path": "experiments/equity_panel/config.nested.crisis.2020.yaml",
-      "size_bytes": 746,
+      "size_bytes": 814,
+      "category": "experiments"
+    },
+    {
+      "path": "experiments/equity_panel/config.nested.smoke.tiny.yaml",
+      "size_bytes": 859,
       "category": "experiments"
     },
     {
       "path": "experiments/equity_panel/config.nested.smoke.yaml",
-      "size_bytes": 737,
+      "size_bytes": 805,
       "category": "experiments"
     },
     {
@@ -4031,8 +3886,13 @@
       "category": "experiments"
     },
     {
+      "path": "experiments/equity_panel/reasons.py",
+      "size_bytes": 5817,
+      "category": "experiments"
+    },
+    {
       "path": "experiments/equity_panel/run.py",
-      "size_bytes": 166146,
+      "size_bytes": 169593,
       "category": "experiments"
     },
     {
@@ -4047,7 +3907,7 @@
     },
     {
       "path": "experiments/eval/config.py",
-      "size_bytes": 18742,
+      "size_bytes": 19202,
       "category": "experiments"
     },
     {
@@ -4067,7 +3927,7 @@
     },
     {
       "path": "experiments/eval/run.py",
-      "size_bytes": 139927,
+      "size_bytes": 148917,
       "category": "experiments"
     },
     {
@@ -4082,12 +3942,12 @@
     },
     {
       "path": "experiments/experiments/figures/E1_spectrum.pdf",
-      "size_bytes": 15040,
+      "size_bytes": 16077,
       "category": "experiments"
     },
     {
       "path": "experiments/experiments/figures/E1_spectrum.png",
-      "size_bytes": 26384,
+      "size_bytes": 34960,
       "category": "experiments"
     },
     {
@@ -4102,22 +3962,52 @@
     },
     {
       "path": "experiments/experiments/figures/E3_variance_mse.pdf",
-      "size_bytes": 14178,
+      "size_bytes": 15143,
       "category": "experiments"
     },
     {
       "path": "experiments/experiments/figures/E3_variance_mse.png",
-      "size_bytes": 21471,
+      "size_bytes": 28417,
       "category": "experiments"
     },
     {
       "path": "experiments/experiments/figures/E4_var95_coverage_error.pdf",
-      "size_bytes": 14435,
+      "size_bytes": 14185,
       "category": "experiments"
     },
     {
       "path": "experiments/experiments/figures/E4_var95_coverage_error.png",
-      "size_bytes": 29017,
+      "size_bytes": 30494,
+      "category": "experiments"
+    },
+    {
+      "path": "experiments/figures/E1_spectrum.pdf",
+      "size_bytes": 15718,
+      "category": "experiments"
+    },
+    {
+      "path": "experiments/figures/E1_spectrum.png",
+      "size_bytes": 32391,
+      "category": "experiments"
+    },
+    {
+      "path": "experiments/figures/E3_variance_mse.pdf",
+      "size_bytes": 15597,
+      "category": "experiments"
+    },
+    {
+      "path": "experiments/figures/E3_variance_mse.png",
+      "size_bytes": 28810,
+      "category": "experiments"
+    },
+    {
+      "path": "experiments/figures/E4_var95_coverage_error.pdf",
+      "size_bytes": 14176,
+      "category": "experiments"
+    },
+    {
+      "path": "experiments/figures/E4_var95_coverage_error.png",
+      "size_bytes": 30477,
       "category": "experiments"
     },
     {
@@ -4137,7 +4027,7 @@
     },
     {
       "path": "experiments/synthetic/config.nested.killtest.yaml",
-      "size_bytes": 646,
+      "size_bytes": 719,
       "category": "experiments"
     },
     {
@@ -4147,7 +4037,7 @@
     },
     {
       "path": "experiments/synthetic/nested_killtest.py",
-      "size_bytes": 17682,
+      "size_bytes": 29780,
       "category": "experiments"
     },
     {
@@ -4637,17 +4527,17 @@
     },
     {
       "path": "figures/rc/oneway_J5_solver-auto_est-dealias_prep-prewhiten_factorsMKT,SMB,HML,RMW,CMA,MOM-prewhiten_modeff5mom/tables/rejections.csv",
-      "size_bytes": 206,
+      "size_bytes": 204,
       "category": "other"
     },
     {
       "path": "figures/rc/oneway_J5_solver-auto_est-dealias_prep-prewhiten_factorsMKT,SMB,HML,RMW,CMA,MOM-prewhiten_modeff5mom/tables/rejections.md",
-      "size_bytes": 286,
+      "size_bytes": 284,
       "category": "other"
     },
     {
       "path": "figures/rc/oneway_J5_solver-auto_est-dealias_prep-prewhiten_factorsMKT,SMB,HML,RMW,CMA,MOM-prewhiten_modeff5mom/tables/rejections.tex",
-      "size_bytes": 321,
+      "size_bytes": 319,
       "category": "other"
     },
     {
@@ -4842,17 +4732,17 @@
     },
     {
       "path": "figures/rc/oneway_J5_solver-auto_est-lw_prep-prewhiten_factorsMKT,SMB,HML,RMW,CMA,MOM-prewhiten_modeff5mom/tables/rejections.csv",
-      "size_bytes": 201,
+      "size_bytes": 199,
       "category": "other"
     },
     {
       "path": "figures/rc/oneway_J5_solver-auto_est-lw_prep-prewhiten_factorsMKT,SMB,HML,RMW,CMA,MOM-prewhiten_modeff5mom/tables/rejections.md",
-      "size_bytes": 281,
+      "size_bytes": 279,
       "category": "other"
     },
     {
       "path": "figures/rc/oneway_J5_solver-auto_est-lw_prep-prewhiten_factorsMKT,SMB,HML,RMW,CMA,MOM-prewhiten_modeff5mom/tables/rejections.tex",
-      "size_bytes": 316,
+      "size_bytes": 314,
       "category": "other"
     },
     {
@@ -4992,17 +4882,17 @@
     },
     {
       "path": "figures/rc/oneway_J5_solver-auto_est-oas_prep-prewhiten_factorsMKT,SMB,HML,RMW,CMA,MOM-prewhiten_modeff5mom/tables/rejections.csv",
-      "size_bytes": 202,
+      "size_bytes": 200,
       "category": "other"
     },
     {
       "path": "figures/rc/oneway_J5_solver-auto_est-oas_prep-prewhiten_factorsMKT,SMB,HML,RMW,CMA,MOM-prewhiten_modeff5mom/tables/rejections.md",
-      "size_bytes": 282,
+      "size_bytes": 280,
       "category": "other"
     },
     {
       "path": "figures/rc/oneway_J5_solver-auto_est-oas_prep-prewhiten_factorsMKT,SMB,HML,RMW,CMA,MOM-prewhiten_modeff5mom/tables/rejections.tex",
-      "size_bytes": 317,
+      "size_bytes": 315,
       "category": "other"
     },
     {
@@ -5627,92 +5517,92 @@
     },
     {
       "path": "project_state/ARCHITECTURE.md",
-      "size_bytes": 2765,
+      "size_bytes": 2595,
       "category": "project_state"
     },
     {
       "path": "project_state/CHANGELOG.md",
-      "size_bytes": 539,
+      "size_bytes": 958,
       "category": "project_state"
     },
     {
       "path": "project_state/CONFIG_REFERENCE.md",
-      "size_bytes": 4203,
+      "size_bytes": 4492,
       "category": "project_state"
     },
     {
       "path": "project_state/CURRENT_RESULTS.md",
-      "size_bytes": 2250,
+      "size_bytes": 2002,
       "category": "project_state"
     },
     {
       "path": "project_state/DATAFLOW.md",
-      "size_bytes": 2650,
+      "size_bytes": 2461,
       "category": "project_state"
     },
     {
       "path": "project_state/DEPENDENCY_GRAPH.md",
-      "size_bytes": 5068,
+      "size_bytes": 6866,
       "category": "project_state"
     },
     {
       "path": "project_state/EXPERIMENTS.md",
-      "size_bytes": 3296,
+      "size_bytes": 3191,
       "category": "project_state"
     },
     {
       "path": "project_state/FUNCTION_INDEX.md",
-      "size_bytes": 68866,
+      "size_bytes": 58502,
       "category": "project_state"
     },
     {
       "path": "project_state/INDEX.md",
-      "size_bytes": 1534,
+      "size_bytes": 1707,
       "category": "project_state"
     },
     {
       "path": "project_state/KNOWN_ISSUES.md",
-      "size_bytes": 1537,
-      "category": "project_state"
-    },
-    {
-      "path": "project_state/MODULE_SUMMARIES.md",
-      "size_bytes": 3914,
-      "category": "project_state"
-    },
-    {
-      "path": "project_state/OPEN_QUESTIONS.md",
       "size_bytes": 1226,
       "category": "project_state"
     },
     {
+      "path": "project_state/MODULE_SUMMARIES.md",
+      "size_bytes": 5155,
+      "category": "project_state"
+    },
+    {
+      "path": "project_state/OPEN_QUESTIONS.md",
+      "size_bytes": 1022,
+      "category": "project_state"
+    },
+    {
       "path": "project_state/PIPELINE_FLOW.md",
-      "size_bytes": 3478,
+      "size_bytes": 2195,
       "category": "project_state"
     },
     {
       "path": "project_state/RESEARCH_NOTES.md",
-      "size_bytes": 1634,
+      "size_bytes": 1407,
       "category": "project_state"
     },
     {
       "path": "project_state/ROADMAP.md",
-      "size_bytes": 1256,
+      "size_bytes": 1348,
       "category": "project_state"
     },
     {
       "path": "project_state/SERVER_ENVIRONMENT.md",
-      "size_bytes": 1325,
+      "size_bytes": 1362,
       "category": "project_state"
     },
     {
       "path": "project_state/STYLE_GUIDE.md",
-      "size_bytes": 1374,
+      "size_bytes": 1513,
       "category": "project_state"
     },
     {
       "path": "project_state/TEST_COVERAGE.md",
-      "size_bytes": 1963,
+      "size_bytes": 2162,
       "category": "project_state"
     },
     {
@@ -5897,12 +5787,12 @@
     },
     {
       "path": "src/fjs/dealias.py",
-      "size_bytes": 34977,
+      "size_bytes": 35021,
       "category": "src"
     },
     {
       "path": "src/fjs/gating.py",
-      "size_bytes": 6413,
+      "size_bytes": 7596,
       "category": "src"
     },
     {
@@ -5937,7 +5827,7 @@
     },
     {
       "path": "src/fjs_dealias_portfolio.egg-info/SOURCES.txt",
-      "size_bytes": 2802,
+      "size_bytes": 2836,
       "category": "src"
     },
     {
@@ -6077,12 +5967,12 @@
     },
     {
       "path": "tests/experiments/test_eval_run.py",
-      "size_bytes": 24648,
+      "size_bytes": 32066,
       "category": "tests"
     },
     {
       "path": "tests/experiments/test_gating_diagnostics.py",
-      "size_bytes": 2407,
+      "size_bytes": 8886,
       "category": "tests"
     },
     {
@@ -6092,7 +5982,7 @@
     },
     {
       "path": "tests/experiments/test_skip_reasons.py",
-      "size_bytes": 565,
+      "size_bytes": 657,
       "category": "tests"
     },
     {
@@ -6172,7 +6062,7 @@
     },
     {
       "path": "tests/test_calibration_lookup.py",
-      "size_bytes": 519,
+      "size_bytes": 2369,
       "category": "tests"
     },
     {
@@ -6382,7 +6272,7 @@
     },
     {
       "path": "tests/tools/test_summarize_rc_sanity.py",
-      "size_bytes": 3630,
+      "size_bytes": 4428,
       "category": "tests"
     },
     {
@@ -6412,7 +6302,7 @@
     },
     {
       "path": "tools/generate_project_state.py",
-      "size_bytes": 9127,
+      "size_bytes": 11178,
       "category": "tools"
     },
     {
@@ -6422,7 +6312,7 @@
     },
     {
       "path": "tools/make_summary.py",
-      "size_bytes": 22717,
+      "size_bytes": 24855,
       "category": "tools"
     },
     {
@@ -6452,7 +6342,7 @@
     },
     {
       "path": "tools/summarize_rc_sanity.py",
-      "size_bytes": 10929,
+      "size_bytes": 11066,
       "category": "tools"
     },
     {
@@ -6462,7 +6352,7 @@
     },
     {
       "path": "tools/summarize_weekly_diagnostics.py",
-      "size_bytes": 3645,
+      "size_bytes": 7969,
       "category": "tools"
     },
     {

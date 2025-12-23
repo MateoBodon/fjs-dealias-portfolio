@@ -36,7 +36,7 @@ Follow these rules or do not make changes.
 - If you cannot produce the log + tests, do not proceed.
 
 ### 1.6 Bundle must be reviewable
-- `make gpt-bundle` must produce a non-empty `DIFF.patch`.
+- `make gpt-bundle` must produce a non-empty `DIFF.patch` covering the **full ticket delta** (merge-base..HEAD), not just the last commit.
 - Required files must be present (`AGENTS.md`, `PROGRESS.md`, `docs/*`, `project_state/*`, run log).
 
 ---

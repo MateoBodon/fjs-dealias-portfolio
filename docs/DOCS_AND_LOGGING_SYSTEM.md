@@ -139,12 +139,14 @@ After each merged ticket (or at least once per sprint), run:
 
 Bundle MUST include:
 - `AGENTS.md`, `PROGRESS.md`, `docs/*`, `project_state/*`
-- `DIFF.patch` and `LAST_COMMIT.txt`
+- `DIFF.patch` (generated from `git diff --binary <merge-base>..HEAD`) and `LAST_COMMIT.txt`
+- `BUNDLE_META.md` (base/head metadata for the diff range)
 - the run log folder under `docs/agent_runs/<RUN_NAME>/`
 - (if applicable) key outputs under `reports/` or `experiments/.../outputs_*`
 
 Bundling fails loud (non-zero) if:
 - `DIFF.patch` would be empty
+- base ref cannot be resolved (set `BUNDLE_BASE` to override)
 - required run log files are missing (`PROMPT.md`, `COMMANDS.md`, `RESULTS.md`, `TESTS.md`, `META.md`)
 - required top-level files are missing, or `LAST_COMMIT.txt` cannot be generated
 

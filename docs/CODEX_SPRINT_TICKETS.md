@@ -5,6 +5,20 @@ Rule: do not expand the experiment grid until Tickets 1–4 are done.
 
 ---
 
+## Ticket #21 — gpt-bundle diff auditability (FAILED)
+
+**Status:** FAIL — `DIFF.patch` only captured the last commit, hiding multi-commit changes.
+
+---
+
+## Ticket #22 — gpt-bundle range diff + bundle meta
+
+**Status:** IN-PROGRESS
+
+**Goal (1 sentence):** Make `make gpt-bundle` produce a reviewable full-range diff (merge-base..HEAD) with explicit base/head metadata.
+
+---
+
 ## Ticket #16 — Paper config integrity: kill silent fallback (TOP PRIORITY)
 
 **Goal (1 sentence):** Eliminate the silent `paper-v1` config fallback and make missing/invalid configs fail loudly so “paper runs” are reproducible and audit-safe.

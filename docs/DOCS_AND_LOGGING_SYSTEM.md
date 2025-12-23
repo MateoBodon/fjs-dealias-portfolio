@@ -70,7 +70,7 @@ Every Codex run MUST create these files:
   - dataset ids/hashes used (from registry + verify step)
 
 Recommended (strongly):
-- `DIFF.patch` — `git diff` saved for fast review
+- `DIFF.patch` — `git show --patch --stat --binary <REV>` (default `HEAD`) saved for fast review
 - `bundle_contents.txt` — if you ran `make gpt-bundle`, capture `unzip -l ...`
 - `URLS.md` — if web search was enabled, list every URL consulted (treat as untrusted)
 
@@ -142,6 +142,11 @@ Bundle MUST include:
 - `DIFF.patch` and `LAST_COMMIT.txt`
 - the run log folder under `docs/agent_runs/<RUN_NAME>/`
 - (if applicable) key outputs under `reports/` or `experiments/.../outputs_*`
+
+Bundling fails loud (non-zero) if:
+- `DIFF.patch` would be empty
+- required run log files are missing (`PROMPT.md`, `COMMANDS.md`, `RESULTS.md`, `TESTS.md`, `META.md`)
+- required top-level files are missing, or `LAST_COMMIT.txt` cannot be generated
 
 ---
 

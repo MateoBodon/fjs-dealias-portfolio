@@ -35,6 +35,10 @@ Follow these rules or do not make changes.
   - `PROGRESS.md` updated with commands + artifact paths
 - If you cannot produce the log + tests, do not proceed.
 
+### 1.6 Bundle must be reviewable
+- `make gpt-bundle` must produce a non-empty `DIFF.patch`.
+- Required files must be present (`AGENTS.md`, `PROGRESS.md`, `docs/*`, `project_state/*`, run log).
+
 ---
 
 ## 2) Required documentation protocol (enforced)

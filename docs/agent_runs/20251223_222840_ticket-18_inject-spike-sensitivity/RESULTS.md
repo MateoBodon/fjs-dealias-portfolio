@@ -10,3 +10,4 @@
 - Aborted attempts (run.json written manually for audit):
   - `reports/inject_spike/20251223_224624/` failed (insufficient observations for window+horizon).
   - `reports/inject_spike/20251223_224638/` interrupted (KeyboardInterrupt during baseline detection pass).
+- Bundle: `docs/gpt_bundles/20251224_000240_ticket-18_20251223_222840_ticket-18_inject-spike-sensitivity.zip`.

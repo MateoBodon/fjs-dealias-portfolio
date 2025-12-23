@@ -78,3 +78,8 @@ python - <<'PY' (update RESEARCH_NOTES.md front matter)
 sed -n '1,20p' project_state/RESEARCH_NOTES.md
 git add PROGRESS.md docs/CODEX_SPRINT_TICKETS.md project_state/RESEARCH_NOTES.md docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity reports/inject_spike
 git commit -m "Document injection sensitivity run" -m "Tests: make test-fast"
+git add docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity/COMMANDS.md
+git commit -m "Update run log commands" -m "Tests: make test-fast"
+make gpt-bundle TICKET=ticket-18 RUN_NAME=20251223_222840_ticket-18_inject-spike-sensitivity
+git add docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity/COMMANDS.md docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity/RESULTS.md
+git commit -m "Finalize bundle log" -m "Tests: make test-fast"

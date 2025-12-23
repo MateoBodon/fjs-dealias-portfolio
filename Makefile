@@ -660,7 +660,7 @@ gpt-bundle:
 	if [ ! -s "$$tmp/LAST_COMMIT.txt" ]; then echo "LAST_COMMIT.txt is empty; aborting bundle." >&2; exit 1; fi; \
 	bundle_dir="$$repo_root/docs/gpt_bundles"; \
 	mkdir -p "$$bundle_dir"; \
-	stamp=$$(date +%Y%m%d_%H%M%S); \
+	stamp="$${BUNDLE_STAMP:-$$(date +%Y%m%d_%H%M%S)}"; \
 	out="$$bundle_dir/$${stamp}_$(TICKET)_$(RUN_NAME).zip"; \
 	(cd "$$tmp" && zip -r "$$out" . >/dev/null); \
 	echo "$$out"; \

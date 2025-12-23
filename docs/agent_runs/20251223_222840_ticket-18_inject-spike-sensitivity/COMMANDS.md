@@ -76,3 +76,5 @@ sed -n '1,30p' PROGRESS.md
 date -u +%Y-%m-%dT%H:%M:%SZ
 python - <<'PY' (update RESEARCH_NOTES.md front matter)
 sed -n '1,20p' project_state/RESEARCH_NOTES.md
+git add PROGRESS.md docs/CODEX_SPRINT_TICKETS.md project_state/RESEARCH_NOTES.md docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity reports/inject_spike
+git commit -m "Document injection sensitivity run" -m "Tests: make test-fast"

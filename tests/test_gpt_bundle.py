@@ -14,6 +14,12 @@ REQUIRED_PATHS = [
     "PROGRESS.md",
 ]
 
+REQUIRED_SNIPPETS = [
+    "tools/gpt_bundle.py diff",
+    "DIFF.patch",
+    "LAST_COMMIT.txt",
+]
+
 
 @pytest.mark.unit
 def test_makefile_has_gpt_bundle_target_and_inputs():
@@ -23,3 +29,5 @@ def test_makefile_has_gpt_bundle_target_and_inputs():
     )
     for required in REQUIRED_PATHS:
         assert required in content, f"gpt-bundle recipe missing required path: {required}"
+    for snippet in REQUIRED_SNIPPETS:
+        assert snippet in content, f"gpt-bundle recipe missing required snippet: {snippet}"

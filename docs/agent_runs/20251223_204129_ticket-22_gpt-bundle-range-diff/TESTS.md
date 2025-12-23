@@ -1,0 +1,3 @@
+- Command: `make test-fast`
+- Result: 71 passed, 168 deselected, 1 warning in 13.15s
+- Warning: PytestConfigWarning: Unknown config option: timeout

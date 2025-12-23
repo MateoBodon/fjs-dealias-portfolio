@@ -1,0 +1,2 @@
+delta_frac,null_rate,null_ci_high,null_ci_low,null_trials,power_moderate,power_moderate_ci_high,power_moderate_trials,power_strong,power_strong_ci_high,power_strong_trials,ci_method,meets_target
+0.05,0.0,0.01716151619513562,0.0,440,1.0,0.9999999999999998,120,1.0,1.0,80,wilson(alpha=0.05),True

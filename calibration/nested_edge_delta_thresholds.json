@@ -1,14 +1,18 @@
 {
   "achieved_fpr": 0.0,
+  "achieved_fpr_ci_high": 0.01716151619513562,
+  "achieved_fpr_ci_low": 0.0,
   "alpha": 0.02,
   "config": {
     "a_grid": 96,
     "allow_nonisolated": false,
     "calibration_design": "nested",
+    "calibration_out": "calibration/nested_edge_delta_thresholds.json",
     "calibration_path": "calibration/nested_edge_delta_thresholds.json",
     "cs_drop_top_frac": 0.1,
     "cs_sensitivity_frac": 0.0,
     "delta": 0.35,
+    "delta_frac_grid": null,
     "delta_frac_min": 0.05,
     "edge_huber_c": 1.5,
     "edge_modes": [
@@ -17,6 +21,10 @@
     "energy_min_abs": "2e-7",
     "eps": 0.008,
     "n_assets": 200,
+    "n_assets_options": [
+      188,
+      200
+    ],
     "noise_variance": 1.0,
     "nonisolated_edge_min": 0.015,
     "nonisolated_q_max": 2,
@@ -26,6 +34,7 @@
     "q_max": 2,
     "replicates": 5,
     "require_isolated": true,
+    "run_name": null,
     "seed": 0,
     "signal_to_noise": 0.35,
     "spikes": {
@@ -34,6 +43,7 @@
       "strong": 6.0
     },
     "stability_eta_deg": 0.2,
+    "target_fpr": 0.02,
     "trials_per_scenario": {
       "moderate": 60,
       "null": 220,
@@ -51,6 +61,75 @@
     "nested": {
       "thresholds": {
         "tyler": {
+          "188x60": {
+            "delta": 0.35,
+            "delta_frac": 0.05,
+            "design": "nested",
+            "edge_mode": "tyler",
+            "fpr": 0.0,
+            "fpr_ci": [
+              0.0,
+              0.01716151619513562
+            ],
+            "generated_at": "2025-12-23T18:25:55.345194+00:00",
+            "git_sha": "ac61464fdb8c9a50c9b0e2afef11009f361443c3",
+            "n_obs": 60,
+            "n_obs_mean": 70.5,
+            "p_assets": 188,
+            "replicates": 5,
+            "run_name": "20251223_180034_ticket-17_nested-calibration-coverage",
+            "stability_eta_deg": 0.2,
+            "target_fpr": 0.02,
+            "trials_null": 220,
+            "weeks_common": 6,
+            "years": 2
+          },
+          "188x70": {
+            "delta": 0.35,
+            "delta_frac": 0.05,
+            "design": "nested",
+            "edge_mode": "tyler",
+            "fpr": 0.0,
+            "fpr_ci": [
+              0.0,
+              0.01716151619513562
+            ],
+            "generated_at": "2025-12-23T18:25:55.345194+00:00",
+            "git_sha": "ac61464fdb8c9a50c9b0e2afef11009f361443c3",
+            "n_obs": 70,
+            "n_obs_mean": 70.5,
+            "p_assets": 188,
+            "replicates": 5,
+            "run_name": "20251223_180034_ticket-17_nested-calibration-coverage",
+            "stability_eta_deg": 0.2,
+            "target_fpr": 0.02,
+            "trials_null": 220,
+            "weeks_common": 7,
+            "years": 2
+          },
+          "188x80": {
+            "delta": 0.35,
+            "delta_frac": 0.05,
+            "design": "nested",
+            "edge_mode": "tyler",
+            "fpr": 0.0,
+            "fpr_ci": [
+              0.0,
+              0.01716151619513562
+            ],
+            "generated_at": "2025-12-23T18:25:55.345194+00:00",
+            "git_sha": "ac61464fdb8c9a50c9b0e2afef11009f361443c3",
+            "n_obs": 80,
+            "n_obs_mean": 70.5,
+            "p_assets": 188,
+            "replicates": 5,
+            "run_name": "20251223_180034_ticket-17_nested-calibration-coverage",
+            "stability_eta_deg": 0.2,
+            "target_fpr": 0.02,
+            "trials_null": 220,
+            "weeks_common": 8,
+            "years": 2
+          },
           "200x60": {
             "delta": 0.35,
             "delta_frac": 0.05,
@@ -61,13 +140,13 @@
               0.0,
               0.01716151619513562
             ],
-            "generated_at": "2025-12-20T02:23:32.778018+00:00",
-            "git_sha": "e6e798288c117a188db38c4dde85cf91972921d8",
+            "generated_at": "2025-12-23T18:25:55.345194+00:00",
+            "git_sha": "ac61464fdb8c9a50c9b0e2afef11009f361443c3",
             "n_obs": 60,
-            "n_obs_mean": 70.77272727272727,
+            "n_obs_mean": 70.5,
             "p_assets": 200,
             "replicates": 5,
-            "run_name": "20251220_011519_ticket-10_nested-null-fpr",
+            "run_name": "20251223_180034_ticket-17_nested-calibration-coverage",
             "stability_eta_deg": 0.2,
             "target_fpr": 0.02,
             "trials_null": 220,
@@ -84,13 +163,13 @@
               0.0,
               0.01716151619513562
             ],
-            "generated_at": "2025-12-20T02:23:32.778018+00:00",
-            "git_sha": "e6e798288c117a188db38c4dde85cf91972921d8",
+            "generated_at": "2025-12-23T18:25:55.345194+00:00",
+            "git_sha": "ac61464fdb8c9a50c9b0e2afef11009f361443c3",
             "n_obs": 70,
-            "n_obs_mean": 70.77272727272727,
+            "n_obs_mean": 70.5,
             "p_assets": 200,
             "replicates": 5,
-            "run_name": "20251220_011519_ticket-10_nested-null-fpr",
+            "run_name": "20251223_180034_ticket-17_nested-calibration-coverage",
             "stability_eta_deg": 0.2,
             "target_fpr": 0.02,
             "trials_null": 220,
@@ -107,13 +186,13 @@
               0.0,
               0.01716151619513562
             ],
-            "generated_at": "2025-12-20T02:23:32.778018+00:00",
-            "git_sha": "e6e798288c117a188db38c4dde85cf91972921d8",
+            "generated_at": "2025-12-23T18:25:55.345194+00:00",
+            "git_sha": "ac61464fdb8c9a50c9b0e2afef11009f361443c3",
             "n_obs": 80,
-            "n_obs_mean": 70.77272727272727,
+            "n_obs_mean": 70.5,
             "p_assets": 200,
             "replicates": 5,
-            "run_name": "20251220_011519_ticket-10_nested-null-fpr",
+            "run_name": "20251223_180034_ticket-17_nested-calibration-coverage",
             "stability_eta_deg": 0.2,
             "target_fpr": 0.02,
             "trials_null": 220,
@@ -124,8 +203,8 @@
       }
     }
   },
-  "generated_at": "2025-12-20T02:23:32.778018+00:00",
-  "git_sha": "e6e798288c117a188db38c4dde85cf91972921d8",
+  "generated_at": "2025-12-23T18:25:55.345194+00:00",
+  "git_sha": "ac61464fdb8c9a50c9b0e2afef11009f361443c3",
   "metadata": {
     "achieved_fpr": 0.0,
     "achieved_fpr_ci_high": 0.01716151619513562,
@@ -134,11 +213,35 @@
     "config_edge_modes": [
       "tyler"
     ],
-    "config_hash": "69404b24e2352527538e571956b83fc216e10f67139614ec25f409632b1ea48d",
+    "config_hash": "5bc9ef33d2fa4848cf7b239b242df7399662ab6ffe76cac899f4c76aa89c199d",
     "config_path": "experiments/synthetic/config.nested.killtest.yaml",
-    "git_sha": "e6e798288c117a188db38c4dde85cf91972921d8",
-    "null_trials": 220,
+    "git_sha": "ac61464fdb8c9a50c9b0e2afef11009f361443c3",
+    "null_trials": 440,
     "operating_points": [
+      {
+        "edge_mode": "tyler",
+        "p": 188,
+        "replicates": 5,
+        "t": 60,
+        "weeks": 6,
+        "years": 2
+      },
+      {
+        "edge_mode": "tyler",
+        "p": 188,
+        "replicates": 5,
+        "t": 70,
+        "weeks": 7,
+        "years": 2
+      },
+      {
+        "edge_mode": "tyler",
+        "p": 188,
+        "replicates": 5,
+        "t": 80,
+        "weeks": 8,
+        "years": 2
+      },
       {
         "edge_mode": "tyler",
         "p": 200,
@@ -166,20 +269,20 @@
     ],
     "power_moderate": 1.0,
     "power_moderate_ci_high": 0.9999999999999998,
-    "power_moderate_trials": 60,
+    "power_moderate_trials": 120,
     "power_strong": 1.0,
-    "power_strong_ci_high": null,
-    "power_strong_trials": 40,
-    "run_name": "20251220_011519_ticket-10_nested-null-fpr",
+    "power_strong_ci_high": 1.0,
+    "power_strong_trials": 80,
+    "run_name": "20251223_180034_ticket-17_nested-calibration-coverage",
     "target_fpr": 0.02,
-    "timestamp_utc": "2025-12-20T02:23:32.778018Z",
+    "timestamp_utc": "2025-12-23T18:25:55.345194Z",
     "trials_per_scenario": {
       "moderate": 60,
       "null": 220,
       "strong": 40
     }
   },
-  "run_name": "20251220_011519_ticket-10_nested-null-fpr",
+  "run_name": "20251223_180034_ticket-17_nested-calibration-coverage",
   "schema_version": "1.0",
   "selection": {
     "ci_method": "wilson(alpha=0.05)",
@@ -188,32 +291,104 @@
     "null_ci_high": 0.01716151619513562,
     "null_ci_low": 0.0,
     "null_rate": 0.0,
-    "null_trials": 220,
+    "null_trials": 440,
     "power_moderate": 1.0,
     "power_moderate_ci_high": 0.9999999999999998,
-    "power_moderate_trials": 60,
+    "power_moderate_trials": 120,
     "power_strong": 1.0,
-    "power_strong_ci_high": null,
-    "power_strong_trials": 40,
+    "power_strong_ci_high": 1.0,
+    "power_strong_trials": 80,
     "target_fpr": 0.02
   },
   "sweep": [
     {
+      "ci_method": "wilson(alpha=0.05)",
       "delta_frac": 0.05,
       "meets_target": true,
       "null_ci_high": 0.01716151619513562,
       "null_ci_low": 0.0,
       "null_rate": 0.0,
-      "null_trials": 220,
+      "null_trials": 440,
       "power_moderate": 1.0,
       "power_moderate_ci_high": 0.9999999999999998,
-      "power_moderate_trials": 60,
-      "power_strong": 1.0
+      "power_moderate_trials": 120,
+      "power_strong": 1.0,
+      "power_strong_ci_high": 1.0,
+      "power_strong_trials": 80
     }
   ],
   "target_fpr": 0.02,
   "thresholds": {
     "tyler": {
+      "188x60": {
+        "delta": 0.35,
+        "delta_frac": 0.05,
+        "design": "nested",
+        "edge_mode": "tyler",
+        "fpr": 0.0,
+        "fpr_ci": [
+          0.0,
+          0.01716151619513562
+        ],
+        "generated_at": "2025-12-23T18:25:55.345194+00:00",
+        "git_sha": "ac61464fdb8c9a50c9b0e2afef11009f361443c3",
+        "n_obs": 60,
+        "n_obs_mean": 70.5,
+        "p_assets": 188,
+        "replicates": 5,
+        "run_name": "20251223_180034_ticket-17_nested-calibration-coverage",
+        "stability_eta_deg": 0.2,
+        "target_fpr": 0.02,
+        "trials_null": 220,
+        "weeks_common": 6,
+        "years": 2
+      },
+      "188x70": {
+        "delta": 0.35,
+        "delta_frac": 0.05,
+        "design": "nested",
+        "edge_mode": "tyler",
+        "fpr": 0.0,
+        "fpr_ci": [
+          0.0,
+          0.01716151619513562
+        ],
+        "generated_at": "2025-12-23T18:25:55.345194+00:00",
+        "git_sha": "ac61464fdb8c9a50c9b0e2afef11009f361443c3",
+        "n_obs": 70,
+        "n_obs_mean": 70.5,
+        "p_assets": 188,
+        "replicates": 5,
+        "run_name": "20251223_180034_ticket-17_nested-calibration-coverage",
+        "stability_eta_deg": 0.2,
+        "target_fpr": 0.02,
+        "trials_null": 220,
+        "weeks_common": 7,
+        "years": 2
+      },
+      "188x80": {
+        "delta": 0.35,
+        "delta_frac": 0.05,
+        "design": "nested",
+        "edge_mode": "tyler",
+        "fpr": 0.0,
+        "fpr_ci": [
+          0.0,
+          0.01716151619513562
+        ],
+        "generated_at": "2025-12-23T18:25:55.345194+00:00",
+        "git_sha": "ac61464fdb8c9a50c9b0e2afef11009f361443c3",
+        "n_obs": 80,
+        "n_obs_mean": 70.5,
+        "p_assets": 188,
+        "replicates": 5,
+        "run_name": "20251223_180034_ticket-17_nested-calibration-coverage",
+        "stability_eta_deg": 0.2,
+        "target_fpr": 0.02,
+        "trials_null": 220,
+        "weeks_common": 8,
+        "years": 2
+      },
       "200x60": {
         "delta": 0.35,
         "delta_frac": 0.05,
@@ -224,13 +399,13 @@
           0.0,
           0.01716151619513562
         ],
-        "generated_at": "2025-12-20T02:23:32.778018+00:00",
-        "git_sha": "e6e798288c117a188db38c4dde85cf91972921d8",
+        "generated_at": "2025-12-23T18:25:55.345194+00:00",
+        "git_sha": "ac61464fdb8c9a50c9b0e2afef11009f361443c3",
         "n_obs": 60,
-        "n_obs_mean": 70.77272727272727,
+        "n_obs_mean": 70.5,
         "p_assets": 200,
         "replicates": 5,
-        "run_name": "20251220_011519_ticket-10_nested-null-fpr",
+        "run_name": "20251223_180034_ticket-17_nested-calibration-coverage",
         "stability_eta_deg": 0.2,
         "target_fpr": 0.02,
         "trials_null": 220,
@@ -247,13 +422,13 @@
           0.0,
           0.01716151619513562
         ],
-        "generated_at": "2025-12-20T02:23:32.778018+00:00",
-        "git_sha": "e6e798288c117a188db38c4dde85cf91972921d8",
+        "generated_at": "2025-12-23T18:25:55.345194+00:00",
+        "git_sha": "ac61464fdb8c9a50c9b0e2afef11009f361443c3",
         "n_obs": 70,
-        "n_obs_mean": 70.77272727272727,
+        "n_obs_mean": 70.5,
         "p_assets": 200,
         "replicates": 5,
-        "run_name": "20251220_011519_ticket-10_nested-null-fpr",
+        "run_name": "20251223_180034_ticket-17_nested-calibration-coverage",
         "stability_eta_deg": 0.2,
         "target_fpr": 0.02,
         "trials_null": 220,
@@ -270,13 +445,13 @@
           0.0,
           0.01716151619513562
         ],
-        "generated_at": "2025-12-20T02:23:32.778018+00:00",
-        "git_sha": "e6e798288c117a188db38c4dde85cf91972921d8",
+        "generated_at": "2025-12-23T18:25:55.345194+00:00",
+        "git_sha": "ac61464fdb8c9a50c9b0e2afef11009f361443c3",
         "n_obs": 80,
-        "n_obs_mean": 70.77272727272727,
+        "n_obs_mean": 70.5,
         "p_assets": 200,
         "replicates": 5,
-        "run_name": "20251220_011519_ticket-10_nested-null-fpr",
+        "run_name": "20251223_180034_ticket-17_nested-calibration-coverage",
         "stability_eta_deg": 0.2,
         "target_fpr": 0.02,
         "trials_null": 220,
@@ -285,5 +460,5 @@
       }
     }
   },
-  "timestamp_utc": "2025-12-20T02:23:32.778018Z"
+  "timestamp_utc": "2025-12-23T18:25:55.345194Z"
 }

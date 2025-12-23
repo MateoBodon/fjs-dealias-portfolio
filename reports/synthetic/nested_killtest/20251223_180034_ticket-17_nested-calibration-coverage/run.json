@@ -1,0 +1,117 @@
+{
+  "generated_at": "2025-12-23T18:25:55.342353+00:00",
+  "git_sha": "ac61464fdb8c9a50c9b0e2afef11009f361443c3",
+  "elapsed_seconds": 1905.3573346138,
+  "config": {
+    "n_assets": 200,
+    "n_assets_options": [
+      188,
+      200
+    ],
+    "years": 2,
+    "weeks_options": [
+      6,
+      7,
+      8
+    ],
+    "replicates": 5,
+    "trials_per_scenario": {
+      "null": 220,
+      "moderate": 60,
+      "strong": 40
+    },
+    "spikes": {
+      "null": 0.0,
+      "moderate": 3.0,
+      "strong": 6.0
+    },
+    "noise_variance": 1.0,
+    "signal_to_noise": 0.35,
+    "edge_modes": [
+      "tyler"
+    ],
+    "edge_huber_c": 1.5,
+    "delta": 0.35,
+    "delta_frac_min": 0.05,
+    "eps": 0.008,
+    "stability_eta_deg": 0.2,
+    "a_grid": 96,
+    "cs_drop_top_frac": 0.1,
+    "cs_sensitivity_frac": 0.0,
+    "off_component_leak_cap": 25.0,
+    "energy_min_abs": "2e-7",
+    "allow_nonisolated": false,
+    "nonisolated_stability_min": 0.015,
+    "nonisolated_edge_min": 0.015,
+    "nonisolated_q_max": 2,
+    "require_isolated": true,
+    "q_max": 2,
+    "calibration_path": "calibration/nested_edge_delta_thresholds.json",
+    "calibration_design": "nested",
+    "target_fpr": 0.02,
+    "delta_frac_grid": null,
+    "calibration_out": "calibration/nested_edge_delta_thresholds.json",
+    "run_name": null,
+    "seed": 0,
+    "out_dir": "reports/synthetic_nested_killtest",
+    "config_path": "experiments/synthetic/config.nested.killtest.yaml",
+    "config_hash": "5bc9ef33d2fa4848cf7b239b242df7399662ab6ffe76cac899f4c76aa89c199d"
+  },
+  "config_path": "experiments/synthetic/config.nested.killtest.yaml",
+  "config_hash": "5bc9ef33d2fa4848cf7b239b242df7399662ab6ffe76cac899f4c76aa89c199d",
+  "resolved_config_path": "reports/synthetic/nested_killtest/20251223_180034_ticket-17_nested-calibration-coverage/resolved_config.json",
+  "resolved_config_hash": "b1d4486ff12d8e34fd506eb94543a5c6952ffda97a5e03563ad337dec789c6eb",
+  "diagnostics": {
+    "tyler": {
+      "skip_reasons": {
+        "no_isolated_spike": 440,
+        "": 200
+      },
+      "gating_rejections": {
+        "inadmissible_root": 19246,
+        "nonisolated": 595,
+        "q_max_trim": 1290,
+        "stability": 6
+      }
+    }
+  },
+  "selection": {
+    "delta_frac": 0.05,
+    "null_rate": 0.0,
+    "null_ci_high": 0.01716151619513562,
+    "null_ci_low": 0.0,
+    "null_trials": 440,
+    "power_moderate": 1.0,
+    "power_moderate_ci_high": 0.9999999999999998,
+    "power_moderate_trials": 120,
+    "power_strong": 1.0,
+    "power_strong_ci_high": 1.0,
+    "power_strong_trials": 80,
+    "ci_method": "wilson(alpha=0.05)",
+    "meets_target": true
+  },
+  "sweep": [
+    {
+      "delta_frac": 0.05,
+      "null_rate": 0.0,
+      "null_ci_high": 0.01716151619513562,
+      "null_ci_low": 0.0,
+      "null_trials": 440,
+      "power_moderate": 1.0,
+      "power_moderate_ci_high": 0.9999999999999998,
+      "power_moderate_trials": 120,
+      "power_strong": 1.0,
+      "power_strong_ci_high": 1.0,
+      "power_strong_trials": 80,
+      "ci_method": "wilson(alpha=0.05)",
+      "meets_target": true
+    }
+  ],
+  "artifacts": {
+    "trials": "reports/synthetic/nested_killtest/20251223_180034_ticket-17_nested-calibration-coverage/nested_killtest_trials.csv",
+    "summary": "reports/synthetic/nested_killtest/20251223_180034_ticket-17_nested-calibration-coverage/summary.csv",
+    "summary_md": "reports/synthetic/nested_killtest/20251223_180034_ticket-17_nested-calibration-coverage/summary.md",
+    "sweep": "reports/synthetic/nested_killtest/20251223_180034_ticket-17_nested-calibration-coverage/sweep.csv",
+    "resolved_config": "reports/synthetic/nested_killtest/20251223_180034_ticket-17_nested-calibration-coverage/resolved_config.json"
+  }
+}

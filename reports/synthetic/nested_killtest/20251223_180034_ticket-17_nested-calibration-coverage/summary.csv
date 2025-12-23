@@ -1,0 +1,7 @@
+edge_mode,scenario,p_assets,trials,detections,detection_rate,ci_low,ci_high,weeks_mean,n_obs_mean,skip_reason_top,skip_reason_counts,calibration_missing_share
+tyler,moderate,188,60,60,1.0,0.93982814785791,0.9999999999999998,7.1,71.0,,{},0.0
+tyler,moderate,200,60,60,1.0,0.93982814785791,0.9999999999999998,7.1,71.0,,{},0.0
+tyler,null,188,220,0,0.0,0.0,0.01716151619513562,7.05,70.5,no_isolated_spike,{'no_isolated_spike': 220},0.0
+tyler,null,200,220,0,0.0,0.0,0.01716151619513562,7.05,70.5,no_isolated_spike,{'no_isolated_spike': 220},0.0
+tyler,strong,188,40,40,1.0,0.9123783988027134,1.0,7.125,71.25,,{},0.0
+tyler,strong,200,40,40,1.0,0.9123783988027134,1.0,7.125,71.25,,{},0.0

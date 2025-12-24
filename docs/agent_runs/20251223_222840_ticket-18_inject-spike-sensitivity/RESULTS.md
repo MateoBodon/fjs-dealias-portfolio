@@ -7,7 +7,13 @@
   - selected windows: `reports/inject_spike/20251223_225141/selected_windows.csv`
   - summary: baseline detection/acceptance = 0.0; μ=3,6,9 detection/acceptance = 0.0 (acceptance drought noted).
 - Additional minimal run (μ=3 only): `reports/inject_spike/20251223_224954/` (baseline + μ=3; detection/acceptance = 0.0).
+- Larger slice (still small assets_top) run: `reports/inject_spike/20251224_051700/`
+  - curve: `reports/inject_spike/20251224_051700/curve.csv`
+  - plot: `reports/inject_spike/20251224_051700/curve.png`
+  - run metadata: `reports/inject_spike/20251224_051700/run.json`
+  - summary: baseline detection/acceptance = 0.0; μ=3/6/9/12/15 detection/acceptance = 0.0; per-window counts indicate no pre-gate candidates (n_detected=0).
 - Aborted attempts (run.json written manually for audit):
   - `reports/inject_spike/20251223_224624/` failed (insufficient observations for window+horizon).
   - `reports/inject_spike/20251223_224638/` interrupted (KeyboardInterrupt during baseline detection pass).
+  - `reports/inject_spike/20251224_051229/` interrupted (KeyboardInterrupt during baseline detection pass).
 - Bundle: `docs/gpt_bundles/20251224_000240_ticket-18_20251223_222840_ticket-18_inject-spike-sensitivity.zip`.

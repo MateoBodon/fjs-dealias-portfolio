@@ -1,0 +1,12 @@
+{
+  "cap_active": false,
+  "error": "KeyboardInterrupt during baseline detection pass.",
+  "git_dirty": true,
+  "git_sha": "502aab1a3e44354095722ab98b9c13eb138ac3e8",
+  "note": "manual run.json for aborted inject_spike run",
+  "resolved_config_hash": "2153f3649f1370c2c95e12c80b5e310f09d008ee9a965fa30346d9672564fe80",
+  "resolved_config_path": "reports/inject_spike/20251224_051229/resolved_config.json",
+  "run_id": "20251224_051229",
+  "status": "interrupted",
+  "timestamp_utc": "2025-12-24T05:16:34.501381+00:00"
+}

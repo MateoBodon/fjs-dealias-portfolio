@@ -83,3 +83,11 @@ git commit -m "Update run log commands" -m "Tests: make test-fast"
 make gpt-bundle TICKET=ticket-18 RUN_NAME=20251223_222840_ticket-18_inject-spike-sensitivity
 git add docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity/COMMANDS.md docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity/RESULTS.md
 git commit -m "Finalize bundle log" -m "Tests: make test-fast"
+PYTHONPATH=src:. python experiments/eval/inject_spike.py --returns-csv data/returns_daily.csv --factors-csv data/factors/ff5mom_daily.csv --window 40 --horizon 5 --start 2024-01-01 --end 2024-09-30 --assets-top 30 --config experiments/eval/config.yaml --thresholds experiments/eval/thresholds.json --group-design week --use-factor-prewhiten 1 --mu-grid 3,6,9,12,15 --seed 7 --out reports/inject_spike
+ls -1t reports/inject_spike | head -n 5
+ls -1 reports/inject_spike/20251224_051229
+python - <<'PY' (write run.json for aborted inject_spike 20251224_051229)
+PYTHONPATH=src:. python experiments/eval/inject_spike.py --returns-csv data/returns_daily.csv --factors-csv data/factors/ff5mom_daily.csv --window 40 --horizon 5 --start 2024-01-01 --end 2024-06-30 --assets-top 25 --config experiments/eval/config.yaml --thresholds experiments/eval/thresholds.json --group-design week --use-factor-prewhiten 1 --mu-grid 3,6,9,12,15 --seed 7 --out reports/inject_spike
+ls -1t reports/inject_spike | head -n 5
+cat reports/inject_spike/20251224_051700/run.json
+cat reports/inject_spike/20251224_051700/curve.csv

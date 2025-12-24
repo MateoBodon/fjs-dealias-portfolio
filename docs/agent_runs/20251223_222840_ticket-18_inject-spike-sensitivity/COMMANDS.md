@@ -105,3 +105,5 @@ git rev-parse HEAD
 date -u +%Y-%m-%dT%H:%M:%SZ
 python - <<'PY' (update RESEARCH_NOTES.md front matter with latest sha)
 git add PROGRESS.md project_state/RESEARCH_NOTES.md docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity/META.md docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity/RESULTS.md
+git add docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity/COMMANDS.md
+git commit -m "Update run metadata and notes" -m "Tests: not run (not requested)"

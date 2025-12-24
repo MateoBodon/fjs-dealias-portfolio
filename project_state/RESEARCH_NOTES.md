@@ -1,6 +1,6 @@
 ---
-generated: 2025-12-24T05:23:20Z
-git_sha: 18fdbb772d9e30a3eba85fd2d898271e30e3ea43
+generated: 2025-12-24T05:26:36Z
+git_sha: 88871be2abf3c54153b238eeed1932ba0c0c3c56
 git_branch: codex/ticket-18-inject-spike-sensitivity
 commands:
   - manual edit (ticket-18 injection notes update)

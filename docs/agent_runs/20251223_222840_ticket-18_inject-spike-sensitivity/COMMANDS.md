@@ -96,3 +96,6 @@ git commit -m "Record larger injection run" -m "Tests: not run (not requested)"
 git rev-parse HEAD
 date -u +%Y-%m-%dT%H:%M:%SZ
 python - <<'PY' (update RESEARCH_NOTES.md front matter after new run)
+git add project_state/RESEARCH_NOTES.md docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity/COMMANDS.md
+git commit -m "Update injection notes metadata" -m "Tests: not run (not requested)"
+make gpt-bundle TICKET=ticket-18 RUN_NAME=20251223_222840_ticket-18_inject-spike-sensitivity

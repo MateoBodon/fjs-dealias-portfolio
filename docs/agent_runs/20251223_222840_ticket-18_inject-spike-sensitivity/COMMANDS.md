@@ -91,3 +91,8 @@ PYTHONPATH=src:. python experiments/eval/inject_spike.py --returns-csv data/retu
 ls -1t reports/inject_spike | head -n 5
 cat reports/inject_spike/20251224_051700/run.json
 cat reports/inject_spike/20251224_051700/curve.csv
+git add PROGRESS.md project_state/RESEARCH_NOTES.md docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity/COMMANDS.md docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity/RESULTS.md reports/inject_spike/20251224_051229 reports/inject_spike/20251224_051700
+git commit -m "Record larger injection run" -m "Tests: not run (not requested)"
+git rev-parse HEAD
+date -u +%Y-%m-%dT%H:%M:%SZ
+python - <<'PY' (update RESEARCH_NOTES.md front matter after new run)

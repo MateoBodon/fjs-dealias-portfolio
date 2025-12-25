@@ -16,4 +16,10 @@
   - `reports/inject_spike/20251223_224624/` failed (insufficient observations for window+horizon).
   - `reports/inject_spike/20251223_224638/` interrupted (KeyboardInterrupt during baseline detection pass).
   - `reports/inject_spike/20251224_051229/` interrupted (KeyboardInterrupt during baseline detection pass).
+- Make target run: `reports/inject_spike/20251225_213525/`
+  - curve: `reports/inject_spike/20251225_213525/curve.csv`
+  - plot: `reports/inject_spike/20251225_213525/curve.png`
+  - run metadata: `reports/inject_spike/20251225_213525/run.json`
+  - summary: baseline detection/acceptance = 0.0; μ=3/4/5 detection/acceptance = 0.0; `n_detected=0` indicates pre-gate drought.
+- Merge/push request not executed: earlier ticket instructions forbade merge/push; noted conflict and left branch unmerged.
 - Bundle: `docs/gpt_bundles/20251224_062445_ticket-18_20251223_222840_ticket-18_inject-spike-sensitivity.zip`.

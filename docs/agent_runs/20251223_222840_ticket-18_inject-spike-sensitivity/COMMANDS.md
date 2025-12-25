@@ -107,3 +107,14 @@ python - <<'PY' (update RESEARCH_NOTES.md front matter with latest sha)
 git add PROGRESS.md project_state/RESEARCH_NOTES.md docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity/META.md docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity/RESULTS.md
 git add docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity/COMMANDS.md
 git commit -m "Update run metadata and notes" -m "Tests: not run (not requested)"
+git status -sb
+git rev-parse HEAD
+rg -n "ticket-18" PROGRESS.md && rg -n "git_sha" docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity/META.md
+rg -n "Ticket #22" -A2 docs/CODEX_SPRINT_TICKETS.md
+date -u +%Y-%m-%dT%H:%M:%SZ
+python - <<'PY' (update RESEARCH_NOTES.md front matter with new sha/time)
+PY
+RC_ASSETS_TOP=25 RC_WINDOW=40 RC_HORIZON=5 RC_START=2024-01-01 RC_END=2024-06-30 make inject-spike
+ls -1t reports/inject_spike | head -n 5
+cat reports/inject_spike/20251225_213525/run.json
+cat reports/inject_spike/20251225_213525/curve.csv

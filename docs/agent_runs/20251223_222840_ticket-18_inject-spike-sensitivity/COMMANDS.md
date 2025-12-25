@@ -134,3 +134,6 @@ git add PROGRESS.md docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensi
 git commit -m "Sync run log metadata" -m "Tests: not run (not requested)"
 make gpt-bundle TICKET=ticket-18 RUN_NAME=20251223_222840_ticket-18_inject-spike-sensitivity
 git add docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity/COMMANDS.md docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity/RESULTS.md
+git commit -m "Update bundle path" -m "Tests: not run (not requested)"
+unzip -l docs/gpt_bundles/20251225_224554_ticket-18_20251223_222840_ticket-18_inject-spike-sensitivity.zip | head -n 40
+git add docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity/COMMANDS.md

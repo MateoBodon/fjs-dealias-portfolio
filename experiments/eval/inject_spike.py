@@ -21,9 +21,67 @@ except Exception:  # pragma: no cover
 from eval.balance import build_balanced_window
 from eval.clean import apply_nan_policy
 from experiments.daily.grouping import GroupingError
-from experiments.eval.config import resolve_eval_config
+from experiments.eval.config import ResolveResult, resolve_eval_config
 import experiments.eval.run as eval_run
 from fjs.overlay import OverlayConfig, detect_spikes
+
+
+WINDOW_DETAIL_REQUIRED_COLUMNS = [
+    "window_idx",
+    "fit_start",
+    "fit_end",
+    "horizon_start",
+    "horizon_end",
+    "n_obs",
+    "n_assets",
+    "injected",
+    "injected_mu",
+    "detected_initial",
+    "accepted",
+]
+
+PRE_GATE_COLUMNS = [
+    "pre_gate_raw_outliers_found",
+    "pre_gate_mp_edge_margin",
+    "pre_gate_leakage_offcomp",
+    "pre_gate_stability_eta_pass",
+    "pre_gate_bracket_status",
+    "pre_gate_coarse_candidates",
+]
+
+GATING_COLUMNS = [
+    "gating_mode",
+    "gating_rejected",
+    "gating_soft_cap",
+    "gating_delta_frac_used",
+    "gating_capped",
+]
+
+GUARD_KEYS = [
+    "edge_buffer",
+    "stability_fail",
+    "off_component_ratio",
+    "energy_floor",
+    "neg_mu",
+    "eps",
+    "tvec_compute_error",
+    "tvec_target_zero",
+    "tvec_off_component",
+    "mu_nonfinite",
+]
+
+GATE_REASON_KEYS = [
+    "accepted",
+    "inadmissible_root",
+    "edge_margin",
+    "nonisolated",
+    "stability",
+    "alignment",
+    "delta_frac_min",
+    "delta_frac_max",
+    "soft_cap",
+    "hard_cap",
+]
 
 
 @dataclass(frozen=True)
@@ -104,7 +162,7 @@ def _window_detection_stats(
         initial = len(detections)
     if accepted is None:
         accepted = len(detections)
-    return int(initial > 0), int(accepted > 0), stats
+    return int(initial), int(accepted), stats
 
 
 def _score_samples(
@@ -125,9 +183,9 @@ def _score_samples(
         matrix = sample.matrix
         if mu is not None and bases is not None:
             matrix = _apply_injection(matrix, bases[int(idx)], mu)
-        detected, accepted, _ = _window_detection_stats(matrix, sample.group_labels, overlay_cfg)
-        n_detected += detected
-        n_accepted += accepted
+        detected_count, accepted_count, _ = _window_detection_stats(matrix, sample.group_labels, overlay_cfg)
+        n_detected += int(detected_count > 0)
+        n_accepted += int(accepted_count > 0)
     detection_rate = float(n_detected) / float(n_windows) if n_windows else float("nan")
     acceptance_rate = float(n_accepted) / float(n_windows) if n_windows else float("nan")
     return {
@@ -179,6 +237,149 @@ def _make_overlay_config(config: eval_run.EvalConfig) -> OverlayConfig:
         gate_accept_nonisolated=bool(config.gate_accept_nonisolated),
         coarse_candidate=bool(getattr(config, "coarse_candidate", False)),
     )
+
+
+def _select_window_indices(
+    total: int,
+    max_windows: int | None,
+    mode: str,
+    seed: int,
+) -> list[int]:
+    if total <= 0:
+        return []
+    if max_windows is None or max_windows >= total:
+        return list(range(total))
+    if max_windows <= 0:
+        raise ValueError("max_windows must be positive when provided.")
+    mode_norm = (mode or "first").strip().lower()
+    if mode_norm == "first":
+        return list(range(int(max_windows)))
+    if mode_norm == "random":
+        rng = np.random.default_rng(int(seed))
+        return sorted(rng.choice(total, size=int(max_windows), replace=False).tolist())
+    raise ValueError(f"Unsupported window sampling mode: {mode}.")
+
+
+def _extract_window_diagnostics(stats: dict[str, Any]) -> dict[str, Any]:
+    pre_gate = stats.get("pre_gate", {}) if stats else {}
+    gating = stats.get("gating", {}) if stats else {}
+    diagnostics = stats.get("diagnostics", {}) if stats else {}
+    row: dict[str, Any] = {
+        "pre_gate_raw_outliers_found": pre_gate.get("raw_outliers_found"),
+        "pre_gate_mp_edge_margin": pre_gate.get("mp_edge_margin"),
+        "pre_gate_leakage_offcomp": pre_gate.get("leakage_offcomp"),
+        "pre_gate_stability_eta_pass": pre_gate.get("stability_eta_pass"),
+        "pre_gate_bracket_status": pre_gate.get("bracket_status"),
+        "pre_gate_coarse_candidates": pre_gate.get("coarse_candidates"),
+        "gating_mode": gating.get("mode"),
+        "gating_rejected": gating.get("rejected"),
+        "gating_soft_cap": gating.get("soft_cap"),
+        "gating_delta_frac_used": gating.get("delta_frac_used"),
+        "gating_capped": gating.get("capped"),
+    }
+
+    reasons = gating.get("reasons", {}) if isinstance(gating, dict) else {}
+    for key in GATE_REASON_KEYS:
+        value = reasons.get(key, 0) if isinstance(reasons, dict) else 0
+        try:
+            row[f"gate_reason_{key}"] = int(value)
+        except (TypeError, ValueError):
+            row[f"gate_reason_{key}"] = 0
+
+    unknown_count = 0
+    for key in GUARD_KEYS:
+        value = diagnostics.get(key, 0) if isinstance(diagnostics, dict) else 0
+        try:
+            row[f"guard_{key}"] = int(value)
+        except (TypeError, ValueError):
+            row[f"guard_{key}"] = 0
+    if isinstance(diagnostics, dict):
+        for key, value in diagnostics.items():
+            if key in GUARD_KEYS:
+                continue
+            try:
+                unknown_count += int(value)
+            except (TypeError, ValueError):
+                continue
+    row["guard_unknown"] = int(unknown_count)
+    return row
+
+
+def _build_windows_detail_dataframe(rows: Sequence[dict[str, Any]]) -> pd.DataFrame:
+    df = pd.DataFrame(rows)
+    for col in WINDOW_DETAIL_REQUIRED_COLUMNS:
+        if col not in df.columns:
+            df[col] = np.nan
+    for col in PRE_GATE_COLUMNS + GATING_COLUMNS:
+        if col not in df.columns:
+            df[col] = np.nan
+    guard_cols = [f"guard_{key}" for key in GUARD_KEYS] + ["guard_unknown"]
+    gate_reason_cols = [f"gate_reason_{key}" for key in GATE_REASON_KEYS]
+    for col in guard_cols + gate_reason_cols:
+        if col not in df.columns:
+            df[col] = 0
+    ordered = WINDOW_DETAIL_REQUIRED_COLUMNS + PRE_GATE_COLUMNS + GATING_COLUMNS + guard_cols + gate_reason_cols
+    extras = [col for col in df.columns if col not in ordered]
+    return df.loc[:, ordered + extras]
+
+
+def _build_gating_reasons_dataframe(detail_df: pd.DataFrame) -> pd.DataFrame:
+    columns = ["stage", "reason", "count", "injected_mu"]
+    if detail_df.empty:
+        return pd.DataFrame(columns=columns)
+
+    df = detail_df.copy()
+    if "injected_mu" not in df.columns:
+        df["injected_mu"] = np.nan
+    df["_mu"] = pd.to_numeric(df["injected_mu"], errors="coerce").fillna(0.0)
+
+    for key in GUARD_KEYS:
+        col = f"guard_{key}"
+        if col not in df.columns:
+            df[col] = 0
+    if "guard_unknown" not in df.columns:
+        df["guard_unknown"] = 0
+    for key in GATE_REASON_KEYS:
+        col = f"gate_reason_{key}"
+        if col not in df.columns:
+            df[col] = 0
+
+    rows: list[dict[str, Any]] = []
+    for mu_val, group in df.groupby("_mu"):
+        mu_float = float(mu_val)
+        for key in GUARD_KEYS:
+            col = f"guard_{key}"
+            count = int(pd.to_numeric(group[col], errors="coerce").fillna(0).sum())
+            rows.append({"stage": "pre_gate", "reason": key, "count": count, "injected_mu": mu_float})
+        unknown_count = int(pd.to_numeric(group["guard_unknown"], errors="coerce").fillna(0).sum())
+        rows.append({"stage": "pre_gate", "reason": "unknown", "count": unknown_count, "injected_mu": mu_float})
+        for key in GATE_REASON_KEYS:
+            col = f"gate_reason_{key}"
+            count = int(pd.to_numeric(group[col], errors="coerce").fillna(0).sum())
+            rows.append({"stage": "post_gate", "reason": key, "count": count, "injected_mu": mu_float})
+    return pd.DataFrame(rows, columns=columns)
+
+
+def _resolve_eval_config_or_fail(args: argparse.Namespace) -> ResolveResult:
+    config_args = {
+        "returns_csv": args.returns_csv,
+        "factors_csv": args.factors_csv,
+        "window": args.window,
+        "horizon": args.horizon,
+        "start": args.start,
+        "end": args.end,
+        "assets_top": args.assets_top,
+        "config": args.config,
+        "thresholds": args.thresholds,
+        "group_design": args.group_design,
+        "use_factor_prewhiten": args.use_factor_prewhiten,
+        "coarse_candidate": args.coarse_candidate,
+    }
+    resolved = resolve_eval_config(config_args)
+    config = resolved.config
+    if config.config_path is None or not Path(config.config_path).exists():
+        raise FileNotFoundError("Resolved config file is missing; provide --config.")
+    return resolved
 
 
 def _collect_windows(
@@ -305,6 +506,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--inject-frac-min", type=float, default=0.05)
     parser.add_argument("--inject-frac-max", type=float, default=0.10)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--max-windows", type=int, default=None)
+    parser.add_argument("--window-sampling", type=str, choices=["first", "random"], default="first")
+    parser.add_argument("--window-sampling-seed", type=int, default=None)
     parser.add_argument("--run-id", type=str, default=None)
     parser.add_argument("--out", type=Path, default=Path("reports/inject_spike"))
     args = parser.parse_args(argv)
@@ -317,32 +521,17 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         raise ValueError("inject-frac-max must be >= inject-frac-min")
     if args.inject_frac_min > 1 or args.inject_frac_max > 1:
         raise ValueError("Injection fractions must be <= 1.")
+    if args.window_sampling_seed is None:
+        args.window_sampling_seed = args.seed
     return args
 
 
 def main(argv: Sequence[str] | None = None) -> None:
     args = parse_args(argv)
+    resolved = _resolve_eval_config_or_fail(args)
+    config = resolved.config
     if plt is None:
         raise RuntimeError("matplotlib is required for injection plots")
-
-    config_args = {
-        "returns_csv": args.returns_csv,
-        "factors_csv": args.factors_csv,
-        "window": args.window,
-        "horizon": args.horizon,
-        "start": args.start,
-        "end": args.end,
-        "assets_top": args.assets_top,
-        "config": args.config,
-        "thresholds": args.thresholds,
-        "group_design": args.group_design,
-        "use_factor_prewhiten": args.use_factor_prewhiten,
-        "coarse_candidate": args.coarse_candidate,
-    }
-    resolved = resolve_eval_config(config_args)
-    config = resolved.config
-    if config.config_path is None or not Path(config.config_path).exists():
-        raise FileNotFoundError("Resolved config file is missing; provide --config.")
 
     run_id = args.run_id or datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
     out_root = args.out.resolve()
@@ -357,6 +546,9 @@ def main(argv: Sequence[str] | None = None) -> None:
         "inject_frac_min": float(args.inject_frac_min),
         "inject_frac_max": float(args.inject_frac_max),
         "seed": int(args.seed),
+        "max_windows": args.max_windows,
+        "window_sampling": str(args.window_sampling),
+        "window_sampling_seed": int(args.window_sampling_seed),
         "run_id": run_id,
     }
     resolved_config_path = run_dir / "resolved_config.json"
@@ -385,9 +577,18 @@ def main(argv: Sequence[str] | None = None) -> None:
     if not samples:
         raise RuntimeError("No valid windows available for injection analysis.")
 
-    overlay_cfg = _make_overlay_config(config)
-    baseline_stats = _score_samples(samples, overlay_cfg)
+    windows_available = len(samples)
+    sample_indices = _select_window_indices(
+        windows_available,
+        args.max_windows,
+        args.window_sampling,
+        int(args.window_sampling_seed),
+    )
+    samples = [samples[idx] for idx in sample_indices]
+    if not samples:
+        raise RuntimeError("No windows selected after sampling.")
 
+    overlay_cfg = _make_overlay_config(config)
     rng = np.random.default_rng(args.seed)
     bases = [_make_injection_basis(sample.matrix, rng) for sample in samples]
 
@@ -398,17 +599,106 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     mu_values = sorted({float(mu) for mu in args.mu_values})
     curve_rows: list[dict[str, float]] = []
+    window_rows: list[dict[str, Any]] = []
+
+    baseline_stats = {
+        "n_windows": len(samples),
+        "n_detected": 0,
+        "n_accepted": 0,
+    }
+    for sample in samples:
+        detected_count, accepted_count, stats = _window_detection_stats(
+            sample.matrix,
+            sample.group_labels,
+            overlay_cfg,
+        )
+        baseline_stats["n_detected"] += int(detected_count > 0)
+        baseline_stats["n_accepted"] += int(accepted_count > 0)
+        row = {
+            "window_idx": sample.window_id,
+            "fit_start": sample.fit_start,
+            "fit_end": sample.fit_end,
+            "horizon_start": sample.hold_start,
+            "horizon_end": sample.hold_end,
+            "n_obs": sample.matrix.shape[0],
+            "n_assets": sample.matrix.shape[1],
+            "injected": 0,
+            "injected_mu": None,
+            "detected_initial": int(detected_count),
+            "accepted": int(accepted_count),
+        }
+        row.update(_extract_window_diagnostics(stats))
+        window_rows.append(row)
+
+    baseline_stats["detection_rate"] = (
+        float(baseline_stats["n_detected"]) / float(baseline_stats["n_windows"])
+        if baseline_stats["n_windows"]
+        else float("nan")
+    )
+    baseline_stats["acceptance_rate"] = (
+        float(baseline_stats["n_accepted"]) / float(baseline_stats["n_windows"])
+        if baseline_stats["n_windows"]
+        else float("nan")
+    )
     curve_rows.append({"mu": 0.0, **baseline_stats})
+
     for mu in mu_values:
         if mu <= 0.0:
             continue
-        stats = _score_samples(samples, overlay_cfg, bases=bases, indices=inject_indices, mu=mu)
-        stats["mu"] = float(mu)
-        curve_rows.append(stats)
+        mu_stats = {
+            "n_windows": len(inject_indices),
+            "n_detected": 0,
+            "n_accepted": 0,
+        }
+        for idx in inject_indices:
+            sample = samples[int(idx)]
+            matrix = _apply_injection(sample.matrix, bases[int(idx)], mu)
+            detected_count, accepted_count, stats = _window_detection_stats(
+                matrix,
+                sample.group_labels,
+                overlay_cfg,
+            )
+            mu_stats["n_detected"] += int(detected_count > 0)
+            mu_stats["n_accepted"] += int(accepted_count > 0)
+            row = {
+                "window_idx": sample.window_id,
+                "fit_start": sample.fit_start,
+                "fit_end": sample.fit_end,
+                "horizon_start": sample.hold_start,
+                "horizon_end": sample.hold_end,
+                "n_obs": sample.matrix.shape[0],
+                "n_assets": sample.matrix.shape[1],
+                "injected": 1,
+                "injected_mu": float(mu),
+                "detected_initial": int(detected_count),
+                "accepted": int(accepted_count),
+            }
+            row.update(_extract_window_diagnostics(stats))
+            window_rows.append(row)
+        mu_stats["detection_rate"] = (
+            float(mu_stats["n_detected"]) / float(mu_stats["n_windows"])
+            if mu_stats["n_windows"]
+            else float("nan")
+        )
+        mu_stats["acceptance_rate"] = (
+            float(mu_stats["n_accepted"]) / float(mu_stats["n_windows"])
+            if mu_stats["n_windows"]
+            else float("nan")
+        )
+        mu_stats["mu"] = float(mu)
+        curve_rows.append(mu_stats)
 
     curve_df = _build_curve_dataframe(curve_rows).sort_values("mu")
     curve_csv = run_dir / "curve.csv"
     curve_df.to_csv(curve_csv, index=False)
+
+    windows_detail_df = _build_windows_detail_dataframe(window_rows)
+    windows_detail_csv = run_dir / "windows_detail.csv"
+    windows_detail_df.to_csv(windows_detail_csv, index=False)
+
+    gating_reasons_df = _build_gating_reasons_dataframe(windows_detail_df)
+    gating_reasons_csv = run_dir / "gating_reasons.csv"
+    gating_reasons_df.to_csv(gating_reasons_csv, index=False)
 
     curve_plot = run_dir / "curve.png"
     fig, ax = plt.subplots(figsize=(6.0, 3.8))
@@ -499,6 +789,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         },
         "windows": {
             "windows_candidate": window_candidates,
+            "windows_available": windows_available,
             "windows_used": len(samples),
             "window_date_range": window_date_range,
             "assets_top": config.assets_top,
@@ -508,6 +799,14 @@ def main(argv: Sequence[str] | None = None) -> None:
             "obs_max": max(obs_counts),
             "skip_reasons": dict(skip_counts),
             "n_changed": int(baseline_stats["n_accepted"]),
+            "baseline_windows": len(samples),
+            "injected_windows": n_injected,
+            "non_injected_windows": len(samples) - n_injected,
+            "sampling": {
+                "max_windows": args.max_windows,
+                "window_sampling": str(args.window_sampling),
+                "window_sampling_seed": int(args.window_sampling_seed),
+            },
         },
         "injection": {
             "seed": int(args.seed),
@@ -533,8 +832,11 @@ def main(argv: Sequence[str] | None = None) -> None:
             "curve_csv": str(curve_csv),
             "curve_plot": str(curve_plot),
             "selected_windows_csv": str(selected_windows_csv),
+            "windows_detail_csv": str(windows_detail_csv),
+            "gating_reasons_csv": str(gating_reasons_csv),
             "resolved_config_json": str(resolved_config_path),
         },
+        "gating_summary": gating_reasons_df.to_dict(orient="records"),
         "factors": (
             {
                 "key": factor_entry.key,

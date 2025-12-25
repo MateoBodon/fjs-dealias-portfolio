@@ -62,3 +62,59 @@ def test_curve_csv_writer_columns(tmp_path: Path) -> None:
         "n_detected",
         "n_accepted",
     ]
+
+
+@pytest.mark.unit
+def test_max_windows_sampling_deterministic() -> None:
+    indices_a = inject_spike._select_window_indices(20, 5, "random", seed=123)
+    indices_b = inject_spike._select_window_indices(20, 5, "random", seed=123)
+    assert indices_a == indices_b
+    assert len(indices_a) == 5
+
+
+@pytest.mark.unit
+def test_windows_detail_and_gating_outputs(tmp_path: Path) -> None:
+    rows = [
+        {
+            "window_idx": 0,
+            "fit_start": "2024-01-02",
+            "fit_end": "2024-01-03",
+            "horizon_start": "2024-01-04",
+            "horizon_end": "2024-01-05",
+            "n_obs": 10,
+            "n_assets": 4,
+            "injected": 0,
+            "injected_mu": None,
+            "detected_initial": 1,
+            "accepted": 0,
+            "guard_edge_buffer": 2,
+            "gate_reason_edge_margin": 1,
+        }
+    ]
+    detail_df = inject_spike._build_windows_detail_dataframe(rows)
+    detail_path = tmp_path / "windows_detail.csv"
+    detail_df.to_csv(detail_path, index=False)
+    gating_df = inject_spike._build_gating_reasons_dataframe(detail_df)
+    gating_path = tmp_path / "gating_reasons.csv"
+    gating_df.to_csv(gating_path, index=False)
+
+    loaded_detail = pd.read_csv(detail_path)
+    assert set(inject_spike.WINDOW_DETAIL_REQUIRED_COLUMNS).issubset(loaded_detail.columns)
+    loaded_gating = pd.read_csv(gating_path)
+    assert {"stage", "reason", "count", "injected_mu"}.issubset(loaded_gating.columns)
+
+
+@pytest.mark.unit
+def test_missing_config_path_fails(tmp_path: Path) -> None:
+    returns_path = tmp_path / "returns.csv"
+    returns_path.write_text("date,A\n2024-01-02,0.01\n", encoding="utf-8")
+    args = inject_spike.parse_args(
+        [
+            "--returns-csv",
+            str(returns_path),
+            "--config",
+            str(tmp_path / "missing.yaml"),
+        ]
+    )
+    with pytest.raises(FileNotFoundError):
+        inject_spike._resolve_eval_config_or_fail(args)

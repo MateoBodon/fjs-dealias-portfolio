@@ -258,9 +258,15 @@ def _gate_detections(
     cfg: OverlayConfig,
     soft_cap: int | None,
     delta_frac_used: float | None,
+    reason_counts: dict[str, int] | None = None,
 ) -> tuple[list[Detection], list[Detection]]:
     if not detections:
         return [], []
+
+    def _track(reason: str, count: int = 1) -> None:
+        if reason_counts is None:
+            return
+        reason_counts[reason] = reason_counts.get(reason, 0) + int(count)
 
     mode = (cfg.gate_mode or "strict").lower()
 
@@ -275,10 +281,12 @@ def _gate_detections(
     for det in detections:
         if not bool(det.get("admissible_root", True)):
             rejected.append(det)
+            _track("inadmissible_root")
             continue
         edge_margin = float(det.get("edge_margin", float("-inf")))
         if edge_margin < cfg.min_edge_margin:
             rejected.append(det)
+            _track("edge_margin")
             continue
         pre_count = det.get("pre_outlier_count")
         if (
@@ -287,6 +295,7 @@ def _gate_detections(
             and int(pre_count) != 1
         ):
             rejected.append(det)
+            _track("nonisolated")
             continue
         base.append(det)
 
@@ -294,6 +303,8 @@ def _gate_detections(
         limit = soft_cap if soft_cap is not None else cfg.q_max
         selected, discarded = select_top_k(base, int(limit) if limit is not None else len(base))
         rejected.extend(discarded)
+        _track("accepted", len(selected))
+        _track("soft_cap", len(discarded))
         return selected, rejected
 
     for det in base:
@@ -306,17 +317,22 @@ def _gate_detections(
 
         if stability < stability_min:
             rejected.append(det)
+            _track("stability")
             continue
         if alignment < alignment_min:
             rejected.append(det)
+            _track("alignment")
             continue
         if delta_frac_min is not None and np.isfinite(delta_used) and delta_used < float(delta_frac_min):
             rejected.append(det)
+            _track("delta_frac_min")
             continue
         if delta_frac_max is not None and np.isfinite(delta_used) and delta_used > float(delta_frac_max):
             rejected.append(det)
+            _track("delta_frac_max")
             continue
         accepted.append(det)
+        _track("accepted")
 
     return accepted, rejected
 
@@ -343,6 +359,9 @@ def detect_spikes(
         else float(cfg.delta_frac) if cfg.delta_frac is not None else None
     )
 
+    diagnostics: dict[str, int] | None = None
+    if stats_dict is not None:
+        diagnostics = {}
     detections = dealias_search(
         np.asarray(observations, dtype=np.float64),
         np.asarray(groups, dtype=np.intp),
@@ -356,8 +375,11 @@ def detect_spikes(
         off_component_leak_cap=cfg.off_component_cap,
         edge_mode=str(cfg.edge_mode),
         cs_drop_top_frac=cfg.cs_drop_top_frac,
+        diagnostics=diagnostics,
         stats=stats_for_search,
     )
+    if stats_dict is not None and diagnostics is not None:
+        stats_dict["diagnostics"] = dict(diagnostics)
     if resolved_delta_frac is not None:
         for det in detections:
             det["delta_frac"] = resolved_delta_frac
@@ -373,14 +395,18 @@ def detect_spikes(
     if stats_dict is not None:
         stats_dict.setdefault("pre_gate", {}).update(pre_gate_summary)
     soft_cap = cfg.gate_soft_max if (cfg.gate_mode or "strict").lower() == "soft" else None
-    kept, rejected = _gate_detections(detections, cfg, soft_cap, resolved_delta_frac)
+    reason_counts: dict[str, int] | None = {} if stats_dict is not None else None
+    kept, rejected = _gate_detections(detections, cfg, soft_cap, resolved_delta_frac, reason_counts)
 
     kept.sort(key=lambda det: float(det.get("edge_margin") or det["mu_hat"]), reverse=True)
     limit_q = cfg.q_max if cfg.q_max is not None else len(kept)
     limit_m = cfg.max_detections if cfg.max_detections is not None else len(kept)
     cap = min(limit_q, limit_m)
+    pre_cap = len(kept)
     if kept and cap < len(kept):
         kept = kept[: int(cap)]
+        if reason_counts is not None:
+            reason_counts["hard_cap"] = reason_counts.get("hard_cap", 0) + int(pre_cap - len(kept))
 
     if stats_dict is not None:
         gating_info = stats_dict.setdefault("gating", {})
@@ -392,8 +418,11 @@ def detect_spikes(
                 "rejected": len(rejected),
                 "soft_cap": int(soft_cap) if soft_cap is not None else None,
                 "delta_frac_used": resolved_delta_frac,
+                "capped": int(pre_cap - len(kept)) if pre_cap > len(kept) else 0,
             }
         )
+        if reason_counts is not None:
+            gating_info["reasons"] = dict(reason_counts)
     return kept
 
 

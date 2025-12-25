@@ -130,3 +130,7 @@ git rev-parse HEAD
 date -u +%Y-%m-%dT%H:%M:%SZ
 python - <<'PY' (update RESEARCH_NOTES.md front matter after sha refresh)
 PY
+git add PROGRESS.md docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity/META.md project_state/RESEARCH_NOTES.md docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity/COMMANDS.md
+git commit -m "Sync run log metadata" -m "Tests: not run (not requested)"
+make gpt-bundle TICKET=ticket-18 RUN_NAME=20251223_222840_ticket-18_inject-spike-sensitivity
+git add docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity/COMMANDS.md docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity/RESULTS.md

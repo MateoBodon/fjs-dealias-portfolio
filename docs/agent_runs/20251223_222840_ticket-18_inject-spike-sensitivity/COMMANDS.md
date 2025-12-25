@@ -137,3 +137,9 @@ git add docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity/COMMA
 git commit -m "Update bundle path" -m "Tests: not run (not requested)"
 unzip -l docs/gpt_bundles/20251225_224554_ticket-18_20251223_222840_ticket-18_inject-spike-sensitivity.zip | head -n 40
 git add docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity/COMMANDS.md
+git commit -m "Log bundle inspection" -m "Tests: not run (not requested)"
+date -u +%Y-%m-%dT%H:%M:%SZ
+python - <<'PY' (update RESEARCH_NOTES.md front matter to run sha)
+PY
+git add PROGRESS.md docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity/META.md project_state/RESEARCH_NOTES.md docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity/COMMANDS.md
+git commit -m "Align run metadata to run sha" -m "Tests: not run (not requested)"

@@ -115,3 +115,6 @@ resolve_eval_config -n experiments/eval/config.py
 2025-12-25T23:42:47Z CMD: git add .gitignore PROGRESS.md docs/CODEX_SPRINT_TICKETS.md project_state/RESEARCH_NOTES.md docs/agent_runs/20251225_224205_ticket-23_inject-spike-diagnostics-maxwindows
 2025-12-25T23:42:53Z CMD: git add --sparse .gitignore
 2025-12-25T23:43:00Z CMD: git add PROGRESS.md docs/CODEX_SPRINT_TICKETS.md project_state/RESEARCH_NOTES.md docs/agent_runs/20251225_224205_ticket-23_inject-spike-diagnostics-maxwindows
+2025-12-25T23:43:12Z CMD: git commit -m "Document ticket-23 diagnostics" -m "Tests: make test-fast" -m "Artifacts: reports/inject_spike/20251225_ticket23_dow_tyler\nArtifacts: docs/agent_runs/20251225_224205_ticket-23_inject-spike-diagnostics-maxwindows/artifacts/curve_dow_tyler.csv\nArtifacts: docs/agent_runs/20251225_224205_ticket-23_inject-spike-diagnostics-maxwindows/artifacts/gating_reasons_dow_tyler.csv"
+2025-12-25T23:43:20Z CMD: git status -sb
+2025-12-25T23:43:30Z CMD: git add docs/agent_runs/20251225_224205_ticket-23_inject-spike-diagnostics-maxwindows/COMMANDS.md

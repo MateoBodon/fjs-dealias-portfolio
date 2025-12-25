@@ -393,3 +393,26 @@
 - **Commands**: `make test-fast`; `EXEC_MODE=deterministic make rc-lite-sanity`.
 - **Changes**: explicit eval config paths now fail loudly when missing; `run.json` records `resolved_config_path`, `resolved_config_hash`, and `git_dirty`; added tests for missing/paper configs; removed the missing paper-v1 config Known Issue and marked the PLAN_OF_RECORD roadmap item as done.
 - **Artifacts**: run log `docs/agent_runs/20251223_064432_ticket-16_paper-config-integrity/`; outputs `reports/rc-20251223-sanity-20251223_064808/`; weekly outputs `experiments/equity_panel/outputs_rc-lite-20251223_20251223_064808/`.
+
+## 2025-12-25T23:38Z — ticket-23 inject-spike diagnostics + max-windows
+- **Branch/Run**: `codex/ticket-23-inject-spike-diagnostics-maxwindows` (RUN_NAME=`20251225_224205_ticket-23_inject-spike-diagnostics-maxwindows`).
+- **Commands**:
+  - `python -m pytest tests/experiments/test_inject_spike.py -q`
+  - `PYTHONPATH=src:. python experiments/eval/inject_spike.py --returns-csv data/returns_daily.csv --factors-csv data/factors/ff5mom_daily.csv --config experiments/eval/config.yaml --group-design dow --assets-top 80 --start 2022-01-01 --end 2022-12-31 --mu-grid 3,6,12,24 --max-windows 25 --window-sampling random --seed 23 --run-id 20251225_ticket23_dow_tyler`
+  - Multiple week/scm/coarse attempts were started and aborted due to long `dealias_search` runtime (see run log COMMANDS for exact invocations).
+- **Results/Notes**:
+  - `inject_spike` now writes `windows_detail.csv` + `gating_reasons.csv` with guard counts; `run.json` includes sampling metadata + reason-bucket summaries.
+  - DoW run (20251225_ticket23_dow_tyler) remains flat-zero across μ; gating reasons dominated by `tvec_compute_error` + `tvec_off_component` (pre-gate), indicating the t-vector guardrail blocks candidates.
+  - Week smokes did not finish locally; no completed week curve yet (aborted runs left only `resolved_config.json`).
+- **Artifacts**:
+  - `reports/inject_spike/20251225_ticket23_dow_tyler/` (curve/plot/run.json/windows_detail/gating_reasons)
+  - `docs/agent_runs/20251225_224205_ticket-23_inject-spike-diagnostics-maxwindows/artifacts/curve_dow_tyler.csv`
+  - `docs/agent_runs/20251225_224205_ticket-23_inject-spike-diagnostics-maxwindows/artifacts/gating_reasons_dow_tyler.csv`
+- **Key results (DoW)**:
+  - μ=0.0: detect=0.00, accept=0.00 (n_windows=25)
+  - μ=3.0: detect=0.00, accept=0.00 (n_windows=1)
+  - μ=6.0: detect=0.00, accept=0.00 (n_windows=1)
+  - μ=12.0: detect=0.00, accept=0.00 (n_windows=1)
+  - μ=24.0: detect=0.00, accept=0.00 (n_windows=1)
+- **Key results (Week)**:
+  - No completed run (local runtime aborts during `dealias_search`).

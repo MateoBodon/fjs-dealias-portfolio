@@ -84,7 +84,7 @@ Rule: do not expand the experiment grid until Tickets 1–4 are done.
 
 ## Ticket #18 — Injection sensitivity on real windows (detection/acceptance vs μ)
 
-**Status:** DONE
+**Status:** FAIL — flat-zero curve (no detections/acceptances across μ).
 
 **Goal (1 sentence):** Prove the detection + gating stack responds to known spikes under real-data noise by running injection sensitivity and producing a μ→(detection, acceptance) curve.
 
@@ -109,6 +109,21 @@ Rule: do not expand the experiment grid until Tickets 1–4 are done.
 **Expected artifacts/logs:**
 - `reports/inject_spike/<RUN_ID>/{curve.csv,curve.png(or .pdf),run.json,resolved_config.json}`
 - run log in `docs/agent_runs/<RUN_NAME>/`
+
+---
+
+## Ticket #23 — Injection diagnostics + max-windows sampling
+
+**Status:** IN PROGRESS
+
+**Goal (1 sentence):** Make `inject_spike.py` diagnostic (per-window + gating attribution), add max-windows sampling, and run real-data smokes that explain why `week` is flat.
+
+**Acceptance criteria:**
+- CLI supports `--max-windows`, `--window-sampling`, and `--window-sampling-seed` with deterministic sampling post-filtering.
+- Outputs include `windows_detail.csv` and `gating_reasons.csv` with required columns and guardrail reason buckets.
+- `run.json` captures sampling metadata, baseline vs injected window counts, and reason-bucket summaries.
+- Unit tests cover deterministic sampling, output schema, and missing-config hard errors.
+- Real-data inject-spike smokes run and are referenced in `PROGRESS.md` (with gating histograms when flat).
 
 ---
 

@@ -118,3 +118,9 @@ resolve_eval_config -n experiments/eval/config.py
 2025-12-25T23:43:12Z CMD: git commit -m "Document ticket-23 diagnostics" -m "Tests: make test-fast" -m "Artifacts: reports/inject_spike/20251225_ticket23_dow_tyler\nArtifacts: docs/agent_runs/20251225_224205_ticket-23_inject-spike-diagnostics-maxwindows/artifacts/curve_dow_tyler.csv\nArtifacts: docs/agent_runs/20251225_224205_ticket-23_inject-spike-diagnostics-maxwindows/artifacts/gating_reasons_dow_tyler.csv"
 2025-12-25T23:43:20Z CMD: git status -sb
 2025-12-25T23:43:30Z CMD: git add docs/agent_runs/20251225_224205_ticket-23_inject-spike-diagnostics-maxwindows/COMMANDS.md
+2025-12-25T23:43:35Z CMD: git commit -m "Update run log commands" -m "Tests: make test-fast"
+2025-12-25T23:43:39Z CMD: git status -sb
+2025-12-25T23:43:54Z CMD: make gpt-bundle TICKET=ticket-23 RUN_NAME=20251225_224205_ticket-23_inject-spike-diagnostics-maxwindows
+2025-12-25T23:44:05Z CMD: apply_patch update RESULTS.md with bundle/tests
+2025-12-25T23:44:13Z CMD: git status -sb
+2025-12-25T23:44:19Z CMD: git add docs/agent_runs/20251225_224205_ticket-23_inject-spike-diagnostics-maxwindows/COMMANDS.md docs/agent_runs/20251225_224205_ticket-23_inject-spike-diagnostics-maxwindows/RESULTS.md

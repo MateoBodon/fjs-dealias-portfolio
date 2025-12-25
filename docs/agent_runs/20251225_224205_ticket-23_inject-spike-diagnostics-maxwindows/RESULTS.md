@@ -29,3 +29,6 @@
 ## Acceptance criteria
 - **FAIL** — No design+edge_mode showed detection/acceptance increasing with μ; week run could not be completed locally.
 
+## Bundle + tests
+- Bundle: `docs/gpt_bundles/20251226_004354_ticket-23_20251225_224205_ticket-23_inject-spike-diagnostics-maxwindows.zip`
+- Tests: `make test-fast`

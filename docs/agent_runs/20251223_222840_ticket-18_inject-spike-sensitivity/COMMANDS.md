@@ -118,3 +118,9 @@ RC_ASSETS_TOP=25 RC_WINDOW=40 RC_HORIZON=5 RC_START=2024-01-01 RC_END=2024-06-30
 ls -1t reports/inject_spike | head -n 5
 cat reports/inject_spike/20251225_213525/run.json
 cat reports/inject_spike/20251225_213525/curve.csv
+git add PROGRESS.md docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity/COMMANDS.md docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity/META.md docs/agent_runs/20251223_222840_ticket-18_inject-spike-sensitivity/RESULTS.md project_state/RESEARCH_NOTES.md reports/inject_spike/20251225_213525
+git commit -m "Log make inject-spike run" -m "Tests: not run (not requested)"
+git rev-parse HEAD
+date -u +%Y-%m-%dT%H:%M:%SZ
+python - <<'PY' (update RESEARCH_NOTES.md front matter after make inject-spike run)
+PY

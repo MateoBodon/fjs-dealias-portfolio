@@ -124,3 +124,6 @@ resolve_eval_config -n experiments/eval/config.py
 2025-12-25T23:44:05Z CMD: apply_patch update RESULTS.md with bundle/tests
 2025-12-25T23:44:13Z CMD: git status -sb
 2025-12-25T23:44:19Z CMD: git add docs/agent_runs/20251225_224205_ticket-23_inject-spike-diagnostics-maxwindows/COMMANDS.md docs/agent_runs/20251225_224205_ticket-23_inject-spike-diagnostics-maxwindows/RESULTS.md
+2025-12-25T23:44:25Z CMD: git commit -m "Update run log results" -m "Tests: make test-fast"
+2025-12-25T23:44:30Z CMD: git status -sb
+2025-12-25T23:44:39Z CMD: git add docs/agent_runs/20251225_224205_ticket-23_inject-spike-diagnostics-maxwindows/COMMANDS.md

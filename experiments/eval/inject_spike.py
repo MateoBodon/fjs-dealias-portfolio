@@ -2,11 +2,18 @@
 from __future__ import annotations
 
 import argparse
+import cProfile
 import json
 import math
+import os
+import platform
+import pstats
+import sys
+import time
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from datetime import datetime, timezone
+from io import StringIO
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -21,7 +28,7 @@ except Exception:  # pragma: no cover
 from eval.balance import build_balanced_window
 from eval.clean import apply_nan_policy
 from experiments.daily.grouping import GroupingError
-from experiments.eval.config import ResolveResult, resolve_eval_config
+from experiments.eval.config import DEFAULT_THRESHOLDS_PATH, ResolveResult, resolve_eval_config
 import experiments.eval.run as eval_run
 from fjs.overlay import OverlayConfig, detect_spikes
 
@@ -65,6 +72,9 @@ GUARD_KEYS = [
     "neg_mu",
     "eps",
     "tvec_compute_error",
+    "tvec_no_real_root",
+    "tvec_no_admissible_root",
+    "tvec_singularity",
     "tvec_target_zero",
     "tvec_off_component",
     "mu_nonfinite",
@@ -81,6 +91,16 @@ GATE_REASON_KEYS = [
     "delta_frac_max",
     "soft_cap",
     "hard_cap",
+]
+
+THREAD_ENV_KEYS = [
+    "EXEC_MODE",
+    "OMP_NUM_THREADS",
+    "MKL_NUM_THREADS",
+    "OPENBLAS_NUM_THREADS",
+    "NUMEXPR_NUM_THREADS",
+    "VECLIB_MAXIMUM_THREADS",
+    "BLIS_NUM_THREADS",
 ]
 
 
@@ -360,6 +380,74 @@ def _build_gating_reasons_dataframe(detail_df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=columns)
 
 
+def _thread_env_snapshot() -> dict[str, str | None]:
+    return {key: os.environ.get(key) for key in THREAD_ENV_KEYS}
+
+
+def _write_profile_summary(profile: cProfile.Profile, out_path: Path) -> None:
+    stream = StringIO()
+    stats = pstats.Stats(profile, stream=stream)
+    stats.sort_stats("cumulative")
+    stream.write("==== Top cumulative (30) ===\n")
+    stats.print_stats(30)
+    stream.write("\n==== fjs.dealias / fjs.mp ===\n")
+    stats.print_stats("fjs.dealias")
+    stats.print_stats("fjs.mp")
+    out_path.write_text(stream.getvalue(), encoding="utf-8")
+
+
+def _dominant_tvec_reasons(gating_df: pd.DataFrame) -> bool:
+    if gating_df.empty:
+        return False
+    subset = gating_df[(gating_df["stage"] == "pre_gate") & (gating_df["injected_mu"] == 0.0)]
+    if subset.empty:
+        return False
+    total = int(subset["count"].sum())
+    if total <= 0:
+        return False
+    tvec_reasons = {
+        "tvec_compute_error",
+        "tvec_no_real_root",
+        "tvec_no_admissible_root",
+        "tvec_singularity",
+        "tvec_off_component",
+    }
+    tvec_total = int(subset[subset["reason"].isin(tvec_reasons)]["count"].sum())
+    return (tvec_total / float(total)) >= 0.5
+
+
+def _write_debug_window(
+    sample: WindowSample,
+    stats: dict[str, Any],
+    overlay_cfg: OverlayConfig,
+    thresholds_path: Path | None,
+    out_path: Path,
+) -> None:
+    overlay_payload = {field.name: getattr(overlay_cfg, field.name) for field in fields(OverlayConfig)}
+    thresholds_payload = None
+    if thresholds_path is not None and thresholds_path.exists():
+        try:
+            thresholds_payload = json.loads(thresholds_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            thresholds_payload = None
+    payload = {
+        "overlay_config": overlay_payload,
+        "thresholds_path": str(thresholds_path) if thresholds_path else None,
+        "thresholds": thresholds_payload,
+        "stats": stats,
+        "fit_start": str(sample.fit_start),
+        "fit_end": str(sample.fit_end),
+        "horizon_start": str(sample.hold_start),
+        "horizon_end": str(sample.hold_end),
+    }
+    np.savez_compressed(
+        out_path,
+        matrix=sample.matrix,
+        group_labels=sample.group_labels,
+        metadata=np.array(json.dumps(payload, default=str)),
+    )
+
+
 def _resolve_eval_config_or_fail(args: argparse.Namespace) -> ResolveResult:
     config_args = {
         "returns_csv": args.returns_csv,
@@ -509,6 +597,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--max-windows", type=int, default=None)
     parser.add_argument("--window-sampling", type=str, choices=["first", "random"], default="first")
     parser.add_argument("--window-sampling-seed", type=int, default=None)
+    parser.add_argument("--profile", action="store_true", help="write cProfile summary to output dir")
     parser.add_argument("--run-id", type=str, default=None)
     parser.add_argument("--out", type=Path, default=Path("reports/inject_spike"))
     args = parser.parse_args(argv)
@@ -532,6 +621,15 @@ def main(argv: Sequence[str] | None = None) -> None:
     config = resolved.config
     if plt is None:
         raise RuntimeError("matplotlib is required for injection plots")
+
+    start_utc = datetime.now(tz=timezone.utc)
+    start_perf = time.perf_counter()
+    thread_env = _thread_env_snapshot()
+    thresholds_path = Path(args.thresholds) if args.thresholds else DEFAULT_THRESHOLDS_PATH
+    if thresholds_path is not None and not thresholds_path.exists():
+        thresholds_path = None
+
+    profiler: cProfile.Profile | None = cProfile.Profile() if args.profile else None
 
     run_id = args.run_id or datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
     out_root = args.out.resolve()
@@ -600,6 +698,11 @@ def main(argv: Sequence[str] | None = None) -> None:
     mu_values = sorted({float(mu) for mu in args.mu_values})
     curve_rows: list[dict[str, float]] = []
     window_rows: list[dict[str, Any]] = []
+    debug_candidate: tuple[WindowSample, dict[str, Any]] | None = None
+    debug_window_path: Path | None = None
+
+    if profiler is not None:
+        profiler.enable()
 
     baseline_stats = {
         "n_windows": len(samples),
@@ -612,6 +715,10 @@ def main(argv: Sequence[str] | None = None) -> None:
             sample.group_labels,
             overlay_cfg,
         )
+        if debug_candidate is None:
+            diag = stats.get("diagnostics", {}) if isinstance(stats, dict) else {}
+            if diag.get("tvec_compute_error", 0) or diag.get("tvec_off_component", 0):
+                debug_candidate = (sample, stats)
         baseline_stats["n_detected"] += int(detected_count > 0)
         baseline_stats["n_accepted"] += int(accepted_count > 0)
         row = {
@@ -658,6 +765,10 @@ def main(argv: Sequence[str] | None = None) -> None:
                 sample.group_labels,
                 overlay_cfg,
             )
+            if debug_candidate is None:
+                diag = stats.get("diagnostics", {}) if isinstance(stats, dict) else {}
+                if diag.get("tvec_compute_error", 0) or diag.get("tvec_off_component", 0):
+                    debug_candidate = (sample, stats)
             mu_stats["n_detected"] += int(detected_count > 0)
             mu_stats["n_accepted"] += int(accepted_count > 0)
             row = {
@@ -688,6 +799,9 @@ def main(argv: Sequence[str] | None = None) -> None:
         mu_stats["mu"] = float(mu)
         curve_rows.append(mu_stats)
 
+    if profiler is not None:
+        profiler.disable()
+
     curve_df = _build_curve_dataframe(curve_rows).sort_values("mu")
     curve_csv = run_dir / "curve.csv"
     curve_df.to_csv(curve_csv, index=False)
@@ -699,6 +813,20 @@ def main(argv: Sequence[str] | None = None) -> None:
     gating_reasons_df = _build_gating_reasons_dataframe(windows_detail_df)
     gating_reasons_csv = run_dir / "gating_reasons.csv"
     gating_reasons_df.to_csv(gating_reasons_csv, index=False)
+
+    max_detected = int(curve_df["n_detected"].max()) if not curve_df.empty else 0
+    max_accepted = int(curve_df["n_accepted"].max()) if not curve_df.empty else 0
+    flat_zero = bool(max_detected == 0 and max_accepted == 0)
+    dominant_tvec = _dominant_tvec_reasons(gating_reasons_df)
+    if (flat_zero or dominant_tvec) and debug_candidate is not None:
+        debug_window_path = run_dir / "debug_window.npz"
+        sample, stats = debug_candidate
+        _write_debug_window(sample, stats, overlay_cfg, thresholds_path, debug_window_path)
+
+    profile_txt = None
+    if profiler is not None:
+        profile_txt = run_dir / "profile.txt"
+        _write_profile_summary(profiler, profile_txt)
 
     curve_plot = run_dir / "curve.png"
     fig, ax = plt.subplots(figsize=(6.0, 3.8))
@@ -763,9 +891,12 @@ def main(argv: Sequence[str] | None = None) -> None:
     obs_counts = [sample.matrix.shape[0] for sample in samples]
     window_candidates = max(raw_returns.shape[0] - config.window - config.horizon + 1, 0)
 
+    end_utc = datetime.now(tz=timezone.utc)
+    runtime_sec = float(time.perf_counter() - start_perf)
+
     run_metadata = {
         "run_id": run_id,
-        "timestamp_utc": datetime.now(tz=timezone.utc).isoformat(),
+        "timestamp_utc": end_utc.isoformat(),
         "git_sha": eval_run._current_git_sha(),
         "git_dirty": eval_run._git_dirty(),
         "out_dir": str(run_dir),
@@ -834,7 +965,19 @@ def main(argv: Sequence[str] | None = None) -> None:
             "selected_windows_csv": str(selected_windows_csv),
             "windows_detail_csv": str(windows_detail_csv),
             "gating_reasons_csv": str(gating_reasons_csv),
+            "debug_window_npz": str(debug_window_path) if debug_window_path else None,
+            "profile_txt": str(profile_txt) if profile_txt else None,
             "resolved_config_json": str(resolved_config_path),
+        },
+        "runtime": {
+            "start_utc": start_utc.isoformat(),
+            "end_utc": end_utc.isoformat(),
+            "wall_sec": runtime_sec,
+            "python_version": sys.version,
+            "platform": platform.platform(),
+            "exec_mode": thread_env.get("EXEC_MODE"),
+            "workers": 1,
+            "thread_env": thread_env,
         },
         "gating_summary": gating_reasons_df.to_dict(orient="records"),
         "factors": (

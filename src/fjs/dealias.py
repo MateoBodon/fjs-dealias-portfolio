@@ -88,6 +88,17 @@ def _compute_admissible_root(
         return False
 
 
+def _tvec_error_reason(exc: Exception) -> str:
+    message = str(exc)
+    if "No real root found for the supplied λ" in message:
+        return "tvec_no_real_root"
+    if "No admissible root with positive slope found" in message:
+        return "tvec_no_admissible_root"
+    if "singularity" in message.lower():
+        return "tvec_singularity"
+    return "tvec_compute_error"
+
+
 def _orthonormal_tangent_basis(a_vec: np.ndarray) -> list[np.ndarray]:
     """Return an orthonormal basis for the tangent space at ``a_vec`` on the sphere."""
     dim = int(a_vec.shape[0])
@@ -720,9 +731,9 @@ def dealias_search(
                     t_target = None
                 else:
                     t_target = float(t_vals[target_r])
-            except (RuntimeError, ValueError):
+            except (RuntimeError, ValueError) as exc:
                 if use_tvector:
-                    _diag_inc("tvec_compute_error")
+                    _diag_inc(_tvec_error_reason(exc))
                     continue
                 t_vals = None
                 t_target = None

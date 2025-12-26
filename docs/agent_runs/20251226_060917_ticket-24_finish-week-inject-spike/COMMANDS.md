@@ -240,3 +240,12 @@ git add docs/agent_runs/20251226_060917_ticket-24_finish-week-inject-spike/COMMA
 git commit -m "Update ticket-24 run log bundle info" -m "Tests: python -m pytest tests/experiments/test_inject_spike.py -q; make test-fast"
 git status -sb
 git add docs/agent_runs/20251226_060917_ticket-24_finish-week-inject-spike/COMMANDS.md
+git commit -m "Finalize ticket-24 command log" -m "Tests: python -m pytest tests/experiments/test_inject_spike.py -q; make test-fast"
+git status -sb
+sed -n '1,240p' docs/CODEX_SPRINT_TICKETS.md
+cat reports/inject_spike/20251225_ticket23_dow_tyler/curve.csv
+tail -n 5 docs/agent_runs/20251225_224205_ticket-23_inject-spike-diagnostics-maxwindows/COMMANDS.md
+git diff -- docs/agent_runs/20251225_224205_ticket-23_inject-spike-diagnostics-maxwindows/COMMANDS.md | tail -n 20
+sed -n '1,200p' docs/agent_runs/20251226_060917_ticket-24_finish-week-inject-spike/RESULTS.md
+git status -sb
+git add docs/CODEX_SPRINT_TICKETS.md docs/agent_runs/20251225_224205_ticket-23_inject-spike-diagnostics-maxwindows/COMMANDS.md docs/agent_runs/20251226_060917_ticket-24_finish-week-inject-spike/RESULTS.md docs/agent_runs/20251226_060917_ticket-24_finish-week-inject-spike/COMMANDS.md

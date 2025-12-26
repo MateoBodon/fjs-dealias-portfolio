@@ -85,6 +85,7 @@ Rule: do not expand the experiment grid until Tickets 1–4 are done.
 ## Ticket #18 — Injection sensitivity on real windows (detection/acceptance vs μ)
 
 **Status:** FAIL — flat-zero curve (no detections/acceptances across μ).
+**Latest note:** Week full run (ticket-24) remains flat-zero; pre-gate dominated by `tvec_off_component` + no-root reasons (see run `reports/inject_spike/20251226_ticket24_week_full_fix/`).
 
 **Goal (1 sentence):** Prove the detection + gating stack responds to known spikes under real-data noise by running injection sensitivity and producing a μ→(detection, acceptance) curve.
 
@@ -114,7 +115,7 @@ Rule: do not expand the experiment grid until Tickets 1–4 are done.
 
 ## Ticket #23 — Injection diagnostics + max-windows sampling
 
-**Status:** IN PROGRESS
+**Status:** DONE
 
 **Goal (1 sentence):** Make `inject_spike.py` diagnostic (per-window + gating attribution), add max-windows sampling, and run real-data smokes that explain why `week` is flat.
 

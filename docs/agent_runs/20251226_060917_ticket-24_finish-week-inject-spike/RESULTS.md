@@ -5,6 +5,16 @@ Changes:
 - Extended inject_spike diagnostics to track new guard keys and tvec-dominance logic.
 - Added debug-window fixture + unit test for tvec no-root behavior.
 
+DoW inject-spike reference run (ticket-23):
+- Run id: 20251225_ticket23_dow_tyler
+- Outputs: reports/inject_spike/20251225_ticket23_dow_tyler/
+- Curve:
+  - mu=0.0 detect=0.00 accept=0.00 (n=25)
+  - mu=3.0 detect=0.00 accept=0.00 (n=1)
+  - mu=6.0 detect=0.00 accept=0.00 (n=1)
+  - mu=12.0 detect=0.00 accept=0.00 (n=1)
+  - mu=24.0 detect=0.00 accept=0.00 (n=1)
+
 Week inject-spike full run (post-fix):
 - Run id: 20251226_ticket24_week_full_fix
 - Outputs: reports/inject_spike/20251226_ticket24_week_full_fix/

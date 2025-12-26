@@ -137,3 +137,5 @@ PY
 63. cat <<'EOF' > docs/agent_runs/20251226_095630_ticket-25_week-between-smoke/META.md
 ... (see META.md for full content)
 EOF
+64. git add docs/agent_runs/20251226_095630_ticket-25_week-between-smoke/COMMANDS.md docs/agent_runs/20251226_095630_ticket-25_week-between-smoke/META.md
+65. git commit -m "Fix ticket-25 run log metadata" -m "Tests: python -m pytest tests/experiments/test_inject_spike.py -q" -m "Tests: make test-fast"

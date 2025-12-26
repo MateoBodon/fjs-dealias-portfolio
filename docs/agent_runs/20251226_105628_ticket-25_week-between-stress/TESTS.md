@@ -1,0 +1,2 @@
+- python -m pytest tests/experiments/test_inject_spike.py -q (pass; PytestConfigWarning: Unknown config option: timeout)
+- make test-fast (pass; 78 passed, 168 deselected, PytestConfigWarning: Unknown config option: timeout)

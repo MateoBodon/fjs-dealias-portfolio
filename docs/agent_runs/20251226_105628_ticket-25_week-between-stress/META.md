@@ -1,0 +1,11 @@
+- branch: codex/ticket-25_inject-component-modes
+- git_sha_start: d9b0e2d09ce19226c019feba187ae9c7b742d28c
+- git_sha_end: TBD
+- git_dirty_start: false
+- git_dirty_end: TBD
+- run_json_git_sha: d9b0e2d09ce19226c019feba187ae9c7b742d28c
+- run_json_git_dirty: false
+- resolved_config_path: reports/inject_spike/20251226_105628_ticket-25_week-between-stress/resolved_config.json
+- resolved_config_sha256: a9b2777a019d9518ca0fdc977f961f0a34ad22ea5328e6245c8050507559692d
+- data_returns_sha256: af5494a1d1fdab45cb1be6497a67eedce0f4b6e5c96a6221aefde630366bf653
+- data_factors_sha256: 877c14d4eaa84d5aeb8e9a8d6476ca73b9e110468d55fb0c8d4526c4e8544773

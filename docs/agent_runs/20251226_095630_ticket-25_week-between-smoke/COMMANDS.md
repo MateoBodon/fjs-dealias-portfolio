@@ -125,3 +125,15 @@ PY
 60. cat <<'EOF' > docs/agent_runs/20251226_095630_ticket-25_week-between-smoke/RESULTS.md
 ... (see RESULTS.md for full content)
 EOF
+61. git rev-parse HEAD
+62. python - <<'PY'
+from pathlib import Path
+path = Path('docs/agent_runs/20251226_095630_ticket-25_week-between-smoke/META.md')
+text = path.read_text()
+text = text.replace('git_sha_end: 3c347a19350e4227a58018dc240e646e720ae68f','git_sha_end: 38b0e9f4253aaa96c9289e7d9b615b25e1ae5c82')
+text = text.replace('git_dirty_end: true','git_dirty_end: false')
+path.write_text(text)
+PY
+63. cat <<'EOF' > docs/agent_runs/20251226_095630_ticket-25_week-between-smoke/META.md
+... (see META.md for full content)
+EOF

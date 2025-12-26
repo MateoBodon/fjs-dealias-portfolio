@@ -1,0 +1,11 @@
+- branch: codex/ticket-25_inject-component-modes
+- git_sha_start: 25e12b614b61dab239dfac5fec40ab5ba26da92d
+- git_sha_end: 38b0e9f4253aaa96c9289e7d9b615b25e1ae5c82
+- git_dirty_start: false
+- git_dirty_end: false
+- run_json_git_sha: 25e12b614b61dab239dfac5fec40ab5ba26da92d
+- run_json_git_dirty: true
+- resolved_config_path: reports/inject_spike/20251226_095630_ticket-25_week-between-smoke/resolved_config.json
+- resolved_config_sha256: 8af570c1e7d174ea0881e6f09fef59c649e6dad5c624527b40a66e7043ad7552
+- data_returns_sha256: af5494a1d1fdab45cb1be6497a67eedce0f4b6e5c96a6221aefde630366bf653
+- data_factors_sha256: 877c14d4eaa84d5aeb8e9a8d6476ca73b9e110468d55fb0c8d4526c4e8544773

@@ -478,3 +478,21 @@
   - Outputs `reports/rc-20251226-sanity-20251226_191833/`
   - Weekly smoke outputs `experiments/equity_panel/outputs_rc-lite-20251226_20251226_191833/`
   - Bundle `docs/gpt_bundles/20251226_194611_ticket-19_20251226_174844_ticket-19_changed-window-reporting.zip`
+
+
+## 2025-12-26T20:16Z — ticket-20 uncapped RC eval (changed-window stats)
+- **Branch/Run**: `codex/ticket-20_uncapped-rc-week` (RUN_NAME=`20251226_191530_ticket-20_uncapped-rc-week`), git sha `c8b95a67fc8e24b881dedb5b1c9fc9ab8e3ccc63`.
+- **Commands**:
+  - `make test-fast`
+  - `python tools/verify_dataset.py data/returns_sample.csv --registry data/registry.json`
+  - `python tools/verify_dataset.py data/returns_sample_spike.csv --registry data/registry.json`
+  - `python tools/verify_dataset.py data/factors/ff5mom_daily.csv --registry data/factors/registry.json`
+  - `EXEC_MODE=throughput PYTHONPATH=src:. OMP_NUM_THREADS=1 python3 experiments/eval/run.py --returns-csv data/returns_sample_spike.csv --window 40 --horizon 10 --assets-top 8 --group-design week --group-min-count 2 --group-min-replicates 2 --edge-mode tyler --shrinker rie --prewhiten ff5mom --overlay-delta 0.05 --coarse-candidate 1 --gate-mode soft --gate-accept-nonisolated --gate-stability-min 0.0001 --allow-non-isolated --use-factor-prewhiten 1 --gate-delta-calibration calibration/edge_delta_thresholds.json --gate-delta-frac-min 0.02 --q-max 2 --mv-gamma 1e-4 --mv-box 0.0,0.1 --mv-turnover-bps 5 --mv-condition-cap 1000000 --workers $(nproc) --out reports/rc-20251226/sample_spike_uncapped`
+  - `PYTHONPATH=src:. python tools/make_summary.py --rc-dir reports/rc-20251226/sample_spike_uncapped`
+- **Results**:
+  - Added fixture datasets `data/returns_sample.csv` and `data/returns_sample_spike.csv` to support fast uncapped validation; updated `data/registry.json`.
+  - Final uncapped run (sample_spike_uncapped) produces changed-window stats in summary_perf (n_changed > 0; changed_frac=1.0 due to injected spikes).
+  - Longer full-dataset uncapped runs were aborted after ~20 min without completing outputs.
+- **Artifacts**:
+  - Run log `docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/`
+  - Outputs `reports/rc-20251226/sample_spike_uncapped/` (summary in `summary/summary_perf.csv`)

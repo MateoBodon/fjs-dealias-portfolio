@@ -252,3 +252,11 @@ git add docs/CODEX_SPRINT_TICKETS.md docs/agent_runs/20251225_224205_ticket-23_i
 git commit -m "Update sprint ticket status and run logs" -m "Tests: python -m pytest tests/experiments/test_inject_spike.py -q; make test-fast"
 git status -sb
 git add docs/agent_runs/20251226_060917_ticket-24_finish-week-inject-spike/COMMANDS.md
+git commit -m "Finalize ticket-24 command log (post-checklist)" -m "Tests: python -m pytest tests/experiments/test_inject_spike.py -q; make test-fast"
+git status -sb
+tail -n 20 docs/agent_runs/20251226_060917_ticket-24_finish-week-inject-spike/COMMANDS.md
+git add docs/agent_runs/20251226_060917_ticket-24_finish-week-inject-spike/COMMANDS.md
+git commit -m "Finalize command log for merge/push" -m "Tests: python -m pytest tests/experiments/test_inject_spike.py -q; make test-fast"
+git checkout main
+git merge codex/ticket-24_finish-week-inject-spike
+git push origin main

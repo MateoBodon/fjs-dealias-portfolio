@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import numpy as np
@@ -5,6 +6,8 @@ import pandas as pd
 import pytest
 
 from experiments.eval import inject_spike
+from fjs.balanced import mean_squares
+from fjs.overlay import OverlayConfig, detect_spikes
 
 
 @pytest.mark.unit
@@ -118,3 +121,26 @@ def test_missing_config_path_fails(tmp_path: Path) -> None:
     )
     with pytest.raises(FileNotFoundError):
         inject_spike._resolve_eval_config_or_fail(args)
+
+
+@pytest.mark.unit
+def test_debug_window_no_tvec_compute_error() -> None:
+    fixture_path = Path("tests/fixtures/debug_window_week_no_root.npz")
+    assert fixture_path.exists()
+    with np.load(fixture_path, allow_pickle=True) as data:
+        obs = data["matrix"]
+        groups = data["group_labels"]
+        metadata = json.loads(data["metadata"].item())
+
+    cfg_payload = metadata["overlay_config"]
+    overlay_cfg = OverlayConfig(**cfg_payload)
+    stats = mean_squares(obs, groups)
+    _ = detect_spikes(
+        obs,
+        groups,
+        config=overlay_cfg,
+        stats=stats,
+    )
+    diagnostics = stats.get("diagnostics", {})
+    assert diagnostics.get("tvec_compute_error", 0) == 0
+    assert diagnostics.get("tvec_no_real_root", 0) > 0

@@ -12,4 +12,4 @@
 - Sample runs without injected spikes produced zero detections/changed windows.
   - reports/rc-20251226/sample_uncapped
   - reports/rc-20251226/sample_uncapped_nonisolated
-- Bundle: pending (make gpt-bundle to run).
+- Bundle: docs/gpt_bundles/20251226_212444_ticket-20_20251226_191530_ticket-20_uncapped-rc-week.zip

@@ -353,3 +353,15 @@ ps -p 3131285 -o etime,pcpu,pmem,args
 git commit -m 'Log ticket-20 uncapped run and updates' -m 'Tests: make test-fast' -m 'Artifacts: reports/rc-20251226/sample_spike_uncapped/; docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/'
 git status --porcelain
 git add docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md
+find reports/rc-20251226/dow_uncapped_2018_2019 -maxdepth 2 -type f | wc -l
+ps -p 3131285 -o etime,pcpu,pmem,args
+git commit -m 'Update ticket-20 command log' -m 'Tests: make test-fast'
+git status --porcelain
+ps -p 3131285 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019 -maxdepth 2 -type f | wc -l
+make gpt-bundle TICKET=ticket-20 RUN_NAME=20251226_191530_ticket-20_uncapped-rc-week
+ps -p 3131285 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019 -maxdepth 2 -type f | wc -l
+git status --porcelain
+ps -p 3131285 -o etime,pcpu,pmem,args
+git add docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/RESULTS.md

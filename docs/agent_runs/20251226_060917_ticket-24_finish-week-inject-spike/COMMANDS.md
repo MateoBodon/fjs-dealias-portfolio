@@ -249,3 +249,6 @@ git diff -- docs/agent_runs/20251225_224205_ticket-23_inject-spike-diagnostics-m
 sed -n '1,200p' docs/agent_runs/20251226_060917_ticket-24_finish-week-inject-spike/RESULTS.md
 git status -sb
 git add docs/CODEX_SPRINT_TICKETS.md docs/agent_runs/20251225_224205_ticket-23_inject-spike-diagnostics-maxwindows/COMMANDS.md docs/agent_runs/20251226_060917_ticket-24_finish-week-inject-spike/RESULTS.md docs/agent_runs/20251226_060917_ticket-24_finish-week-inject-spike/COMMANDS.md
+git commit -m "Update sprint ticket status and run logs" -m "Tests: python -m pytest tests/experiments/test_inject_spike.py -q; make test-fast"
+git status -sb
+git add docs/agent_runs/20251226_060917_ticket-24_finish-week-inject-spike/COMMANDS.md

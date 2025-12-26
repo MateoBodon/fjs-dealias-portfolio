@@ -1,0 +1,15 @@
+- branch: codex/ticket-25_inject-component-modes
+- git_sha_start: e198fddf2cb74df8e41b5a9d043e45f300115aae
+- git_sha_end: e198fddf2cb74df8e41b5a9d043e45f300115aae
+- git_dirty_start: true
+- git_dirty_end: true
+- within_run_json_git_sha: e198fddf2cb74df8e41b5a9d043e45f300115aae
+- within_run_json_git_dirty: true
+- total_run_json_git_sha: e198fddf2cb74df8e41b5a9d043e45f300115aae
+- total_run_json_git_dirty: true
+- within_resolved_config_path: reports/inject_spike/20251226_102602_ticket-25_week-within-smoke/resolved_config.json
+- within_resolved_config_sha256: 019b710f3099a2f0bf945abe547f830aa4f318c2ae8a3c9fac27910127148875
+- total_resolved_config_path: reports/inject_spike/20251226_102602_ticket-25_week-total-smoke/resolved_config.json
+- total_resolved_config_sha256: 3ae87f4dd3541e8545d48999a2d8459f8c2dbd2e1dd9618fa0dbf21664f460a0
+- data_returns_sha256: af5494a1d1fdab45cb1be6497a67eedce0f4b6e5c96a6221aefde630366bf653
+- data_factors_sha256: 877c14d4eaa84d5aeb8e9a8d6476ca73b9e110468d55fb0c8d4526c4e8544773

@@ -1,0 +1,4 @@
+mu,inject_mode,detection_rate,acceptance_rate,n_windows,n_detected,n_accepted
+0.0,within,0.0,0.0,20,0,0
+12.0,within,0.0,0.0,1,0,0
+24.0,within,0.0,0.0,1,0,0

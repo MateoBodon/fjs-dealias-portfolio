@@ -237,3 +237,6 @@ git status -sb
 make gpt-bundle TICKET=ticket-24 RUN_NAME=20251226_060917_ticket-24_finish-week-inject-spike
 git status -sb
 git add docs/agent_runs/20251226_060917_ticket-24_finish-week-inject-spike/COMMANDS.md docs/agent_runs/20251226_060917_ticket-24_finish-week-inject-spike/RESULTS.md
+git commit -m "Update ticket-24 run log bundle info" -m "Tests: python -m pytest tests/experiments/test_inject_spike.py -q; make test-fast"
+git status -sb
+git add docs/agent_runs/20251226_060917_ticket-24_finish-week-inject-spike/COMMANDS.md

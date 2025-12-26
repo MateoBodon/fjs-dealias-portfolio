@@ -365,3 +365,11 @@ find reports/rc-20251226/dow_uncapped_2018_2019 -maxdepth 2 -type f | wc -l
 git status --porcelain
 ps -p 3131285 -o etime,pcpu,pmem,args
 git add docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/RESULTS.md
+find reports/rc-20251226/dow_uncapped_2018_2019 -maxdepth 2 -type f | wc -l
+git commit -m 'Finalize ticket-20 run log' -m 'Tests: make test-fast' -m 'Artifacts: docs/gpt_bundles/20251226_212444_ticket-20_20251226_191530_ticket-20_uncapped-rc-week.zip'
+ps -p 3131285 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019 -maxdepth 2 -type f | wc -l
+ps -p 3131285 -o etime,pcpu,pmem,args
+git add docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md
+git commit -m 'Update ticket-20 command log after bundle' -m 'Tests: make test-fast'
+find reports/rc-20251226/dow_uncapped_2018_2019 -maxdepth 2 -type f | wc -l

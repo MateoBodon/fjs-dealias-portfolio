@@ -118,3 +118,10 @@ text = path.read_text()
 text = text.replace('3c347a1b1e502e299f2a5f6943d8923f5bb32d68','3c347a19350e4227a58018dc240e646e720ae68f')
 path.write_text(text)
 PY
+56. make gpt-bundle TICKET=ticket-25 RUN_NAME=20251226_095630_ticket-25_week-between-smoke
+57. tail -n 20 docs/agent_runs/20251226_095630_ticket-25_week-between-smoke/RESULTS.md
+58. cat docs/agent_runs/20251226_095630_ticket-25_week-between-smoke/RESULTS.md
+59. ls -l docs/agent_runs/20251226_095630_ticket-25_week-between-smoke/RESULTS.md
+60. cat <<'EOF' > docs/agent_runs/20251226_095630_ticket-25_week-between-smoke/RESULTS.md
+... (see RESULTS.md for full content)
+EOF

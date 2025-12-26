@@ -264,3 +264,11 @@ git rm -r reports/inject_spike
 git rm docs/agent_runs/20251225_224205_ticket-23_inject-spike-diagnostics-maxwindows/META.tmp
 git push origin main
 git commit -am "Remove tracked inject_spike reports" -m "Tests: python -m pytest tests/experiments/test_inject_spike.py -q; make test-fast"
+make gpt-bundle TICKET=ticket-24 RUN_NAME=20251226_060917_ticket-24_finish-week-inject-spike
+rg -n "gpt-bundle" -n Makefile
+sed -n '620,680p' Makefile
+rg -n "def diff" -n tools/gpt_bundle.py
+sed -n '1,200p' tools/gpt_bundle.py
+BUNDLE_BASE=f1d49af make gpt-bundle TICKET=ticket-24 RUN_NAME=20251226_060917_ticket-24_finish-week-inject-spike
+git push origin main
+git commit -am "Update bundle after base override" -m "Tests: python -m pytest tests/experiments/test_inject_spike.py -q; make test-fast"

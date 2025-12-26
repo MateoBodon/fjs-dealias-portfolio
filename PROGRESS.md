@@ -416,3 +416,31 @@
   - μ=24.0: detect=0.00, accept=0.00 (n_windows=1)
 - **Key results (Week)**:
   - No completed run (local runtime aborts during `dealias_search`).
+
+## 2025-12-26T08:15Z — ticket-24 finish week inject-spike diagnostics
+- **Branch/Run**: `codex/ticket-24_finish-week-inject-spike` (RUN_NAME=`20251226_060917_ticket-24_finish-week-inject-spike`, run_id=`20251226_ticket24_week_full_fix`), git sha `31c05a57ffd5db7a1531c427eb7373de5f7a5f22`.
+- **Commands**:
+  - `EXEC_MODE=throughput OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1 PYTHONPATH=src:. python experiments/eval/inject_spike.py --returns-csv reports/fixtures/returns_daily_small.csv --factors-csv reports/fixtures/ff5mom_daily_small.csv --config docs/agent_runs/20251226_060917_ticket-24_finish-week-inject-spike/inject_spike_fast.yaml --group-design week --assets-top 20 --window 30 --horizon 5 --mu-grid 3,6,12,24 --inject-frac-min 0.4 --inject-frac-max 0.4 --profile --run-id 20251226_ticket24_week_full_fix`
+  - `python -m pytest tests/experiments/test_inject_spike.py -q`
+  - `make test-fast`
+- **Results**:
+  - Week full run remains flat-zero across μ (curve in run log artifacts). Dominant pre-gate reasons: `tvec_off_component` (22320), `tvec_no_real_root` (7756), `tvec_no_admissible_root` (3404); `tvec_compute_error=0` after the classification fix.
+  - Runtime: ~879s wall (throughput, 1 worker; BLAS threads pinned to 1). Profile shows `mp.t_vec`/`admissible_m_from_lambda` dominating.
+- **Artifacts**:
+  - Run log `docs/agent_runs/20251226_060917_ticket-24_finish-week-inject-spike/`
+  - Outputs `reports/inject_spike/20251226_ticket24_week_full_fix/`
+  - Review copies `docs/agent_runs/20251226_060917_ticket-24_finish-week-inject-spike/artifacts/`
+
+## 2025-12-26T08:15Z — ticket-24 finish week inject-spike diagnostics
+- **Branch/Run**: `codex/ticket-24_finish-week-inject-spike` (RUN_NAME=`20251226_060917_ticket-24_finish-week-inject-spike`, run_id=`20251226_ticket24_week_full_fix`), git sha `31c05a57ffd5db7a1531c427eb7373de5f7a5f22`.
+- **Commands**:
+  - `EXEC_MODE=throughput OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1 PYTHONPATH=src:. python experiments/eval/inject_spike.py --returns-csv reports/fixtures/returns_daily_small.csv --factors-csv reports/fixtures/ff5mom_daily_small.csv --config docs/agent_runs/20251226_060917_ticket-24_finish-week-inject-spike/inject_spike_fast.yaml --group-design week --assets-top 20 --window 30 --horizon 5 --mu-grid 3,6,12,24 --inject-frac-min 0.4 --inject-frac-max 0.4 --profile --run-id 20251226_ticket24_week_full_fix`
+  - `python -m pytest tests/experiments/test_inject_spike.py -q`
+  - `make test-fast`
+- **Results**:
+  - Week full run remains flat-zero across μ (curve in run log artifacts). Dominant pre-gate reasons: `tvec_off_component` (22320), `tvec_no_real_root` (7756), `tvec_no_admissible_root` (3404); `tvec_compute_error=0` after the classification fix.
+  - Runtime: ~879s wall (throughput, 1 worker; BLAS threads pinned to 1). Profile shows `mp.t_vec`/`admissible_m_from_lambda` dominating.
+- **Artifacts**:
+  - Run log `docs/agent_runs/20251226_060917_ticket-24_finish-week-inject-spike/`
+  - Outputs `reports/inject_spike/20251226_ticket24_week_full_fix/`
+  - Review copies `docs/agent_runs/20251226_060917_ticket-24_finish-week-inject-spike/artifacts/`

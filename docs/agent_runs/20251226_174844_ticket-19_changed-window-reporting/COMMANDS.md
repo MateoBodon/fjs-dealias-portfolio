@@ -415,3 +415,9 @@ cat <<'EOF_CMDLOG3' >> docs/agent_runs/20251226_174844_ticket-19_changed-window-
 make gpt-bundle TICKET=ticket-19 RUN_NAME=20251226_174844_ticket-19_changed-window-reporting
 apply_patch  # docs/agent_runs/.../RESULTS.md: add bundle path
 cat <<'EOF_CMDLOG4' >> docs/agent_runs/20251226_174844_ticket-19_changed-window-reporting/COMMANDS.md
+git status -sb
+git add docs/agent_runs/20251226_174844_ticket-19_changed-window-reporting/COMMANDS.md docs/agent_runs/20251226_174844_ticket-19_changed-window-reporting/RESULTS.md
+git commit -m "docs: record ticket-19 bundle" -m "Tests: make test-fast; EXEC_MODE=deterministic RC_LITE_STAMP=20251226_181827 make rc-lite-sanity" -m "Artifacts: docs/gpt_bundles/20251226_194317_ticket-19_20251226_174844_ticket-19_changed-window-reporting.zip"
+cat <<'EOF_CMDLOG5' >> docs/agent_runs/20251226_174844_ticket-19_changed-window-reporting/COMMANDS.md
+git add docs/agent_runs/20251226_174844_ticket-19_changed-window-reporting/COMMANDS.md
+git commit -m "docs: finalize ticket-19 command log" -m "Tests: make test-fast; EXEC_MODE=deterministic RC_LITE_STAMP=20251226_181827 make rc-lite-sanity" -m "Artifacts: docs/gpt_bundles/20251226_194317_ticket-19_20251226_174844_ticket-19_changed-window-reporting.zip"

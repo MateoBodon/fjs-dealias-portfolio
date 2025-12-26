@@ -25,4 +25,4 @@ Top gating reasons (gating_reasons.csv):
 - μ=36.0 pre-gate: tvec_off_component=4130, tvec_no_real_root=790, tvec_no_admissible_root=506, off_component_ratio=144; post-gate accepted=10.
 
 Bundle:
-- Pending (fill after make gpt-bundle).
+- docs/gpt_bundles/20251226_110750_ticket-25_20251226_105628_ticket-25_week-between-stress.zip

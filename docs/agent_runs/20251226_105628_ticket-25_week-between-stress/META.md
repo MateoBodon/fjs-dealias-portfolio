@@ -1,8 +1,8 @@
 - branch: codex/ticket-25_inject-component-modes
 - git_sha_start: d9b0e2d09ce19226c019feba187ae9c7b742d28c
-- git_sha_end: TBD
+- git_sha_end: c89c3d8976fbf1a76e1dd994afe6dae737f573e0
 - git_dirty_start: false
-- git_dirty_end: TBD
+- git_dirty_end: false
 - run_json_git_sha: d9b0e2d09ce19226c019feba187ae9c7b742d28c
 - run_json_git_dirty: false
 - resolved_config_path: reports/inject_spike/20251226_105628_ticket-25_week-between-stress/resolved_config.json

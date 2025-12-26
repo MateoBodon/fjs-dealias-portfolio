@@ -46,8 +46,34 @@ PY
 ... (see META.md for full content)
 14. cat <<'EOF' >> PROGRESS.md
 ... (ticket-25 between stress entry)
-15. cat <<'EOF' > docs/agent_runs/20251226_105628_ticket-25_week-between-stress/COMMANDS.md
-... (this file)
+15. python - <<'PY'
+from pathlib import Path
+lines = Path('docs/agent_runs/20251226_105628_ticket-25_week-between-stress/COMMANDS.md').read_text().splitlines()
+PY
 16. git add docs/agent_runs/20251226_105628_ticket-25_week-between-stress PROGRESS.md
 17. git commit -m "Add between stress-test run log" -m "Tests: python -m pytest tests/experiments/test_inject_spike.py -q" -m "Tests: make test-fast"
-18. BUNDLE_STAMP=20251226_1112xx make gpt-bundle TICKET=ticket-25 RUN_NAME=20251226_105628_ticket-25_week-between-stress
+18. git rev-parse HEAD
+19. python - <<'PY'
+from pathlib import Path
+path = Path('docs/agent_runs/20251226_105628_ticket-25_week-between-stress/META.md')
+text = path.read_text()
+text = text.replace('git_sha_end: TBD', 'git_sha_end: c89c3d8976fbf1a76e1dd994afe6dae737f573e0')
+text = text.replace('git_dirty_end: TBD', 'git_dirty_end: false')
+path.write_text(text)
+PY
+20. date +%Y%m%d_%H%M%S
+21. BUNDLE_STAMP=20251226_110750 make gpt-bundle TICKET=ticket-25 RUN_NAME=20251226_105628_ticket-25_week-between-stress
+22. python - <<'PY'
+from pathlib import Path
+path = Path('docs/agent_runs/20251226_105628_ticket-25_week-between-stress/RESULTS.md')
+text = path.read_text()
+new = 'docs/gpt_bundles/20251226_110750_ticket-25_20251226_105628_ticket-25_week-between-stress.zip'
+lines = text.splitlines()
+out = []
+for line in lines:
+    if line.strip().startswith('- Pending'):
+        out.append(f'- {new}')
+    else:
+        out.append(line)
+path.write_text('\n'.join(out) + '\n')
+PY

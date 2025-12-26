@@ -26,6 +26,6 @@ Artifacts copied:
 - docs/agent_runs/20251226_060917_ticket-24_finish-week-inject-spike/artifacts/curve_week_full_fix.png
 
 Bundle:
-- (pending)
+- docs/gpt_bundles/20251226_081511_ticket-24_20251226_060917_ticket-24_finish-week-inject-spike.zip
 
 Tests: python -m pytest tests/experiments/test_inject_spike.py -q; make test-fast

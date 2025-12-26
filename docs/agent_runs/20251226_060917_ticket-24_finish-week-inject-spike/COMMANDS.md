@@ -232,3 +232,8 @@ git commit -m "Classify tvec failures and add debug harness" -m "Tests: python -
 git add tests/experiments/test_inject_spike.py tests/fixtures/debug_window_week_no_root.npz
 git commit -m "Add tvec no-root fixture test" -m "Tests: python -m pytest tests/experiments/test_inject_spike.py -q; make test-fast"
 git add PROGRESS.md project_state/RESEARCH_NOTES.md docs/agent_runs/20251226_060917_ticket-24_finish-week-inject-spike
+git commit -m "Document ticket-24 week run and artifacts" -m "Tests: python -m pytest tests/experiments/test_inject_spike.py -q; make test-fast"
+git status -sb
+make gpt-bundle TICKET=ticket-24 RUN_NAME=20251226_060917_ticket-24_finish-week-inject-spike
+git status -sb
+git add docs/agent_runs/20251226_060917_ticket-24_finish-week-inject-spike/COMMANDS.md docs/agent_runs/20251226_060917_ticket-24_finish-week-inject-spike/RESULTS.md

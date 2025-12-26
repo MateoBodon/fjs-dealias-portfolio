@@ -22,4 +22,4 @@ Top gating reasons (gating_reasons.csv):
 - μ=24.0 pre-gate: tvec_off_component=826, tvec_no_real_root=190, tvec_no_admissible_root=98; post-gate accepted=2.
 
 Bundle:
-- docs/gpt_bundles/20251226_100825_ticket-25_20251226_095630_ticket-25_week-between-smoke.zip
+- docs/gpt_bundles/20251226_101649_ticket-25_20251226_095630_ticket-25_week-between-smoke.zip

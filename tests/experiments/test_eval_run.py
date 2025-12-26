@@ -420,6 +420,43 @@ def test_run_evaluation_delta_respects_changed_window_filter(
         assert int(detail_df.loc[forced_mask, "changed_flag"].max()) == 1
 
 
+def test_run_evaluation_delta_empty_changed_windows(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    returns_csv = _make_returns_csv(tmp_path_factory)
+    out_dir = tmp_path_factory.mktemp("changed_window_empty")
+    config = EvalConfig(
+        returns_csv=Path(returns_csv),
+        factors_csv=None,
+        window=10,
+        horizon=2,
+        out_dir=Path(out_dir),
+        shrinker="rie",
+        seed=12,
+        use_factor_prewhiten=False,
+        min_comparison_windows=1,
+        max_windows=2,
+        assets_top=5,
+        mv_box_hi=1.0,
+        mv_box_lo=-0.5,
+        mv_turnover_bps=0.0,
+        mv_condition_cap=1e6,
+        workers=1,
+    )
+    outputs = run_evaluation(config, forced_changed_windows={"full": set()})
+
+    metrics_df = pd.read_csv(outputs.metrics["full"])
+    overlay_row = metrics_df[
+        (metrics_df["estimator"] == "overlay") & (metrics_df["portfolio"] == "ew")
+    ].iloc[0]
+    assert int(overlay_row["n_effective_mse"]) == 0
+    assert np.isnan(float(overlay_row["delta_mse_vs_baseline"]))
+
+    dm_df = pd.read_csv(outputs.dm["full"])
+    dm_row = dm_df[(dm_df["portfolio"] == "ew") & (dm_df["baseline"] == "baseline")].iloc[0]
+    assert int(dm_row["n_effective"]) == 0
+
+
 @pytest.mark.unit
 def test_apply_multi_alignment_guard_respects_threshold() -> None:
     detections = [

@@ -2439,6 +2439,37 @@ def run_evaluation(
             mv_condition_penalized = float(
                 mv_solver_info.get("cond_penalized", float("nan"))
             )
+            mv_weights_overlay: np.ndarray | None = None
+            mv_overlay_info: dict[str, object] = {}
+            if not mv_skipped and mv_weights.size:
+                try:
+                    overlay_result = _min_variance_weights(
+                        overlay_cov,
+                        ridge=mv_gamma,
+                        box=mv_box,
+                        cache=mv_cache,
+                        tau=mv_tau,
+                        prev_weights=prev_weights,
+                        solver=mv_solver,
+                        solver_name=mv_solver_name,
+                        skip_on_missing_solver=mv_skip_on_missing_solver,
+                    )
+                except Exception:
+                    overlay_result = None
+                if isinstance(overlay_result, tuple):
+                    mv_weights_overlay, mv_overlay_info = overlay_result
+                elif overlay_result is not None:
+                    mv_weights_overlay = overlay_result
+                if mv_overlay_info.get("skipped"):
+                    mv_weights_overlay = None
+                if mv_weights_overlay is not None:
+                    mv_weights_overlay = np.asarray(
+                        mv_weights_overlay, dtype=np.float64
+                    ).reshape(-1)
+                    if mv_weights_overlay.size != mv_weights.size or not np.all(
+                        np.isfinite(mv_weights_overlay)
+                    ):
+                        mv_weights_overlay = None
             if (
                 not mv_skipped
                 and prev_weights is not None
@@ -2458,6 +2489,12 @@ def run_evaluation(
             weights_map = {"ew": eq_weights}
             if not mv_skipped and mv_weights.size:
                 weights_map["mv"] = mv_weights
+            weight_delta_l2 = {"ew": 0.0, "mv": float("nan")}
+            turnover_delta = {"ew": 0.0, "mv": float("nan")}
+            if mv_weights_overlay is not None:
+                delta = mv_weights_overlay - mv_weights
+                weight_delta_l2["mv"] = float(np.linalg.norm(delta))
+                turnover_delta["mv"] = float(np.sum(np.abs(delta)))
             cond_map = {
                 name: _safe_condition_number(matrix)
                 for name, matrix in covariances.items()
@@ -2513,6 +2550,12 @@ def run_evaluation(
                         "skip_reason": "",
                         "solver_status": "",
                         "solver_used": "",
+                        "weight_delta_l2": weight_delta_l2["ew"]
+                        if estimator == "overlay"
+                        else float("nan"),
+                        "turnover_delta": turnover_delta["ew"]
+                        if estimator == "overlay"
+                        else float("nan"),
                     }
                 )
 
@@ -2539,6 +2582,12 @@ def run_evaluation(
                             "skip_reason": mv_skip_reason or "missing_solver",
                             "solver_status": mv_solver_status,
                             "solver_used": mv_solver_info.get("solver_used", ""),
+                            "weight_delta_l2": weight_delta_l2["mv"]
+                            if estimator == "overlay"
+                            else float("nan"),
+                            "turnover_delta": turnover_delta["mv"]
+                            if estimator == "overlay"
+                            else float("nan"),
                         }
                     )
                     continue
@@ -2592,6 +2641,12 @@ def run_evaluation(
                         "skip_reason": "",
                         "solver_status": mv_solver_status or "ok",
                         "solver_used": mv_solver_info.get("solver_used", mv_solver),
+                        "weight_delta_l2": weight_delta_l2["mv"]
+                        if estimator == "overlay"
+                        else float("nan"),
+                        "turnover_delta": turnover_delta["mv"]
+                        if estimator == "overlay"
+                        else float("nan"),
                     }
                 )
         if detections:
@@ -3127,6 +3182,8 @@ def run_evaluation(
                     "skip_reason",
                     "solver_status",
                     "solver_used",
+                    "weight_delta_l2",
+                    "turnover_delta",
                 ]
             )
             metrics_path = path / "metrics.csv"
@@ -3297,14 +3354,13 @@ def run_evaluation(
     for regime_key in _REGIMES:
         for portfolio in ("ew", "mv"):
             valid_ids = changed_windows_by_regime.get(regime_key, set())
-            valid_arg = valid_ids if valid_ids else None
             delta_mse, n_mse = _aligned_delta_mean(
                 metrics_df,
                 regime_key,
                 portfolio,
                 column="sq_error",
                 comparator="baseline",
-                valid_window_ids=valid_arg,
+                valid_window_ids=valid_ids,
             )
             delta_es, n_es = _aligned_delta_mean(
                 metrics_df,
@@ -3312,7 +3368,7 @@ def run_evaluation(
                 portfolio,
                 column="sq_error_es",
                 comparator="baseline",
-                valid_window_ids=valid_arg,
+                valid_window_ids=valid_ids,
             )
             delta_qlike, n_qlike = _aligned_delta_mean(
                 metrics_df,
@@ -3320,7 +3376,7 @@ def run_evaluation(
                 portfolio,
                 column="qlike",
                 comparator="baseline",
-                valid_window_ids=valid_arg,
+                valid_window_ids=valid_ids,
             )
             mask_overlay = (
                 summary_df["regime"].eq(regime_key)
@@ -3813,9 +3869,8 @@ def run_evaluation(
                 portfolio,
                 column="sq_error",
                 comparator=comparator,
+                valid_window_ids=flip_window_ids,
             )
-            if not aligned.empty and flip_window_ids:
-                aligned = aligned.loc[aligned.index.isin(flip_window_ids)]
             n_dm = int(aligned.shape[0])
             if n_dm >= 2:
                 dm_stat_flip, dm_p_flip = dm_test(

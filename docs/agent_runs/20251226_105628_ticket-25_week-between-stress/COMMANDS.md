@@ -46,14 +46,10 @@ PY
 ... (see META.md for full content)
 14. cat <<'EOF' >> PROGRESS.md
 ... (ticket-25 between stress entry)
-15. python - <<'PY'
-from pathlib import Path
-lines = Path('docs/agent_runs/20251226_105628_ticket-25_week-between-stress/COMMANDS.md').read_text().splitlines()
-PY
-16. git add docs/agent_runs/20251226_105628_ticket-25_week-between-stress PROGRESS.md
-17. git commit -m "Add between stress-test run log" -m "Tests: python -m pytest tests/experiments/test_inject_spike.py -q" -m "Tests: make test-fast"
-18. git rev-parse HEAD
-19. python - <<'PY'
+15. git add docs/agent_runs/20251226_105628_ticket-25_week-between-stress PROGRESS.md
+16. git commit -m "Add between stress-test run log" -m "Tests: python -m pytest tests/experiments/test_inject_spike.py -q" -m "Tests: make test-fast"
+17. git rev-parse HEAD
+18. python - <<'PY'
 from pathlib import Path
 path = Path('docs/agent_runs/20251226_105628_ticket-25_week-between-stress/META.md')
 text = path.read_text()
@@ -61,9 +57,9 @@ text = text.replace('git_sha_end: TBD', 'git_sha_end: c89c3d8976fbf1a76e1dd994af
 text = text.replace('git_dirty_end: TBD', 'git_dirty_end: false')
 path.write_text(text)
 PY
-20. date +%Y%m%d_%H%M%S
-21. BUNDLE_STAMP=20251226_110750 make gpt-bundle TICKET=ticket-25 RUN_NAME=20251226_105628_ticket-25_week-between-stress
-22. python - <<'PY'
+19. date +%Y%m%d_%H%M%S
+20. BUNDLE_STAMP=20251226_110750 make gpt-bundle TICKET=ticket-25 RUN_NAME=20251226_105628_ticket-25_week-between-stress
+21. python - <<'PY'
 from pathlib import Path
 path = Path('docs/agent_runs/20251226_105628_ticket-25_week-between-stress/RESULTS.md')
 text = path.read_text()
@@ -77,3 +73,15 @@ for line in lines:
         out.append(line)
 path.write_text('\n'.join(out) + '\n')
 PY
+22. git add docs/agent_runs/20251226_105628_ticket-25_week-between-stress/COMMANDS.md docs/agent_runs/20251226_105628_ticket-25_week-between-stress/RESULTS.md docs/agent_runs/20251226_105628_ticket-25_week-between-stress/META.md
+23. git commit -m "Update between stress run log bundle info" -m "Tests: python -m pytest tests/experiments/test_inject_spike.py -q" -m "Tests: make test-fast"
+24. git rev-parse HEAD
+25. python - <<'PY'
+from pathlib import Path
+path = Path('docs/agent_runs/20251226_105628_ticket-25_week-between-stress/META.md')
+text = path.read_text()
+text = text.replace('git_sha_end: c89c3d8976fbf1a76e1dd994afe6dae737f573e0', 'git_sha_end: f30a6e34fbaf48aefa697ced2735079812b74e46')
+text = text.replace('git_dirty_end: false', 'git_dirty_end: false')
+path.write_text(text)
+PY
+26. git show HEAD:docs/agent_runs/20251226_105628_ticket-25_week-between-stress/META.md > docs/agent_runs/20251226_105628_ticket-25_week-between-stress/META.md

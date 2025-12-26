@@ -32,7 +32,13 @@ def _delta_mse(metrics: pd.DataFrame, portfolio: str) -> float | None:
     subset = metrics[metrics["regime"] == "full"]
     overlay = subset[(subset["estimator"] == "overlay") & (subset["portfolio"] == portfolio)]
     baseline = subset[(subset["estimator"] == "baseline") & (subset["portfolio"] == portfolio)]
-    if overlay.empty or baseline.empty:
+    if overlay.empty:
+        return None
+    if "delta_mse_vs_baseline" in overlay.columns:
+        value = pd.to_numeric(overlay["delta_mse_vs_baseline"], errors="coerce").dropna()
+        if not value.empty:
+            return float(value.iloc[0])
+    if baseline.empty or "sq_error" not in overlay.columns or "sq_error" not in baseline.columns:
         return None
     return float(overlay["sq_error"].mean() - baseline["sq_error"].mean())
 

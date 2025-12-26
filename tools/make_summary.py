@@ -48,6 +48,12 @@ PERF_COLUMNS: Sequence[str] = (
     "delta_mse_ci_upper",
     "delta_es_vs_baseline",
     "delta_qlike_vs_baseline",
+    "delta_mse_changed_vs_baseline",
+    "delta_qlike_changed_vs_baseline",
+    "n_changed",
+    "changed_frac",
+    "median_weight_delta_l2",
+    "median_turnover_delta",
     "var95_overlay",
     "var95_baseline",
     "es95_overlay",
@@ -393,6 +399,132 @@ def _load_detail(rc_dir: Path, regime: str, root_detail: pd.DataFrame) -> pd.Dat
     return filtered.reset_index(drop=True)
 
 
+def _load_metrics_detail(rc_dir: Path, regime: str, root_detail: pd.DataFrame) -> pd.DataFrame:
+    regime_detail = _read_csv(rc_dir / regime / "metrics_detail.csv")
+    if not regime_detail.empty:
+        return regime_detail
+    if root_detail.empty:
+        return pd.DataFrame()
+    data = root_detail.copy()
+    if "regime" not in data.columns:
+        return data
+    mask = _normalise(data["regime"], regime)
+    filtered = data[mask]
+    return filtered.reset_index(drop=True)
+
+
+def _changed_window_ids(detail_df: pd.DataFrame) -> set[int] | None:
+    if detail_df.empty:
+        return None
+    if "window_id" not in detail_df.columns or "changed_flag" not in detail_df.columns:
+        return None
+    window_ids = pd.to_numeric(detail_df["window_id"], errors="coerce")
+    changed = (
+        pd.to_numeric(detail_df["changed_flag"], errors="coerce")
+        .fillna(0)
+        .astype(int)
+        == 1
+    )
+    ids = window_ids[changed].dropna().astype(int)
+    return set(ids.tolist())
+
+
+def _aligned_metric_table(
+    detail_df: pd.DataFrame,
+    *,
+    regime: str,
+    portfolio: str,
+    column: str,
+    estimator_ref: str = "overlay",
+    comparator: str = "baseline",
+) -> pd.DataFrame:
+    if detail_df.empty:
+        return pd.DataFrame(columns=[estimator_ref, comparator])
+    if column not in detail_df.columns:
+        return pd.DataFrame(columns=[estimator_ref, comparator])
+    subset = detail_df.copy()
+    if "regime" in subset.columns:
+        subset = subset[_normalise(subset["regime"], regime)]
+    if "portfolio" in subset.columns:
+        subset = subset[_normalise(subset["portfolio"], portfolio)]
+    if "window_id" not in subset.columns or "estimator" not in subset.columns:
+        return pd.DataFrame(columns=[estimator_ref, comparator])
+    subset = subset[["window_id", "estimator", column]].copy()
+    subset["window_id"] = pd.to_numeric(subset["window_id"], errors="coerce")
+    subset = subset.dropna(subset=["window_id"])
+    if subset.empty:
+        return pd.DataFrame(columns=[estimator_ref, comparator])
+    pivot = subset.pivot_table(
+        index="window_id",
+        columns="estimator",
+        values=column,
+        aggfunc="first",
+    )
+    if estimator_ref not in pivot.columns or comparator not in pivot.columns:
+        return pd.DataFrame(columns=[estimator_ref, comparator])
+    aligned = pivot[[estimator_ref, comparator]].dropna()
+    if not aligned.empty:
+        aligned.index = aligned.index.astype(int)
+    return aligned
+
+
+def _aligned_delta_mean_detail(
+    detail_df: pd.DataFrame,
+    *,
+    regime: str,
+    portfolio: str,
+    column: str,
+    valid_window_ids: set[int] | None = None,
+) -> tuple[float, int]:
+    aligned = _aligned_metric_table(
+        detail_df,
+        regime=regime,
+        portfolio=portfolio,
+        column=column,
+    )
+    if valid_window_ids is not None:
+        if not valid_window_ids:
+            return float("nan"), 0
+        aligned = aligned.loc[aligned.index.isin(valid_window_ids)]
+    if aligned.empty:
+        return float("nan"), 0
+    diffs = aligned["overlay"].to_numpy() - aligned["baseline"].to_numpy()
+    return float(np.nanmean(diffs)), int(aligned.shape[0])
+
+
+def _median_weight_deltas(
+    detail_df: pd.DataFrame,
+    *,
+    regime: str,
+    portfolio: str,
+    window_ids: set[int] | None,
+) -> tuple[float, float]:
+    if detail_df.empty or window_ids is None or not window_ids:
+        return float("nan"), float("nan")
+    if "weight_delta_l2" not in detail_df.columns or "turnover_delta" not in detail_df.columns:
+        return float("nan"), float("nan")
+    subset = detail_df.copy()
+    if "regime" in subset.columns:
+        subset = subset[_normalise(subset["regime"], regime)]
+    if "portfolio" in subset.columns:
+        subset = subset[_normalise(subset["portfolio"], portfolio)]
+    if "estimator" in subset.columns:
+        subset = subset[_normalise(subset["estimator"], "overlay")]
+    if "window_id" not in subset.columns:
+        return float("nan"), float("nan")
+    window_ids_series = pd.to_numeric(subset["window_id"], errors="coerce")
+    subset = subset[window_ids_series.isin(list(window_ids))]
+    if subset.empty:
+        return float("nan"), float("nan")
+    l2_series = pd.to_numeric(subset["weight_delta_l2"], errors="coerce").dropna()
+    turnover_series = pd.to_numeric(subset["turnover_delta"], errors="coerce").dropna()
+    l2_median = float(np.median(l2_series)) if not l2_series.empty else float("nan")
+    turnover_median = (
+        float(np.median(turnover_series)) if not turnover_series.empty else float("nan")
+    )
+    return l2_median, turnover_median
+
+
 def _load_resolved_config(design_dir: Path, detail_df: pd.DataFrame) -> tuple[dict[str, Any], Path | None]:
     config_path = design_dir / "resolved_config.json"
     if not config_path.exists() and "resolved_config_path" in detail_df.columns:
@@ -707,6 +839,7 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
         run_type="rc",
     )
     root_detail = _read_csv(rc_dir / "diagnostics_detail.csv")
+    root_metrics_detail = _read_csv(rc_dir / "metrics_detail.csv")
     design_dirs = _discover_design_dirs(rc_dir)
     root_has_metrics = any((rc_dir / regime / "metrics.csv").exists() for regime in REGIMES)
     use_design_dirs = (not root_has_metrics) and bool(design_dirs)
@@ -803,6 +936,9 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
             dm_df = _concat_if_exists(d / regime / "dm.csv" for d in data_dirs)
             diag_df = _concat_if_exists(d / regime / "diagnostics.csv" for d in data_dirs)
             detail_df = _concat_if_exists(d / regime / "diagnostics_detail.csv" for d in data_dirs)
+            metrics_detail_df = _concat_if_exists(
+                d / "metrics_detail.csv" for d in data_dirs
+            )
             skip_df = _concat_if_exists(d / regime / "skip_stats.csv" for d in data_dirs)
         else:
             metrics_df = _read_csv(metrics_path)
@@ -810,8 +946,12 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
             diag_df = _read_csv(diag_path)
             skip_df = _read_csv(skip_path)
             detail_df = _load_detail(rc_dir, regime, root_detail)
+            metrics_detail_df = _load_metrics_detail(
+                rc_dir, regime, root_metrics_detail
+            )
 
         diag_row = _aggregate_diag_row(diag_df)
+        changed_window_ids = _changed_window_ids(detail_df)
         if not skip_df.empty:
             skip_df["regime"] = skip_df.get("regime", regime)
             skip_frames.append(skip_df)
@@ -830,6 +970,12 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
                 "delta_mse_ci_upper": float("nan"),
                 "delta_es_vs_baseline": float("nan"),
                 "delta_qlike_vs_baseline": float("nan"),
+                "delta_mse_changed_vs_baseline": float("nan"),
+                "delta_qlike_changed_vs_baseline": float("nan"),
+                "n_changed": float("nan"),
+                "changed_frac": float("nan"),
+                "median_weight_delta_l2": float("nan"),
+                "median_turnover_delta": float("nan"),
                 "var95_overlay": float("nan"),
                 "var95_baseline": float("nan"),
                 "es95_overlay": float("nan"),
@@ -893,6 +1039,69 @@ def summarise_rc_directory(rc_dir: Path) -> SummaryArtifacts:
                         "comparison_valid_dm": _numeric(dm_row, "comparison_valid"),
                     }
                 )
+
+            aligned_ready = (
+                not metrics_detail_df.empty
+                and {"window_id", "estimator", "portfolio", "sq_error"}.issubset(
+                    metrics_detail_df.columns
+                )
+            )
+            aligned_all = (
+                _aligned_metric_table(
+                    metrics_detail_df,
+                    regime=regime,
+                    portfolio=portfolio,
+                    column="sq_error",
+                )
+                if aligned_ready
+                else pd.DataFrame(columns=["overlay", "baseline"])
+            )
+            n_total_aligned = int(aligned_all.shape[0])
+            if changed_window_ids is None or not aligned_ready:
+                n_changed = float("nan")
+                changed_frac = float("nan")
+                delta_mse_changed = float("nan")
+                delta_qlike_changed = float("nan")
+                median_weight_delta_l2 = float("nan")
+                median_turnover_delta = float("nan")
+            else:
+                changed_ids = set(aligned_all.index.astype(int)) & changed_window_ids
+                n_changed = int(len(changed_ids))
+                changed_frac = (
+                    float(n_changed) / float(n_total_aligned)
+                    if n_total_aligned > 0
+                    else float("nan")
+                )
+                delta_mse_changed, _ = _aligned_delta_mean_detail(
+                    metrics_detail_df,
+                    regime=regime,
+                    portfolio=portfolio,
+                    column="sq_error",
+                    valid_window_ids=changed_ids,
+                )
+                delta_qlike_changed, _ = _aligned_delta_mean_detail(
+                    metrics_detail_df,
+                    regime=regime,
+                    portfolio=portfolio,
+                    column="qlike",
+                    valid_window_ids=changed_window_ids,
+                )
+                median_weight_delta_l2, median_turnover_delta = _median_weight_deltas(
+                    metrics_detail_df,
+                    regime=regime,
+                    portfolio=portfolio,
+                    window_ids=changed_ids,
+                )
+            record.update(
+                {
+                    "delta_mse_changed_vs_baseline": delta_mse_changed,
+                    "delta_qlike_changed_vs_baseline": delta_qlike_changed,
+                    "n_changed": n_changed,
+                    "changed_frac": changed_frac,
+                    "median_weight_delta_l2": median_weight_delta_l2,
+                    "median_turnover_delta": median_turnover_delta,
+                }
+            )
 
             perf_records.append(record)
 
@@ -1079,6 +1288,26 @@ def write_summaries(rc_dirs: Iterable[Path]) -> dict[Path, SummaryArtifacts]:
             limitations.append(
                 "Some comparisons marked invalid due to insufficient aligned windows (see summary_perf.csv)."
             )
+        perf_df = artifacts.performance
+        if not perf_df.empty and "n_changed" in perf_df.columns:
+            if perf_df["n_changed"].isna().all():
+                limitations.append(
+                    "conditional metrics unavailable (missing changed_flag or metrics_detail alignment columns)."
+                )
+        if not perf_df.empty and "median_weight_delta_l2" in perf_df.columns:
+            if perf_df["median_weight_delta_l2"].isna().all():
+                has_changes = False
+                if "n_changed" in perf_df.columns:
+                    has_changes = (
+                        pd.to_numeric(perf_df["n_changed"], errors="coerce")
+                        .fillna(0)
+                        .gt(0)
+                        .any()
+                    )
+                if has_changes:
+                    limitations.append(
+                        "weight-change magnitude stats unavailable (missing weight_delta columns)."
+                    )
 
         kill_path = summary_dir / "kill_criteria.json"
         kill_path.write_text(json.dumps(kill_data, indent=2, sort_keys=True), encoding="utf-8")
@@ -1097,6 +1326,31 @@ def write_summaries(rc_dirs: Iterable[Path]) -> dict[Path, SummaryArtifacts]:
             for run in mv_skip_runs:
                 suffix = "excluded from headline summaries" if run.excluded_from_summary else "not excluded"
                 limitation_lines.append(f"- {run.display_path} ({suffix})")
+        if not perf_df.empty and {"n_changed", "changed_frac"}.issubset(perf_df.columns):
+            if limitation_lines:
+                limitation_lines.append("")
+            limitation_lines.append("## Conditional reporting (changed-window only)")
+            limitation_lines.append(
+                "Δ metrics are computed on aligned overlay/baseline windows with changed_flag=1."
+            )
+
+            def _fmt_val(value: object) -> str:
+                try:
+                    val = float(value)
+                except (TypeError, ValueError):
+                    return "NA"
+                if not np.isfinite(val):
+                    return "NA"
+                return f"{val:.3g}"
+
+            for _, row in perf_df.iterrows():
+                regime = row.get("regime", "")
+                portfolio = row.get("portfolio", "")
+                n_changed = _fmt_val(row.get("n_changed", float("nan")))
+                changed_frac = _fmt_val(row.get("changed_frac", float("nan")))
+                limitation_lines.append(
+                    f"- {regime}/{portfolio}: n_changed={n_changed}, changed_frac={changed_frac}"
+                )
         if limitations:
             deduped = list(dict.fromkeys(limitations))
             if limitation_lines:

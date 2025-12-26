@@ -462,3 +462,18 @@
 - **Commands**: `python -m pytest tests/experiments/test_inject_spike.py -q`; `make test-fast`; `PYTHONPATH=src:. python experiments/eval/inject_spike.py --returns-csv reports/fixtures/returns_daily_small.csv --factors-csv reports/fixtures/ff5mom_daily_small.csv --window 40 --horizon 5 --start 2024-01-01 --end 2024-06-30 --assets-top 25 --config experiments/eval/config.yaml --thresholds experiments/eval/thresholds.json --group-design week --use-factor-prewhiten 1 --mu-grid 0,6,12,18,24,30,36 --inject-mode between --inject-frac-min 0.2 --inject-frac-max 0.2 --max-windows 48 --window-sampling first --window-sampling-seed 7 --seed 7 --run-id 20251226_105628_ticket-25_week-between-stress --out reports/inject_spike`.
 - **Results**: Using all 48 windows and fixed inject_frac=0.2, between-mode shows detect/accept=1.00 for μ=6–36 (10/10 injected windows each), baseline detect/accept=0. Dominant pre-gate reasons at μ=0 remain tvec_off_component/tvec_no_real_root/tvec_no_admissible_root; μ=36 has 10 accepted post-gate.
 - **Artifacts**: run log `docs/agent_runs/20251226_105628_ticket-25_week-between-stress/`; outputs `reports/inject_spike/20251226_105628_ticket-25_week-between-stress/`.
+
+## 2025-12-26T18:36Z — ticket-19 changed-window reporting
+- **Branch/Run**: `codex/ticket-19_changed-window-reporting` (RUN_NAME=`20251226_174844_ticket-19_changed-window-reporting`), git sha `5980a47d819624954a422b672f228fee16a8f61b`.
+- **Commands**:
+  - `make test-fast`
+  - `EXEC_MODE=deterministic RC_LITE_STAMP=20251226_181827 make rc-lite-sanity`
+  - `PYTHONPATH=src:. python tools/make_summary.py --rc-dir reports/rc-20251226-sanity-20251226_191833`
+- **Results**:
+  - Added changed-window-only ΔMSE/ΔQLIKE, `n_changed`, `changed_frac`, and median weight-delta stats to summaries; limitations now include a conditional-reporting section.
+  - Evaluation now always aligns Δ metrics/DM stats on changed-window sets; added per-window weight-delta diagnostics in `metrics_detail.csv`.
+  - rc-lite-sanity summaries were generated but excluded from aggregates due to date-truncation caps (summary_perf header-only).
+- **Artifacts**:
+  - Run log `docs/agent_runs/20251226_174844_ticket-19_changed-window-reporting/`
+  - Outputs `reports/rc-20251226-sanity-20251226_191833/`
+  - Weekly smoke outputs `experiments/equity_panel/outputs_rc-lite-20251226_20251226_191833/`

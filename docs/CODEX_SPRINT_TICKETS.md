@@ -130,6 +130,8 @@ Rule: do not expand the experiment grid until Tickets 1–4 are done.
 
 ## Ticket #19 — Conditional effect reporting + weight-change stats (changed windows only)
 
+**Status:** DONE
+
 **Goal (1 sentence):** Add “changed-window” performance reporting so we can tell whether the overlay ever matters when it triggers.
 
 **Files/modules likely involved:**

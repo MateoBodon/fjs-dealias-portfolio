@@ -412,3 +412,6 @@ for p in paths:
     print(p.parent, payload.get("resolved_config_path"), payload.get("resolved_config_hash"))
 PY
 cat <<'EOF_CMDLOG3' >> docs/agent_runs/20251226_174844_ticket-19_changed-window-reporting/COMMANDS.md
+make gpt-bundle TICKET=ticket-19 RUN_NAME=20251226_174844_ticket-19_changed-window-reporting
+apply_patch  # docs/agent_runs/.../RESULTS.md: add bundle path
+cat <<'EOF_CMDLOG4' >> docs/agent_runs/20251226_174844_ticket-19_changed-window-reporting/COMMANDS.md

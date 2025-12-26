@@ -85,3 +85,20 @@ text = text.replace('git_dirty_end: false', 'git_dirty_end: false')
 path.write_text(text)
 PY
 26. git show HEAD:docs/agent_runs/20251226_105628_ticket-25_week-between-stress/META.md > docs/agent_runs/20251226_105628_ticket-25_week-between-stress/META.md
+27. python - <<'PY'
+from pathlib import Path
+path = Path('docs/agent_runs/20251226_105628_ticket-25_week-between-stress/RESULTS.md')
+text = path.read_text()
+new = 'docs/gpt_bundles/20251226_111227_ticket-25_20251226_105628_ticket-25_week-between-stress.zip'
+lines = text.splitlines()
+out = []
+for line in lines:
+    if line.strip().startswith('- docs/gpt_bundles/'):
+        out.append(f'- {new}')
+    else:
+        out.append(line)
+path.write_text('\n'.join(out) + '\n')
+PY
+28. git add docs/agent_runs/20251226_105628_ticket-25_week-between-stress/COMMANDS.md docs/agent_runs/20251226_105628_ticket-25_week-between-stress/RESULTS.md
+29. git commit -m "Update between stress bundle stamp" -m "Tests: python -m pytest tests/experiments/test_inject_spike.py -q" -m "Tests: make test-fast"
+30. BUNDLE_STAMP=20251226_111227 make gpt-bundle TICKET=ticket-25 RUN_NAME=20251226_105628_ticket-25_week-between-stress

@@ -259,4 +259,8 @@ git add docs/agent_runs/20251226_060917_ticket-24_finish-week-inject-spike/COMMA
 git commit -m "Finalize command log for merge/push" -m "Tests: python -m pytest tests/experiments/test_inject_spike.py -q; make test-fast"
 git checkout main
 git merge codex/ticket-24_finish-week-inject-spike
+git ls-files reports/inject_spike | head
+git rm -r reports/inject_spike
+git rm docs/agent_runs/20251225_224205_ticket-23_inject-spike-diagnostics-maxwindows/META.tmp
 git push origin main
+git commit -am "Remove tracked inject_spike reports" -m "Tests: python -m pytest tests/experiments/test_inject_spike.py -q; make test-fast"

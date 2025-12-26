@@ -1,0 +1,756 @@
+{
+  "cap_active": false,
+  "config": {
+    "alignment_top_p": 3,
+    "angle_min_cos": null,
+    "assets_top": 25,
+    "bootstrap_samples": 0,
+    "calm_quantile": 0.2,
+    "calm_window_sample": null,
+    "config_path": "experiments/eval/config.yaml",
+    "crisis_quantile": 0.8,
+    "crisis_window_top_k": null,
+    "cs_drop_top_frac": null,
+    "echo_config": true,
+    "edge_mode": "tyler",
+    "end": "2024-06-30",
+    "ewma_halflife": 30.0,
+    "factors_csv": "reports/fixtures/ff5mom_daily_small.csv",
+    "gate_accept_nonisolated": false,
+    "gate_alignment_min": null,
+    "gate_delta_calibration": null,
+    "gate_delta_frac_max": null,
+    "gate_delta_frac_min": null,
+    "gate_mode": "strict",
+    "gate_soft_max": null,
+    "gate_stability_min": 0.3,
+    "group_design": "week",
+    "group_min_count": 5,
+    "group_min_replicates": 3,
+    "horizon": 5,
+    "max_windows": null,
+    "min_comparison_windows": 30,
+    "mv_box_hi": 0.1,
+    "mv_box_lo": 0.0,
+    "mv_condition_cap": 1000000.0,
+    "mv_gamma": 0.0005,
+    "mv_skip_on_missing_solver": false,
+    "mv_solver": "projgrad",
+    "mv_solver_name": null,
+    "mv_tau": 0.0,
+    "mv_turnover_bps": 5.0,
+    "out_dir": "reports/eval-latest",
+    "overlay_a_grid": 120,
+    "overlay_delta": 0.5,
+    "overlay_delta_frac": null,
+    "overlay_seed": null,
+    "prewhiten": "ff5mom",
+    "q2_alignment_min_cos": null,
+    "q_max": 1,
+    "reason_codes": true,
+    "require_isolated": true,
+    "returns_csv": "reports/fixtures/returns_daily_small.csv",
+    "seed": 0,
+    "shrinker": "rie",
+    "start": "2024-01-01",
+    "thresholds_path": "experiments/eval/thresholds.json",
+    "use_factor_prewhiten": true,
+    "vol_ewma_span": 21,
+    "window": 40,
+    "workers": null
+  },
+  "data": {
+    "factors_csv": "reports/fixtures/ff5mom_daily_small.csv",
+    "factors_sha256": "877c14d4eaa84d5aeb8e9a8d6476ca73b9e110468d55fb0c8d4526c4e8544773",
+    "panel": {
+      "end": "2024-12-31 00:00:00",
+      "n_days": 220,
+      "start": "2024-02-16 00:00:00",
+      "symbols": [
+        "A",
+        "AA",
+        "UFCS",
+        "UFPI",
+        "UFPT",
+        "UG",
+        "UGA",
+        "UGE",
+        "UGI",
+        "UGL",
+        "UGP",
+        "UHAL",
+        "UHS",
+        "UHT",
+        "UIS",
+        "UL",
+        "ULBI",
+        "ULE",
+        "ULST",
+        "ULTA",
+        "UMBF",
+        "UMDD",
+        "UMH",
+        "URE",
+        "URI"
+      ]
+    },
+    "returns_csv": "reports/fixtures/returns_daily_small.csv",
+    "returns_sha256": "af5494a1d1fdab45cb1be6497a67eedce0f4b6e5c96a6221aefde630366bf653"
+  },
+  "design": {
+    "coarse_candidate": false,
+    "edge_mode": "tyler",
+    "group_design": "week",
+    "prewhiten": "ff5mom",
+    "prewhiten_mode_effective": "ff5mom",
+    "use_factor_prewhiten": true
+  },
+  "factors": {
+    "end_date": "2025-08-29",
+    "key": "ff5mom",
+    "note": "Merged F-F Research Data 5 Factors 2x3 daily CSV with Momentum Factor daily CSV; values divided by 100.",
+    "path": "/root/fjs-dealias-portfolio/data/factors/ff5mom_daily.csv",
+    "sha256": "469d44ad0c5cac556c60c1f258e14245acfcc9f2901ad443f41b64309bf908ca",
+    "source": "ken_french.ff5_umd_daily",
+    "start_date": "2005-01-03"
+  },
+  "gating_summary": [
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 0.0,
+      "reason": "edge_buffer",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 0.0,
+      "reason": "stability_fail",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 250,
+      "inject_mode": "between",
+      "injected_mu": 0.0,
+      "reason": "off_component_ratio",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 0.0,
+      "reason": "energy_floor",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 0.0,
+      "reason": "neg_mu",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 0.0,
+      "reason": "eps",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 0.0,
+      "reason": "tvec_compute_error",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 1671,
+      "inject_mode": "between",
+      "injected_mu": 0.0,
+      "reason": "tvec_no_real_root",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 1079,
+      "inject_mode": "between",
+      "injected_mu": 0.0,
+      "reason": "tvec_no_admissible_root",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 0.0,
+      "reason": "tvec_singularity",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 0.0,
+      "reason": "tvec_target_zero",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 8000,
+      "inject_mode": "between",
+      "injected_mu": 0.0,
+      "reason": "tvec_off_component",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 0.0,
+      "reason": "mu_nonfinite",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 0.0,
+      "reason": "unknown",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 0.0,
+      "reason": "accepted",
+      "stage": "post_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 0.0,
+      "reason": "inadmissible_root",
+      "stage": "post_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 0.0,
+      "reason": "edge_margin",
+      "stage": "post_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 0.0,
+      "reason": "nonisolated",
+      "stage": "post_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 0.0,
+      "reason": "stability",
+      "stage": "post_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 0.0,
+      "reason": "alignment",
+      "stage": "post_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 0.0,
+      "reason": "delta_frac_min",
+      "stage": "post_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 0.0,
+      "reason": "delta_frac_max",
+      "stage": "post_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 0.0,
+      "reason": "soft_cap",
+      "stage": "post_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 0.0,
+      "reason": "hard_cap",
+      "stage": "post_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 12.0,
+      "reason": "edge_buffer",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 12.0,
+      "reason": "stability_fail",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 12.0,
+      "reason": "off_component_ratio",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 12.0,
+      "reason": "energy_floor",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 12.0,
+      "reason": "neg_mu",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 12.0,
+      "reason": "eps",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 12.0,
+      "reason": "tvec_compute_error",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 190,
+      "inject_mode": "between",
+      "injected_mu": 12.0,
+      "reason": "tvec_no_real_root",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 98,
+      "inject_mode": "between",
+      "injected_mu": 12.0,
+      "reason": "tvec_no_admissible_root",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 12.0,
+      "reason": "tvec_singularity",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 12.0,
+      "reason": "tvec_target_zero",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 826,
+      "inject_mode": "between",
+      "injected_mu": 12.0,
+      "reason": "tvec_off_component",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 12.0,
+      "reason": "mu_nonfinite",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 12.0,
+      "reason": "unknown",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 2,
+      "inject_mode": "between",
+      "injected_mu": 12.0,
+      "reason": "accepted",
+      "stage": "post_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 12.0,
+      "reason": "inadmissible_root",
+      "stage": "post_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 12.0,
+      "reason": "edge_margin",
+      "stage": "post_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 12.0,
+      "reason": "nonisolated",
+      "stage": "post_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 12.0,
+      "reason": "stability",
+      "stage": "post_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 12.0,
+      "reason": "alignment",
+      "stage": "post_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 12.0,
+      "reason": "delta_frac_min",
+      "stage": "post_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 12.0,
+      "reason": "delta_frac_max",
+      "stage": "post_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 12.0,
+      "reason": "soft_cap",
+      "stage": "post_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 12.0,
+      "reason": "hard_cap",
+      "stage": "post_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 24.0,
+      "reason": "edge_buffer",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 24.0,
+      "reason": "stability_fail",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 24.0,
+      "reason": "off_component_ratio",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 24.0,
+      "reason": "energy_floor",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 24.0,
+      "reason": "neg_mu",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 24.0,
+      "reason": "eps",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 24.0,
+      "reason": "tvec_compute_error",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 190,
+      "inject_mode": "between",
+      "injected_mu": 24.0,
+      "reason": "tvec_no_real_root",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 98,
+      "inject_mode": "between",
+      "injected_mu": 24.0,
+      "reason": "tvec_no_admissible_root",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 24.0,
+      "reason": "tvec_singularity",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 24.0,
+      "reason": "tvec_target_zero",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 826,
+      "inject_mode": "between",
+      "injected_mu": 24.0,
+      "reason": "tvec_off_component",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 24.0,
+      "reason": "mu_nonfinite",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 24.0,
+      "reason": "unknown",
+      "stage": "pre_gate"
+    },
+    {
+      "count": 2,
+      "inject_mode": "between",
+      "injected_mu": 24.0,
+      "reason": "accepted",
+      "stage": "post_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 24.0,
+      "reason": "inadmissible_root",
+      "stage": "post_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 24.0,
+      "reason": "edge_margin",
+      "stage": "post_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 24.0,
+      "reason": "nonisolated",
+      "stage": "post_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 24.0,
+      "reason": "stability",
+      "stage": "post_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 24.0,
+      "reason": "alignment",
+      "stage": "post_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 24.0,
+      "reason": "delta_frac_min",
+      "stage": "post_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 24.0,
+      "reason": "delta_frac_max",
+      "stage": "post_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 24.0,
+      "reason": "soft_cap",
+      "stage": "post_gate"
+    },
+    {
+      "count": 0,
+      "inject_mode": "between",
+      "injected_mu": 24.0,
+      "reason": "hard_cap",
+      "stage": "post_gate"
+    }
+  ],
+  "git_dirty": true,
+  "git_sha": "25e12b614b61dab239dfac5fec40ab5ba26da92d",
+  "injection": {
+    "basis_fixed_per_window": true,
+    "group_summary": {
+      "n_groups": {
+        "max": 7.0,
+        "mean": 6.5,
+        "median": 6.5,
+        "min": 6.0
+      },
+      "reps_max": {
+        "max": 5.0,
+        "mean": 5.0,
+        "median": 5.0,
+        "min": 5.0
+      },
+      "reps_mean": {
+        "max": 5.0,
+        "mean": 5.0,
+        "median": 5.0,
+        "min": 5.0
+      },
+      "reps_median": {
+        "max": 5.0,
+        "mean": 5.0,
+        "median": 5.0,
+        "min": 5.0
+      },
+      "reps_min": {
+        "max": 5.0,
+        "mean": 5.0,
+        "median": 5.0,
+        "min": 5.0
+      }
+    },
+    "inject_frac": 0.08178370775349107,
+    "inject_frac_max": 0.1,
+    "inject_frac_min": 0.05,
+    "inject_mode": "between",
+    "mu_definition": "rank-1 covariance spike eigenvalue (variance) applied as sqrt(mu) * z_t v^T",
+    "mu_grid": [
+      0.0,
+      12.0,
+      24.0
+    ],
+    "n_injected": 2,
+    "seed": 7,
+    "series_summary": {
+      "mean": {
+        "max": 2.854859206178974e-16,
+        "mean": -6.165207233621572e-17,
+        "median": -3.753611178494577e-17,
+        "min": -2.950021179718273e-16
+      },
+      "mean_abs_max": 2.950021179718273e-16,
+      "std": {
+        "max": 1.0000000000000002,
+        "mean": 1.0,
+        "median": 1.0,
+        "min": 0.9999999999999998
+      }
+    },
+    "signal_definition": "z_t standardised to mean 0, std 1; v unit-norm; same (z_t, v) reused for each mu"
+  },
+  "metrics": {
+    "acceptance_rate_definition": "fraction of windows where overlay would be applied after gating",
+    "baseline_acceptance_rate": 0.0,
+    "baseline_detection_rate": 0.0,
+    "baseline_n_accepted": 0,
+    "baseline_n_detected": 0,
+    "baseline_n_windows": 20,
+    "detection_rate_definition": "fraction of windows with >=1 candidate before gating"
+  },
+  "out_dir": "/root/fjs-dealias-portfolio/reports/inject_spike/20251226_095630_ticket-25_week-between-smoke",
+  "outputs": {
+    "curve_csv": "/root/fjs-dealias-portfolio/reports/inject_spike/20251226_095630_ticket-25_week-between-smoke/curve.csv",
+    "curve_plot": "/root/fjs-dealias-portfolio/reports/inject_spike/20251226_095630_ticket-25_week-between-smoke/curve.png",
+    "debug_window_npz": "/root/fjs-dealias-portfolio/reports/inject_spike/20251226_095630_ticket-25_week-between-smoke/debug_window.npz",
+    "gating_reasons_csv": "/root/fjs-dealias-portfolio/reports/inject_spike/20251226_095630_ticket-25_week-between-smoke/gating_reasons.csv",
+    "profile_txt": null,
+    "resolved_config_json": "/root/fjs-dealias-portfolio/reports/inject_spike/20251226_095630_ticket-25_week-between-smoke/resolved_config.json",
+    "selected_windows_csv": "/root/fjs-dealias-portfolio/reports/inject_spike/20251226_095630_ticket-25_week-between-smoke/selected_windows.csv",
+    "windows_detail_csv": "/root/fjs-dealias-portfolio/reports/inject_spike/20251226_095630_ticket-25_week-between-smoke/windows_detail.csv"
+  },
+  "resolved_config_hash": "8af570c1e7d174ea0881e6f09fef59c649e6dad5c624527b40a66e7043ad7552",
+  "resolved_config_path": "/root/fjs-dealias-portfolio/reports/inject_spike/20251226_095630_ticket-25_week-between-smoke/resolved_config.json",
+  "run_id": "20251226_095630_ticket-25_week-between-smoke",
+  "runtime": {
+    "end_utc": "2025-12-26T08:58:07.390341+00:00",
+    "exec_mode": null,
+    "platform": "Linux-6.8.0-85-generic-x86_64-with-glibc2.39",
+    "python_version": "3.12.3 (main, Nov  6 2025, 13:44:16) [GCC 13.3.0]",
+    "start_utc": "2025-12-26T08:56:44.689257+00:00",
+    "thread_env": {
+      "BLIS_NUM_THREADS": null,
+      "EXEC_MODE": null,
+      "MKL_NUM_THREADS": null,
+      "NUMEXPR_NUM_THREADS": null,
+      "OMP_NUM_THREADS": null,
+      "OPENBLAS_NUM_THREADS": null,
+      "VECLIB_MAXIMUM_THREADS": null
+    },
+    "wall_sec": 82.70108402566984,
+    "workers": 1
+  },
+  "timestamp_utc": "2025-12-26T08:58:07.390341+00:00",
+  "windows": {
+    "assets_max": 25,
+    "assets_min": 25,
+    "assets_top": 25,
+    "baseline_windows": 20,
+    "injected_windows": 2,
+    "n_changed": 0,
+    "non_injected_windows": 18,
+    "obs_max": 35,
+    "obs_min": 30,
+    "sampling": {
+      "max_windows": 20,
+      "window_sampling": "random",
+      "window_sampling_seed": 7
+    },
+    "skip_reasons": {},
+    "window_date_range": {
+      "fit_end_max": "2024-06-20 00:00:00",
+      "fit_start_min": "2024-02-16 00:00:00",
+      "hold_end_max": "2024-06-27 00:00:00",
+      "hold_start_min": "2024-04-16 00:00:00"
+    },
+    "windows_available": 48,
+    "windows_candidate": 48,
+    "windows_used": 20
+  }
+}

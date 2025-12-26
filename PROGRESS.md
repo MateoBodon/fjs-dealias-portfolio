@@ -444,3 +444,9 @@
   - Run log `docs/agent_runs/20251226_060917_ticket-24_finish-week-inject-spike/`
   - Outputs `reports/inject_spike/20251226_ticket24_week_full_fix/`
   - Review copies `docs/agent_runs/20251226_060917_ticket-24_finish-week-inject-spike/artifacts/`
+
+## 2025-12-26T09:03Z — ticket-25 component-aware inject-mode + week between smoke
+- **Branch/Run**: `codex/ticket-25_inject-component-modes` (RUN_NAME=`20251226_095630_ticket-25_week-between-smoke`), git sha `3c347a1`.
+- **Commands**: `python -m pytest tests/experiments/test_inject_spike.py -q`; `make test-fast`; `PYTHONPATH=src:. python experiments/eval/inject_spike.py --returns-csv reports/fixtures/returns_daily_small.csv --factors-csv reports/fixtures/ff5mom_daily_small.csv --window 40 --horizon 5 --start 2024-01-01 --end 2024-06-30 --assets-top 25 --config experiments/eval/config.yaml --thresholds experiments/eval/thresholds.json --group-design week --use-factor-prewhiten 1 --mu-grid 0,12,24 --inject-mode between --max-windows 20 --window-sampling random --window-sampling-seed 7 --seed 7 --run-id 20251226_095630_ticket-25_week-between-smoke --out reports/inject_spike`.
+- **Results**: Added inject_mode {total,between,within} with group-aware injection series + metadata/CSV updates. Week between-mode smoke shows detect/accept=1.00 at μ=12 and μ=24 (2/2 injected windows), baseline detect/accept=0; pre-gate reasons dominated by tvec_off_component/tvec_no_real_root/tvec_no_admissible_root at μ=0.
+- **Artifacts**: run log `docs/agent_runs/20251226_095630_ticket-25_week-between-smoke/`; outputs `reports/inject_spike/20251226_095630_ticket-25_week-between-smoke/`.

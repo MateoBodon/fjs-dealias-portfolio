@@ -11,4 +11,4 @@
 - Outputs:
   - rc-lite-sanity run: `reports/rc-20251226-sanity-20251226_191833/` (summary files under `.../summary/`).
   - `summary_perf.csv` includes new columns but is empty because rc-lite-sanity runs are capped (date truncation), so changed-window stats are not populated in that smoke run.
-- Bundle: `docs/gpt_bundles/20251226_194317_ticket-19_20251226_174844_ticket-19_changed-window-reporting.zip`
+- Bundle: `docs/gpt_bundles/20251226_194611_ticket-19_20251226_174844_ticket-19_changed-window-reporting.zip`

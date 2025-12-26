@@ -424,3 +424,8 @@ git commit -m "docs: finalize ticket-19 command log" -m "Tests: make test-fast; 
 apply_patch  # PROGRESS.md: add bundle path
 git add PROGRESS.md docs/agent_runs/20251226_174844_ticket-19_changed-window-reporting/COMMANDS.md
 git commit -m "docs: add ticket-19 bundle to progress" -m "Tests: make test-fast; EXEC_MODE=deterministic RC_LITE_STAMP=20251226_181827 make rc-lite-sanity" -m "Artifacts: docs/gpt_bundles/20251226_194317_ticket-19_20251226_174844_ticket-19_changed-window-reporting.zip"
+make gpt-bundle TICKET=ticket-19 RUN_NAME=20251226_174844_ticket-19_changed-window-reporting
+apply_patch  # docs/agent_runs/.../RESULTS.md: update bundle path
+apply_patch  # PROGRESS.md: update bundle path
+git add PROGRESS.md docs/agent_runs/20251226_174844_ticket-19_changed-window-reporting/RESULTS.md docs/agent_runs/20251226_174844_ticket-19_changed-window-reporting/COMMANDS.md
+git commit -m "docs: refresh ticket-19 bundle paths" -m "Tests: make test-fast; EXEC_MODE=deterministic RC_LITE_STAMP=20251226_181827 make rc-lite-sanity" -m "Artifacts: docs/gpt_bundles/20251226_194611_ticket-19_20251226_174844_ticket-19_changed-window-reporting.zip"

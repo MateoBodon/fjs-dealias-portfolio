@@ -38,6 +38,11 @@ commands:
 - Comparison validity: `--min-comparison-windows` enforces minimum aligned windows for Δ metrics and DM tests, writing `n_effective_*` and `comparison_valid_*` flags.
 - Outputs: `--out` directory with `resolved_config.json`, `run.json`, metrics/risk/dm CSVs, diagnostics, optional plots.
 
+## Inject-spike evaluation (`experiments/eval/inject_spike.py`)
+- Purpose: weak-spike injection sweeps on real residual windows to test detection/gating response by design.
+- Key flags: `--inject-mode {total,between,within}`, `--mu-grid`, `--inject-frac-min`, `--inject-frac-max`, `--max-windows`, `--window-sampling {first,random}`, `--window-sampling-seed`, `--seed`, `--run-id`, `--out`.
+- Data/config flags mirror daily eval runner: `--returns-csv`, `--factors-csv`, `--config`, `--thresholds`, `--group-design`, `--use-factor-prewhiten`.
+
 ## Synthetic / calibration
 - `experiments/synthetic/null.py` / `power.py`: `--trials`, `--edge-modes`, `--defaults-path`, `--out`, `--figures-out`.
 - `experiments/synthetic/calibrate_thresholds.py`: grids for delta/stability/asset/group/replicate bins; supports `--run-id`, `--shard-manifest`, `--shard-id`, `--exec-mode`, `--mp-cache-dir`.

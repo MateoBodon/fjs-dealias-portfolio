@@ -43,6 +43,7 @@ WINDOW_DETAIL_REQUIRED_COLUMNS = [
     "n_assets",
     "injected",
     "injected_mu",
+    "inject_mode",
     "detected_initial",
     "accepted",
 ]
@@ -119,6 +120,7 @@ class WindowSample:
 class InjectionBasis:
     direction: np.ndarray
     series: np.ndarray
+    inject_mode: str
 
 
 def _parse_float_list(raw: str, name: str) -> list[float]:
@@ -153,11 +155,55 @@ def _standardise_series(series: np.ndarray) -> np.ndarray:
     return series / std
 
 
-def _make_injection_basis(matrix: np.ndarray, rng: np.random.Generator) -> InjectionBasis:
+def _validate_group_labels(labels: np.ndarray, n_obs: int) -> np.ndarray:
+    labels_arr = np.asarray(labels, dtype=np.intp)
+    if labels_arr.ndim != 1 or labels_arr.shape[0] != n_obs:
+        raise ValueError("group_labels must be a 1D array aligned to matrix rows.")
+    return labels_arr
+
+
+def _between_group_series(labels: np.ndarray, rng: np.random.Generator) -> np.ndarray:
+    labels_arr = np.asarray(labels, dtype=np.intp)
+    unique_labels = np.unique(labels_arr)
+    draws = rng.normal(size=unique_labels.shape[0]).astype(np.float64)
+    series = np.zeros_like(labels_arr, dtype=np.float64)
+    for label, draw in zip(unique_labels, draws):
+        series[labels_arr == label] = float(draw)
+    return series
+
+
+def _within_group_series(labels: np.ndarray, rng: np.random.Generator) -> np.ndarray:
+    labels_arr = np.asarray(labels, dtype=np.intp)
+    series = rng.normal(size=labels_arr.shape[0]).astype(np.float64)
+    for label in np.unique(labels_arr):
+        mask = labels_arr == label
+        if not np.any(mask):
+            continue
+        series[mask] -= float(np.mean(series[mask]))
+    return series
+
+
+def _make_injection_basis(
+    matrix: np.ndarray,
+    labels: np.ndarray,
+    rng: np.random.Generator,
+    *,
+    inject_mode: str,
+) -> InjectionBasis:
     n_obs, n_assets = matrix.shape
+    labels_arr = _validate_group_labels(labels, n_obs)
     direction = _normalise_vector(rng.normal(size=n_assets).astype(np.float64))
-    series = _standardise_series(rng.normal(size=n_obs))
-    return InjectionBasis(direction=direction, series=series)
+    mode = (inject_mode or "total").strip().lower()
+    if mode == "total":
+        series = rng.normal(size=n_obs).astype(np.float64)
+    elif mode == "between":
+        series = _between_group_series(labels_arr, rng)
+    elif mode == "within":
+        series = _within_group_series(labels_arr, rng)
+    else:
+        raise ValueError(f"Unsupported inject_mode: {inject_mode}.")
+    series = _standardise_series(series)
+    return InjectionBasis(direction=direction, series=series, inject_mode=mode)
 
 
 def _apply_injection(matrix: np.ndarray, basis: InjectionBasis, mu: float) -> np.ndarray:
@@ -217,9 +263,10 @@ def _score_samples(
     }
 
 
-def _build_curve_dataframe(rows: Sequence[dict[str, float]]) -> pd.DataFrame:
+def _build_curve_dataframe(rows: Sequence[dict[str, float | str]]) -> pd.DataFrame:
     required = [
         "mu",
+        "inject_mode",
         "detection_rate",
         "acceptance_rate",
         "n_windows",
@@ -344,13 +391,15 @@ def _build_windows_detail_dataframe(rows: Sequence[dict[str, Any]]) -> pd.DataFr
 
 
 def _build_gating_reasons_dataframe(detail_df: pd.DataFrame) -> pd.DataFrame:
-    columns = ["stage", "reason", "count", "injected_mu"]
+    columns = ["stage", "reason", "count", "injected_mu", "inject_mode"]
     if detail_df.empty:
         return pd.DataFrame(columns=columns)
 
     df = detail_df.copy()
     if "injected_mu" not in df.columns:
         df["injected_mu"] = np.nan
+    if "inject_mode" not in df.columns:
+        df["inject_mode"] = None
     df["_mu"] = pd.to_numeric(df["injected_mu"], errors="coerce").fillna(0.0)
 
     for key in GUARD_KEYS:
@@ -365,18 +414,42 @@ def _build_gating_reasons_dataframe(detail_df: pd.DataFrame) -> pd.DataFrame:
             df[col] = 0
 
     rows: list[dict[str, Any]] = []
-    for mu_val, group in df.groupby("_mu"):
+    for (mu_val, mode), group in df.groupby(["_mu", "inject_mode"], dropna=False):
         mu_float = float(mu_val)
         for key in GUARD_KEYS:
             col = f"guard_{key}"
             count = int(pd.to_numeric(group[col], errors="coerce").fillna(0).sum())
-            rows.append({"stage": "pre_gate", "reason": key, "count": count, "injected_mu": mu_float})
+            rows.append(
+                {
+                    "stage": "pre_gate",
+                    "reason": key,
+                    "count": count,
+                    "injected_mu": mu_float,
+                    "inject_mode": mode,
+                }
+            )
         unknown_count = int(pd.to_numeric(group["guard_unknown"], errors="coerce").fillna(0).sum())
-        rows.append({"stage": "pre_gate", "reason": "unknown", "count": unknown_count, "injected_mu": mu_float})
+        rows.append(
+            {
+                "stage": "pre_gate",
+                "reason": "unknown",
+                "count": unknown_count,
+                "injected_mu": mu_float,
+                "inject_mode": mode,
+            }
+        )
         for key in GATE_REASON_KEYS:
             col = f"gate_reason_{key}"
             count = int(pd.to_numeric(group[col], errors="coerce").fillna(0).sum())
-            rows.append({"stage": "post_gate", "reason": key, "count": count, "injected_mu": mu_float})
+            rows.append(
+                {
+                    "stage": "post_gate",
+                    "reason": key,
+                    "count": count,
+                    "injected_mu": mu_float,
+                    "inject_mode": mode,
+                }
+            )
     return pd.DataFrame(rows, columns=columns)
 
 
@@ -414,6 +487,54 @@ def _dominant_tvec_reasons(gating_df: pd.DataFrame) -> bool:
     }
     tvec_total = int(subset[subset["reason"].isin(tvec_reasons)]["count"].sum())
     return (tvec_total / float(total)) >= 0.5
+
+
+def _summary_stats(values: Sequence[float]) -> dict[str, float]:
+    arr = np.asarray(list(values), dtype=np.float64)
+    if arr.size == 0:
+        return {"min": float("nan"), "max": float("nan"), "mean": float("nan"), "median": float("nan")}
+    return {
+        "min": float(np.min(arr)),
+        "max": float(np.max(arr)),
+        "mean": float(np.mean(arr)),
+        "median": float(np.median(arr)),
+    }
+
+
+def _summarise_injection_series(bases: Sequence[InjectionBasis]) -> dict[str, float]:
+    means = [float(np.mean(basis.series)) for basis in bases]
+    stds = [float(np.std(basis.series)) for basis in bases]
+    summary = {
+        "mean": _summary_stats(means),
+        "std": _summary_stats(stds),
+    }
+    summary["mean_abs_max"] = float(np.max(np.abs(means))) if means else float("nan")
+    return summary
+
+
+def _summarise_group_labels(samples: Sequence[WindowSample]) -> dict[str, float]:
+    n_groups: list[int] = []
+    reps_min: list[int] = []
+    reps_max: list[int] = []
+    reps_mean: list[float] = []
+    reps_median: list[float] = []
+    for sample in samples:
+        labels = np.asarray(sample.group_labels, dtype=np.intp)
+        unique, counts = np.unique(labels, return_counts=True)
+        if unique.size == 0:
+            continue
+        n_groups.append(int(unique.size))
+        reps_min.append(int(np.min(counts)))
+        reps_max.append(int(np.max(counts)))
+        reps_mean.append(float(np.mean(counts)))
+        reps_median.append(float(np.median(counts)))
+    return {
+        "n_groups": _summary_stats(n_groups),
+        "reps_min": _summary_stats(reps_min),
+        "reps_max": _summary_stats(reps_max),
+        "reps_mean": _summary_stats(reps_mean),
+        "reps_median": _summary_stats(reps_median),
+    }
 
 
 def _write_debug_window(
@@ -593,6 +714,13 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--mu-grid", type=str, default="3,4,5")
     parser.add_argument("--inject-frac-min", type=float, default=0.05)
     parser.add_argument("--inject-frac-max", type=float, default=0.10)
+    parser.add_argument(
+        "--inject-mode",
+        type=str,
+        choices=["total", "between", "within"],
+        default="total",
+        help="Injection component mode: total (current), between-group, or within-group.",
+    )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--max-windows", type=int, default=None)
     parser.add_argument("--window-sampling", type=str, choices=["first", "random"], default="first")
@@ -625,6 +753,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     start_utc = datetime.now(tz=timezone.utc)
     start_perf = time.perf_counter()
     thread_env = _thread_env_snapshot()
+    inject_mode = str(args.inject_mode)
     thresholds_path = Path(args.thresholds) if args.thresholds else DEFAULT_THRESHOLDS_PATH
     if thresholds_path is not None and not thresholds_path.exists():
         thresholds_path = None
@@ -643,6 +772,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         "mu_grid": list(args.mu_values),
         "inject_frac_min": float(args.inject_frac_min),
         "inject_frac_max": float(args.inject_frac_max),
+        "inject_mode": str(args.inject_mode),
         "seed": int(args.seed),
         "max_windows": args.max_windows,
         "window_sampling": str(args.window_sampling),
@@ -688,7 +818,17 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     overlay_cfg = _make_overlay_config(config)
     rng = np.random.default_rng(args.seed)
-    bases = [_make_injection_basis(sample.matrix, rng) for sample in samples]
+    bases = [
+        _make_injection_basis(
+            sample.matrix,
+            sample.group_labels,
+            rng,
+            inject_mode=inject_mode,
+        )
+        for sample in samples
+    ]
+    series_summary = _summarise_injection_series(bases)
+    group_summary = _summarise_group_labels(samples)
 
     inject_frac = float(rng.uniform(args.inject_frac_min, args.inject_frac_max))
     n_injected = max(1, int(round(inject_frac * len(samples))))
@@ -696,7 +836,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     inject_index_set = set(inject_indices)
 
     mu_values = sorted({float(mu) for mu in args.mu_values})
-    curve_rows: list[dict[str, float]] = []
+    curve_rows: list[dict[str, float | str]] = []
     window_rows: list[dict[str, Any]] = []
     debug_candidate: tuple[WindowSample, dict[str, Any]] | None = None
     debug_window_path: Path | None = None
@@ -731,6 +871,7 @@ def main(argv: Sequence[str] | None = None) -> None:
             "n_assets": sample.matrix.shape[1],
             "injected": 0,
             "injected_mu": None,
+            "inject_mode": inject_mode,
             "detected_initial": int(detected_count),
             "accepted": int(accepted_count),
         }
@@ -747,7 +888,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         if baseline_stats["n_windows"]
         else float("nan")
     )
-    curve_rows.append({"mu": 0.0, **baseline_stats})
+    curve_rows.append({"mu": 0.0, "inject_mode": inject_mode, **baseline_stats})
 
     for mu in mu_values:
         if mu <= 0.0:
@@ -781,6 +922,7 @@ def main(argv: Sequence[str] | None = None) -> None:
                 "n_assets": sample.matrix.shape[1],
                 "injected": 1,
                 "injected_mu": float(mu),
+                "inject_mode": inject_mode,
                 "detected_initial": int(detected_count),
                 "accepted": int(accepted_count),
             }
@@ -797,6 +939,7 @@ def main(argv: Sequence[str] | None = None) -> None:
             else float("nan")
         )
         mu_stats["mu"] = float(mu)
+        mu_stats["inject_mode"] = inject_mode
         curve_rows.append(mu_stats)
 
     if profiler is not None:
@@ -946,6 +1089,9 @@ def main(argv: Sequence[str] | None = None) -> None:
             "inject_frac_max": float(args.inject_frac_max),
             "inject_frac": inject_frac,
             "n_injected": n_injected,
+            "inject_mode": inject_mode,
+            "series_summary": series_summary,
+            "group_summary": group_summary,
             "basis_fixed_per_window": True,
             "mu_definition": "rank-1 covariance spike eigenvalue (variance) applied as sqrt(mu) * z_t v^T",
             "signal_definition": "z_t standardised to mean 0, std 1; v unit-norm; same (z_t, v) reused for each mu",

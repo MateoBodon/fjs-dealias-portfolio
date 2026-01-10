@@ -708,3 +708,8 @@ cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/RESULTS.md <<'
 - make test-fast passed on 2026-01-10; no new eval outputs available to summarize for uncapped week design.
 EOF
 git status -sb
+git add PROGRESS.md docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/RESULTS.md docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/TESTS.md
+git commit -m "Document uncapped rerun status" -m "Tests: make test-fast"
+git status -sb
+git add docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md
+git commit -m "Update commands log" -m "Tests: make test-fast"

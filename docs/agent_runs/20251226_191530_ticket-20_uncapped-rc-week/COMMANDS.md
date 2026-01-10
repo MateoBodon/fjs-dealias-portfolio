@@ -657,3 +657,6 @@ cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md <<
 cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/RESULTS.md <<'EOF'
 - Cancel request: no active eval process found to terminate; rerun2 had already exited when checked.
 EOF
+git add docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/RESULTS.md
+git commit -m "Log uncapped rerun exits" -m "Tests: not run (not requested)"
+git status -sb

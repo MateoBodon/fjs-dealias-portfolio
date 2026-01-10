@@ -736,3 +736,7 @@ PY
 sed -n '1,200p' docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/META.md
 apply_patch (update META.md with resolved_config/dataset hashes)
 git status -sb
+git add docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/META.md
+git commit -m "Update run metadata" -m "Tests: make test-fast"
+git add docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md
+git commit -m "Log command updates" -m "Tests: make test-fast"

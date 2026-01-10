@@ -767,3 +767,9 @@ git rev-parse HEAD
 apply_patch (update META.md end_git_sha to bundle commit)
 git add docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/META.md
 git commit -m "Update end sha" -m "Tests: make test-fast"
+git status -sb
+cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/RESULTS.md (append merge/push note)
+git add docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/RESULTS.md
+git commit -m "Document merge/push" -m "Tests: make test-fast"
+git push origin main
+date -u +"%Y-%m-%d %H:%M UTC"

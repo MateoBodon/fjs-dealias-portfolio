@@ -23,3 +23,4 @@
 - Cancel request: no active eval process found to terminate; rerun2 had already exited when checked.
 - make test-fast passed on 2026-01-10; no new eval outputs available to summarize for uncapped week design.
 - Bundle: docs/gpt_bundles/20260110_114653_ticket-20_20251226_191530_ticket-20_uncapped-rc-week.zip
+- Merged to main and pushed to origin on 2026-01-10 10:49 UTC.

@@ -1,7 +1,7 @@
 start_git_sha: c8b95a67fc8e24b881dedb5b1c9fc9ab8e3ccc63
 start_branch: codex/ticket-20_uncapped-rc-week
 start_dirty: true
-end_git_sha: 29a901e2cbf202131371181739fe071c58274a0b
+end_git_sha: 87d49413f8078d2560d0c680918d54ca31c6b261
 end_branch: codex/ticket-20_uncapped-rc-week
 end_dirty: true
 resolved_config_paths:

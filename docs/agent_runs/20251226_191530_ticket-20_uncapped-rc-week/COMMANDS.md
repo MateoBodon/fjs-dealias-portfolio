@@ -763,3 +763,7 @@ cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/RESULTS.md <<'
 cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/RESULTS.md (append bundle path)
 git rev-parse HEAD
 apply_patch (update META.md end_git_sha)
+git rev-parse HEAD
+apply_patch (update META.md end_git_sha to bundle commit)
+git add docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/META.md
+git commit -m "Update end sha" -m "Tests: make test-fast"

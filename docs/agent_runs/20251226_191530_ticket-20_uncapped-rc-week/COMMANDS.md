@@ -666,3 +666,45 @@ tail -n 20 docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.m
 git status -sb
 git add docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md
 git commit -m "Log follow-up commands" -m "Tests: not run (not requested)"
+make test-fast
+cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md <<'EOF'
+make test-fast
+EOF
+cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/TESTS.md <<'EOF'
+- make test-fast
+  - Status: pass (78 passed, 170 deselected, 1 warning)
+EOF
+cat >> PROGRESS.md <<'EOF'
+
+## 2026-01-10T10:34Z — ticket-20 uncapped RC eval reruns
+- **Branch/Run**: `codex/ticket-20_uncapped-rc-week` (RUN_NAME=`20251226_191530_ticket-20_uncapped-rc-week`), git sha `b5e0f4b986b8fb2d25c1de767f97c3655df221f5`.
+- **Commands**:
+  - `make test-fast`
+  - `PYTHONUNBUFFERED=1 EXEC_MODE=deterministic PYTHONPATH=src:. OMP_NUM_THREADS=1 python3 experiments/eval/run.py --returns-csv data/returns_daily.csv --window 126 --horizon 21 --assets-top 80 --group-design week --group-min-count 4 --group-min-replicates 1 --edge-mode tyler --shrinker rie --prewhiten ff5mom --overlay-delta 0.05 --coarse-candidate 1 --gate-mode soft --gate-accept-nonisolated --gate-stability-min 0.0001 --require-isolated --use-factor-prewhiten 1 --gate-delta-calibration calibration/edge_delta_thresholds.json --gate-delta-frac-min 0.02 --q-max 2 --mv-gamma 1e-4 --mv-box 0.0,0.1 --mv-turnover-bps 5 --mv-condition-cap 1000000 --workers $(nproc) --out reports/rc-20260110/week_uncapped_full_minrep1_rerun2 2>&1 | tee reports/rc-20260110/week_uncapped_full_minrep1_rerun2/run.log`
+- **Results**:
+  - Full uncapped reruns on returns_daily exited after prewhiten with no eval outputs (no run.json/metrics; run.log empty), so summary_perf could not be generated.
+- **Artifacts**:
+  - Run log `docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/`
+  - Outputs `reports/rc-20251230/week_uncapped_full_minrep1/`, `reports/rc-20251230/week_uncapped_full_minrep1_rerun/`, `reports/rc-20260110/week_uncapped_full_minrep1_rerun2/`
+cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md <<'EOF' (failed: nested EOF)
+cat >> PROGRESS.md <<'EOF'
+
+## 2026-01-10T10:34Z — ticket-20 uncapped RC eval reruns
+- **Branch/Run**: `codex/ticket-20_uncapped-rc-week` (RUN_NAME=`20251226_191530_ticket-20_uncapped-rc-week`), git sha `b5e0f4b986b8fb2d25c1de767f97c3655df221f5`.
+- **Commands**:
+  - `make test-fast`
+  - `PYTHONUNBUFFERED=1 EXEC_MODE=deterministic PYTHONPATH=src:. OMP_NUM_THREADS=1 python3 experiments/eval/run.py --returns-csv data/returns_daily.csv --window 126 --horizon 21 --assets-top 80 --group-design week --group-min-count 4 --group-min-replicates 1 --edge-mode tyler --shrinker rie --prewhiten ff5mom --overlay-delta 0.05 --coarse-candidate 1 --gate-mode soft --gate-accept-nonisolated --gate-stability-min 0.0001 --require-isolated --use-factor-prewhiten 1 --gate-delta-calibration calibration/edge_delta_thresholds.json --gate-delta-frac-min 0.02 --q-max 2 --mv-gamma 1e-4 --mv-box 0.0,0.1 --mv-turnover-bps 5 --mv-condition-cap 1000000 --workers $(nproc) --out reports/rc-20260110/week_uncapped_full_minrep1_rerun2 2>&1 | tee reports/rc-20260110/week_uncapped_full_minrep1_rerun2/run.log`
+- **Results**:
+  - Full uncapped reruns on returns_daily exited after prewhiten with no eval outputs (no run.json/metrics; run.log empty), so summary_perf could not be generated.
+- **Artifacts**:
+  - Run log `docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/`
+  - Outputs `reports/rc-20251230/week_uncapped_full_minrep1/`, `reports/rc-20251230/week_uncapped_full_minrep1_rerun/`, `reports/rc-20260110/week_uncapped_full_minrep1_rerun2/`
+EOF
+git status -sb
+cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/RESULTS.md <<'EOF'
+- make test-fast passed on 2026-01-10; no new eval outputs available to summarize for uncapped week design.
+cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md <<'EOF' (failed: nested EOF)
+cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/RESULTS.md <<'EOF'
+- make test-fast passed on 2026-01-10; no new eval outputs available to summarize for uncapped week design.
+EOF
+git status -sb

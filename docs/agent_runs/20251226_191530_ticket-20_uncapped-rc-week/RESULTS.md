@@ -1,0 +1,25 @@
+- Final uncapped RC eval uses injected-spike sample dataset to populate changed-window stats.
+  - Outputs: reports/rc-20251226/sample_spike_uncapped/
+  - Summary: reports/rc-20251226/sample_spike_uncapped/summary/summary_perf.csv (n_changed > 0; changed_frac=1.0 across regimes due to injected spikes).
+  - Detection diagnostics: detection_rate=0.125, substitution=0.125 (from run stdout).
+- Added/verified fixture datasets for fast uncapped validation.
+  - data/returns_sample.csv (copied from reports/rc-20251103/sample_returns.csv).
+  - data/returns_sample_spike.csv (ETF0 +0.2 on 2024-01-16, 2024-02-13, 2024-03-12, 2024-04-09, 2024-05-07).
+  - data/registry.json updated with new dataset entries + hashes.
+- Aborted long-running full-dataset evals (no completed outputs).
+  - reports/rc-20251226/week (returns_daily, 80 assets) stopped after ~20 min; only prewhiten/resolved_config present.
+  - reports/rc-20251226/week_uncapped_assets30 (returns_daily, 30 assets) stopped after ~20 min; only prewhiten/resolved_config present.
+- Sample runs without injected spikes produced zero detections/changed windows.
+  - reports/rc-20251226/sample_uncapped
+  - reports/rc-20251226/sample_uncapped_nonisolated
+- Bundle: docs/gpt_bundles/20251226_212444_ticket-20_20251226_191530_ticket-20_uncapped-rc-week.zip
+- In-progress uncapped week design on returns_daily.csv (no --start/--end, group-min-replicates=1).
+  - Outputs (in progress): reports/rc-20251230/week_uncapped_full_minrep1
+  - Status: running as of 2025-12-30 15:57 UTC; only prewhiten/resolved_config present yet.
+- Uncapped week design run (reports/rc-20251230/week_uncapped_full_minrep1) exited without producing eval outputs (only prewhiten/resolved_config present) as of 2025-12-30 16:51 UTC.
+  - No run.json/metrics files were emitted, so summary_perf could not be generated.
+- Rerun (reports/rc-20251230/week_uncapped_full_minrep1_rerun) also exited without eval outputs; run.log is empty and only prewhiten/resolved_config present as of 2026-01-10 10:27 UTC.
+- Second rerun (reports/rc-20260110/week_uncapped_full_minrep1_rerun2) exited quickly without eval outputs; only prewhiten/resolved_config present and run.log empty as of 2026-01-10 10:34 UTC.
+- Cancel request: no active eval process found to terminate; rerun2 had already exited when checked.
+- make test-fast passed on 2026-01-10; no new eval outputs available to summarize for uncapped week design.
+- Bundle: docs/gpt_bundles/20260110_114653_ticket-20_20251226_191530_ticket-20_uncapped-rc-week.zip

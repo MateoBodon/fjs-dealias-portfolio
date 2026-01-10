@@ -29,6 +29,38 @@
         "min_volume": 0
       },
       "note": "CRSP daily returns ingested via src/io/crsp_daily.py with default filters; tickers aligned to WRDS canonical names."
+    },
+    "data/returns_sample.csv": {
+      "sha256": "287b99ab0fd8bb3f8cd0ed68e7eb6d24667462b4285edcb9f73cac69eb5356ff",
+      "rows": 120,
+      "columns": 9,
+      "start_date": "2024-01-02",
+      "end_date": "2024-06-17",
+      "note": "Small sample returns for smoke runs; copied from reports/rc-20251103/sample_returns.csv."
+    },
+    "data/returns_sample_spike.csv": {
+      "sha256": "f976ae73404b73e6a2183e449160a0ba4b37b27b83e890a66da53dd7392e4744",
+      "rows": 120,
+      "columns": 9,
+      "start_date": "2024-01-02",
+      "end_date": "2024-06-17",
+      "note": "Sample returns with injected spikes in ETF0 (+0.2) on 2024-01-16, 2024-02-13, 2024-03-12, 2024-04-09, 2024-05-07 for overlay validation."
+    },
+    "data/returns_daily_2022_2024.csv": {
+      "sha256": "30e0e2aa960a79c6a8b9d0959fe2d15da5045e06f72e7a82ecd404bc214bd614",
+      "rows": 122503,
+      "columns": 3,
+      "start_date": "2022-01-03",
+      "end_date": "2024-06-28",
+      "note": "Subset of data/returns_daily.csv filtered to 2022-01-03 through 2024-06-28 for uncapped smoke runs."
+    },
+    "data/returns_daily_2018_2019.csv": {
+      "sha256": "7a10b7fd38f516f5e4beb732a43ba4a1b84e7222b22d038edee92403237da8d6",
+      "rows": 115102,
+      "columns": 3,
+      "start_date": "2018-01-02",
+      "end_date": "2019-12-31",
+      "note": "Subset of data/returns_daily.csv filtered to 2018-01-02 through 2019-12-31 for uncapped smoke runs."
     }
   }
 }

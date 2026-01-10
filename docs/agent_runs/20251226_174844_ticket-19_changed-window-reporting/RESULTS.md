@@ -1,0 +1,14 @@
+- Current changed-window semantics (pre-change):
+  - `changed_flag` is set per window in `experiments/eval/run.py` when `max(|overlay_cov - baseline_cov|) > 1e-10` after `apply_overlay`; emitted in `diagnostics_detail.csv`.
+  - `changed_windows_by_regime` is built from `diagnostics_detail.csv` (`window_id`, `changed_flag`), with `forced_changed_windows` overriding the set and (if forced union non-empty) flipping `changed_flag=1` for those windows.
+  - Aligned Δ metrics and DM tests use `_aligned_*` helpers with `valid_window_ids=changed_windows_by_regime[...]` (now always, even if empty) so `n_effective_*` matches changed-window intersections.
+- Code changes:
+  - Added per-window weight-delta diagnostics (`weight_delta_l2`, `turnover_delta`) to `metrics_detail.csv` (EW=0, MV uses overlay vs baseline min-var weights when available).
+  - Made aligned Δ metrics in `experiments/eval/run.py` always respect changed windows (no fallback to all windows when none are changed); flip-set DM/sign stats now always filter by changed windows.
+  - `tools/make_summary.py` now computes changed-window-only ΔMSE/ΔQLIKE, `n_changed`, `changed_frac`, and median weight-delta stats; limitations now include a conditional-reporting section with `n_changed`/`changed_frac` lines.
+  - `tools/summarize_rc_sanity.py` now prefers `delta_mse_vs_baseline` when available.
+  - Tests added/updated for changed-window conditional metrics and empty changed-window behavior.
+- Outputs:
+  - rc-lite-sanity run: `reports/rc-20251226-sanity-20251226_191833/` (summary files under `.../summary/`).
+  - `summary_perf.csv` includes new columns but is empty because rc-lite-sanity runs are capped (date truncation), so changed-window stats are not populated in that smoke run.
+- Bundle: `docs/gpt_bundles/20251226_194611_ticket-19_20251226_174844_ticket-19_changed-window-reporting.zip`

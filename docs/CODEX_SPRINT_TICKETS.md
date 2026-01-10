@@ -130,6 +130,8 @@ Rule: do not expand the experiment grid until Tickets 1–4 are done.
 
 ## Ticket #19 — Conditional effect reporting + weight-change stats (changed windows only)
 
+**Status:** DONE
+
 **Goal (1 sentence):** Add “changed-window” performance reporting so we can tell whether the overlay ever matters when it triggers.
 
 **Files/modules likely involved:**
@@ -160,6 +162,8 @@ Rule: do not expand the experiment grid until Tickets 1–4 are done.
 ---
 
 ## Ticket #20 — Advisor-ready uncapped RC run (primary design = `week`) + memo outputs
+
+**Status:** PARTIAL — uncapped sample_spike run completed to populate changed-window stats; advisor-ready full week run (n_effective threshold + memo outputs) still pending.
 
 **Goal (1 sentence):** Produce one uncapped, advisor-ready RC run with meaningful effective sample size and clean summaries (including conditional effects + skip/acceptance).
 

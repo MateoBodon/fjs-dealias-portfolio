@@ -1,0 +1,2 @@
+- make test-fast (pass; 78 passed, 170 deselected)
+- EXEC_MODE=deterministic RC_LITE_STAMP=20251226_181827 make rc-lite-sanity (pass; outputs under reports/rc-20251226-sanity-20251226_191833; includes tools/make_summary.py + tools/summarize_rc_sanity.py)

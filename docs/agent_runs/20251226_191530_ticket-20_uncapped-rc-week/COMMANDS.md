@@ -713,3 +713,26 @@ git commit -m "Document uncapped rerun status" -m "Tests: make test-fast"
 git status -sb
 git add docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md
 git commit -m "Update commands log" -m "Tests: make test-fast"
+python tools/verify_dataset.py data/returns_daily.csv --registry data/registry.json
+python - <<'PY'
+import hashlib
+from pathlib import Path
+path = Path('data/returns_daily.csv')
+sha = hashlib.sha256(path.read_bytes()).hexdigest()
+print(sha)
+PY
+python - <<'PY'
+import hashlib
+from pathlib import Path
+paths = [
+    'reports/rc-20251230/week_uncapped_full_minrep1/resolved_config.json',
+    'reports/rc-20251230/week_uncapped_full_minrep1_rerun/resolved_config.json',
+    'reports/rc-20260110/week_uncapped_full_minrep1_rerun2/resolved_config.json',
+]
+for p in paths:
+    sha = hashlib.sha256(Path(p).read_bytes()).hexdigest()
+    print(f"{p} {sha}")
+PY
+sed -n '1,200p' docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/META.md
+apply_patch (update META.md with resolved_config/dataset hashes)
+git status -sb

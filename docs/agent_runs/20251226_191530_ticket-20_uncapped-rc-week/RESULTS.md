@@ -13,3 +13,11 @@
   - reports/rc-20251226/sample_uncapped
   - reports/rc-20251226/sample_uncapped_nonisolated
 - Bundle: docs/gpt_bundles/20251226_212444_ticket-20_20251226_191530_ticket-20_uncapped-rc-week.zip
+- In-progress uncapped week design on returns_daily.csv (no --start/--end, group-min-replicates=1).
+  - Outputs (in progress): reports/rc-20251230/week_uncapped_full_minrep1
+  - Status: running as of 2025-12-30 15:57 UTC; only prewhiten/resolved_config present yet.
+- Uncapped week design run (reports/rc-20251230/week_uncapped_full_minrep1) exited without producing eval outputs (only prewhiten/resolved_config present) as of 2025-12-30 16:51 UTC.
+  - No run.json/metrics files were emitted, so summary_perf could not be generated.
+- Rerun (reports/rc-20251230/week_uncapped_full_minrep1_rerun) also exited without eval outputs; run.log is empty and only prewhiten/resolved_config present as of 2026-01-10 10:27 UTC.
+- Second rerun (reports/rc-20260110/week_uncapped_full_minrep1_rerun2) exited quickly without eval outputs; only prewhiten/resolved_config present and run.log empty as of 2026-01-10 10:34 UTC.
+- Cancel request: no active eval process found to terminate; rerun2 had already exited when checked.

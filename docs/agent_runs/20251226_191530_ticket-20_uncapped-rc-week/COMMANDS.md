@@ -373,3 +373,287 @@ ps -p 3131285 -o etime,pcpu,pmem,args
 git add docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md
 git commit -m 'Update ticket-20 command log after bundle' -m 'Tests: make test-fast'
 find reports/rc-20251226/dow_uncapped_2018_2019 -maxdepth 2 -type f | wc -l
+ps -p 3131285 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019 -maxdepth 2 -type f | wc -l
+ps -p 3131285 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019 -maxdepth 2 -type f | wc -l
+ps -p 3131285 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019 -maxdepth 2 -type f | wc -l
+ps -p 3131285 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019 -maxdepth 2 -type f | wc -l
+ps -p 3131285 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019 -maxdepth 2 -type f | wc -l
+ps -p 3131285 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019 -maxdepth 2 -type f | wc -l
+ps -p 3131285 -o etime,pcpu,pmem,args
+ps -p 3131285 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019 -maxdepth 2 -type f | wc -l
+ps -p 3131285 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019 -maxdepth 2 -type f | wc -l
+ps -p 3131285 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019 -maxdepth 2 -type f | wc -l
+ps -p 3131285 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019 -maxdepth 2 -type f | wc -l
+ps -p 3131285 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019 -maxdepth 2 -type f | wc -l
+ps -p 3131285 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019 -maxdepth 2 -type f | wc -l
+ps -p 3131285 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019 -maxdepth 2 -type f | wc -l
+ps -p 3131285 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019 -maxdepth 2 -type f | wc -l
+ps -p 3131285 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019 -maxdepth 2 -type f | wc -l
+ps -p 3131285 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019 -maxdepth 2 -type f | wc -l
+ps -p 3131285 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019 -maxdepth 2 -type f | wc -l
+ps -p 3131285 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019 -maxdepth 2 -type f | wc -l
+ps -p 3131285 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019 -maxdepth 2 -type f | wc -l
+ps -p 3131285 -o etime,pcpu,pmem,args
+ps -p 3131285 -o etime,pcpu,pmem,args
+ps -p 3131285
+ls reports/rc-20251226/dow_uncapped_2018_2019
+PYTHONPATH=src:. python tools/make_summary.py --rc-dir reports/rc-20251226/dow_uncapped_2018_2019
+python - <<'PY'\nimport pandas as pd\npath = 'reports/rc-20251226/dow_uncapped_2018_2019/summary/summary_perf.csv'\ndf = pd.read_csv(path)\nprint(df[['portfolio','regime','n_changed','changed_frac']])\nprint(df[['delta_mse_changed_vs_baseline','delta_qlike_changed_vs_baseline','median_weight_delta_l2','median_turnover_delta']])\nPY
+cat reports/rc-20251226/dow_uncapped_2018_2019/summary/summary_perf.csv
+cat reports/rc-20251226/dow_uncapped_2018_2019/summary/completeness.json
+head -n 20 reports/rc-20251226/dow_uncapped_2018_2019/skip_stats.csv
+rg -n 'window_coverage' -n reports/rc-20251226/dow_uncapped_2018_2019/run.json
+sed -n '150,190p' reports/rc-20251226/dow_uncapped_2018_2019/run.json
+python - <<'PY'\nimport pandas as pd\npath = 'reports/rc-20251226/dow_uncapped_2018_2019/diagnostics_detail.csv'\ndf = pd.read_csv(path)\nprint(df.columns.tolist())\nprint(df[['design_ok','window_valid','skip_reason']].value_counts().head())\nPY
+python - <<'PY'\nimport pandas as pd\npath = 'reports/rc-20251226/dow_uncapped_2018_2019/diagnostics_detail.csv'\ndf = pd.read_csv(path)\nprint(df['design_ok'].value_counts(dropna=False))\nprint(df['drop_reason'].value_counts(dropna=False).head())\nprint(df['mv_skipped'].value_counts(dropna=False))\nprint(df['mv_skip_reason'].value_counts(dropna=False).head())\nPY
+EXEC_MODE=deterministic PYTHONPATH=src:. OMP_NUM_THREADS=1 python3 experiments/eval/run.py --returns-csv data/returns_daily_2018_2019.csv --window 126 --horizon 21 --assets-top 60 --group-design dow --group-min-count 3 --group-min-replicates 2 --min-reps-dow 6 --edge-mode tyler --shrinker rie --prewhiten ff5mom --overlay-delta 0.05 --coarse-candidate 1 --gate-mode soft --gate-accept-nonisolated --gate-stability-min 0.0001 --require-isolated --use-factor-prewhiten 1 --gate-delta-calibration calibration/edge_delta_thresholds.json --gate-delta-frac-min 0.02 --q-max 2 --mv-gamma 1e-4 --mv-box 0.0,0.1 --mv-turnover-bps 5 --mv-condition-cap 1000000 --workers 32 --out reports/rc-20251226/dow_uncapped_2018_2019_relaxed
+ls reports/rc-20251226/dow_uncapped_2018_2019_relaxed
+ps -ef | rg 'dow_uncapped_2018_2019_relaxed'
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+find reports/rc-20251226/dow_uncapped_2018_2019_relaxed -maxdepth 2 -type f | wc -l
+ps -p 3146437 -o etime,pcpu,pmem,args
+ps -ef | rg 'experiments/eval/run.py'
+sed -n '1,200p' AGENTS.md
+sed -n '1,200p' docs/DOCS_AND_LOGGING_SYSTEM.md
+sed -n '1,200p' docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md
+rg -n "rc-.*week|week" Makefile
+sed -n '360,470p' Makefile
+sed -n '1,140p' Makefile
+rg -n "RC_WEEK" Makefile
+git status -sb
+rg -n "stride" experiments/eval/run.py
+rg -n "stride" experiments/eval/run.py experiments/eval/config.py
+rg -n "stride-windows" -S
+rg -n "cap" experiments/eval/run.py
+python tools/verify_dataset.py data/returns_daily.csv --registry data/registry.json
+python tools/verify_dataset.py data/factors/ff5mom_daily.csv --registry data/factors/registry.json
+python - <<'PY'
+import pandas as pd
+import pathlib
+path = pathlib.Path('data/returns_daily.csv')
+df = pd.read_csv(path, usecols=['date'])
+print(df['date'].min(), df['date'].max(), len(df))
+PY
+ls reports/rc-20251226
+EXEC_MODE=deterministic PYTHONPATH=src:. OMP_NUM_THREADS=1 python3 experiments/eval/run.py --returns-csv data/returns_daily.csv --window 126 --horizon 21 --start 2018-01-01 --end 2024-12-31 --assets-top 80 --group-design week --group-min-count 4 --group-min-replicates 5 --edge-mode tyler --shrinker rie --prewhiten ff5mom --overlay-delta 0.05 --coarse-candidate 1 --gate-mode soft --gate-accept-nonisolated --gate-stability-min 0.0001 --require-isolated --use-factor-prewhiten 1 --gate-delta-calibration calibration/edge_delta_thresholds.json --gate-delta-frac-min 0.02 --q-max 2 --mv-gamma 1e-4 --mv-box 0.0,0.1 --mv-turnover-bps 5 --mv-condition-cap 1000000 --workers $(nproc) --out reports/rc-20251226/week_uncapped_full
+ps -ef | rg 'experiments/eval/run.py'
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -p 3158619 -o etime,pcpu,pmem,args
+ps -ef | rg 'week_uncapped_full_minrep1'
+ls reports/rc-20251226/week_uncapped_full_minrep1
+find reports/rc-20251226/week_uncapped_full_minrep1 -maxdepth 2 -type f
+EXEC_MODE=deterministic PYTHONPATH=src:. OMP_NUM_THREADS=1 python3 experiments/eval/run.py --returns-csv data/returns_daily.csv --window 126 --horizon 21 --assets-top 80 --group-design week --group-min-count 4 --group-min-replicates 1 --edge-mode tyler --shrinker rie --prewhiten ff5mom --overlay-delta 0.05 --coarse-candidate 1 --gate-mode soft --gate-accept-nonisolated --gate-stability-min 0.0001 --require-isolated --use-factor-prewhiten 1 --gate-delta-calibration calibration/edge_delta_thresholds.json --gate-delta-frac-min 0.02 --q-max 2 --mv-gamma 1e-4 --mv-box 0.0,0.1 --mv-turnover-bps 5 --mv-condition-cap 1000000 --workers $(nproc) --out reports/rc-20251230/week_uncapped_full_minrep1
+ps -p 3279157 -o etime,pcpu,pmem,args
+ls -la reports/rc-20251230/week_uncapped_full_minrep1 | head
+ps -p 3279157 -o etime,pcpu,pmem,args
+find reports/rc-20251230/week_uncapped_full_minrep1 -maxdepth 2 -type f | sed -n '1,120p'
+tail -n 40 docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md
+sleep 60
+ps -p 3279157 -o etime,pcpu,pmem,args
+sleep 300
+ps -p 3279157 -o etime,pcpu,pmem,args
+sleep 600
+ps -p 3279157 -o etime,pcpu,pmem,args
+find reports/rc-20251230/week_uncapped_full_minrep1 -maxdepth 2 -type f | wc -l
+ps -p 3279157 -o etime,pcpu,pmem,args
+sleep 300
+ps -p 3279157 -o etime,pcpu,pmem,args
+sleep 120
+ps -p 3279157 -o etime,pcpu,pmem,args
+find reports/rc-20251230/week_uncapped_full_minrep1/full -maxdepth 2 -type f | head
+ps -p 3279157 -o etime,pcpu,pmem,args
+rg -n "week_uncapped_full_minrep1" docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md | tail -n 20
+rg -n "rc-20251230" docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md
+cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md <<'EOF'
+<appended command list>
+cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md <<'EOF' <appended command list> EOF
+ps -p 3279157 -o etime,pcpu,pmem,args
+date -u +"%Y-%m-%d %H:%M UTC"
+cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/RESULTS.md <<'EOF'
+- In-progress uncapped week design on returns_daily.csv (no --start/--end, group-min-replicates=1).
+  - Outputs (in progress): reports/rc-20251230/week_uncapped_full_minrep1
+  - Status: running as of 2025-12-30 15:57 UTC; only prewhiten/resolved_config present yet.
+date -u +"%Y-%m-%d %H:%M UTC"
+cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/RESULTS.md <<'EOF'
+- In-progress uncapped week design on returns_daily.csv (no --start/--end, group-min-replicates=1).
+  - Outputs (in progress): reports/rc-20251230/week_uncapped_full_minrep1
+  - Status: running as of 2025-12-30 15:57 UTC; only prewhiten/resolved_config present yet.
+EOF
+cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md <<'EOF' (failed: nested EOF)
+ps -p 3279157 -o etime,pcpu,pmem,args
+ps -p 3279157 -o etime,pcpu,pmem,args
+ls -la reports/rc-20251230/week_uncapped_full_minrep1
+find reports/rc-20251230/week_uncapped_full_minrep1 -maxdepth 3 -type f | sed -n '1,200p'
+dmesg | tail -n 20
+date -u +"%Y-%m-%d %H:%M UTC"
+cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/RESULTS.md <<'EOF'
+- Uncapped week design run (reports/rc-20251230/week_uncapped_full_minrep1) exited without producing eval outputs (only prewhiten/resolved_config present) as of 2025-12-30 16:51 UTC.
+  - No run.json/metrics files were emitted, so summary_perf could not be generated.
+cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md <<'EOF' (failed: nested EOF)
+date -u +"%Y-%m-%d %H:%M UTC"
+cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/RESULTS.md <<'EOF'
+- Uncapped week design run (reports/rc-20251230/week_uncapped_full_minrep1) exited without producing eval outputs (only prewhiten/resolved_config present) as of 2025-12-30 16:51 UTC.
+  - No run.json/metrics files were emitted, so summary_perf could not be generated.
+EOF
+mkdir -p reports/rc-20251230/week_uncapped_full_minrep1_rerun
+EXEC_MODE=deterministic PYTHONPATH=src:. OMP_NUM_THREADS=1 python3 experiments/eval/run.py --returns-csv data/returns_daily.csv --window 126 --horizon 21 --assets-top 80 --group-design week --group-min-count 4 --group-min-replicates 1 --edge-mode tyler --shrinker rie --prewhiten ff5mom --overlay-delta 0.05 --coarse-candidate 1 --gate-mode soft --gate-accept-nonisolated --gate-stability-min 0.0001 --require-isolated --use-factor-prewhiten 1 --gate-delta-calibration calibration/edge_delta_thresholds.json --gate-delta-frac-min 0.02 --q-max 2 --mv-gamma 1e-4 --mv-box 0.0,0.1 --mv-turnover-bps 5 --mv-condition-cap 1000000 --workers $(nproc) --out reports/rc-20251230/week_uncapped_full_minrep1_rerun | tee reports/rc-20251230/week_uncapped_full_minrep1_rerun/run.log
+ps -ef | rg 'week_uncapped_full_minrep1_rerun'
+ps -p 3344826 -o etime,pcpu,pmem,args
+ps -p 3344826 -o etime,pcpu,pmem,args
+ls -la reports/rc-20251230/week_uncapped_full_minrep1_rerun
+find reports/rc-20251230/week_uncapped_full_minrep1_rerun -maxdepth 3 -type f | sed -n '1,200p'
+date -u +"%Y-%m-%d %H:%M UTC"
+cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/RESULTS.md <<'EOF'
+- Rerun (reports/rc-20251230/week_uncapped_full_minrep1_rerun) also exited without eval outputs; run.log is empty and only prewhiten/resolved_config present as of 2026-01-10 10:27 UTC.
+EOF
+mkdir -p reports/rc-20260110/week_uncapped_full_minrep1_rerun2
+PYTHONUNBUFFERED=1 EXEC_MODE=deterministic PYTHONPATH=src:. OMP_NUM_THREADS=1 python3 experiments/eval/run.py --returns-csv data/returns_daily.csv --window 126 --horizon 21 --assets-top 80 --group-design week --group-min-count 4 --group-min-replicates 1 --edge-mode tyler --shrinker rie --prewhiten ff5mom --overlay-delta 0.05 --coarse-candidate 1 --gate-mode soft --gate-accept-nonisolated --gate-stability-min 0.0001 --require-isolated --use-factor-prewhiten 1 --gate-delta-calibration calibration/edge_delta_thresholds.json --gate-delta-frac-min 0.02 --q-max 2 --mv-gamma 1e-4 --mv-box 0.0,0.1 --mv-turnover-bps 5 --mv-condition-cap 1000000 --workers $(nproc) --out reports/rc-20260110/week_uncapped_full_minrep1_rerun2 2>&1 | tee reports/rc-20260110/week_uncapped_full_minrep1_rerun2/run.log
+ps -ef | rg 'week_uncapped_full_minrep1_rerun2'
+git status -sb
+ps -ef | rg 'week_uncapped_full_minrep1_rerun2'
+ps -ef | rg 'experiments/eval/run.py'
+ls -la reports/rc-20260110/week_uncapped_full_minrep1_rerun2
+date -u +"%Y-%m-%d %H:%M UTC"
+cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/RESULTS.md <<'EOF'
+- Second rerun (reports/rc-20260110/week_uncapped_full_minrep1_rerun2) exited quickly without eval outputs; only prewhiten/resolved_config present and run.log empty as of 2026-01-10 10:34 UTC.
+cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md <<'EOF' (failed: nested EOF)
+git status -sb
+ps -ef | rg 'week_uncapped_full_minrep1_rerun2'
+ps -ef | rg 'experiments/eval/run.py'
+ls -la reports/rc-20260110/week_uncapped_full_minrep1_rerun2
+date -u +"%Y-%m-%d %H:%M UTC"
+cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/RESULTS.md <<'EOF'
+- Second rerun (reports/rc-20260110/week_uncapped_full_minrep1_rerun2) exited quickly without eval outputs; only prewhiten/resolved_config present and run.log empty as of 2026-01-10 10:34 UTC.
+EOF
+cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/RESULTS.md <<'EOF'
+- Cancel request: no active eval process found to terminate; rerun2 had already exited when checked.
+cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md <<'EOF' (failed: nested EOF)
+cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/RESULTS.md <<'EOF'
+- Cancel request: no active eval process found to terminate; rerun2 had already exited when checked.
+EOF

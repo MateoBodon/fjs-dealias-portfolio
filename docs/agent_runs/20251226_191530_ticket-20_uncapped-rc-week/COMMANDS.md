@@ -660,3 +660,9 @@ EOF
 git add docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/RESULTS.md
 git commit -m "Log uncapped rerun exits" -m "Tests: not run (not requested)"
 git status -sb
+cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md <<'END' (logging commands)
+rg -n "Update commands log" -n docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md
+tail -n 20 docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md
+git status -sb
+git add docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md
+git commit -m "Log follow-up commands" -m "Tests: not run (not requested)"

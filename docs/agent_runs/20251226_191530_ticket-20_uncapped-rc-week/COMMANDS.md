@@ -740,3 +740,26 @@ git add docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md d
 git commit -m "Update run metadata" -m "Tests: make test-fast"
 git add docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md
 git commit -m "Log command updates" -m "Tests: make test-fast"
+git status -sb
+make gpt-bundle TICKET=ticket-20 RUN_NAME=20251226_191530_ticket-20_uncapped-rc-week
+ls -t docs/gpt_bundles | head -n 1
+cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/RESULTS.md <<'EOF'
+- Bundle: <fill after gpt-bundle>
+cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md <<'EOF' (failed: nested EOF / syntax error)
+git status -sb
+make gpt-bundle TICKET=ticket-20 RUN_NAME=20251226_191530_ticket-20_uncapped-rc-week
+ls -t docs/gpt_bundles | head -n 1
+apply_patch (update META.md end_git_sha)
+git add docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/RESULTS.md docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/META.md
+git commit -m "Record bundle path" -m "Tests: make test-fast"
+git checkout main
+git merge --no-ff codex/ticket-20_uncapped-rc-week
+git push origin main
+cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/RESULTS.md <<'EOF'
+- Bundle: docs/gpt_bundles/20260110_114653_ticket-20_20251226_191530_ticket-20_uncapped-rc-week.zip
+cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/COMMANDS.md <<'EOF' (failed: nested EOF)
+cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/RESULTS.md <<'EOF'
+- Bundle: docs/gpt_bundles/20260110_114653_ticket-20_20251226_191530_ticket-20_uncapped-rc-week.zip
+cat >> docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/RESULTS.md (append bundle path)
+git rev-parse HEAD
+apply_patch (update META.md end_git_sha)

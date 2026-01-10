@@ -22,3 +22,4 @@
 - Second rerun (reports/rc-20260110/week_uncapped_full_minrep1_rerun2) exited quickly without eval outputs; only prewhiten/resolved_config present and run.log empty as of 2026-01-10 10:34 UTC.
 - Cancel request: no active eval process found to terminate; rerun2 had already exited when checked.
 - make test-fast passed on 2026-01-10; no new eval outputs available to summarize for uncapped week design.
+- Bundle: docs/gpt_bundles/20260110_114653_ticket-20_20251226_191530_ticket-20_uncapped-rc-week.zip

@@ -1637,6 +1637,8 @@ def _run_single_period(
         design_N_local = prepared.design_N
         _design_order_local = prepared.design_order
 
+        calibration_missing = False
+        delta_frac_calibrated = None
         if (
             prepared.cache_payload is not None
             and window_cache_dir is not None
@@ -1717,8 +1719,6 @@ def _run_single_period(
             edge_scale_used = 1.0
 
         base_delta_frac_val = float(delta_frac_config) if delta_frac_config is not None else 0.0
-        calibration_missing = False
-        delta_frac_calibrated = None
         if gating_mode_value == "calibrated" and p_dim > 0 and n_fit_samples > 0:
             delta_frac_calibrated = lookup_calibrated_delta(
                 edge_mode=edge_mode_cfg,
@@ -1795,7 +1795,6 @@ def _run_single_period(
             )
         except Exception as exc:
             detections = []
-            window_skip_reason = str(SkipReasonPrimary.DIAGNOSTIC_FAILURE)
             exc_type = exc.__class__.__name__
             exc_message = str(exc) or exc_type
             skip_exception_type = exc_type
@@ -1806,7 +1805,22 @@ def _run_single_period(
             detail = f"{skip_exception_stage}: {exc_type}: {exc_message}"
             if len(detail) > 500:
                 detail = f"{detail[:497]}..."
-            skip_reason_detail = detail
+            attribution = _infer_skip_reason(
+                diag_local,
+                calibration_missing=calibration_missing,
+                calibration_detail={
+                    "edge_mode": edge_mode_cfg,
+                    "p": int(p_dim),
+                    "t": int(n_fit_samples),
+                },
+                isolated_spikes=None,
+            )
+            window_skip_reason = attribution.primary
+            detail_parts = []
+            if attribution.detail:
+                detail_parts.append(attribution.detail)
+            detail_parts.append(detail)
+            skip_reason_detail = "; ".join(detail_parts)
             gating_skip_reasons[window_skip_reason] = (
                 gating_skip_reasons.get(window_skip_reason, 0) + 1
             )
@@ -2918,7 +2932,14 @@ def _run_single_period(
             diag_df = pd.DataFrame(columns=diag_columns)
         else:
             diag_df = diag_df.reindex(columns=diag_columns)
-        diag_df.to_csv(output_dir / "gating_diagnostics.csv", index=False)
+        diag_path = output_dir / "gating_diagnostics.csv"
+        diag_df.to_csv(diag_path, index=False)
+        from tools.summarize_weekly_diagnostics import summarize as summarize_weekly_diagnostics
+
+        weekly_path = output_dir / "weekly_diagnostics.md"
+        summarize_weekly_diagnostics(diag_path, weekly_path)
+        if not weekly_path.exists() or weekly_path.stat().st_size == 0:
+            raise RuntimeError(f"[diagnostics] Weekly diagnostics missing: {weekly_path}")
     results_df.to_csv(output_dir / "rolling_results.csv", index=False)
 
     # Persist detection summary and spike timeseries (E2)

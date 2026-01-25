@@ -70,6 +70,15 @@ def test_gating_diagnostics_artifact(tmp_path: Path) -> None:
     diag_path = out_dir / "gating_diagnostics.csv"
     assert diag_path.exists()
     diag_df = pd.read_csv(diag_path)
+    assert not diag_df.empty
+    assert not diag_df["skip_reason_primary"].eq(str(SkipReasonPrimary.DIAGNOSTIC_FAILURE)).any()
+    weekly_path = out_dir / "weekly_diagnostics.md"
+    assert weekly_path.exists()
+    weekly_text = weekly_path.read_text(encoding="utf-8")
+    assert "Weekly Gating Diagnostics" in weekly_text
+    assert "## Gate Stats (min/median/max)" in weekly_text
+    if diag_df["skip_reason_primary"].replace("", pd.NA).notna().any():
+        assert "## Primary Skip Reasons" in weekly_text
     required = {
         "window_index",
         "p",
@@ -104,13 +113,13 @@ def test_gating_diagnostics_artifact(tmp_path: Path) -> None:
     if not rejected.empty:
         assert rejected["skip_reason"].replace("", pd.NA).notna().all()
         assert rejected["skip_reason_primary"].replace("", pd.NA).notna().all()
-        diag_failures = rejected[rejected["skip_reason_primary"] == str(SkipReasonPrimary.DIAGNOSTIC_FAILURE)]
-        if not diag_failures.empty:
-            assert diag_failures["skip_reason_detail"].replace("", pd.NA).notna().all()
-            assert diag_failures["exception_type"].replace("", pd.NA).notna().all()
-            assert diag_failures["exception_stage"].replace("", pd.NA).notna().all()
-            assert diag_failures["exception_message_short"].replace("", pd.NA).notna().all()
-            assert (diag_failures["exception_message_short"].str.len() <= 200).all()
+        exception_rows = rejected[rejected["exception_type"].replace("", pd.NA).notna()]
+        if not exception_rows.empty:
+            assert exception_rows["skip_reason_detail"].replace("", pd.NA).notna().all()
+            assert exception_rows["exception_type"].replace("", pd.NA).notna().all()
+            assert exception_rows["exception_stage"].replace("", pd.NA).notna().all()
+            assert exception_rows["exception_message_short"].replace("", pd.NA).notna().all()
+            assert (exception_rows["exception_message_short"].str.len() <= 200).all()
     if "diag_payload" in diag_df.columns:
         payloads = diag_df["diag_payload"].dropna().astype(str)
         for raw in payloads:
@@ -120,6 +129,21 @@ def test_gating_diagnostics_artifact(tmp_path: Path) -> None:
                 continue
             assert "other" not in decoded
             assert "guard_other" not in decoded
+    guard_cols = [col for col in diag_df.columns if col.startswith("guard_")]
+    if guard_cols:
+        total_guards = int(
+            pd.to_numeric(diag_df[guard_cols], errors="coerce").fillna(0).sum().sum()
+        )
+        if total_guards:
+            assert "Guardrail Triggers" in weekly_text
+    det_summary_path = out_dir / "detection_summary.csv"
+    assert det_summary_path.exists()
+    det_summary = pd.read_csv(det_summary_path)
+    assert not det_summary.empty
+    if "skip_reason_primary" in det_summary.columns:
+        assert not det_summary["skip_reason_primary"].eq(
+            str(SkipReasonPrimary.DIAGNOSTIC_FAILURE)
+        ).any()
 
 
 def test_gating_diagnostics_records_exception_detail(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -185,8 +209,9 @@ def test_gating_diagnostics_records_exception_detail(tmp_path: Path, monkeypatch
     )
 
     diag_df = pd.read_csv(out_dir / "gating_diagnostics.csv")
-    failures = diag_df[diag_df["skip_reason_primary"] == str(SkipReasonPrimary.DIAGNOSTIC_FAILURE)]
+    failures = diag_df[diag_df["exception_type"].replace("", pd.NA).notna()]
     assert not failures.empty
+    assert (failures["skip_reason_primary"] != str(SkipReasonPrimary.DIAGNOSTIC_FAILURE)).all()
     assert failures["skip_reason_detail"].replace("", pd.NA).notna().all()
     assert failures["exception_type"].replace("", pd.NA).notna().all()
     assert failures["exception_stage"].replace("", pd.NA).notna().all()

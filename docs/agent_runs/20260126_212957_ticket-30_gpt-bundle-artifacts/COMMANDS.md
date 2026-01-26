@@ -31,6 +31,7 @@
 - git status --porcelain
 - cat <<'EOF' > docs/agent_runs/20260126_212957_ticket-30_gpt-bundle-artifacts/TESTS.md
 - RUN_NAME=20260126_212957_ticket-30_gpt-bundle-artifacts python3 tools/agentic/gpt_bundle.py --zip --ticket FJS-TKT-030
+- RUN_NAME=20260126_212957_ticket-30_gpt-bundle-artifacts python3 tools/agentic/gpt_bundle.py --zip --ticket FJS-TKT-030
 - git status --porcelain > /tmp/status_before.txt
 - git stash push -u -m "temp: bundle generation (FJS-TKT-030)"
 - git status --porcelain

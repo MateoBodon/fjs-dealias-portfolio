@@ -1,0 +1,49 @@
+# Commands
+- git status --porcelain
+- ls -la tools/agentic 2>/dev/null || true
+- ls -la scripts 2>/dev/null || true
+- rg -n "gpt_bundle|bundle" -S . || true
+- sed -n '1,220p' tools/agentic/gpt_bundle.py
+- apply_patch (tools/agentic/gpt_bundle.py)
+- apply_patch (tools/agentic/gpt_bundle.py)
+- apply_patch (.gitignore)
+- rg -n "artifacts/_local" .gitignore
+- cat <<'EOF' > docs/agent_runs/README.md
+- sed -n '1,120p' docs/agent_runs/README.md
+- apply_patch (tests/test_gpt_bundle.py)
+- mkdir -p artifacts/_local/gpt_bundles
+- . .venv/bin/activate && make test-fast
+- git status --porcelain > /tmp/status_before_bundle.txt
+- mkdir -p tmp && echo "bundle dirty test" > tmp/_bundle_dirty_test.txt
+- RUN_NAME=20260126_050923_ticket-29_gpt-bundle-dirty-check python3 tools/agentic/gpt_bundle.py --zip --ticket TICKET-DIRTY-TEST
+- git status --porcelain > /tmp/status_after_bundle.txt
+- diff -u /tmp/status_before_bundle.txt /tmp/status_after_bundle.txt
+- date +%Y%m%d_%H%M%S
+- mkdir -p docs/agent_runs/20260126_220731_ticket-30_gpt-bundle-dirty-safe
+- cat <<'EOF' > docs/agent_runs/20260126_220731_ticket-30_gpt-bundle-dirty-safe/PROMPT.md
+- git status --porcelain | rg "Makefile" -n
+- git diff --stat
+- rg -n "bundle_dir" -n Makefile | head
+- sed -n '650,690p' Makefile
+- git diff Makefile | head -n 20
+- git diff tests/test_gpt_bundle.py | head -n 40
+- git diff tools/agentic/gpt_bundle.py | head -n 80
+- git diff docs/DOCS_AND_LOGGING_SYSTEM.md
+- git diff docs/tickets/FJS-TKT-030.md | head -n 60
+- git hash-object Makefile
+- git ls-files -s Makefile
+- git stash list
+- git stash show -p stash@{0} | head -n 40
+- git stash apply stash@{0}
+- git stash drop stash@{0}
+- git add -p Makefile
+- git add tools/agentic/gpt_bundle.py tests/test_gpt_bundle.py docs/agent_runs/README.md docs/DOCS_AND_LOGGING_SYSTEM.md docs/tickets/FJS-TKT-030.md
+- git diff --cached --stat
+- git commit -m "ticket-30: make gpt_bundle dirty-tree safe" -m "Tests: . .venv/bin/activate && make test-fast" -m "Artifacts: n/a"
+- git status --porcelain | head -n 20
+- git status --porcelain > /tmp/status_before_bundle2.txt
+- RUN_NAME=20260126_050923_ticket-29_gpt-bundle-dirty-check python3 tools/agentic/gpt_bundle.py --zip --ticket TICKET-DIRTY-TEST
+- git status --porcelain > /tmp/status_after_bundle2.txt
+- diff -u /tmp/status_before_bundle2.txt /tmp/status_after_bundle2.txt
+- git rev-parse HEAD
+- git rev-parse HEAD~1

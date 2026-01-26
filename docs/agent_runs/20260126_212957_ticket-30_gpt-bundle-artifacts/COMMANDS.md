@@ -1,0 +1,43 @@
+# Commands
+- ls
+- cat AGENTS.md
+- cat PROJECT.md
+- cat PROGRESS.md
+- rg --files -g 'AGENTS.md'
+- ls tools/agentic
+- sed -n '1,200p' docs/DOCS_AND_LOGGING_SYSTEM.md
+- rg -n "gpt_bundle"
+- sed -n '620,720p' Makefile
+- cat .gitignore
+- sed -n '1,220p' tools/gpt_bundle.py
+- sed -n '1,220p' tools/agentic/gpt_bundle.py
+- date +%Y%m%d_%H%M%S
+- cat <<'EOF' > docs/tickets/FJS-TKT-030.md
+- apply_patch (Makefile)
+- sed -n '1,200p' TRACKING_POLICY.md
+- apply_patch (docs/DOCS_AND_LOGGING_SYSTEM.md)
+- rg -n "gpt_bundles" docs/DOCS_AND_LOGGING_SYSTEM.md
+- apply_patch (tests/test_gpt_bundle.py)
+- mkdir -p docs/agent_runs/20260126_212957_ticket-30_gpt-bundle-artifacts
+- sed -n '1,200p' docs/agent_runs/20260126_050923_ticket-29_gpt-bundle-dirty-check/PROMPT.md
+- cat <<'EOF' > docs/agent_runs/20260126_212957_ticket-30_gpt-bundle-artifacts/PROMPT.md
+- sed -n '1,200p' docs/agent_runs/20260126_050923_ticket-29_gpt-bundle-dirty-check/META.md
+- sed -n '1,120p' docs/agent_runs/20260126_050923_ticket-29_gpt-bundle-dirty-check/TESTS.md
+- sed -n '1,160p' docs/agent_runs/20260126_050923_ticket-29_gpt-bundle-dirty-check/RESULTS.md
+- sed -n '1,120p' docs/agent_runs/20260126_050923_ticket-29_gpt-bundle-dirty-check/COMMANDS.md
+- . .venv/bin/activate && make test-fast && pytest -q tests/test_gpt_bundle.py
+- git rev-parse HEAD
+- git rev-parse --abbrev-ref HEAD
+- git status --porcelain
+- cat <<'EOF' > docs/agent_runs/20260126_212957_ticket-30_gpt-bundle-artifacts/TESTS.md
+- RUN_NAME=20260126_212957_ticket-30_gpt-bundle-artifacts python3 tools/agentic/gpt_bundle.py --zip --ticket FJS-TKT-030
+- git status --porcelain > /tmp/status_before.txt
+- git stash push -u -m "temp: bundle generation (FJS-TKT-030)"
+- git status --porcelain
+- RUN_NAME=20260126_212957_ticket-30_gpt-bundle-artifacts python3 tools/agentic/gpt_bundle.py --zip --ticket FJS-TKT-030
+- git stash pop
+- git status --porcelain > /tmp/status_after.txt
+- diff -u /tmp/status_before.txt /tmp/status_after.txt
+- cat <<'EOF' > docs/agent_runs/20260126_212957_ticket-30_gpt-bundle-artifacts/RESULTS.md
+- cat <<'EOF' > docs/agent_runs/20260126_212957_ticket-30_gpt-bundle-artifacts/META.md
+- apply_patch (PROGRESS.md)

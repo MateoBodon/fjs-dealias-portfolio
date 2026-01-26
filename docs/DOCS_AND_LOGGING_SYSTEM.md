@@ -140,7 +140,7 @@ After each merged ticket (or at least once per sprint), run:
 Bundle MUST include:
 - `AGENTS.md`, `PROGRESS.md`, `docs/*`, `project_state/*`
 - `DIFF.patch` (generated from `git diff --binary <merge-base>..HEAD`) and `LAST_COMMIT.txt`
-- `BUNDLE_META.md` (base/head metadata for the diff range)
+- `BUNDLE_META.md` (base/head metadata for the diff range, including `git_dirty`)
 - the run log folder under `docs/agent_runs/<RUN_NAME>/`
 - (if applicable) key outputs under `reports/` or `experiments/.../outputs_*`
 

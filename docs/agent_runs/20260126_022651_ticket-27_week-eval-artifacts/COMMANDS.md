@@ -1,0 +1,50 @@
+# Commands
+
+- `ls`
+- `rg --files -g 'AGENTS.md'`
+- `cat PROJECT.md`
+- `cat AGENTS.md`
+- `cat PROGRESS.md`
+- `sed -n '1,240p' experiments/eval/run.py`
+- `rg -n "run.json|resolved_config|run.log|status" experiments/eval/run.py`
+- `sed -n '1600,2100p' experiments/eval/run.py`
+- `sed -n '2920,3385p' experiments/eval/run.py`
+- `sed -n '3920,4055p' experiments/eval/run.py`
+- `rg -n "def run_evaluation|def main|__main__" -n experiments/eval/run.py`
+- `rg -n "windows_candidate|windows_planned|windows_requested|windows_after_caps|max_windows|candidate" experiments/eval/run.py`
+- `sed -n '2700,2925p' experiments/eval/run.py`
+- `rg -n "def parse_args|group_design|week" experiments/eval/run.py`
+- `sed -n '650,820p' experiments/eval/run.py`
+- `sed -n '920,1125p' experiments/eval/run.py`
+- `rg -n "def _prepare_returns" -n experiments/eval/run.py`
+- `sed -n '1500,1665p' experiments/eval/run.py`
+- `ls docs`
+- `ls docs/tickets`
+- `git status -sb`
+- `git switch -c codex/ticket-027-week-eval-artifacts`
+- `date +"%Y%m%d_%H%M%S"`
+- `cat <<'EOF' > docs/tickets/FJS-TKT-027.md ... EOF`
+- `apply_patch` (experiments/eval/run.py: run log/status scaffolding)
+- `cat <<'EOF' > tests/experiments/test_eval_week_artifacts.py ... EOF`
+- `apply_patch` (experiments/eval/run.py: fix overlay_cfg indentation)
+- `python3 - <<'PY' ... PY` (indent run_evaluation block)
+- `python3 -m venv .venv && source .venv/bin/activate && make setup && make test-fast && pytest -q tests/experiments/test_eval_week_artifacts.py` (failed: SyntaxError in experiments/eval/run.py)
+- `python3 -m venv .venv && source .venv/bin/activate && make setup && make test-fast && pytest -q tests/experiments/test_eval_week_artifacts.py`
+- `sed -n '1665,1755p' experiments/eval/run.py`
+- `sed -n '3850,4095p' experiments/eval/run.py`
+- `sed -n '1765,1815p' experiments/eval/run.py`
+- `sed -n '1808,1835p' experiments/eval/run.py`
+- `sed -n '4050,4095p' experiments/eval/run.py`
+- `python3 - <<'PY' ... PY` (indent run_evaluation block)
+- `git status -sb`
+- `git diff -- PROGRESS.md`
+- `python3 -m venv .venv && source .venv/bin/activate && make setup && make test-fast && pytest -q tests/experiments/test_eval_week_artifacts.py`
+- `RUN_NAME=20260126_022651_ticket-27_week-eval-artifacts python3 tools/agentic/gpt_bundle.py --zip --ticket FJS-TKT-027` (failed: python not found)
+- `PATH="<tmpbin>:${PATH}" RUN_NAME=20260126_022651_ticket-27_week-eval-artifacts python3 tools/agentic/gpt_bundle.py --zip --ticket FJS-TKT-027` (failed: DIFF.patch empty)
+- `date +"%Y%m%d_%H%M%S"`
+- `git add experiments/eval/run.py tests/experiments/test_eval_week_artifacts.py docs/tickets/FJS-TKT-027.md`
+- `git add PROGRESS.md` (temporary removal of ticket-26 line)
+- `git diff --cached -- PROGRESS.md`
+- `git commit -m "FJS-TKT-027: week eval artifacts" -m "Tests: ..." -m "Artifacts: ..."`
+- `PATH="<tmpbin>:${PATH}" RUN_NAME=20260126_022651_ticket-27_week-eval-artifacts BUNDLE_STAMP=20260126_023201 python3 tools/agentic/gpt_bundle.py --zip --ticket FJS-TKT-027`
+- `python3 - <<'PY' ... PY` (temporary PROGRESS edit to stage ticket entry)

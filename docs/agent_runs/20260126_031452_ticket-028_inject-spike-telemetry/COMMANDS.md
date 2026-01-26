@@ -1,0 +1,69 @@
+# Commands
+
+- `ls`
+- `rg --files -g 'AGENTS.md'`
+- `cat AGENTS.md`
+- `cat PROJECT.md`
+- `ls tools/agentic`
+- `cat <<'EOF' > docs/tickets/FJS-TKT-028.md ... EOF`
+- `apply_patch` (experiments/eval/inject_spike.py: telemetry helpers + between default)
+- `apply_patch` (tests/experiments/test_inject_spike.py: telemetry CSV test)
+- `apply_patch` (Makefile: inject-mode between)
+- `apply_patch` (docs/DECISIONS.md: telemetry root_count note)
+- `apply_patch` (PROGRESS.md: ticket-028 entry)
+- `cat <<'EOF' > docs/agent_runs/20260126_031452_ticket-028_inject-spike-telemetry/PROMPT.md ... EOF`
+- `cat <<'EOF' > docs/agent_runs/20260126_031452_ticket-028_inject-spike-telemetry/COMMANDS.md ... EOF`
+- `cat <<'EOF' > docs/agent_runs/20260126_031452_ticket-028_inject-spike-telemetry/RESULTS.md ... EOF`
+- `cat <<'EOF' > docs/agent_runs/20260126_031452_ticket-028_inject-spike-telemetry/TESTS.md ... EOF`
+- `cat <<'EOF' > docs/agent_runs/20260126_031452_ticket-028_inject-spike-telemetry/META.md ... EOF`
+- `sed -n '1,220p' experiments/eval/inject_spike.py`
+- `sed -n '220,520p' experiments/eval/inject_spike.py`
+- `sed -n '520,1040p' experiments/eval/inject_spike.py`
+- `sed -n '1040,1560p' experiments/eval/inject_spike.py`
+- `rg -n "tvec|pre_gate" -S src fjs -g '*.py'`
+- `sed -n '1,220p' src/fjs/overlay.py`
+- `rg -n "stats_dict|diagnostics|pre_gate" -S src/fjs/overlay.py`
+- `sed -n '320,450p' src/fjs/overlay.py`
+- `sed -n '360,860p' src/fjs/dealias.py`
+- `sed -n '860,1320p' src/fjs/dealias.py`
+- `rg -n "selected_root|root_count|failure_reason|tvec" -S src experiments tests`
+- `rg -n "root" src/fjs -g '*.py'`
+- `sed -n '640,840p' src/fjs/mp.py`
+- `rg -n "tvec|t-vector|root" -S docs experiments/eval -g '*.md'`
+- `rg -n "tvec_debug|pre_gate_telemetry" -S .`
+- `rg -n "gating_diagnostics|diag_payload|telemetry" -S experiments src tests`
+- `sed -n '2350,2515p' experiments/equity_panel/run.py`
+- `rg -n "inject-spike" -S Makefile`
+- `sed -n '480,560p' Makefile`
+- `rg -n "def _default_design" -n src/fjs/dealias.py`
+- `sed -n '300,380p' src/fjs/dealias.py`
+- `rg -n "def _resolve_delta_frac" -S src/fjs/overlay.py`
+- `sed -n '220,320p' src/fjs/overlay.py`
+- `ls reports/inject_spike | head`
+- `ls reports/inject_spike/20251225_ticket23_dow_scm | head`
+- `find reports/inject_spike/20251225_ticket23_dow_scm -maxdepth 2 -type f | head`
+- `find reports/inject_spike/20251226_ticket24_week_full_fix -maxdepth 1 -type f`
+- `rg -n "\\[project.optional-dependencies\\]|pytest" -S pyproject.toml`
+- `sed -n '1,200p' tools/agentic/gpt_bundle.py`
+- `sed -n '1,200p' PROGRESS.md`
+- `sed -n '1,200p' docs/DECISIONS.md`
+- `date -u +"%Y%m%d_%H%M%S"`
+- `make test-fast` (failed: pytest not found)
+- `make setup` (failed: externally managed environment)
+- `python3 -m venv .venv`
+- `. .venv/bin/activate && pip install --upgrade pip`
+- `. .venv/bin/activate && pip install -e '.[dev]'`
+- `. .venv/bin/activate && make test-fast`
+- `. .venv/bin/activate && pytest -q tests/experiments/test_inject_spike.py`
+- `RUN_NAME=20260126_031452_ticket-028_inject-spike-telemetry python3 tools/agentic/gpt_bundle.py --zip --ticket FJS-TKT-028`
+- `git status -sb`
+- `. .venv/bin/activate && python3 - <<'PY' ... PY` (inspect data/returns_sample_spike.csv)
+- `ps -ef | rg 'inject_spike.py'`
+- `ps -p 354466 -o etime,pcpu,pmem,cmd`
+- `ps -p 354466 -o etime,pcpu`
+- `. .venv/bin/activate && PYTHONPATH=src:. python experiments/eval/inject_spike.py --returns-csv data/returns_sample_spike.csv --window 40 --horizon 5 --assets-top 8 --config experiments/eval/config.yaml --thresholds experiments/eval/thresholds.json --group-design week --use-factor-prewhiten 0 --mu-grid 5,10,20 --inject-frac-min 0.5 --inject-frac-max 0.5 --seed 7 --out reports/inject_spike_smoke --run-id 20260126_043000_ticket-028_inject-spike-smoke`
+- `. .venv/bin/activate && python3 - <<'PY' ... PY` (inspect data/returns_sample.csv)
+- `. .venv/bin/activate && PYTHONPATH=src:. python experiments/eval/inject_spike.py --returns-csv data/returns_sample.csv --window 40 --horizon 5 --assets-top 8 --config experiments/eval/config.yaml --thresholds experiments/eval/thresholds.json --group-design week --use-factor-prewhiten 0 --mu-grid 50 --inject-frac-min 1 --inject-frac-max 1 --max-windows 1 --window-sampling random --window-sampling-seed 42 --seed 7 --out reports/inject_spike_smoke --run-id 20260126_045000_ticket-028_inject-spike-smoke-mini`
+- `ls reports/inject_spike_smoke/20260126_045000_ticket-028_inject-spike-smoke-mini`
+- `date +"%Y%m%d_%H%M%S"`
+- `BUNDLE_STAMP=20260126_042939 RUN_NAME=20260126_031452_ticket-028_inject-spike-telemetry python3 tools/agentic/gpt_bundle.py --zip --ticket FJS-TKT-028`

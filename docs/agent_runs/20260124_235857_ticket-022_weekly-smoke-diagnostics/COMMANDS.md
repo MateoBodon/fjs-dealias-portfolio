@@ -1,0 +1,3 @@
+- make test-fast
+- make run:equity_nested_smoke_tiny
+- python3 tools/agentic/gpt_bundle.py --zip --ticket FJS-TKT-022

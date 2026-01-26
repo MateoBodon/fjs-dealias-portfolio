@@ -1,0 +1,3 @@
+- Weekly diagnostics summary now fails loud if missing/empty.
+- Gating diagnostics tests assert non-empty diagnostics, summary sections, and no diagnostic_failure skip reasons.
+- Tiny nested smoke produced gating_diagnostics.csv (3 rows), detection_summary.csv (3 rows), weekly_diagnostics.md with summary sections.

@@ -1,0 +1,62 @@
+# Commands
+- ls
+- rg --files -g 'AGENTS.md'
+- cat AGENTS.md
+- cat PROJECT.md
+- cat PROGRESS.md
+- rg -n "DOCS_AND_LOGGING_SYSTEM" -n docs/DOCS_AND_LOGGING_SYSTEM.md
+- cat docs/DOCS_AND_LOGGING_SYSTEM.md
+- date +%Y%m%d_%H%M%S
+- git status -sb
+- sed -n '1,240p' tools/agentic/gpt_bundle.py
+- rg -n "gpt-bundle" -n Makefile tools -S
+- sed -n '600,700p' Makefile
+- sed -n '1,260p' tools/gpt_bundle.py
+- sed -n '1,260p' tests/test_gpt_bundle.py
+- rg -n "write_range_diff|BUNDLE_META|gpt_bundle" tests -S
+- sed -n '1,220p' tests/test_gpt_bundle_diff.py
+- tail -n 40 docs/DECISIONS.md
+- ls docs/tickets | head
+- cat docs/tickets/FJS-TKT-028.md
+- cat /home/codex/.codex/skills/gpt-bundle/SKILL.md
+- apply_patch (docs/tickets/FJS-TKT-029.md)
+- apply_patch (tools/agentic/gpt_bundle.py)
+- apply_patch (tests/test_gpt_bundle.py)
+- apply_patch (docs/DOCS_AND_LOGGING_SYSTEM.md)
+- git checkout -b codex/ticket-29-gpt-bundle-dirty-check
+- git add tools/agentic/gpt_bundle.py tests/test_gpt_bundle.py docs/DOCS_AND_LOGGING_SYSTEM.md docs/tickets/FJS-TKT-029.md
+- git stash push -u --keep-index -m "pre-ticket-29"
+- mkdir -p docs/agent_runs/20260126_050923_ticket-29_gpt-bundle-dirty-check
+- cat <<'EOF' > docs/agent_runs/20260126_050923_ticket-29_gpt-bundle-dirty-check/PROMPT.md
+- . .venv/bin/activate && make test-fast && pytest -q tests/test_gpt_bundle.py
+- cat <<'EOF' > docs/agent_runs/20260126_050923_ticket-29_gpt-bundle-dirty-check/COMMANDS.md
+- cat <<'EOF' > docs/agent_runs/20260126_050923_ticket-29_gpt-bundle-dirty-check/RESULTS.md
+- cat <<'EOF' > docs/agent_runs/20260126_050923_ticket-29_gpt-bundle-dirty-check/TESTS.md
+- cat <<'EOF' > docs/agent_runs/20260126_050923_ticket-29_gpt-bundle-dirty-check/META.md
+- git rev-parse HEAD
+- date +%Y%m%d_%H%M%S
+- ls docs/gpt_bundles | head
+- git ls-files docs/gpt_bundles | head
+- head -n 20 PROGRESS.md
+- apply_patch (PROGRESS.md)
+- apply_patch (docs/DECISIONS.md)
+- git status -sb
+- git add PROGRESS.md docs/DECISIONS.md
+- git status -sb
+- git commit -m "FJS-TKT-029 gpt-bundle dirty guard" -m "Tests: . .venv/bin/activate && make test-fast && pytest -q tests/test_gpt_bundle.py" -m "Artifacts: docs/agent_runs/20260126_050923_ticket-29_gpt-bundle-dirty-check/"
+- git show --stat --oneline -1
+- git rev-parse HEAD
+- cat <<'EOF' > docs/agent_runs/20260126_050923_ticket-29_gpt-bundle-dirty-check/META.md
+- BUNDLE_STAMP=20260126_052458 python3 tools/agentic/gpt_bundle.py --zip --ticket FJS-TKT-029 --run-name 20260126_050923_ticket-29_gpt-bundle-dirty-check
+- unzip -p docs/gpt_bundles/20260126_052458_FJS-TKT-029_20260126_050923_ticket-29_gpt-bundle-dirty-check.zip BUNDLE_META.md
+- git stash list
+- git stash pop stash@{0}
+- rg -n "<<<<<<<|=======|>>>>>>>" PROGRESS.md
+- sed -n '1,30p' PROGRESS.md
+- apply_patch (PROGRESS.md conflict resolution)
+- git add PROGRESS.md
+- git restore --staged .
+- git status -sb
+- cat <<'EOF' > docs/agent_runs/20260126_050923_ticket-29_gpt-bundle-dirty-check/RESULTS.md
+- rg -n "<<<<<<<|=======|>>>>>>>" -S
+- git stash list

@@ -1,0 +1,50 @@
+# Commands
+- ls
+- cat AGENTS.md
+- cat PROJECT.md
+- cat PROGRESS.md
+- rg --files -g 'AGENTS.md'
+- git status --porcelain
+- cat .git/info/exclude
+- cat .gitignore
+- cat TRACKING_POLICY.md
+- cat docs/tickets/README.md
+- cat docs/agent_runs/README.md
+- ls -la docs/artifacts
+- for d in docs/tickets docs/agent_runs docs/artifacts reports/_runs artifacts/_local data/samples data/schema configs/local .cache tmp; do if [ -d "$d" ]; then echo "ok $d"; else echo "missing $d"; fi; done
+- ls docs/agent_runs/20260126_050923_ticket-29_gpt-bundle-dirty-check
+- cat docs/agent_runs/20260126_050923_ticket-29_gpt-bundle-dirty-check/META.md
+- cat docs/agent_runs/20260126_050923_ticket-29_gpt-bundle-dirty-check/COMMANDS.md
+- git status -sb
+- cat <<'EOF' > .git/info/exclude
+- mkdir -p reports/_runs/inject_spike_smoke reports/_runs/rc-20251221-sanity
+- mv reports/inject_spike_smoke/* reports/_runs/inject_spike_smoke/
+- rmdir reports/inject_spike_smoke
+- mv reports/rc-20251221-sanity-20251221_220443 reports/_runs/rc-20251221-sanity/
+- git status --porcelain
+- ls reports/inject_spike_smoke
+- find docs/agent_runs -type f -size +1M
+- ls docs/agent_runs/20251221_220252_ticket-05_advisor-ready-rc
+- date +%Y%m%d_%H%M%S
+- git count-objects -vH
+- git rev-list --objects --all | git cat-file --batch-check='%(objecttype) %(objectname) %(objectsize) %(rest)' | sed -n 's/^blob //p' | sort -k2 -n | tail -n 20
+- cat docs/tickets/FJS-TKT-028.md
+- ls docs/tickets
+- cat docs/artifacts/README.md
+- git diff -- docs/tickets/README.md
+- cat <<'EOF' > docs/tickets/FJS-TKT-030.md
+- cat <<'EOF' > docs/history_cleanup_plan.md
+- sed -n '1,40p' PROGRESS.md
+- apply_patch (PROGRESS.md)
+- git rev-parse HEAD
+- mkdir -p docs/agent_runs/20260126_192839_ticket-30_tracking-policy-normalize
+- cat <<'EOF' > docs/agent_runs/20260126_192839_ticket-30_tracking-policy-normalize/PROMPT.md
+- make test-fast
+- git checkout -b codex/ticket-30-tracking-policy-normalize
+- git status -sb
+- git add TRACKING_POLICY.md .gitignore docs/tickets/README.md docs/agent_runs/README.md docs/artifacts/README.md
+- git add docs/tickets/*.md
+- git add docs/agent_runs/**
+- git add PROGRESS.md docs/history_cleanup_plan.md
+- git status -sb
+- git diff --staged --stat

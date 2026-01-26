@@ -47,3 +47,6 @@
 - diff -u /tmp/status_before_bundle2.txt /tmp/status_after_bundle2.txt
 - git rev-parse HEAD
 - git rev-parse HEAD~1
+- apply_patch (PROGRESS.md)
+- git add PROGRESS.md docs/agent_runs/20260126_212957_ticket-30_gpt-bundle-artifacts docs/agent_runs/20260126_220731_ticket-30_gpt-bundle-dirty-safe
+- git commit -m "docs: log ticket-30 bundle validation" -m "Tests: . .venv/bin/activate && make test-fast" -m "Artifacts: docs/agent_runs/20260126_212957_ticket-30_gpt-bundle-artifacts/; docs/agent_runs/20260126_220731_ticket-30_gpt-bundle-dirty-safe/"

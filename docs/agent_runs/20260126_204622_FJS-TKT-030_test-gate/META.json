@@ -1,0 +1,12 @@
+{
+  "run_name": "20260126_204622_FJS-TKT-030_test-gate",
+  "ticket": "FJS-TKT-030",
+  "branch": "codex/ticket-30-tracking-policy-normalize",
+  "git_sha": "0f540d02443bdb86cfe5c866bbb515f018a38029",
+  "python": "Python 3.12.3 (/usr/bin/python)",
+  "pip": "pip 24.0 (/usr/lib/python3/dist-packages/pip)",
+  "pytest_install": "failed: externally-managed-environment (PEP 668)",
+  "tests": [
+    "make test-fast (failed: pytest not found)"
+  ]
+}

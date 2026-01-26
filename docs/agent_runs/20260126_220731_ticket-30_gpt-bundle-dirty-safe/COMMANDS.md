@@ -50,3 +50,8 @@
 - apply_patch (PROGRESS.md)
 - git add PROGRESS.md docs/agent_runs/20260126_212957_ticket-30_gpt-bundle-artifacts docs/agent_runs/20260126_220731_ticket-30_gpt-bundle-dirty-safe
 - git commit -m "docs: log ticket-30 bundle validation" -m "Tests: . .venv/bin/activate && make test-fast" -m "Artifacts: docs/agent_runs/20260126_212957_ticket-30_gpt-bundle-artifacts/; docs/agent_runs/20260126_220731_ticket-30_gpt-bundle-dirty-safe/"
+- git add docs/agent_runs/20260126_220731_ticket-30_gpt-bundle-dirty-safe/COMMANDS.md
+- git commit -m "docs: update ticket-30 command log" -m "Tests: . .venv/bin/activate && make test-fast" -m "Artifacts: docs/agent_runs/20260126_220731_ticket-30_gpt-bundle-dirty-safe/"
+- apply_patch (docs/agent_runs/20260126_220731_ticket-30_gpt-bundle-dirty-safe/META.md)
+- git add docs/agent_runs/20260126_220731_ticket-30_gpt-bundle-dirty-safe/META.md
+- git commit -m "docs: refresh ticket-30 meta" -m "Tests: . .venv/bin/activate && make test-fast" -m "Artifacts: docs/agent_runs/20260126_220731_ticket-30_gpt-bundle-dirty-safe/"

@@ -20,7 +20,7 @@ Prompts / agent traces:
 - `docs/prompts/` — prompt text used for significant runs (one file per run; optional if PROMPT.md exists in agent run log)
 - `docs/gpt_outputs/` — raw GPT outputs (Prompt-1/2/3 diagnostics etc), immutable
 - `docs/agent_runs/<RUN_NAME>/` — **required** run log folder per Codex run (details below)
-- `docs/gpt_bundles/` — zip bundles produced by `make gpt-bundle`
+- `artifacts/_local/gpt_bundles/` — zip bundles produced by `make gpt-bundle` (scratch)
 
 Experiment outputs:
 - `reports/` — daily evaluation + summary artifacts

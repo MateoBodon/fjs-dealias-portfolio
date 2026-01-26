@@ -659,7 +659,7 @@ gpt-bundle:
 	if [ ! -s "$$tmp/BUNDLE_META.md" ]; then echo "BUNDLE_META.md is empty; aborting bundle." >&2; exit 1; fi; \
 	git log -1 --stat > "$$tmp/LAST_COMMIT.txt"; \
 	if [ ! -s "$$tmp/LAST_COMMIT.txt" ]; then echo "LAST_COMMIT.txt is empty; aborting bundle." >&2; exit 1; fi; \
-	bundle_dir="$$repo_root/docs/gpt_bundles"; \
+	bundle_dir="$$repo_root/artifacts/_local/gpt_bundles"; \
 	mkdir -p "$$bundle_dir"; \
 	stamp="$${BUNDLE_STAMP:-$$(date +%Y%m%d_%H%M%S)}"; \
 	out="$$bundle_dir/$${stamp}_$(TICKET)_$(RUN_NAME).zip"; \

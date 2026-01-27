@@ -15,3 +15,6 @@
 ## Notes
 - `.gitignore` already contained `reports/_runs/`; guardrail now enforces it.
 - `docs/agent_runs/20260127_024404_ticket-00_agentic-bootstrap-refresh/` did not exist in this snapshot.
+
+## Bundle
+- artifacts/_local/gpt_bundles/20260127_162507_27_20260127_053650_ticket-27_repo-hygiene-cleanup.zip

@@ -23,3 +23,4 @@
 - . .venv/bin/activate && make test-fast
 - . .venv/bin/activate && make validate-runlogs
 - . .venv/bin/activate && make check-data-policy
+- python3 tools/agentic/gpt_bundle.py --ticket "27" --run-name "20260127_053650_ticket-27_repo-hygiene-cleanup"

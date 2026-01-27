@@ -33,6 +33,13 @@ test-slow:
 test-all:
 	pytest -m "unit or integration"
 
+.PHONY: check-data-policy validate-runlogs
+check-data-policy:
+	python3 scripts/check_data_policy.py
+
+validate-runlogs:
+	python3 tools/agentic/validate_runlog.py --all --repo .
+
 .PHONY: smoke-daily
 smoke-daily:
 	PYTHONPATH=src python experiments/daily/run.py --returns-csv data/returns_daily.csv --design dow --window 60 --horizon 10 --out reports/smoke-daily/dow

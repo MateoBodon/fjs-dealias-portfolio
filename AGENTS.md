@@ -55,7 +55,8 @@ Every Codex run must create:
 - `docs/agent_runs/<RUN_NAME>/COMMANDS.md`
 - `docs/agent_runs/<RUN_NAME>/RESULTS.md`
 - `docs/agent_runs/<RUN_NAME>/TESTS.md`
-- `docs/agent_runs/<RUN_NAME>/META.md`
+- `docs/agent_runs/<RUN_NAME>/META.json` (canonical)
+- `docs/agent_runs/<RUN_NAME>/META.md` (legacy compatibility only)
 Recommended: `DIFF.patch`, `bundle_contents.txt`, `URLS.md` (if web was used)
 
 ### 2.3 Required run metadata in outputs

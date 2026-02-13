@@ -61,13 +61,16 @@ Every Codex run MUST create these files:
 - `TESTS.md`
   - exact tests/commands executed
   - pass/fail summary
-- `META.md`
+- `META.json` (canonical)
   - git SHA before/after
   - branch name
   - whether repo was dirty at start
   - resolved config path(s) used
   - config hash(es) (sha256 of resolved_config.*)
   - dataset ids/hashes used (from registry + verify step)
+
+Legacy compatibility:
+- `META.md` may exist for historical runs, but new runs must write `META.json`.
 
 Recommended (strongly):
 - `DIFF.patch` — `git show --patch --stat --binary <REV>` (default `HEAD`) saved for fast review
@@ -147,7 +150,7 @@ Bundle MUST include:
 Bundling fails loud (non-zero) if:
 - `DIFF.patch` would be empty
 - base ref cannot be resolved (set `BUNDLE_BASE` to override)
-- required run log files are missing (`PROMPT.md`, `COMMANDS.md`, `RESULTS.md`, `TESTS.md`, `META.md`)
+- required run log files are missing (`PROMPT.md`, `COMMANDS.md`, `RESULTS.md`, `TESTS.md`, `META.json`)
 - required top-level files are missing, or `LAST_COMMIT.txt` cannot be generated
 
 ---

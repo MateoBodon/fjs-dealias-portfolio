@@ -49,7 +49,7 @@ def test_agentic_bundle_fails_on_dirty_repo(monkeypatch: pytest.MonkeyPatch, cap
     monkeypatch.setattr(
         sys,
         "argv",
-        ["gpt_bundle.py", "--zip", "--ticket", "FJS-TKT-TEST", "--run-name", "run-1"],
+        ["gpt_bundle.py", "--zip", "--ticket", "FJS-TKT-TEST", "--run-name", "run-1", "--no-stash"],
     )
     exit_code = agentic_bundle.main()
     assert exit_code == 1

@@ -12,11 +12,13 @@ Typical usage:
 
 Outputs:
   - prints the created run directory path to stdout
+  - writes both META.json (canonical) and META.md (legacy compatibility)
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 from datetime import datetime, timezone
@@ -156,6 +158,11 @@ def main() -> int:
     run_name = args.run_name or f"{stamp}_ticket-{ticket_slug}"
 
     run_dir = repo / "docs" / "agent_runs" / run_name
+    if run_dir.exists():
+        if not run_dir.is_dir():
+            raise SystemExit(f"Run path exists and is not a directory: {run_dir}")
+        print(str(run_dir))
+        return 0
     run_dir.mkdir(parents=True, exist_ok=False)
 
     (run_dir / "PROMPT.md").write_text(
@@ -165,11 +172,34 @@ def main() -> int:
     (run_dir / "COMMANDS.md").write_text(TEMPLATE_COMMANDS, encoding="utf-8")
     (run_dir / "RESULTS.md").write_text(TEMPLATE_RESULTS, encoding="utf-8")
     (run_dir / "TESTS.md").write_text(TEMPLATE_TESTS, encoding="utf-8")
+    git_head = _git_head(repo)
+    git_branch = _git_branch(repo)
+    dirty_at_start = _git_dirty(repo)
+    (run_dir / "META.json").write_text(
+        json.dumps(
+            {
+                "ticket": args.ticket,
+                "run_name": run_name,
+                "git_sha_before": git_head,
+                "git_sha_after": "TBD",
+                "git_branch": git_branch,
+                "dirty_at_start": dirty_at_start,
+                "dirty_at_end": "TBD",
+                "resolved_config_paths": "n/a",
+                "config_hashes": "n/a",
+                "dataset_ids": "n/a",
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    # Keep META.md for compatibility with older run logs and tooling.
     (run_dir / "META.md").write_text(
         TEMPLATE_META.format(
-            git_head=_git_head(repo),
-            git_branch=_git_branch(repo),
-            dirty_at_start="true" if _git_dirty(repo) else "false",
+            git_head=git_head,
+            git_branch=git_branch,
+            dirty_at_start="true" if dirty_at_start else "false",
         ),
         encoding="utf-8",
     )

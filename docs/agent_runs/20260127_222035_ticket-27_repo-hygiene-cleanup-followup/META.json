@@ -1,0 +1,10 @@
+{
+  "ticket": "ticket-27",
+  "run_name": "20260127_222035_ticket-27_repo-hygiene-cleanup-followup",
+  "git_sha_before": "4a0703b83a3edc1496e8dfd021b02170c46b05a9",
+  "git_sha_after": "4a0703b83a3edc1496e8dfd021b02170c46b05a9",
+  "git_branch": "codex/ticket-27-repo-hygiene-cleanup",
+  "dirty_at_start": null,
+  "dirty_at_end": null,
+  "notes": "Backfilled on 2026-01-28; see docs/agent_runs/20260128_014550_ticket-27_runlog-audit-fix/ for actual commands."
+}

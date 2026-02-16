@@ -583,3 +583,36 @@
 - **Bundle base/head**:
   - `base_ref/base_sha`: `8bd1282541112293a3e6c823b7e32bbeaa8ef5c2`
   - `head_sha`: `b602981236ff72fb2109c7db1e4573c259361b08`
+
+## 2026-02-16T21:25Z - ticket-32 bundle audit errata (canonical uploaded artifact)
+- **Branch/Run**: `codex/ticket-27-repo-hygiene-cleanup` (RUN_NAME=`20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta`).
+- **Errata scope**:
+  - Append-only correction to align ticket-32 run-log metadata and bundle reference with the uploaded bundle artifact.
+- **Canonical artifact**:
+  - `artifacts/_local/gpt_bundles/20260216_051120_32_20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta.zip`
+- **Canonical bundle base/head**:
+  - `base_ref/base_sha`: `8bd1282541112293a3e6c823b7e32bbeaa8ef5c2`
+  - `head_sha`: `7f7ebd64379bf85d09f968c14b2e68bd9bd43db2`
+- **Supersedes**:
+  - The `2026-02-16T04:10Z - ticket-32 bundle generation (isolated base)` entry's artifact path and head SHA (`20260216_050959_32_...`, `head_sha=b602981...`).
+  - Canonical ticket-32 run-log references are now `docs/agent_runs/20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta/META.json` and `docs/agent_runs/20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta/RESULTS.md`.
+
+## 2026-02-16T21:30Z - ticket-33 canonical review/prompt and ticket-32 audit drift fix
+- **Branch/Run**: `codex/ticket-33-canonical-project-review` (RUN_NAME=`20260216_212107_ticket-33_canonical-review-prompt-audit-fix`), git sha `7f7ebd64379bf85d09f968c14b2e68bd9bd43db2`.
+- **Commands**:
+  - `. .venv/bin/activate && make validate-runlogs`
+  - `. .venv/bin/activate && make test-fast`
+  - `. .venv/bin/activate && BUNDLE_BASE=7f7ebd64379bf85d09f968c14b2e68bd9bd43db2 BUNDLE_STAMP=20260216_223500 make gpt-bundle TICKET=33 RUN_NAME=20260216_212107_ticket-33_canonical-review-prompt-audit-fix`
+- **Changes**:
+  - Corrected ticket-32 runlog metadata/docs to canonical uploaded bundle SHA/path (`20260216_051120_32_...`, `head_sha=7f7ebd64379bf85d09f968c14b2e68bd9bd43db2`) and appended explicit ticket-32 PROGRESS errata.
+  - Added continuation starter prompt at `docs/prompts/codex_continuation.md`.
+  - Updated `docs/PLAN_OF_RECORD.md` ground-truth links so full audit points to `docs/gpt_outputs/20260216_project_review_full.md` and `docs/gpt_outputs/20260216_analysis_full.md` is labeled as ticket/bundle review capture.
+  - Added/tracked ticket docs `docs/tickets/ticket-31_docs_recenter_snapshot_refresh.md` and `docs/tickets/ticket-33_canonical_project_review_and_codex_prompt.md` to clear untracked ticket drift.
+- **Tests**:
+  - `make validate-runlogs`: pass (legacy META.md warnings remain non-fatal on historical runs).
+  - `make test-fast`: pass (`83 passed, 171 deselected`).
+- **Artifacts**:
+  - Run log: `docs/agent_runs/20260216_212107_ticket-33_canonical-review-prompt-audit-fix/`
+  - Bundle: `artifacts/_local/gpt_bundles/20260216_223500_33_20260216_212107_ticket-33_canonical-review-prompt-audit-fix.zip`
+- **Open blocker**:
+  - Exact uploaded `Analysis.md` text was not present in local artifacts during this run; `docs/gpt_outputs/20260216_project_review_full.md` is currently a canonical-path placeholder pending verbatim source ingestion.

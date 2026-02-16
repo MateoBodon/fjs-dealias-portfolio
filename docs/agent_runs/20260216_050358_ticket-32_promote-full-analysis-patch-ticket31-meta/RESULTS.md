@@ -28,12 +28,13 @@ Ticket-32 audit metadata/doc promotion tasks were completed:
 - The full analysis source file (`Analysis.md`) was not present on local disk; this run captured the full review text from the ticket-32 prompt thread into `docs/gpt_outputs/20260216_analysis_full.md`.
 
 ## Bundle
-- Command: `. .venv/bin/activate && BUNDLE_BASE=8bd1282541112293a3e6c823b7e32bbeaa8ef5c2 BUNDLE_STAMP=20260216_050959 make gpt-bundle TICKET=32 RUN_NAME=20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta`
-- Artifact: `artifacts/_local/gpt_bundles/20260216_050959_32_20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta.zip`
+- Command: `. .venv/bin/activate && BUNDLE_BASE=8bd1282541112293a3e6c823b7e32bbeaa8ef5c2 BUNDLE_STAMP=20260216_051120 make gpt-bundle TICKET=32 RUN_NAME=20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta`
+- Artifact: `artifacts/_local/gpt_bundles/20260216_051120_32_20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta.zip`
 - Verification:
-  - `BUNDLE_META.md` reports `base_ref=8bd1282541112293a3e6c823b7e32bbeaa8ef5c2` and `head_sha=b602981236ff72fb2109c7db1e4573c259361b08`.
+  - `BUNDLE_META.md` reports `base_ref=8bd1282541112293a3e6c823b7e32bbeaa8ef5c2` and `head_sha=7f7ebd64379bf85d09f968c14b2e68bd9bd43db2`.
   - `DIFF.patch` contains the full ticket-32 delta, including:
     - `docs/gpt_outputs/20260216_analysis_full.md`
     - ticket-31 META fix + dirty snapshots
     - `docs/PLAN_OF_RECORD.md` full-analysis link
     - append-only `PROGRESS.md` errata entry
+  - This canonical bundle supersedes the earlier `20260216_050959_32_...zip` artifact for ticket-32 audit references.

@@ -22,3 +22,11 @@
   - pass (`83 passed, 171 deselected`).
 - `. .venv/bin/activate && BUNDLE_BASE=452080b8b5f123195eefdbbe3da563f3543e4371 BUNDLE_STAMP=20260216_231243 make gpt-bundle TICKET=34 RUN_NAME=20260216_230858_ticket-34_ingest-project-review-and-fix-meta`
   - generate ticket-34 review bundle.
+- `git rev-parse HEAD`
+  - captured final post-ticket SHA for runlog metadata finalization.
+- `. .venv/bin/activate && make validate-runlogs`
+  - rerun after meta finalization; pass.
+- `. .venv/bin/activate && BUNDLE_BASE=452080b8b5f123195eefdbbe3da563f3543e4371 BUNDLE_STAMP=20260216_233000 make gpt-bundle TICKET=34 RUN_NAME=20260216_230858_ticket-34_ingest-project-review-and-fix-meta`
+  - regenerated ticket-34 bundle after runlog meta finalization.
+- `. .venv/bin/activate && make test-fast`
+  - rerun after metadata finalization; pass (`83 passed, 171 deselected`).

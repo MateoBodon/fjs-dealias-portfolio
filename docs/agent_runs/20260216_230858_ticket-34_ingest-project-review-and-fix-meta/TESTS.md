@@ -10,3 +10,7 @@
   - Result: pass.
 - `. .venv/bin/activate && make test-fast`
   - Result: pass (`83 passed, 171 deselected in 22.69s`).
+- `. .venv/bin/activate && make validate-runlogs`
+  - Result: pass after ticket-34 META finalization.
+- `. .venv/bin/activate && make test-fast`
+  - Result: pass (`83 passed, 171 deselected in 22.60s`).

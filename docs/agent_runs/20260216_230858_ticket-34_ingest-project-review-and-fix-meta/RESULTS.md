@@ -16,3 +16,7 @@
 
 ## Notes
 - Ticket-33 run metadata files at `docs/agent_runs/20260216_212107_ticket-33_canonical-review-prompt-audit-fix/META.json` and `META.md` were already corrected before this run; ticket-34 documents and certifies that correction chain.
+
+## Errata closeout
+- Finalized `META.json` and `META.md` placeholders (`git_sha_after`, `dirty_at_end`) for this run to ensure audit-complete metadata.
+- Superseded bundle stamp for canonical ticket-34 handoff after this finalization: `20260216_233000`.

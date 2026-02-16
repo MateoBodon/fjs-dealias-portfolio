@@ -653,3 +653,17 @@
 - **Artifacts**:
   - Run log: `docs/agent_runs/20260216_230858_ticket-34_ingest-project-review-and-fix-meta/`
   - Bundle: `artifacts/_local/gpt_bundles/20260216_231243_34_20260216_230858_ticket-34_ingest-project-review-and-fix-meta.zip`
+
+## 2026-02-16T23:30Z - ticket-34 runlog meta finalization errata
+- **Branch/Run**: `codex/ticket-34-ingest-review-fix-meta` (RUN_NAME=`20260216_230858_ticket-34_ingest-project-review-and-fix-meta`).
+- **Scope**:
+  - Finalized ticket-34 runlog metadata fields to close placeholder leftovers from initialization.
+- **Corrections**:
+  - `docs/agent_runs/20260216_230858_ticket-34_ingest-project-review-and-fix-meta/META.json`
+    - `git_sha_after`: `fb6a7e20af98bc9271b944b9649af2ed159789b9`
+    - `dirty_at_end`: `false`
+  - `docs/agent_runs/20260216_230858_ticket-34_ingest-project-review-and-fix-meta/META.md`
+    - `git_sha_after: fb6a7e20af98bc9271b944b9649af2ed159789b9`
+    - `dirty_at_end: false`
+- **Rationale**:
+  - Ensures ticket-34 runlog metadata is truthful and avoids audit drift caused by `TBD` placeholders.

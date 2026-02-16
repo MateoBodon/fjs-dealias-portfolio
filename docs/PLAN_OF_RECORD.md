@@ -8,6 +8,7 @@ Last updated: 2026-02-16
 - `project_state/KNOWN_ISSUES.md` (current blockers)
 - `project_state/PIPELINE_FLOW.md`, `project_state/DATAFLOW.md`, `project_state/EXPERIMENTS.md`, `project_state/CONFIG_REFERENCE.md`
 - Current external audit snapshot: `docs/gpt_outputs/20260216_analysis.md`
+- Current external audit (full): `docs/gpt_outputs/20260216_analysis_full.md`
 - Prompt-1 diagnosis context: `docs/gpt_outputs/20251222_prompt1_diagnosis.md`
 
 ---

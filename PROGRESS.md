@@ -553,3 +553,19 @@
   - `unzip -p artifacts/_local/gpt_bundles/20260216_034848_31_20260216_032804_ticket-31_docs-recenter-snapshot-refresh.zip DIFF.patch | wc -c` -> `59957`
 - **Artifact**:
   - `artifacts/_local/gpt_bundles/20260216_034848_31_20260216_032804_ticket-31_docs-recenter-snapshot-refresh.zip`
+
+## 2026-02-16T04:04Z - ticket-32 errata for ticket-31 audit metadata
+- **Branch/Run**: `codex/ticket-27-repo-hygiene-cleanup` (RUN_NAME=`20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta`).
+- **Errata scope**:
+  - Append-only correction for ticket-31 run metadata at `docs/agent_runs/20260216_032804_ticket-31_docs-recenter-snapshot-refresh/`.
+  - Added full analysis artifact `docs/gpt_outputs/20260216_analysis_full.md` and linked it from `docs/PLAN_OF_RECORD.md`.
+- **Canonical ticket-31 SHA correction**:
+  - `git_sha_before`: `1371b3c2e7197c3629cc20e4e67c1f435f3ca13a`
+  - `git_sha_after`: `8bd1282541112293a3e6c823b7e32bbeaa8ef5c2`
+  - `git_branch`: `codex/ticket-27-repo-hygiene-cleanup`
+  - Canonical source: `docs/agent_runs/20260216_032804_ticket-31_docs-recenter-snapshot-refresh/META.json`
+- **Dirty-state audit snapshots added (ticket-31 run log)**:
+  - `docs/agent_runs/20260216_032804_ticket-31_docs-recenter-snapshot-refresh/git_status_start.txt`
+  - `docs/agent_runs/20260216_032804_ticket-31_docs-recenter-snapshot-refresh/git_status_end.txt`
+- **Supersedes**:
+  - The `2026-02-16T02:34Z` ticket-31 PROGRESS entry that listed git sha `1371b3c2e7197c3629cc20e4e67c1f435f3ca13a` as run SHA. That value reflected pre-commit state and is superseded by the corrected before/after pair above.

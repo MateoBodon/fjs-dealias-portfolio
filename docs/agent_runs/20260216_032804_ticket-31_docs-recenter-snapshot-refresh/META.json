@@ -2,7 +2,7 @@
   "ticket": "31",
   "run_name": "20260216_032804_ticket-31_docs-recenter-snapshot-refresh",
   "git_sha_before": "1371b3c2e7197c3629cc20e4e67c1f435f3ca13a",
-  "git_sha_after": "1371b3c2e7197c3629cc20e4e67c1f435f3ca13a",
+  "git_sha_after": "8bd1282541112293a3e6c823b7e32bbeaa8ef5c2",
   "git_branch": "codex/ticket-27-repo-hygiene-cleanup",
   "dirty_at_start": true,
   "dirty_at_end": true,

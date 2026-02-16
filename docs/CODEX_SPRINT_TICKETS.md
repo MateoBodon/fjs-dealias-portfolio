@@ -29,7 +29,7 @@ Priority order as of 2026-02-16:
 
 ## Ticket #33 — Canonical project review + codex continuation prompt + ticket-32 audit drift fix
 
-**Status:** IN PROGRESS (doc/audit integrity, 2026-02-16)
+**Status:** DONE (doc/audit integrity + uploaded Analysis.md ingestion, 2026-02-16)
 
 **Goal (1 sentence):** Restore audit consistency for ticket-32 and promote a canonical full-review path plus a reusable Codex continuation prompt.
 
@@ -41,6 +41,7 @@ Priority order as of 2026-02-16:
 **Acceptance criteria:**
 - Ticket-32 `META.json`/`RESULTS.md`/PROGRESS errata agree with canonical bundle path and `head_sha`.
 - `docs/prompts/codex_continuation.md` exists with read order + non-negotiables + immediate priorities.
+- `docs/gpt_outputs/20260216_project_review_full.md` mirrors uploaded `docs/Analysis.md` content.
 - `make validate-runlogs` and `make test-fast` pass in the ticket-33 run log.
 
 ---

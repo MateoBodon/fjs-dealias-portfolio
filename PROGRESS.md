@@ -616,3 +616,20 @@
   - Bundle: `artifacts/_local/gpt_bundles/20260216_223500_33_20260216_212107_ticket-33_canonical-review-prompt-audit-fix.zip`
 - **Open blocker**:
   - Exact uploaded `Analysis.md` text was not present in local artifacts during this run; `docs/gpt_outputs/20260216_project_review_full.md` is currently a canonical-path placeholder pending verbatim source ingestion.
+
+## 2026-02-16T22:04Z - ticket-33 uploaded Analysis.md ingestion and rebundle
+- **Branch/Run**: `codex/ticket-33-canonical-project-review` (RUN_NAME=`20260216_220117_ticket-33_ingest-uploaded-analysis-and-rebundle`).
+- **Commands**:
+  - `. .venv/bin/activate && make validate-runlogs`
+  - `. .venv/bin/activate && make test-fast`
+  - `. .venv/bin/activate && BUNDLE_STAMP=20260216_220359 make gpt-bundle TICKET=33 RUN_NAME=20260216_220117_ticket-33_ingest-uploaded-analysis-and-rebundle`
+- **Changes**:
+  - Ingested uploaded `docs/Analysis.md` verbatim into canonical `docs/gpt_outputs/20260216_project_review_full.md`.
+  - Marked ticket-33 as done in `docs/CODEX_SPRINT_TICKETS.md` and updated ticket notes.
+  - Corrected ticket-33 prior run metadata in `docs/agent_runs/20260216_212107_ticket-33_canonical-review-prompt-audit-fix/META.json` and `META.md`.
+- **Tests**:
+  - `make validate-runlogs`: pass (legacy META.md warnings are non-fatal on historical runs).
+  - `make test-fast`: pass (`83 passed, 171 deselected`).
+- **Artifacts**:
+  - Run log: `docs/agent_runs/20260216_220117_ticket-33_ingest-uploaded-analysis-and-rebundle/`
+  - Bundle: `artifacts/_local/gpt_bundles/20260216_220359_33_20260216_220117_ticket-33_ingest-uploaded-analysis-and-rebundle.zip`

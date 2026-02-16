@@ -17,4 +17,4 @@ Make canonical project-review docs and ticket-32 audit metadata internally consi
 - `. .venv/bin/activate && make test-fast` passes.
 
 ## Notes
-- The exact uploaded `Analysis.md` text must be available in-repo (or pasted into run prompt) before claiming verbatim full-review ingestion complete.
+- Verbatim source is now available at `docs/Analysis.md`; canonical full review must mirror this file content.

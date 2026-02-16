@@ -1,3 +1,10 @@
+<!--
+Provenance
+- Ingested: 2026-02-16
+- Source: uploaded Analysis.md (`docs/Analysis.md`)
+- Method: verbatim paste; body below is unchanged from source text.
+-->
+
 ## **1\) Project snapshot (what you *actually* have right now)**
 
 * **Core idea:** apply Fan–Johnstone–Sun (FJS) “de‑aliasing” for **spiked MANOVA / random‑effects covariance structure** as a **gated overlay** on top of mainstream covariance estimators, then test whether this improves **out‑of‑sample risk forecasting** and **min‑variance portfolio behavior** (your original framing is in `One_Pager.pdf`, `Extended_Proposal.pdf`, `Paper_Meeting_Notes.pdf`).  
@@ -278,4 +285,3 @@ If you cannot make **inject-spike sensitivity** behave (monotone detection vs µ
 Right now, your biggest enemy is “infinite infrastructure \+ no final claim.”
 
 If you want, I can also propose a concrete “paper v1 outline” (section-by-section with the exact figures/tables to produce from your existing summary outputs) based on `docs/PLAN_OF_RECORD.md` and the runners you already have.
-

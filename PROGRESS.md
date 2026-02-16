@@ -633,3 +633,23 @@
 - **Artifacts**:
   - Run log: `docs/agent_runs/20260216_220117_ticket-33_ingest-uploaded-analysis-and-rebundle/`
   - Bundle: `artifacts/_local/gpt_bundles/20260216_220359_33_20260216_220117_ticket-33_ingest-uploaded-analysis-and-rebundle.zip`
+
+## 2026-02-16T23:13Z - ticket-34 ingest full project review provenance + ticket-33 SHA errata
+- **Branch/Run**: `codex/ticket-34-ingest-review-fix-meta` (RUN_NAME=`20260216_230858_ticket-34_ingest-project-review-and-fix-meta`).
+- **Commands**:
+  - `. .venv/bin/activate && make validate-runlogs`
+  - `. .venv/bin/activate && make test-fast`
+  - `. .venv/bin/activate && BUNDLE_BASE=7003d53fc31cf00e1a7b2032a620abd0e39a7d53 BUNDLE_STAMP=20260216_231243 make gpt-bundle TICKET=34 RUN_NAME=20260216_230858_ticket-34_ingest-project-review-and-fix-meta`
+- **Changes**:
+  - Added provenance header to canonical full review `docs/gpt_outputs/20260216_project_review_full.md` while retaining verbatim uploaded body text from `docs/Analysis.md`.
+  - Added ticket spec `docs/tickets/ticket-34_ingest_full_project_review_and_fix_ticket33_meta.md`.
+  - Updated continuation prompt required read order to include canonical full review path (`docs/prompts/codex_continuation.md`).
+- **Ticket-33 errata (append-only correction)**:
+  - The `2026-02-16T21:30Z` ticket-33 entry listed run SHA `7f7ebd64379bf85d09f968c14b2e68bd9bd43db2`; canonical ticket-33 commit SHA is `7003d53fc31cf00e1a7b2032a620abd0e39a7d53`.
+  - Canonical source of truth is `docs/agent_runs/20260216_212107_ticket-33_canonical-review-prompt-audit-fix/META.json` and `META.md`, which now correctly record `git_sha_after=7003d53fc31cf00e1a7b2032a620abd0e39a7d53`.
+- **Tests**:
+  - `make validate-runlogs`: pass.
+  - `make test-fast`: pass (`83 passed, 171 deselected`).
+- **Artifacts**:
+  - Run log: `docs/agent_runs/20260216_230858_ticket-34_ingest-project-review-and-fix-meta/`
+  - Bundle: `artifacts/_local/gpt_bundles/20260216_231243_34_20260216_230858_ticket-34_ingest-project-review-and-fix-meta.zip`

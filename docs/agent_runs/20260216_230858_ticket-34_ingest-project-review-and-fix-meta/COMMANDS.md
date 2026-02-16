@@ -1,0 +1,24 @@
+# Commands
+
+- `git status --short`
+  - confirmed clean start before ticket-34 edits.
+- `git checkout -b codex/ticket-34-ingest-review-fix-meta`
+  - created ticket-34 feature branch.
+- `python3 tools/agentic/runlog_init.py --ticket "34" --summary "Ingest canonical full review provenance and close ticket-33 metadata/audit drift" --run-name "20260216_230858_ticket-34_ingest-project-review-and-fix-meta"`
+  - initialized run log directory.
+- `git status --porcelain > docs/agent_runs/20260216_230858_ticket-34_ingest-project-review-and-fix-meta/git_status_start.txt`
+  - captured start status snapshot.
+- `rg -n "BLOCKED: the exact \\Analysis\\.md source text" docs/gpt_outputs/20260216_project_review_full.md`
+  - no matches (expected).
+- `git check-ignore -v docs/gpt_outputs/20260216_project_review_full.md`
+  - no output (file is tracked/not ignored).
+- `python3 -c 'import json; print(json.load(open("docs/agent_runs/20260216_212107_ticket-33_canonical-review-prompt-audit-fix/META.json"))["git_sha_after"])'`
+  - printed `7003d53fc31cf00e1a7b2032a620abd0e39a7d53`.
+- `git show -s --format='%H %ci %s' 7003d53fc31cf00e1a7b2032a620abd0e39a7d53`
+  - verified commit exists and matches ticket-33 history.
+- `. .venv/bin/activate && make validate-runlogs`
+  - pass.
+- `. .venv/bin/activate && make test-fast`
+  - pass (`83 passed, 171 deselected`).
+- `. .venv/bin/activate && BUNDLE_BASE=7003d53fc31cf00e1a7b2032a620abd0e39a7d53 BUNDLE_STAMP=20260216_231243 make gpt-bundle TICKET=34 RUN_NAME=20260216_230858_ticket-34_ingest-project-review-and-fix-meta`
+  - generate ticket-34 review bundle.

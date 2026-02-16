@@ -9,9 +9,10 @@ Advance the project toward publishable, advisor-credible evidence for the FJS de
 1. `AGENTS.md`
 2. `docs/PLAN_OF_RECORD.md`
 3. `docs/CODEX_SPRINT_TICKETS.md`
-4. `project_state/CURRENT_RESULTS.md`
-5. `project_state/KNOWN_ISSUES.md`
-6. Latest run logs under `docs/agent_runs/` (start with newest ticket run)
+4. `docs/gpt_outputs/20260216_project_review_full.md`
+5. `project_state/CURRENT_RESULTS.md`
+6. `project_state/KNOWN_ISSUES.md`
+7. Latest run logs under `docs/agent_runs/` (start with newest ticket run)
 
 ## Non-negotiables (hard gates)
 - No silent fallbacks.

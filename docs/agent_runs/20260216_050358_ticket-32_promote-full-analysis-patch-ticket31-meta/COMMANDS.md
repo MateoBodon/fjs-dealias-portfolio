@@ -33,3 +33,12 @@ File edits were applied to:
 - `docs/PLAN_OF_RECORD.md`
 - `PROGRESS.md`
 - `docs/agent_runs/20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta/*`
+
+## Bundle generation and verification
+
+```bash
+. .venv/bin/activate && BUNDLE_BASE=8bd1282541112293a3e6c823b7e32bbeaa8ef5c2 BUNDLE_STAMP=20260216_050959 make gpt-bundle TICKET=32 RUN_NAME=20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta
+unzip -l artifacts/_local/gpt_bundles/20260216_050959_32_20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta.zip
+unzip -p artifacts/_local/gpt_bundles/20260216_050959_32_20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta.zip BUNDLE_META.md
+unzip -p artifacts/_local/gpt_bundles/20260216_050959_32_20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta.zip DIFF.patch | rg -n "docs/gpt_outputs/20260216_analysis_full.md|docs/PLAN_OF_RECORD.md|PROGRESS.md|docs/agent_runs/20260216_032804_ticket-31_docs-recenter-snapshot-refresh/META.json|git_status_start.txt|git_status_end.txt"
+```

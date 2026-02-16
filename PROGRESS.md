@@ -569,3 +569,17 @@
   - `docs/agent_runs/20260216_032804_ticket-31_docs-recenter-snapshot-refresh/git_status_end.txt`
 - **Supersedes**:
   - The `2026-02-16T02:34Z` ticket-31 PROGRESS entry that listed git sha `1371b3c2e7197c3629cc20e4e67c1f435f3ca13a` as run SHA. That value reflected pre-commit state and is superseded by the corrected before/after pair above.
+
+## 2026-02-16T04:10Z - ticket-32 bundle generation (isolated base)
+- **Branch/Run**: `codex/ticket-27-repo-hygiene-cleanup` (RUN_NAME=`20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta`).
+- **Command**:
+  - `. .venv/bin/activate && BUNDLE_BASE=8bd1282541112293a3e6c823b7e32bbeaa8ef5c2 BUNDLE_STAMP=20260216_050959 make gpt-bundle TICKET=32 RUN_NAME=20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta`
+- **Verification**:
+  - `unzip -l artifacts/_local/gpt_bundles/20260216_050959_32_20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta.zip`
+  - `unzip -p artifacts/_local/gpt_bundles/20260216_050959_32_20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta.zip BUNDLE_META.md`
+  - `unzip -p artifacts/_local/gpt_bundles/20260216_050959_32_20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta.zip DIFF.patch | rg -n "docs/gpt_outputs/20260216_analysis_full.md|docs/PLAN_OF_RECORD.md|PROGRESS.md|docs/agent_runs/20260216_032804_ticket-31_docs-recenter-snapshot-refresh/META.json|git_status_start.txt|git_status_end.txt"`
+- **Artifact**:
+  - `artifacts/_local/gpt_bundles/20260216_050959_32_20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta.zip`
+- **Bundle base/head**:
+  - `base_ref/base_sha`: `8bd1282541112293a3e6c823b7e32bbeaa8ef5c2`
+  - `head_sha`: `b602981236ff72fb2109c7db1e4573c259361b08`

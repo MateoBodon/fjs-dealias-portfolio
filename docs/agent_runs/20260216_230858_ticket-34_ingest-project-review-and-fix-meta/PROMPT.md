@@ -33,4 +33,4 @@ Summary: Ingest canonical full review provenance and close ticket-33 metadata/au
 - [x] Ticket-33 SHA drift is explicitly corrected in append-only PROGRESS errata.
 - [x] Validation and unit tests pass.
 - [x] Ticket-34 run log is complete.
-- [ ] GPT bundle generated for ticket-34.
+- [x] GPT bundle generated for ticket-34.

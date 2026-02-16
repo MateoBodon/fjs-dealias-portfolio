@@ -639,7 +639,7 @@
 - **Commands**:
   - `. .venv/bin/activate && make validate-runlogs`
   - `. .venv/bin/activate && make test-fast`
-  - `. .venv/bin/activate && BUNDLE_BASE=7003d53fc31cf00e1a7b2032a620abd0e39a7d53 BUNDLE_STAMP=20260216_231243 make gpt-bundle TICKET=34 RUN_NAME=20260216_230858_ticket-34_ingest-project-review-and-fix-meta`
+  - `. .venv/bin/activate && BUNDLE_BASE=452080b8b5f123195eefdbbe3da563f3543e4371 BUNDLE_STAMP=20260216_231243 make gpt-bundle TICKET=34 RUN_NAME=20260216_230858_ticket-34_ingest-project-review-and-fix-meta`
 - **Changes**:
   - Added provenance header to canonical full review `docs/gpt_outputs/20260216_project_review_full.md` while retaining verbatim uploaded body text from `docs/Analysis.md`.
   - Added ticket spec `docs/tickets/ticket-34_ingest_full_project_review_and_fix_ticket33_meta.md`.

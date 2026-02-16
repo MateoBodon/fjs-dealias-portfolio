@@ -20,5 +20,5 @@
   - pass.
 - `. .venv/bin/activate && make test-fast`
   - pass (`83 passed, 171 deselected`).
-- `. .venv/bin/activate && BUNDLE_BASE=7003d53fc31cf00e1a7b2032a620abd0e39a7d53 BUNDLE_STAMP=20260216_231243 make gpt-bundle TICKET=34 RUN_NAME=20260216_230858_ticket-34_ingest-project-review-and-fix-meta`
+- `. .venv/bin/activate && BUNDLE_BASE=452080b8b5f123195eefdbbe3da563f3543e4371 BUNDLE_STAMP=20260216_231243 make gpt-bundle TICKET=34 RUN_NAME=20260216_230858_ticket-34_ingest-project-review-and-fix-meta`
   - generate ticket-34 review bundle.

@@ -1,45 +1,63 @@
 ---
-generated: 2025-12-22T21:04:17Z
-git_sha: a7d76d8cf7f5fe4c9765c335530064170a0ca87a
-git_branch: chore/project_state_refresh
+generated: 2026-02-16T02:32:01Z
+git_sha: 1371b3c2e7197c3629cc20e4e67c1f435f3ca13a
+git_branch: codex/ticket-27-repo-hygiene-cleanup
 commands:
-  - python3 tools/generate_project_state.py
-  - python3 - <<'PY' (emit FUNCTION_INDEX.md + DEPENDENCY_GRAPH.md)
-  - python3 - <<'PY' (write project_state docs)
+  - manual documentation recenter for ticket-31
+  - artifact verification from reports/* and calibration/* files
 ---
-# Current Results (latest validated drops)
+# Current Results (artifact-verified snapshot)
 
-- **2025-12-23 — Nested calibration grid coverage (ticket-17, git b2221e8)**  
-  - Synthetic nested calibration refreshed to cover p=188 and p=200 (years=2, weeks 6–8, reps=5, tyler, delta_frac=0.05): null detections 0/220 → Wilson hi 0.017 for both p values.  
-  - `calibration/nested_edge_delta_thresholds.json` now includes `188x{60,70,80}` plus `200x{60,70,80}` with run_name/timestamp/git_sha/config_hash metadata; thresholds mirrored under `design_thresholds.nested`.  
-  - Tiny deterministic nested smoke (`max_windows=3`, capped/non-headline) no longer skips on `calibration_missing_p_T`; skip reasons are `instability_in_a_neighborhood` (2) and `no_isolated_spike` (1).  
-  - Artifacts: `reports/synthetic/nested_killtest/20251223_180034_ticket-17_nested-calibration-coverage/`; `experiments/equity_panel/outputs_nested_smoke_tiny/nested_J5_solver-auto_est-dealias_prep-prewhiten_modeoff/`.
-- **2025-12-22 — Daily DoW paper-v1 (ticket-07, git 2cb5bfd)**  
-  - Deterministic daily DoW run (`experiments/eval/config.paper_v1.yaml`, FF5+MOM prewhiten) with uncapped windows: `cap_active=false`, `window_coverage=1.0`, `n_effective=1749` (full regime).  
-  - Full-regime detection_rate_mean ≈ 4.16% (1751/1774 windows); window drops logged as `holdout_empty: 115` (excluded from planning, not treated as caps).  
-  - Performance deltas (full regime): EW ΔQLIKE ≈ −0.06719 (ΔMSE ≈ +2.64e-11), MV ΔQLIKE ≈ −0.03576 (ΔMSE ≈ −6.65e-13).  
-  - Artifacts: `reports/rc-ticket-07-20251222_183800/summary/{summary_perf.csv,summary_detection.csv,overlay_forensics.csv,limitations.md,advisor_snapshot.md}`; run dir `reports/rc-ticket-07-20251222_183800/dow-paper-v1/`.
+## 2025-12-26 - Injection sensitivity remains flat-zero (ticket-24)
 
-- **2025-12-22 — Daily DoW paper-v1 (ticket-06, git 8a5579b)**  
-  - Deterministic daily DoW run (`experiments/eval/config.paper_v1.yaml`, FF5+MOM prewhiten) with uncapped windows: `cap_active=false`, `window_coverage=1.0`, `n_effective=1749` (full regime).  
-  - Full-regime detection_rate_mean ≈ 4.16% (1751/1774 windows); window drops logged as `holdout_empty: 115` (excluded from planning, not treated as caps).  
-  - Performance deltas (full regime): EW ΔMSE ≈ +2.64e-11 (harmful), MV ΔMSE ≈ −6.65e-13 (slight improvement).  
-  - Artifacts: `reports/rc-ticket-06-20251222_063304/summary/{summary_perf.csv,summary_detection.csv,overlay_forensics.csv,limitations.md}`; run dir `reports/rc-ticket-06-20251222_063304/dow-paper-v1/`.
+- Run artifact: `reports/inject_spike/20251226_ticket24_week_full_fix/curve.csv`.
+- Verified curve rows:
+  - `mu=0.0`: detection_rate=0.0, acceptance_rate=0.0, n_windows=186
+  - `mu=3.0`: detection_rate=0.0, acceptance_rate=0.0, n_windows=74
+  - `mu=6.0`: detection_rate=0.0, acceptance_rate=0.0, n_windows=74
+  - `mu=12.0`: detection_rate=0.0, acceptance_rate=0.0, n_windows=74
+  - `mu=24.0`: detection_rate=0.0, acceptance_rate=0.0, n_windows=74
+- Dominant pre-gate reasons (verified in `reports/inject_spike/20251226_ticket24_week_full_fix/gating_reasons.csv`): `tvec_off_component`, `tvec_no_real_root`, `tvec_no_admissible_root`.
 
-- **2025-12-20 — Nested synthetic calibration (ticket-10, git e6e7982)**  
-  - Synthetic nested (p=200, years=2, weeks 6–8, reps=5, tyler, delta=0.35, delta_frac=0.05): null detections 0/220 → FPR 0 with Wilson hi 0.017; power 1.0 on moderate/strong.  
-  - Calibration written to `calibration/nested_edge_delta_thresholds.json` with run metadata; nested configs now point to this file; lookup is design-aware.
-  - (ticket-14 fixup) Calibration artifact now includes config hash + operating_points and enforces design-specific lookup; tiny deterministic nested smoke (max_windows=3) on WRDS data skipped 3/3 windows with `skip_reason=calibration_missing_p_T` (p≈188, T=70/80) and delta_frac_used=0.008 fallback—operating point unchanged.
-- **2025-12-19 — MV solver missing-proof (ticket-08, git a4451969)**
-  - Commands: `make test-fast`; `python -m experiments.eval.run ... --mv-solver cvxpy` and forced-missing run with `FJS_FORCE_MISSING_CVXPY=1 --mv-skip-on-missing-solver`.
-  - Outcomes: Normal run `reports/eval-smoke-ticket08-proof/normal/metrics_detail.csv` shows MV rows `skipped=False`, `solver_status=optimal`; forced-missing run `.../missing-skip/metrics_detail.csv` shows `skipped=True`, `skip_reason=missing_solver`, empty weights; diagnostics propagate `solver_used`/`solver_status`.
-- **2025-12-19 — Weekly gating diagnostics (ticket-07, git 2e0fd573b5)**
-  - Real DoW smoke (2023Q1, window=6, horizon=1): detection_rate=0.75 (3/4) with one `no_isolated_spike`; guardrail tallies dominated by `guard_other`=1148 (`experiments/equity_panel/outputs_smoke_ticket07_20251219_173231/weekly_diagnostics.md`).
-  - Synthetic micro smoke: detection_rate=0, `skip_reason=diagnostic_failure` across all windows (`experiments/equity_panel/outputs_ticket07_synth_20251219_173231/weekly_diagnostics.md`).
-- **2025-12-19 — rc-lite-sanity completeness refresh (ticket-05, git 03d4c03c)**
-  - Deterministic DoW/vol daily eval (top-50, 60×10): detection_rate≈0.055 (DoW) / 0.052 (vol); overlay_effect harmful (ΔMSE > 0), percent_changed≈100%; completeness JSON emitted under `reports/rc-20251219-sanity-20251219_050735/summary/`.
-  - Weekly DoW + nested remain zero-acceptance; completeness surfaced in `summary_sanity.json` and `limitations.md`.
-- **2025-11-21 — Latest full RC-lite (deterministic)**
-  - DoW/vol (Tyler edge, FF5+MOM, top-60, first 200 windows): detection≈4.3%, acceptance≈detection, percent_changed≈100%, ΔMSE(EW)=+1.75e-13, ΔMSE(MV)=−2.54e-14. Artefacts in `reports/rc-20251121/` (`metrics_summary.json`, `run_manifest.json`).
+## 2025-12-23 - Nested calibration coverage refresh (ticket-17, git b2221e8)
 
-Older RC-lite (2025-11-21) and prewhitening/vol acceptance studies remain under `reports/rc-20251121/` and `reports/rc-20251113/`; see PROGRESS.md for provenance.
+- Run artifact: `reports/synthetic/nested_killtest/20251223_180034_ticket-17_nested-calibration-coverage/run.json`.
+- Verified selection metrics:
+  - `null_trials=440`
+  - `null_rate=0.0`
+  - `null_ci_high=0.01716151619513562`
+  - `power_moderate=1.0`
+  - `power_strong=1.0`
+- Calibration artifact: `calibration/nested_edge_delta_thresholds.json` includes p=188 and p=200 entries for T in {60,70,80}.
+- Tiny nested smoke artifact: `experiments/equity_panel/outputs_nested_smoke_tiny/nested_J5_solver-auto_est-dealias_prep-prewhiten_modeoff/weekly_diagnostics.md`.
+  - Verified skip reasons across 3 windows: `instability_in_a_neighborhood` (2), `no_isolated_spike` (1).
+  - `calibration_missing_p_T` is not present in this smoke output.
+
+## 2025-12-22 - Daily DoW paper-v1 uncapped run (ticket-07, git 2cb5bfd)
+
+- Detection artifact: `reports/rc-ticket-07-20251222_183800/summary/summary_detection.csv`.
+  - `cap_active=False`, `window_coverage=1.0`
+  - `windows=1774`, `detection_windows=1751`
+  - `detection_rate_mean=0.0416229200503975` (4.16%)
+  - Note: `detection_rate_mean` and `detection_windows/windows` are distinct fields in this output; do not treat them as the same ratio.
+- Performance artifact: `reports/rc-ticket-07-20251222_183800/summary/summary_perf.csv`.
+  - EW full-regime: `delta_mse_vs_baseline=2.635418515787517e-11`, `delta_qlike_vs_baseline=-0.0671866909475027`, `n_effective_mse=1749.0`
+  - MV full-regime: `delta_mse_vs_baseline=-6.654496181059978e-13`, `delta_qlike_vs_baseline=-0.0357629174555866`, `n_effective_mse=1749.0`
+
+## 2025-12-22 - Daily DoW paper-v1 prior drop (ticket-06, git 8a5579b)
+
+- Detection artifact: `reports/rc-ticket-06-20251222_063304/summary/summary_detection.csv`.
+  - `cap_active=False`, `window_coverage=1.0`
+  - `windows=1774`, `detection_windows=1751`
+  - `detection_rate_mean=0.0416229200503975` (4.16%)
+- Performance artifact: `reports/rc-ticket-06-20251222_063304/summary/summary_perf.csv`.
+  - EW full-regime: `delta_mse_vs_baseline=2.635418515787517e-11`
+  - MV full-regime: `delta_mse_vs_baseline=-6.654496181059978e-13`
+
+## 2025-11-21 - Deterministic RC-lite reference (non-headline due cap)
+
+- Artifact: `reports/rc-20251121/metrics_summary.json`.
+- Verified run-level values:
+  - `dow-tyler`: `detection_rate=0.0431992716914086`, `acceptance_rate=0.0431992716914086`, `delta_mse_ew=1.749123263776732e-13`, `delta_mse_mv=-2.5377866153688694e-14`
+  - `vol-tyler`: `detection_rate=0.043346108100964724`, `acceptance_rate=0.043346108100964724`, `delta_mse_ew=-1.054439874524572e-13`, `delta_mse_mv=-8.637974669528799e-14`
+- Citing rule: this RC-lite drop was window-capped for throughput and is useful for diagnostics, not primary headline claims.

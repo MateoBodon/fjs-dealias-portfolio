@@ -1,7 +1,28 @@
 # CODEX_SPRINT_TICKETS.md — Next sprint (ordered)
 
 Sprint scope: **unblock publishable validity + get one advisor‑ready uncapped RC run**.  
-Rule: do not expand the experiment grid until Tickets 1–4 are done.
+Rule: do not expand the experiment grid until Ticket #18 and Ticket #20 are closed.
+
+Priority order as of 2026-02-16:
+1. Ticket #18 (injection flat-zero debugging)
+2. Ticket #20 (advisor-ready uncapped run)
+3. Ticket #31 (docs recenter + canonical truth refresh, completed)
+
+---
+
+## Ticket #31 — Docs recenter + snapshot refresh
+
+**Status:** DONE (doc-only, 2026-02-16)
+
+**Goal (1 sentence):** Make canonical docs (`PROJECT.md`, `README.md`, `PLAN_OF_RECORD`, `project_state`) reflect current truth: strong engineering pipeline, unresolved injection flat-zero blocker, and next validity gates.
+
+**Delivered in this ticket:**
+- Added external audit snapshot: `docs/gpt_outputs/20260216_analysis.md`.
+- Recentered priorities in `docs/PLAN_OF_RECORD.md` around Ticket #18 then Ticket #20.
+- Replaced placeholder `PROJECT.md` with concrete purpose/state/risks/done criteria.
+- Updated `README.md` current status to remove stale dated claims.
+- Corrected `project_state/CURRENT_RESULTS.md` arithmetic inconsistency and left only artifact-verified metrics.
+- Added run log and PROGRESS entry with required validation/test commands.
 
 ---
 

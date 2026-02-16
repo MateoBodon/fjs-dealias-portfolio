@@ -522,3 +522,34 @@
 - **Artifacts**:
   - Run log `docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/`
   - Outputs `reports/rc-20251230/week_uncapped_full_minrep1/`, `reports/rc-20251230/week_uncapped_full_minrep1_rerun/`, `reports/rc-20260110/week_uncapped_full_minrep1_rerun2/`
+
+## 2026-02-16T02:34Z — ticket-31 docs recenter + snapshot refresh
+- **Branch/Run**: `codex/ticket-27-repo-hygiene-cleanup` (RUN_NAME=`20260216_032804_ticket-31_docs-recenter-snapshot-refresh`), git sha `1371b3c2e7197c3629cc20e4e67c1f435f3ca13a`.
+- **Commands**:
+  - `python3 tools/agentic/runlog_init.py --ticket "31" --summary "Docs recenter + snapshot refresh" --run-name "20260216_032804_ticket-31_docs-recenter-snapshot-refresh"`
+  - `. .venv/bin/activate && make validate-runlogs`
+  - `. .venv/bin/activate && make test-fast`
+- **Changes**:
+  - Added `docs/gpt_outputs/20260216_analysis.md` and linked it from `docs/PLAN_OF_RECORD.md` as the current external audit snapshot.
+  - Recentered `docs/PLAN_OF_RECORD.md` priorities to explicitly gate on Ticket #18 (injection flat-zero) and Ticket #20 (advisor-ready uncapped run) before grid expansion.
+  - Replaced placeholder `PROJECT.md` with concrete purpose/current state/risks/quickstart/done criteria.
+  - Updated `README.md` Current Status to a 2026-02-16 snapshot aligned with current blockers and gates.
+  - Rewrote `project_state/CURRENT_RESULTS.md` with artifact-verified metrics and removed the arithmetic contradiction around `4.16% (1751/1774)`.
+  - Updated `project_state/KNOWN_ISSUES.md` and `project_state/OPEN_QUESTIONS.md` to match current research blockers.
+  - Added Ticket #31 section and priority ordering refresh in `docs/CODEX_SPRINT_TICKETS.md`.
+- **Tests**:
+  - `make validate-runlogs`: pass (new run log validated; legacy run logs emit non-failing META.md warnings).
+  - `make test-fast`: pass (`83 passed, 171 deselected`).
+- **Artifacts**:
+  - Run log: `docs/agent_runs/20260216_032804_ticket-31_docs-recenter-snapshot-refresh/`
+  - External analysis snapshot: `docs/gpt_outputs/20260216_analysis.md`
+
+## 2026-02-16T02:49Z — ticket-31 bundle generation
+- **Branch/Run**: `codex/ticket-27-repo-hygiene-cleanup` (RUN_NAME=`20260216_032804_ticket-31_docs-recenter-snapshot-refresh`).
+- **Command**:
+  - `. .venv/bin/activate && make gpt-bundle TICKET=31 RUN_NAME=20260216_032804_ticket-31_docs-recenter-snapshot-refresh`
+- **Verification**:
+  - `unzip -l artifacts/_local/gpt_bundles/20260216_034848_31_20260216_032804_ticket-31_docs-recenter-snapshot-refresh.zip`
+  - `unzip -p artifacts/_local/gpt_bundles/20260216_034848_31_20260216_032804_ticket-31_docs-recenter-snapshot-refresh.zip DIFF.patch | wc -c` -> `59957`
+- **Artifact**:
+  - `artifacts/_local/gpt_bundles/20260216_034848_31_20260216_032804_ticket-31_docs-recenter-snapshot-refresh.zip`

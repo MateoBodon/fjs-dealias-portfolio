@@ -18,3 +18,9 @@
   - Verified bundled `head_sha=9cd924dc7230ddb8b69753f2eb6a3b0dc620d314`.
 - `unzip -p artifacts/_local/gpt_bundles/20260217_020630_36_20260217_020118_ticket-36_enforce-runlog-meta-sha-correctness-fix-ticket35-drift.zip docs/agent_runs/20260217_020118_ticket-36_enforce-runlog-meta-sha-correctness-fix-ticket35-drift/META.json`
   - Verified bundled runlog metadata `git_sha_after=9cd924dc7230ddb8b69753f2eb6a3b0dc620d314` matches bundle `head_sha`.
+- `git commit -m "ticket-36 finalize runlog and canonical bundle errata" ...`
+  - Committed runlog/progress finalization as `0f7db5ae90790952e8d10e5e3186cbabd375be52`.
+- `. .venv/bin/activate && make validate-runlogs`
+  - Post-finalization validation pass succeeded at commit `0f7db5ae90790952e8d10e5e3186cbabd375be52`.
+- `. .venv/bin/activate && make test-fast`
+  - Post-finalization unit suite pass succeeded (`90 passed, 171 deselected`).

@@ -671,6 +671,7 @@ gpt-bundle:
 	base_sha=$$(sed -n 's/^base_sha: //p' "$$tmp/BUNDLE_META.md" | head -n 1); \
 	head_sha=$$(sed -n 's/^head_sha: //p' "$$tmp/BUNDLE_META.md" | head -n 1); \
 	if [ -z "$$base_sha" ] || [ -z "$$head_sha" ]; then echo "Could not parse base/head SHA from BUNDLE_META.md." >&2; exit 1; fi; \
+	python3 tools/agentic/validate_runlog.py --repo "$$repo_root" --run-name "$(RUN_NAME)" --require-meta-json --expected-head-sha "$$head_sha" --meta-sha-cutoff "20260216_000000"; \
 	git -C "$$repo_root" diff --name-only "$$base_sha..$$head_sha" > "$$tmp/changed_files.txt"; \
 	while IFS= read -r rel; do \
 		case "$$rel" in \

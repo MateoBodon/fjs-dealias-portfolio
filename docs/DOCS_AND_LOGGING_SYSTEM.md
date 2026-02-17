@@ -154,6 +154,7 @@ Bundling fails loud (non-zero) if:
 - base ref cannot be resolved (set `BUNDLE_BASE` to override)
 - required run log files are missing (`PROMPT.md`, `COMMANDS.md`, `RESULTS.md`, `TESTS.md`, `META.json`)
 - for runs with timestamped names `>= 20260216_000000`: if `COMMANDS.md` has multiple `BUNDLE_STAMP=` values and `PROGRESS.md` does not reference the final stamp bundle path for that `RUN_NAME`
+- for runs with timestamped names `>= 20260216_000000`: if `META.json.git_sha_after` is missing/placeholder or does not match the bundle `head_sha` for that `RUN_NAME`
 - required top-level files are missing, or `LAST_COMMIT.txt` cannot be generated
 
 ---

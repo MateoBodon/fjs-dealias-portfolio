@@ -15,6 +15,10 @@
   - `docs/DOCS_AND_LOGGING_SYSTEM.md`
   - `docs/agent_runs/20260217_010137_ticket-35_fix-ticket34-canonical-bundle-provenance/META.json`
   - `docs/agent_runs/20260217_010137_ticket-35_fix-ticket34-canonical-bundle-provenance/META.md`
+- Bundle artifact:
+  - `artifacts/_local/gpt_bundles/20260217_020630_36_20260217_020118_ticket-36_enforce-runlog-meta-sha-correctness-fix-ticket35-drift.zip`
 
 ## Notes
 - Legacy run logs that only have `META.md` continue to emit warnings but remain non-fatal under `make validate-runlogs`.
+- Superseded prior ticket-35 bundle path:
+  - `artifacts/_local/gpt_bundles/20260217_011000_35_20260217_010137_ticket-35_fix-ticket34-canonical-bundle-provenance.zip`

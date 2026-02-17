@@ -700,3 +700,26 @@
 - **Artifacts**:
   - Run log: `docs/agent_runs/20260217_010137_ticket-35_fix-ticket34-canonical-bundle-provenance/`
   - Bundle: `artifacts/_local/gpt_bundles/20260217_011000_35_20260217_010137_ticket-35_fix-ticket34-canonical-bundle-provenance.zip`
+
+## 2026-02-17T02:07Z - ticket-36 runlog SHA correctness guardrail + ticket-35 meta drift fix
+- **Branch/Run**: `codex/ticket-36-meta-sha-guardrail` (RUN_NAME=`20260217_020118_ticket-36_enforce-runlog-meta-sha-correctness-fix-ticket35-drift`), git sha `9cd924dc7230ddb8b69753f2eb6a3b0dc620d314`.
+- **Commands**:
+  - `. .venv/bin/activate && make validate-runlogs`
+  - `. .venv/bin/activate && pytest -q tests/test_validate_runlog.py tests/test_gpt_bundle.py tests/test_gpt_bundle_diff.py`
+  - `. .venv/bin/activate && make test-fast`
+  - `. .venv/bin/activate && BUNDLE_STAMP=20260217_020630 make gpt-bundle TICKET=36 RUN_NAME=20260217_020118_ticket-36_enforce-runlog-meta-sha-correctness-fix-ticket35-drift`
+- **Changes**:
+  - Corrected ticket-35 run metadata drift in `docs/agent_runs/20260217_010137_ticket-35_fix-ticket34-canonical-bundle-provenance/META.json` and `META.md` so `git_sha_after=71a700bb15a7f39b70a705215d5258e2d24549f3`.
+  - Added bundling-time guardrail: `make gpt-bundle` now calls `tools/agentic/validate_runlog.py --expected-head-sha <head_sha>` and fails loud when `META.json.git_sha_after` is placeholder/mismatched (cutoff `>= 20260216_000000`).
+  - Added validator regression tests for placeholder/mismatch/cutoff handling and updated bundle-target assertions/docs contract.
+- **Tests**:
+  - `pytest -q tests/test_validate_runlog.py tests/test_gpt_bundle.py tests/test_gpt_bundle_diff.py`: PASS (`13 passed`).
+  - `make validate-runlogs`: PASS.
+  - `make test-fast`: PASS (`90 passed, 171 deselected`).
+- **Errata / Canonical bundle**:
+  - Superseded artifact path: `artifacts/_local/gpt_bundles/20260217_011000_35_20260217_010137_ticket-35_fix-ticket34-canonical-bundle-provenance.zip`.
+  - Canonical corrective bundle: `artifacts/_local/gpt_bundles/20260217_020630_36_20260217_020118_ticket-36_enforce-runlog-meta-sha-correctness-fix-ticket35-drift.zip`.
+  - Canonical bundle `head_sha`: `9cd924dc7230ddb8b69753f2eb6a3b0dc620d314` (from bundled `BUNDLE_META.md`).
+- **Artifacts**:
+  - Run log: `docs/agent_runs/20260217_020118_ticket-36_enforce-runlog-meta-sha-correctness-fix-ticket35-drift/`
+  - Bundle: `artifacts/_local/gpt_bundles/20260217_020630_36_20260217_020118_ticket-36_enforce-runlog-meta-sha-correctness-fix-ticket35-drift.zip`

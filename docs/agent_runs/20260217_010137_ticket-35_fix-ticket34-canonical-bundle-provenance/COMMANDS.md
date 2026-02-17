@@ -1,0 +1,34 @@
+# Commands
+
+- `git checkout -b codex/ticket-35-bundle-provenance-guardrail`
+  - created ticket-35 branch from ticket-34 head.
+- `python3 tools/agentic/runlog_init.py --ticket "35" --summary "Fix ticket-34 canonical bundle provenance and enforce final BUNDLE_STAMP consistency" --run-name "20260217_010137_ticket-35_fix-ticket34-canonical-bundle-provenance"`
+  - initialized run log directory.
+- `python3 - <<'PY' ...` (scan `docs/agent_runs/*/COMMANDS.md` for multiple `BUNDLE_STAMP=` values)
+  - confirmed ticket-34 has two stamps (`20260216_231243`, `20260216_233000`) and identified historical multi-stamp runs.
+- `apply_patch` on `tools/agentic/validate_runlog.py`
+  - added enforcement: for timestamped runs >= `20260216_000000`, multiple `BUNDLE_STAMP` values require `PROGRESS.md` reference to the final stamp path for that run name.
+- `apply_patch` on `tests/test_validate_runlog.py`
+  - added unit coverage for extraction, enforced-final-stamp failure, success, and historical cutoff skip.
+- `apply_patch` on `Makefile` + `tests/test_gpt_bundle.py`
+  - updated `gpt-bundle` recipe to copy final versions of markdown files changed in the bundle diff range.
+- `apply_patch` on `docs/DOCS_AND_LOGGING_SYSTEM.md`
+  - documented the final-stamp provenance rule and changed-markdown bundle inclusion requirement.
+- `. .venv/bin/activate && make validate-runlogs`
+  - expected pre-fix FAIL captured: ticket-34 run had final-stamp provenance mismatch in `PROGRESS.md`.
+- `. .venv/bin/activate && pytest -q tests/test_validate_runlog.py tests/test_gpt_bundle.py tests/test_gpt_bundle_diff.py`
+  - pass (`10 passed`).
+- `cat <<'EOF' >> PROGRESS.md ...` (ticket-34 canonical bundle provenance errata append)
+  - appended canonical 233000 path and explicitly marked 231243 path superseded.
+- `. .venv/bin/activate && make validate-runlogs`
+  - pass after PROGRESS errata.
+- `. .venv/bin/activate && make test-fast`
+  - pass (`87 passed, 171 deselected`).
+- `git add Makefile PROGRESS.md docs/DOCS_AND_LOGGING_SYSTEM.md docs/agent_runs/20260217_010137_ticket-35_fix-ticket34-canonical-bundle-provenance tests/test_gpt_bundle.py tests/test_validate_runlog.py tools/agentic/validate_runlog.py`
+  - stage ticket-35 changes.
+- `git commit -m "docs(ticket-35): enforce final bundle stamp provenance and reviewability"`
+  - commit ticket-35 changes before bundling.
+- `. .venv/bin/activate && BUNDLE_STAMP=20260217_011000 make gpt-bundle TICKET=35 RUN_NAME=20260217_010137_ticket-35_fix-ticket34-canonical-bundle-provenance`
+  - generate ticket-35 review bundle.
+- `unzip -l artifacts/_local/gpt_bundles/20260217_011000_35_20260217_010137_ticket-35_fix-ticket34-canonical-bundle-provenance.zip`
+  - verify bundle includes updated markdown snapshots and run log.

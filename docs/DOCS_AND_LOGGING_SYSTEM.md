@@ -104,6 +104,7 @@ For any run that writes to `reports/` or `experiments/.../outputs_*`, the output
 
 Per merged ticket, you MUST update:
 - `PROGRESS.md` (one entry with date, branch, SHAs, commands, tests, and artifacts)
+- If a run log’s `COMMANDS.md` records multiple `BUNDLE_STAMP=` values, `PROGRESS.md` must cite the final stamp bundle path for that `RUN_NAME` and mark earlier bundle paths as superseded.
 
 If results changed materially:
 - `project_state/CURRENT_RESULTS.md`
@@ -144,6 +145,7 @@ Bundle MUST include:
 - `AGENTS.md`, `PROGRESS.md`, `docs/*`, `project_state/*`
 - `DIFF.patch` (generated from `git diff --binary <merge-base>..HEAD`) and `LAST_COMMIT.txt`
 - `BUNDLE_META.md` (base/head metadata for the diff range, including `git_dirty`)
+- final markdown snapshots for files changed in the diff range (for example `docs/gpt_outputs/*`, `docs/prompts/*`, `docs/tickets/*`) so reviewers can inspect full file state, not only patch hunks
 - the run log folder under `docs/agent_runs/<RUN_NAME>/`
 - (if applicable) key outputs under `reports/` or `experiments/.../outputs_*`
 
@@ -151,6 +153,7 @@ Bundling fails loud (non-zero) if:
 - `DIFF.patch` would be empty
 - base ref cannot be resolved (set `BUNDLE_BASE` to override)
 - required run log files are missing (`PROMPT.md`, `COMMANDS.md`, `RESULTS.md`, `TESTS.md`, `META.json`)
+- for runs with timestamped names `>= 20260216_000000`: if `COMMANDS.md` has multiple `BUNDLE_STAMP=` values and `PROGRESS.md` does not reference the final stamp bundle path for that `RUN_NAME`
 - required top-level files are missing, or `LAST_COMMIT.txt` cannot be generated
 
 ---

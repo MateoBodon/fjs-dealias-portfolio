@@ -667,3 +667,36 @@
     - `dirty_at_end: false`
 - **Rationale**:
   - Ensures ticket-34 runlog metadata is truthful and avoids audit drift caused by `TBD` placeholders.
+
+## 2026-02-17T01:03Z - ticket-34 canonical bundle provenance errata (append-only)
+- **Branch/Run**: `codex/ticket-35-bundle-provenance-guardrail` (RUN_NAME=`20260217_010137_ticket-35_fix-ticket34-canonical-bundle-provenance`).
+- **Canonical ticket-34 bundle (final stamp)**:
+  - `artifacts/_local/gpt_bundles/20260216_233000_34_20260216_230858_ticket-34_ingest-project-review-and-fix-meta.zip`
+- **Superseded ticket-34 bundle path**:
+  - `artifacts/_local/gpt_bundles/20260216_231243_34_20260216_230858_ticket-34_ingest-project-review-and-fix-meta.zip`
+- **Provenance anchor**:
+  - Bundled `BUNDLE_META.md` for the canonical `233000` artifact records `head_sha: 2e2dd1ac4136842de57788fbdef8d804eeee4ec0` (`timestamp_utc: 2026-02-16T23:31:19Z`).
+- **Rationale**:
+  - The 231243 path in the earlier ticket-34 entry is superseded; reviewers must use the 233000 bundle for the post-meta-finalization state.
+
+## 2026-02-17T01:09Z - ticket-35 canonical bundle provenance guardrail + bundle reviewability
+- **Branch/Run**: `codex/ticket-35-bundle-provenance-guardrail` (RUN_NAME=`20260217_010137_ticket-35_fix-ticket34-canonical-bundle-provenance`).
+- **Commands**:
+  - `. .venv/bin/activate && make validate-runlogs` (expected pre-fix FAIL to confirm enforcement target).
+  - `. .venv/bin/activate && pytest -q tests/test_validate_runlog.py tests/test_gpt_bundle.py tests/test_gpt_bundle_diff.py`
+  - `. .venv/bin/activate && make validate-runlogs` (post-fix pass).
+  - `. .venv/bin/activate && make test-fast`
+  - `. .venv/bin/activate && BUNDLE_STAMP=20260217_011000 make gpt-bundle TICKET=35 RUN_NAME=20260217_010137_ticket-35_fix-ticket34-canonical-bundle-provenance`
+- **Changes**:
+  - Added append-only ticket-34 errata confirming canonical bundle path `artifacts/_local/gpt_bundles/20260216_233000_34_20260216_230858_ticket-34_ingest-project-review-and-fix-meta.zip` and superseding `...20260216_231243_34_...`.
+  - Hardened `tools/agentic/validate_runlog.py`: for timestamped runs `>= 20260216_000000`, when multiple `BUNDLE_STAMP=` values appear in `COMMANDS.md`, `PROGRESS.md` must reference the final stamp bundle path for that `RUN_NAME`.
+  - Added `tests/test_validate_runlog.py` to cover final-stamp enforcement + cutoff behavior.
+  - Updated `make gpt-bundle` to include final versions of markdown files changed in the bundle diff range (improves reviewability beyond patch hunks).
+  - Updated docs contract in `docs/DOCS_AND_LOGGING_SYSTEM.md` and bundle regression assertions in `tests/test_gpt_bundle.py`.
+- **Tests**:
+  - `make validate-runlogs`: FAIL before errata on ticket-34 final-stamp mismatch; PASS after errata.
+  - `pytest -q tests/test_validate_runlog.py tests/test_gpt_bundle.py tests/test_gpt_bundle_diff.py`: PASS (`10 passed`).
+  - `make test-fast`: PASS (`87 passed, 171 deselected`).
+- **Artifacts**:
+  - Run log: `docs/agent_runs/20260217_010137_ticket-35_fix-ticket34-canonical-bundle-provenance/`
+  - Bundle: `artifacts/_local/gpt_bundles/20260217_011000_35_20260217_010137_ticket-35_fix-ticket34-canonical-bundle-provenance.zip`

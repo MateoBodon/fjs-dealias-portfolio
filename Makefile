@@ -668,6 +668,21 @@ gpt-bundle:
 	python tools/gpt_bundle.py diff --repo "$$repo_root" --output "$$tmp/DIFF.patch" --meta-output "$$tmp/BUNDLE_META.md" --run-name "$(RUN_NAME)" --ticket "$(TICKET)"; \
 	if [ ! -s "$$tmp/DIFF.patch" ]; then echo "DIFF.patch is empty; aborting bundle." >&2; exit 1; fi; \
 	if [ ! -s "$$tmp/BUNDLE_META.md" ]; then echo "BUNDLE_META.md is empty; aborting bundle." >&2; exit 1; fi; \
+	base_sha=$$(sed -n 's/^base_sha: //p' "$$tmp/BUNDLE_META.md" | head -n 1); \
+	head_sha=$$(sed -n 's/^head_sha: //p' "$$tmp/BUNDLE_META.md" | head -n 1); \
+	if [ -z "$$base_sha" ] || [ -z "$$head_sha" ]; then echo "Could not parse base/head SHA from BUNDLE_META.md." >&2; exit 1; fi; \
+	git -C "$$repo_root" diff --name-only "$$base_sha..$$head_sha" > "$$tmp/changed_files.txt"; \
+	while IFS= read -r rel; do \
+		case "$$rel" in \
+			*.md) \
+				src="$$repo_root/$$rel"; \
+				if [ -f "$$src" ]; then \
+					mkdir -p "$$tmp/$$(dirname "$$rel")"; \
+					cp "$$src" "$$tmp/$$rel"; \
+				fi \
+				;; \
+		esac; \
+	done < "$$tmp/changed_files.txt"; \
 	git log -1 --stat > "$$tmp/LAST_COMMIT.txt"; \
 	if [ ! -s "$$tmp/LAST_COMMIT.txt" ]; then echo "LAST_COMMIT.txt is empty; aborting bundle." >&2; exit 1; fi; \
 	bundle_dir="$$repo_root/artifacts/_local/gpt_bundles"; \

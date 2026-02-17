@@ -24,6 +24,7 @@ REQUIRED_PATHS = [
 
 REQUIRED_SNIPPETS = [
     "tools/gpt_bundle.py diff",
+    "git -C \"$$repo_root\" diff --name-only \"$$base_sha..$$head_sha\"",
     "DIFF.patch",
     "LAST_COMMIT.txt",
     "BUNDLE_META.md",

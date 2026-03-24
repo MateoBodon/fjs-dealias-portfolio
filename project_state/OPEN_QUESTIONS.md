@@ -1,16 +1,13 @@
 ---
-generated: 2025-12-22T21:04:17Z
-git_sha: a7d76d8cf7f5fe4c9765c335530064170a0ca87a
-git_branch: chore/project_state_refresh
+generated: 2026-02-16T02:32:01Z
+git_sha: 1371b3c2e7197c3629cc20e4e67c1f435f3ca13a
+git_branch: codex/ticket-27-repo-hygiene-cleanup
 commands:
-  - python3 tools/generate_project_state.py
-  - python3 - <<'PY' (emit FUNCTION_INDEX.md + DEPENDENCY_GRAPH.md)
-  - python3 - <<'PY' (write project_state docs)
+  - manual documentation recenter for ticket-31
 ---
 # Open Questions
 
-- How to eliminate daily DoW window coverage caps for paper runs? (See ticket-05 capped run in `reports/rc-ticket-05-20251221_221902/`.)
-- How to raise nested acceptance without inflating FPR? Extend calibration grid beyond p≈188, T≈70/80 and retest `config.nested.smoke.tiny.yaml`.
-- Do weekly designs still emit `guard_other` or `diagnostic_failure` in larger smokes after ticket-09 attribution changes? Monitor `gating_diagnostics.csv` in new weekly runs.
-- Can vol-state design hit the 2–6% acceptance band on balanced panels? Requires focused `config.smoke.yaml` sweeps.
-- Crisis safety: need uncapped crisis runs (2020/2022 configs) with completeness checks to assess harm in stress regimes.
+- Which design and edge mode can produce the first non-flat injection response under realistic windows, if any?
+- Are `tvec_off_component` and no-root pre-gate outcomes signaling a parameterization issue, a model mismatch, or both?
+- For the next uncapped advisor-ready run, what minimum `n_effective_*` threshold should be enforced for headline use beyond binary `comparison_valid_*` checks?
+- If injection remains flat after targeted debugging, what is the strongest falsifiable explanation for theory/data mismatch and how should that reshape scope?

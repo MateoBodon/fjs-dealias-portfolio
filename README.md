@@ -4,13 +4,16 @@ Robust covariance forecasting and portfolio gating over balanced equity panels, 
 
 ---
 
-## Current Status (2025-12-20)
+## Current Status (2026-02-16)
 
-- **Tests:** `make test-fast` (Python 3.12, .venv) is green; keep this as the minimum gate for any commit.
-- **Latest RC-lite drop:** `reports/rc-20251121/` (DoW/vol, Tyler edge, FF5+MOM, 126×21 windows capped at first 200). Detection ≈4.3%, ΔMSE ~1e-13 scale; manifests/regime CSV included.
-- **Nested calibration (ticket-10):** `calibration/nested_edge_delta_thresholds.json` (run `20251220_011519_ticket-10_nested-null-fpr`, git `e6e7982`). Null detections 0/220 (Wilson hi 0.017), power=1.0 at delta_frac=0.05; metadata embeds run_name/timestamp/git_sha/config_hash/trials/operating_points and is mirrored under `design_thresholds.nested`.
-- **Nested real-data smoke (ticket-14 fixup):** `make run:equity_nested_smoke_tiny` executes 3 capped windows (p≈188, T=70/80). All skipped with explicit `calibration_missing_p_T`; guard tallies stability_fail=3, others=0. delta_frac falls back to config (0.008). Outputs: `experiments/equity_panel/outputs_nested_smoke_tiny/`.
-- **Known gaps:** Nested calibration grid lacks p≈188 coverage; guard attribution cleanup (ticket-07) still open; see `project_state/KNOWN_ISSUES.md`.
+- **Engineering baseline:** auditability and reproducibility are strong (`docs/agent_runs/`, `PROGRESS.md`, bundle/test/runlog gates).
+- **Minimum commit gate:** `. .venv/bin/activate && make test-fast`.
+- **Latest uncapped daily evidence:** `reports/rc-ticket-07-20251222_183800/summary/` (`cap_active=false`, `window_coverage=1.0`, `n_effective_mse=1749` in `summary_perf.csv`).
+- **Main research blocker:** injection sensitivity for week design is still flat-zero in `reports/inject_spike/20251226_ticket24_week_full_fix/curve.csv` (detection and acceptance both 0.0 for `mu` in {0, 3, 6, 12, 24}).
+- **Top priorities:**
+  1. Debug flat-zero injection response (or conclusively explain the theory/data mismatch).
+  2. Produce one advisor-ready uncapped run with valid aligned comparisons and clear effect reporting.
+- **Scope rule:** do not expand experiment grids until those two gates are closed.
 
 ---
 
@@ -109,4 +112,3 @@ From `AGENTS.md`:
 3. Capture commands and results in a new `docs/agent_runs/<RUN_NAME>/`.
 4. If you add configs/knobs, document them in `project_state/CONFIG_REFERENCE.md` and ensure resolved configs write the new fields.
 5. Build a bundle for review: `make gpt-bundle TICKET=<ticket> RUN_NAME=<run_name>`.
-

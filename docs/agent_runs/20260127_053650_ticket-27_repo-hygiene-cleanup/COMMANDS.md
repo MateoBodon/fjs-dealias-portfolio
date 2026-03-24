@@ -1,0 +1,26 @@
+# Commands
+
+- git switch -c codex/ticket-27-repo-hygiene-cleanup
+- python3 tools/agentic/runlog_init.py --ticket "27" --summary "Repo hygiene cleanup: remove bootstrap residue, fix ignore drift, add guardrail test" --run-name "20260127_053650_ticket-27_repo-hygiene-cleanup"
+- git status -sb
+- git clean -ndx
+- git restore .
+- rg --files -g '*.bak.*' -g '*.append*' -0 | xargs -0 rm -f
+- python3 -m venv .venv
+- . .venv/bin/activate && make setup
+- . .venv/bin/activate && pytest -q tests/test_repo_hygiene.py
+- rg --files --hidden --no-ignore -g '*.bak.*' -g '*.append*' -0 | xargs -0 rm -f
+- . .venv/bin/activate && pytest -q tests/test_repo_hygiene.py
+- . .venv/bin/activate && make test-fast
+- . .venv/bin/activate && make validate-runlogs
+- (recreated) tools/agentic/runlog_init.py, tools/agentic/validate_runlog.py, tools/agentic/ticket_new.py
+- python3 - <<'PY' (backfill missing run log files + META.md)
+- . .venv/bin/activate && make validate-runlogs
+- . .venv/bin/activate && make check-data-policy
+- (recreated) docs/tickets/ticket-27_repo_hygiene_bootstrap_residue_cleanup.md
+- (recreated) tests/test_repo_hygiene.py
+- . .venv/bin/activate && pytest -q tests/test_repo_hygiene.py
+- . .venv/bin/activate && make test-fast
+- . .venv/bin/activate && make validate-runlogs
+- . .venv/bin/activate && make check-data-policy
+- python3 tools/agentic/gpt_bundle.py --ticket "27" --run-name "20260127_053650_ticket-27_repo-hygiene-cleanup"

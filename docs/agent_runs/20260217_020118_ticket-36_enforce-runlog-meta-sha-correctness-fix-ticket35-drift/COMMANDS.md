@@ -1,0 +1,26 @@
+# Commands
+
+- `git checkout -b codex/ticket-36-meta-sha-guardrail`
+  - Created ticket branch from `71a700bb15a7f39b70a705215d5258e2d24549f3`.
+- `python3 tools/agentic/runlog_init.py --ticket "36" --summary "Enforce runlog META.json SHA correctness + fix ticket-35 meta drift" --run-name "20260217_020118_ticket-36_enforce-runlog-meta-sha-correctness-fix-ticket35-drift"`
+  - Initialized run log scaffold under `docs/agent_runs/`.
+- `pytest -q tests/test_validate_runlog.py tests/test_gpt_bundle.py tests/test_gpt_bundle_diff.py`
+  - Targeted tests passed after guardrail implementation.
+- `. .venv/bin/activate && make validate-runlogs`
+  - Passed; ticket-35 metadata fix validated.
+- `. .venv/bin/activate && make test-fast`
+  - Passed (`90 passed, 171 deselected`).
+- `git commit -m "ticket-36 enforce runlog meta SHA guardrail" ...`
+  - Committed core ticket-36 delta as `9cd924dc7230ddb8b69753f2eb6a3b0dc620d314`.
+- `. .venv/bin/activate && BUNDLE_STAMP=20260217_020630 make gpt-bundle TICKET=36 RUN_NAME=20260217_020118_ticket-36_enforce-runlog-meta-sha-correctness-fix-ticket35-drift`
+  - Passed; emitted bundle path `artifacts/_local/gpt_bundles/20260217_020630_36_20260217_020118_ticket-36_enforce-runlog-meta-sha-correctness-fix-ticket35-drift.zip`.
+- `unzip -p artifacts/_local/gpt_bundles/20260217_020630_36_20260217_020118_ticket-36_enforce-runlog-meta-sha-correctness-fix-ticket35-drift.zip BUNDLE_META.md`
+  - Verified bundled `head_sha=9cd924dc7230ddb8b69753f2eb6a3b0dc620d314`.
+- `unzip -p artifacts/_local/gpt_bundles/20260217_020630_36_20260217_020118_ticket-36_enforce-runlog-meta-sha-correctness-fix-ticket35-drift.zip docs/agent_runs/20260217_020118_ticket-36_enforce-runlog-meta-sha-correctness-fix-ticket35-drift/META.json`
+  - Verified bundled runlog metadata `git_sha_after=9cd924dc7230ddb8b69753f2eb6a3b0dc620d314` matches bundle `head_sha`.
+- `git commit -m "ticket-36 finalize runlog and canonical bundle errata" ...`
+  - Committed runlog/progress finalization as `0f7db5ae90790952e8d10e5e3186cbabd375be52`.
+- `. .venv/bin/activate && make validate-runlogs`
+  - Post-finalization validation pass succeeded at commit `0f7db5ae90790952e8d10e5e3186cbabd375be52`.
+- `. .venv/bin/activate && make test-fast`
+  - Post-finalization unit suite pass succeeded (`90 passed, 171 deselected`).

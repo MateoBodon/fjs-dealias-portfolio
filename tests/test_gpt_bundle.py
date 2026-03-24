@@ -24,6 +24,8 @@ REQUIRED_PATHS = [
 
 REQUIRED_SNIPPETS = [
     "tools/gpt_bundle.py diff",
+    "git -C \"$$repo_root\" diff --name-only \"$$base_sha..$$head_sha\"",
+    "--expected-head-sha \"$$head_sha\"",
     "DIFF.patch",
     "LAST_COMMIT.txt",
     "BUNDLE_META.md",
@@ -49,7 +51,7 @@ def test_agentic_bundle_fails_on_dirty_repo(monkeypatch: pytest.MonkeyPatch, cap
     monkeypatch.setattr(
         sys,
         "argv",
-        ["gpt_bundle.py", "--zip", "--ticket", "FJS-TKT-TEST", "--run-name", "run-1"],
+        ["gpt_bundle.py", "--zip", "--ticket", "FJS-TKT-TEST", "--run-name", "run-1", "--no-stash"],
     )
     exit_code = agentic_bundle.main()
     assert exit_code == 1

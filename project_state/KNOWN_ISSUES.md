@@ -1,15 +1,14 @@
 ---
-generated: 2025-12-22T21:04:17Z
-git_sha: a7d76d8cf7f5fe4c9765c335530064170a0ca87a
-git_branch: chore/project_state_refresh
+generated: 2026-02-16T02:32:01Z
+git_sha: 1371b3c2e7197c3629cc20e4e67c1f435f3ca13a
+git_branch: codex/ticket-27-repo-hygiene-cleanup
 commands:
-  - python3 tools/generate_project_state.py
-  - python3 - <<'PY' (emit FUNCTION_INDEX.md + DEPENDENCY_GRAPH.md)
-  - python3 - <<'PY' (write project_state docs)
+  - manual documentation recenter for ticket-31
+  - artifact verification from reports/* files
 ---
 # Known Issues
 
-- **Weekly detection scarcity**: Many weekly/nested runs still report zero detections; overlay is effectively off in those windows (see `experiments/equity_panel/outputs_nested_smoke*/summary.json`).
-- **Capped runs not headline (resolved 2025-12-21)**: `tools/make_summary.py` now excludes `cap_active=true` runs from headline tables and lists cap sources in limitations (ticket-02).
-- **Holdout-empty windows counted as caps (resolved 2025-12-22)**: daily eval window planning now drops holdout-empty windows from `windows_requested` and logs `windows_dropped_holdout_empty`, preventing false `window_coverage` caps on uncapped runs (ticket-06).
-- **Heavy ablation runtime**: `make rc-ablations` can time out on local hosts; use smaller grids or remote hosts.
+- **Injection sensitivity is flat-zero on current week-design evidence**: `reports/inject_spike/20251226_ticket24_week_full_fix/curve.csv` shows detection/acceptance at 0.0 across tested `mu` values.
+- **Advisor-ready uncapped headline run still pending**: no updated week-design run has yet closed the gate for advisor-safe headline reporting with meaningful effect evidence.
+- **Detection diagnostics mismatch remains unresolved**: pre-gate reasons in `reports/inject_spike/20251226_ticket24_week_full_fix/gating_reasons.csv` are dominated by `tvec_off_component` and no-root buckets, which blocks interpretation.
+- **Nested design remains secondary**: calibration coverage improved, but tiny real-data nested smoke still has zero detections and skip reasons dominated by stability/no-isolated-spike, so nested is not currently a headline path.

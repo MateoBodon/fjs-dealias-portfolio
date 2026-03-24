@@ -1,0 +1,12 @@
+{
+  "ticket": "33",
+  "run_name": "20260216_212107_ticket-33_canonical-review-prompt-audit-fix",
+  "git_sha_before": "7f7ebd64379bf85d09f968c14b2e68bd9bd43db2",
+  "git_sha_after": "7003d53fc31cf00e1a7b2032a620abd0e39a7d53",
+  "git_branch": "codex/ticket-33-canonical-project-review",
+  "dirty_at_start": true,
+  "dirty_at_end": false,
+  "resolved_config_paths": "n/a",
+  "config_hashes": "n/a",
+  "dataset_ids": "n/a"
+}

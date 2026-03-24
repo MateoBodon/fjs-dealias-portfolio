@@ -1,11 +1,9 @@
 ---
-generated: 2025-12-22T21:04:17Z
-git_sha: a7d76d8cf7f5fe4c9765c335530064170a0ca87a
-git_branch: chore/project_state_refresh
+generated: 2026-01-27T04:49:43Z
+git_sha: 95a29d978e0c31b921ac63350b1de6bfd116cf9f
+git_branch: codex/ticket-27-repo-hygiene-cleanup
 commands:
-  - python3 tools/generate_project_state.py
-  - python3 - <<'PY' (emit FUNCTION_INDEX.md + DEPENDENCY_GRAPH.md)
-  - python3 - <<'PY' (write project_state docs)
+  - manual update (ticket-27 repo hygiene)
 ---
 # Test Coverage
 
@@ -18,8 +16,9 @@ commands:
   - Finance/portfolio: `tests/test_portfolios_missing_solver.py`, `tests/test_eval_missing_solver.py`, `tests/test_minvar_regularized.py`, `tests/test_shrinkage.py`, `tests/test_factor_cov.py`, `tests/test_cache_switch_estimator.py`.
   - Reporting: `tests/test_report_gather.py`, `tests/test_report_tables.py`, `tests/test_report_plots.py`, `tests/tools/test_make_summary.py`, `tests/tools/test_summarize_rc_sanity.py`, `tests/test_gpt_bundle.py`.
   - Data/registry: `tests/data/test_factors_registry.py`, `tests/io/test_wrds_snapshot.py`, `tests/test_data_registry.py`.
+  - Repo hygiene: `tests/test_repo_hygiene.py`.
 - **Gaps / heavy tests**
   - Full RC/RC-lite/AWS paths are not part of the fast suite; rely on smokes + manual runs.
   - Crisis configs, vol-state acceptance, and nested kill-test FPR remain mostly smoke-tested.
   - Plotting tests skip when matplotlib is unavailable.
-- **This rebuild** — no tests executed (documentation-only changes).
+- **This rebuild** — ran `pytest -q tests/test_repo_hygiene.py` and `make test-fast`.

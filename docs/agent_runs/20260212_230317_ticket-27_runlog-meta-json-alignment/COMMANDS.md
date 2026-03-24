@@ -1,0 +1,22 @@
+# Commands
+
+- `git status --short`
+- `ls -la docs/agent_runs`
+- `sed -n ... docs/agent_runs/20260128_014550_ticket-27_runlog-audit-fix/{PROMPT.md,RESULTS.md}`
+- `sed -n ... tools/agentic/{validate_runlog.py,runlog_init.py,README.md}`
+- `sed -n ... Makefile AGENTS.md docs/DOCS_AND_LOGGING_SYSTEM.md PROGRESS.md`
+- `python3 tools/agentic/runlog_init.py --ticket "27" --summary "Align runlog schema to META.json and fix ticket-27 audit artifacts" --run-name "20260212_230317_ticket-27_runlog-meta-json-alignment"`
+- `apply_patch` edits to:
+  - `tools/agentic/validate_runlog.py`
+  - `tools/agentic/runlog_init.py`
+  - `Makefile`
+  - `docs/DOCS_AND_LOGGING_SYSTEM.md`
+  - `AGENTS.md`
+  - `tools/agentic/README.md`
+  - `docs/agent_runs/20260127_053650_ticket-27_repo-hygiene-cleanup/RESULTS.md`
+  - `tests/test_gpt_bundle.py`
+- `cat > docs/agent_runs/20260128_014550_ticket-27_runlog-audit-fix/META.json`
+- `cat > docs/agent_runs/20260212_230317_ticket-27_runlog-meta-json-alignment/META.json`
+- `. .venv/bin/activate && make validate-runlogs`
+- `. .venv/bin/activate && make test-fast`
+- `make gpt-bundle TICKET=ticket-27 RUN_NAME=20260128_014550_ticket-27_runlog-audit-fix` (to regenerate ticket-27 audit bundle)

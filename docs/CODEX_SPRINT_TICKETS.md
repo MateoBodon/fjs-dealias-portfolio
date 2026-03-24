@@ -1,7 +1,48 @@
 # CODEX_SPRINT_TICKETS.md — Next sprint (ordered)
 
 Sprint scope: **unblock publishable validity + get one advisor‑ready uncapped RC run**.  
-Rule: do not expand the experiment grid until Tickets 1–4 are done.
+Rule: do not expand the experiment grid until Ticket #18 and Ticket #20 are closed.
+
+Priority order as of 2026-02-16:
+1. Ticket #18 (injection flat-zero debugging)
+2. Ticket #20 (advisor-ready uncapped run)
+3. Ticket #31 (docs recenter + canonical truth refresh, completed)
+4. Ticket #33 (canonical project review + codex continuation prompt + ticket-32 audit drift fix)
+
+---
+
+## Ticket #31 — Docs recenter + snapshot refresh
+
+**Status:** DONE (doc-only, 2026-02-16)
+
+**Goal (1 sentence):** Make canonical docs (`PROJECT.md`, `README.md`, `PLAN_OF_RECORD`, `project_state`) reflect current truth: strong engineering pipeline, unresolved injection flat-zero blocker, and next validity gates.
+
+**Delivered in this ticket:**
+- Added external audit snapshot: `docs/gpt_outputs/20260216_analysis.md`.
+- Recentered priorities in `docs/PLAN_OF_RECORD.md` around Ticket #18 then Ticket #20.
+- Replaced placeholder `PROJECT.md` with concrete purpose/state/risks/done criteria.
+- Updated `README.md` current status to remove stale dated claims.
+- Corrected `project_state/CURRENT_RESULTS.md` arithmetic inconsistency and left only artifact-verified metrics.
+- Added run log and PROGRESS entry with required validation/test commands.
+
+---
+
+## Ticket #33 — Canonical project review + codex continuation prompt + ticket-32 audit drift fix
+
+**Status:** DONE (doc/audit integrity + uploaded Analysis.md ingestion, 2026-02-16)
+
+**Goal (1 sentence):** Restore audit consistency for ticket-32 and promote a canonical full-review path plus a reusable Codex continuation prompt.
+
+**Scope:**
+- Fix ticket-32 runlog/bundle SHA+path drift via append-only errata.
+- Add canonical prompt starter at `docs/prompts/codex_continuation.md`.
+- Point `docs/PLAN_OF_RECORD.md` full-audit reference to `docs/gpt_outputs/20260216_project_review_full.md` and relabel `20260216_analysis_full.md` as a ticket-review capture.
+
+**Acceptance criteria:**
+- Ticket-32 `META.json`/`RESULTS.md`/PROGRESS errata agree with canonical bundle path and `head_sha`.
+- `docs/prompts/codex_continuation.md` exists with read order + non-negotiables + immediate priorities.
+- `docs/gpt_outputs/20260216_project_review_full.md` mirrors uploaded `docs/Analysis.md` content.
+- `make validate-runlogs` and `make test-fast` pass in the ticket-33 run log.
 
 ---
 

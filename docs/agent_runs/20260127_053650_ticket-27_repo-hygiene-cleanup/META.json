@@ -1,0 +1,10 @@
+{
+  "ticket": "ticket-27",
+  "run_name": "20260127_053650_ticket-27_repo-hygiene-cleanup",
+  "git_sha_before": "95a29d978e0c31b921ac63350b1de6bfd116cf9f",
+  "git_sha_after": "d1c6dadfd0118fea3e328c28c87bf47aee8e8048",
+  "git_branch": "codex/ticket-27-repo-hygiene-cleanup",
+  "dirty_at_start": true,
+  "dirty_at_end": false,
+  "notes": "Aligned to bundle metadata (timestamp_utc 2026-01-27T15:25:07Z, git_dirty=false)."
+}

@@ -1,4 +1,7 @@
 ## Done
+- 2026-02-12: ticket-27 runlog schema alignment + audit evidence completion (`META.json` canonical in docs/tooling, ticket-27 audit run gets missing `META.json`, follow-up run log included, bundle gate requires `META.json`). Tests: `. .venv/bin/activate && make validate-runlogs`; `. .venv/bin/activate && make test-fast`. Artifacts: `docs/agent_runs/20260212_230317_ticket-27_runlog-meta-json-alignment/`; ticket-27 bundle refresh: `artifacts/_local/gpt_bundles/20260213_214859_ticket-27_20260128_014550_ticket-27_runlog-audit-fix.zip`.
+- 2026-01-28: ticket-27 run log audit fix (align META with bundle evidence, add META.json, record clean-tree evidence, backfill follow-up run log). Tests: `. .venv/bin/activate && make validate-runlogs`; `. .venv/bin/activate && make test-fast`. Artifacts: `docs/agent_runs/20260128_014550_ticket-27_runlog-audit-fix/`; bundle: `artifacts/_local/gpt_bundles/20260128_015625_ticket-27_20260128_014550_ticket-27_runlog-audit-fix.zip`.
+- 2026-01-27: ticket-27 repo hygiene cleanup (removed backup residue, added repo hygiene guardrail test, added validate-runlogs/check-data-policy targets, backfilled legacy run logs missing required files). Tests: `. .venv/bin/activate && pytest -q tests/test_repo_hygiene.py`; `. .venv/bin/activate && make test-fast`; `. .venv/bin/activate && make validate-runlogs`; `. .venv/bin/activate && make check-data-policy`. Artifacts: `docs/agent_runs/20260127_053650_ticket-27_repo-hygiene-cleanup/`.
 - 2026-01-26: ticket-30 gpt-bundle dirty-tree safe (stash/restore + `--no-stash`, artifacts/_local output, docs note, unit test). Tests: `. .venv/bin/activate && make test-fast`. Artifacts: `docs/agent_runs/20260126_220731_ticket-30_gpt-bundle-dirty-safe/`. Bundle (dirty-tree validation): `artifacts/_local/gpt_bundles/20260126_221517_TICKET-DIRTY-TEST_20260126_050923_ticket-29_gpt-bundle-dirty-check.zip`.
 - 2026-01-26: FJS-TKT-030 gpt-bundle scratch relocation (bundle path to `artifacts/_local/gpt_bundles`, docs + test update). Tests: `. .venv/bin/activate && make test-fast && pytest -q tests/test_gpt_bundle.py`. Artifacts: `docs/agent_runs/20260126_212957_ticket-30_gpt-bundle-artifacts/`. Bundle: `artifacts/_local/gpt_bundles/20260126_224522_FJS-TKT-030_20260126_212957_ticket-30_gpt-bundle-artifacts.zip`.
 - 2026-01-26: FJS-TKT-030 tracking policy normalization (cleared `.git/info/exclude` policy rules, moved run dumps to `reports/_runs`, added tracking README placeholders + history cleanup plan). Tests: `make test-fast` (failed: pytest not found). Artifacts: `docs/agent_runs/20260126_192839_ticket-30_tracking-policy-normalize/`.
@@ -519,3 +522,204 @@
 - **Artifacts**:
   - Run log `docs/agent_runs/20251226_191530_ticket-20_uncapped-rc-week/`
   - Outputs `reports/rc-20251230/week_uncapped_full_minrep1/`, `reports/rc-20251230/week_uncapped_full_minrep1_rerun/`, `reports/rc-20260110/week_uncapped_full_minrep1_rerun2/`
+
+## 2026-02-16T02:34Z — ticket-31 docs recenter + snapshot refresh
+- **Branch/Run**: `codex/ticket-27-repo-hygiene-cleanup` (RUN_NAME=`20260216_032804_ticket-31_docs-recenter-snapshot-refresh`), git sha `1371b3c2e7197c3629cc20e4e67c1f435f3ca13a`.
+- **Commands**:
+  - `python3 tools/agentic/runlog_init.py --ticket "31" --summary "Docs recenter + snapshot refresh" --run-name "20260216_032804_ticket-31_docs-recenter-snapshot-refresh"`
+  - `. .venv/bin/activate && make validate-runlogs`
+  - `. .venv/bin/activate && make test-fast`
+- **Changes**:
+  - Added `docs/gpt_outputs/20260216_analysis.md` and linked it from `docs/PLAN_OF_RECORD.md` as the current external audit snapshot.
+  - Recentered `docs/PLAN_OF_RECORD.md` priorities to explicitly gate on Ticket #18 (injection flat-zero) and Ticket #20 (advisor-ready uncapped run) before grid expansion.
+  - Replaced placeholder `PROJECT.md` with concrete purpose/current state/risks/quickstart/done criteria.
+  - Updated `README.md` Current Status to a 2026-02-16 snapshot aligned with current blockers and gates.
+  - Rewrote `project_state/CURRENT_RESULTS.md` with artifact-verified metrics and removed the arithmetic contradiction around `4.16% (1751/1774)`.
+  - Updated `project_state/KNOWN_ISSUES.md` and `project_state/OPEN_QUESTIONS.md` to match current research blockers.
+  - Added Ticket #31 section and priority ordering refresh in `docs/CODEX_SPRINT_TICKETS.md`.
+- **Tests**:
+  - `make validate-runlogs`: pass (new run log validated; legacy run logs emit non-failing META.md warnings).
+  - `make test-fast`: pass (`83 passed, 171 deselected`).
+- **Artifacts**:
+  - Run log: `docs/agent_runs/20260216_032804_ticket-31_docs-recenter-snapshot-refresh/`
+  - External analysis snapshot: `docs/gpt_outputs/20260216_analysis.md`
+
+## 2026-02-16T02:49Z — ticket-31 bundle generation
+- **Branch/Run**: `codex/ticket-27-repo-hygiene-cleanup` (RUN_NAME=`20260216_032804_ticket-31_docs-recenter-snapshot-refresh`).
+- **Command**:
+  - `. .venv/bin/activate && make gpt-bundle TICKET=31 RUN_NAME=20260216_032804_ticket-31_docs-recenter-snapshot-refresh`
+- **Verification**:
+  - `unzip -l artifacts/_local/gpt_bundles/20260216_034848_31_20260216_032804_ticket-31_docs-recenter-snapshot-refresh.zip`
+  - `unzip -p artifacts/_local/gpt_bundles/20260216_034848_31_20260216_032804_ticket-31_docs-recenter-snapshot-refresh.zip DIFF.patch | wc -c` -> `59957`
+- **Artifact**:
+  - `artifacts/_local/gpt_bundles/20260216_034848_31_20260216_032804_ticket-31_docs-recenter-snapshot-refresh.zip`
+
+## 2026-02-16T04:04Z - ticket-32 errata for ticket-31 audit metadata
+- **Branch/Run**: `codex/ticket-27-repo-hygiene-cleanup` (RUN_NAME=`20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta`).
+- **Errata scope**:
+  - Append-only correction for ticket-31 run metadata at `docs/agent_runs/20260216_032804_ticket-31_docs-recenter-snapshot-refresh/`.
+  - Added full analysis artifact `docs/gpt_outputs/20260216_analysis_full.md` and linked it from `docs/PLAN_OF_RECORD.md`.
+- **Canonical ticket-31 SHA correction**:
+  - `git_sha_before`: `1371b3c2e7197c3629cc20e4e67c1f435f3ca13a`
+  - `git_sha_after`: `8bd1282541112293a3e6c823b7e32bbeaa8ef5c2`
+  - `git_branch`: `codex/ticket-27-repo-hygiene-cleanup`
+  - Canonical source: `docs/agent_runs/20260216_032804_ticket-31_docs-recenter-snapshot-refresh/META.json`
+- **Dirty-state audit snapshots added (ticket-31 run log)**:
+  - `docs/agent_runs/20260216_032804_ticket-31_docs-recenter-snapshot-refresh/git_status_start.txt`
+  - `docs/agent_runs/20260216_032804_ticket-31_docs-recenter-snapshot-refresh/git_status_end.txt`
+- **Supersedes**:
+  - The `2026-02-16T02:34Z` ticket-31 PROGRESS entry that listed git sha `1371b3c2e7197c3629cc20e4e67c1f435f3ca13a` as run SHA. That value reflected pre-commit state and is superseded by the corrected before/after pair above.
+
+## 2026-02-16T04:10Z - ticket-32 bundle generation (isolated base)
+- **Branch/Run**: `codex/ticket-27-repo-hygiene-cleanup` (RUN_NAME=`20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta`).
+- **Command**:
+  - `. .venv/bin/activate && BUNDLE_BASE=8bd1282541112293a3e6c823b7e32bbeaa8ef5c2 BUNDLE_STAMP=20260216_050959 make gpt-bundle TICKET=32 RUN_NAME=20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta`
+- **Verification**:
+  - `unzip -l artifacts/_local/gpt_bundles/20260216_050959_32_20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta.zip`
+  - `unzip -p artifacts/_local/gpt_bundles/20260216_050959_32_20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta.zip BUNDLE_META.md`
+  - `unzip -p artifacts/_local/gpt_bundles/20260216_050959_32_20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta.zip DIFF.patch | rg -n "docs/gpt_outputs/20260216_analysis_full.md|docs/PLAN_OF_RECORD.md|PROGRESS.md|docs/agent_runs/20260216_032804_ticket-31_docs-recenter-snapshot-refresh/META.json|git_status_start.txt|git_status_end.txt"`
+- **Artifact**:
+  - `artifacts/_local/gpt_bundles/20260216_050959_32_20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta.zip`
+- **Bundle base/head**:
+  - `base_ref/base_sha`: `8bd1282541112293a3e6c823b7e32bbeaa8ef5c2`
+  - `head_sha`: `b602981236ff72fb2109c7db1e4573c259361b08`
+
+## 2026-02-16T21:25Z - ticket-32 bundle audit errata (canonical uploaded artifact)
+- **Branch/Run**: `codex/ticket-27-repo-hygiene-cleanup` (RUN_NAME=`20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta`).
+- **Errata scope**:
+  - Append-only correction to align ticket-32 run-log metadata and bundle reference with the uploaded bundle artifact.
+- **Canonical artifact**:
+  - `artifacts/_local/gpt_bundles/20260216_051120_32_20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta.zip`
+- **Canonical bundle base/head**:
+  - `base_ref/base_sha`: `8bd1282541112293a3e6c823b7e32bbeaa8ef5c2`
+  - `head_sha`: `7f7ebd64379bf85d09f968c14b2e68bd9bd43db2`
+- **Supersedes**:
+  - The `2026-02-16T04:10Z - ticket-32 bundle generation (isolated base)` entry's artifact path and head SHA (`20260216_050959_32_...`, `head_sha=b602981...`).
+  - Canonical ticket-32 run-log references are now `docs/agent_runs/20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta/META.json` and `docs/agent_runs/20260216_050358_ticket-32_promote-full-analysis-patch-ticket31-meta/RESULTS.md`.
+
+## 2026-02-16T21:30Z - ticket-33 canonical review/prompt and ticket-32 audit drift fix
+- **Branch/Run**: `codex/ticket-33-canonical-project-review` (RUN_NAME=`20260216_212107_ticket-33_canonical-review-prompt-audit-fix`), git sha `7f7ebd64379bf85d09f968c14b2e68bd9bd43db2`.
+- **Commands**:
+  - `. .venv/bin/activate && make validate-runlogs`
+  - `. .venv/bin/activate && make test-fast`
+  - `. .venv/bin/activate && BUNDLE_BASE=7f7ebd64379bf85d09f968c14b2e68bd9bd43db2 BUNDLE_STAMP=20260216_223500 make gpt-bundle TICKET=33 RUN_NAME=20260216_212107_ticket-33_canonical-review-prompt-audit-fix`
+- **Changes**:
+  - Corrected ticket-32 runlog metadata/docs to canonical uploaded bundle SHA/path (`20260216_051120_32_...`, `head_sha=7f7ebd64379bf85d09f968c14b2e68bd9bd43db2`) and appended explicit ticket-32 PROGRESS errata.
+  - Added continuation starter prompt at `docs/prompts/codex_continuation.md`.
+  - Updated `docs/PLAN_OF_RECORD.md` ground-truth links so full audit points to `docs/gpt_outputs/20260216_project_review_full.md` and `docs/gpt_outputs/20260216_analysis_full.md` is labeled as ticket/bundle review capture.
+  - Added/tracked ticket docs `docs/tickets/ticket-31_docs_recenter_snapshot_refresh.md` and `docs/tickets/ticket-33_canonical_project_review_and_codex_prompt.md` to clear untracked ticket drift.
+- **Tests**:
+  - `make validate-runlogs`: pass (legacy META.md warnings remain non-fatal on historical runs).
+  - `make test-fast`: pass (`83 passed, 171 deselected`).
+- **Artifacts**:
+  - Run log: `docs/agent_runs/20260216_212107_ticket-33_canonical-review-prompt-audit-fix/`
+  - Bundle: `artifacts/_local/gpt_bundles/20260216_223500_33_20260216_212107_ticket-33_canonical-review-prompt-audit-fix.zip`
+- **Open blocker**:
+  - Exact uploaded `Analysis.md` text was not present in local artifacts during this run; `docs/gpt_outputs/20260216_project_review_full.md` is currently a canonical-path placeholder pending verbatim source ingestion.
+
+## 2026-02-16T22:04Z - ticket-33 uploaded Analysis.md ingestion and rebundle
+- **Branch/Run**: `codex/ticket-33-canonical-project-review` (RUN_NAME=`20260216_220117_ticket-33_ingest-uploaded-analysis-and-rebundle`).
+- **Commands**:
+  - `. .venv/bin/activate && make validate-runlogs`
+  - `. .venv/bin/activate && make test-fast`
+  - `. .venv/bin/activate && BUNDLE_STAMP=20260216_220359 make gpt-bundle TICKET=33 RUN_NAME=20260216_220117_ticket-33_ingest-uploaded-analysis-and-rebundle`
+- **Changes**:
+  - Ingested uploaded `docs/Analysis.md` verbatim into canonical `docs/gpt_outputs/20260216_project_review_full.md`.
+  - Marked ticket-33 as done in `docs/CODEX_SPRINT_TICKETS.md` and updated ticket notes.
+  - Corrected ticket-33 prior run metadata in `docs/agent_runs/20260216_212107_ticket-33_canonical-review-prompt-audit-fix/META.json` and `META.md`.
+- **Tests**:
+  - `make validate-runlogs`: pass (legacy META.md warnings are non-fatal on historical runs).
+  - `make test-fast`: pass (`83 passed, 171 deselected`).
+- **Artifacts**:
+  - Run log: `docs/agent_runs/20260216_220117_ticket-33_ingest-uploaded-analysis-and-rebundle/`
+  - Bundle: `artifacts/_local/gpt_bundles/20260216_220359_33_20260216_220117_ticket-33_ingest-uploaded-analysis-and-rebundle.zip`
+
+## 2026-02-16T23:13Z - ticket-34 ingest full project review provenance + ticket-33 SHA errata
+- **Branch/Run**: `codex/ticket-34-ingest-review-fix-meta` (RUN_NAME=`20260216_230858_ticket-34_ingest-project-review-and-fix-meta`).
+- **Commands**:
+  - `. .venv/bin/activate && make validate-runlogs`
+  - `. .venv/bin/activate && make test-fast`
+  - `. .venv/bin/activate && BUNDLE_BASE=452080b8b5f123195eefdbbe3da563f3543e4371 BUNDLE_STAMP=20260216_231243 make gpt-bundle TICKET=34 RUN_NAME=20260216_230858_ticket-34_ingest-project-review-and-fix-meta`
+- **Changes**:
+  - Added provenance header to canonical full review `docs/gpt_outputs/20260216_project_review_full.md` while retaining verbatim uploaded body text from `docs/Analysis.md`.
+  - Added ticket spec `docs/tickets/ticket-34_ingest_full_project_review_and_fix_ticket33_meta.md`.
+  - Updated continuation prompt required read order to include canonical full review path (`docs/prompts/codex_continuation.md`).
+- **Ticket-33 errata (append-only correction)**:
+  - The `2026-02-16T21:30Z` ticket-33 entry listed run SHA `7f7ebd64379bf85d09f968c14b2e68bd9bd43db2`; canonical ticket-33 commit SHA is `7003d53fc31cf00e1a7b2032a620abd0e39a7d53`.
+  - Canonical source of truth is `docs/agent_runs/20260216_212107_ticket-33_canonical-review-prompt-audit-fix/META.json` and `META.md`, which now correctly record `git_sha_after=7003d53fc31cf00e1a7b2032a620abd0e39a7d53`.
+- **Tests**:
+  - `make validate-runlogs`: pass.
+  - `make test-fast`: pass (`83 passed, 171 deselected`).
+- **Artifacts**:
+  - Run log: `docs/agent_runs/20260216_230858_ticket-34_ingest-project-review-and-fix-meta/`
+  - Bundle: `artifacts/_local/gpt_bundles/20260216_231243_34_20260216_230858_ticket-34_ingest-project-review-and-fix-meta.zip`
+
+## 2026-02-16T23:30Z - ticket-34 runlog meta finalization errata
+- **Branch/Run**: `codex/ticket-34-ingest-review-fix-meta` (RUN_NAME=`20260216_230858_ticket-34_ingest-project-review-and-fix-meta`).
+- **Scope**:
+  - Finalized ticket-34 runlog metadata fields to close placeholder leftovers from initialization.
+- **Corrections**:
+  - `docs/agent_runs/20260216_230858_ticket-34_ingest-project-review-and-fix-meta/META.json`
+    - `git_sha_after`: `fb6a7e20af98bc9271b944b9649af2ed159789b9`
+    - `dirty_at_end`: `false`
+  - `docs/agent_runs/20260216_230858_ticket-34_ingest-project-review-and-fix-meta/META.md`
+    - `git_sha_after: fb6a7e20af98bc9271b944b9649af2ed159789b9`
+    - `dirty_at_end: false`
+- **Rationale**:
+  - Ensures ticket-34 runlog metadata is truthful and avoids audit drift caused by `TBD` placeholders.
+
+## 2026-02-17T01:03Z - ticket-34 canonical bundle provenance errata (append-only)
+- **Branch/Run**: `codex/ticket-35-bundle-provenance-guardrail` (RUN_NAME=`20260217_010137_ticket-35_fix-ticket34-canonical-bundle-provenance`).
+- **Canonical ticket-34 bundle (final stamp)**:
+  - `artifacts/_local/gpt_bundles/20260216_233000_34_20260216_230858_ticket-34_ingest-project-review-and-fix-meta.zip`
+- **Superseded ticket-34 bundle path**:
+  - `artifacts/_local/gpt_bundles/20260216_231243_34_20260216_230858_ticket-34_ingest-project-review-and-fix-meta.zip`
+- **Provenance anchor**:
+  - Bundled `BUNDLE_META.md` for the canonical `233000` artifact records `head_sha: 2e2dd1ac4136842de57788fbdef8d804eeee4ec0` (`timestamp_utc: 2026-02-16T23:31:19Z`).
+- **Rationale**:
+  - The 231243 path in the earlier ticket-34 entry is superseded; reviewers must use the 233000 bundle for the post-meta-finalization state.
+
+## 2026-02-17T01:09Z - ticket-35 canonical bundle provenance guardrail + bundle reviewability
+- **Branch/Run**: `codex/ticket-35-bundle-provenance-guardrail` (RUN_NAME=`20260217_010137_ticket-35_fix-ticket34-canonical-bundle-provenance`).
+- **Commands**:
+  - `. .venv/bin/activate && make validate-runlogs` (expected pre-fix FAIL to confirm enforcement target).
+  - `. .venv/bin/activate && pytest -q tests/test_validate_runlog.py tests/test_gpt_bundle.py tests/test_gpt_bundle_diff.py`
+  - `. .venv/bin/activate && make validate-runlogs` (post-fix pass).
+  - `. .venv/bin/activate && make test-fast`
+  - `. .venv/bin/activate && BUNDLE_STAMP=20260217_011000 make gpt-bundle TICKET=35 RUN_NAME=20260217_010137_ticket-35_fix-ticket34-canonical-bundle-provenance`
+- **Changes**:
+  - Added append-only ticket-34 errata confirming canonical bundle path `artifacts/_local/gpt_bundles/20260216_233000_34_20260216_230858_ticket-34_ingest-project-review-and-fix-meta.zip` and superseding `...20260216_231243_34_...`.
+  - Hardened `tools/agentic/validate_runlog.py`: for timestamped runs `>= 20260216_000000`, when multiple `BUNDLE_STAMP=` values appear in `COMMANDS.md`, `PROGRESS.md` must reference the final stamp bundle path for that `RUN_NAME`.
+  - Added `tests/test_validate_runlog.py` to cover final-stamp enforcement + cutoff behavior.
+  - Updated `make gpt-bundle` to include final versions of markdown files changed in the bundle diff range (improves reviewability beyond patch hunks).
+  - Updated docs contract in `docs/DOCS_AND_LOGGING_SYSTEM.md` and bundle regression assertions in `tests/test_gpt_bundle.py`.
+- **Tests**:
+  - `make validate-runlogs`: FAIL before errata on ticket-34 final-stamp mismatch; PASS after errata.
+  - `pytest -q tests/test_validate_runlog.py tests/test_gpt_bundle.py tests/test_gpt_bundle_diff.py`: PASS (`10 passed`).
+  - `make test-fast`: PASS (`87 passed, 171 deselected`).
+- **Artifacts**:
+  - Run log: `docs/agent_runs/20260217_010137_ticket-35_fix-ticket34-canonical-bundle-provenance/`
+  - Bundle: `artifacts/_local/gpt_bundles/20260217_011000_35_20260217_010137_ticket-35_fix-ticket34-canonical-bundle-provenance.zip`
+
+## 2026-02-17T02:07Z - ticket-36 runlog SHA correctness guardrail + ticket-35 meta drift fix
+- **Branch/Run**: `codex/ticket-36-meta-sha-guardrail` (RUN_NAME=`20260217_020118_ticket-36_enforce-runlog-meta-sha-correctness-fix-ticket35-drift`), git sha `9cd924dc7230ddb8b69753f2eb6a3b0dc620d314`.
+- **Commands**:
+  - `. .venv/bin/activate && make validate-runlogs`
+  - `. .venv/bin/activate && pytest -q tests/test_validate_runlog.py tests/test_gpt_bundle.py tests/test_gpt_bundle_diff.py`
+  - `. .venv/bin/activate && make test-fast`
+  - `. .venv/bin/activate && BUNDLE_STAMP=20260217_020630 make gpt-bundle TICKET=36 RUN_NAME=20260217_020118_ticket-36_enforce-runlog-meta-sha-correctness-fix-ticket35-drift`
+- **Changes**:
+  - Corrected ticket-35 run metadata drift in `docs/agent_runs/20260217_010137_ticket-35_fix-ticket34-canonical-bundle-provenance/META.json` and `META.md` so `git_sha_after=71a700bb15a7f39b70a705215d5258e2d24549f3`.
+  - Added bundling-time guardrail: `make gpt-bundle` now calls `tools/agentic/validate_runlog.py --expected-head-sha <head_sha>` and fails loud when `META.json.git_sha_after` is placeholder/mismatched (cutoff `>= 20260216_000000`).
+  - Added validator regression tests for placeholder/mismatch/cutoff handling and updated bundle-target assertions/docs contract.
+- **Tests**:
+  - `pytest -q tests/test_validate_runlog.py tests/test_gpt_bundle.py tests/test_gpt_bundle_diff.py`: PASS (`13 passed`).
+  - `make validate-runlogs`: PASS.
+  - `make test-fast`: PASS (`90 passed, 171 deselected`).
+- **Errata / Canonical bundle**:
+  - Superseded artifact path: `artifacts/_local/gpt_bundles/20260217_011000_35_20260217_010137_ticket-35_fix-ticket34-canonical-bundle-provenance.zip`.
+  - Canonical corrective bundle: `artifacts/_local/gpt_bundles/20260217_020630_36_20260217_020118_ticket-36_enforce-runlog-meta-sha-correctness-fix-ticket35-drift.zip`.
+  - Canonical bundle `head_sha`: `9cd924dc7230ddb8b69753f2eb6a3b0dc620d314` (from bundled `BUNDLE_META.md`).
+- **Artifacts**:
+  - Run log: `docs/agent_runs/20260217_020118_ticket-36_enforce-runlog-meta-sha-correctness-fix-ticket35-drift/`
+  - Bundle: `artifacts/_local/gpt_bundles/20260217_020630_36_20260217_020118_ticket-36_enforce-runlog-meta-sha-correctness-fix-ticket35-drift.zip`

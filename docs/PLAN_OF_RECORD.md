@@ -1,13 +1,16 @@
 # PLAN OF RECORD — FJS De‑aliasing Overlay for Portfolio Risk (fjs-dealias-portfolio)
 
-Last updated: 2025-12-23
+Last updated: 2026-02-16
 
 **Ground-truth status references (must stay in sync):**
 - `PROGRESS.md` (provenance for every run + change)
 - `project_state/CURRENT_RESULTS.md` (latest validated drops)
 - `project_state/KNOWN_ISSUES.md` (current blockers)
 - `project_state/PIPELINE_FLOW.md`, `project_state/DATAFLOW.md`, `project_state/EXPERIMENTS.md`, `project_state/CONFIG_REFERENCE.md`
-- Prompt‑1 diagnosis (if not already checked in, add it under `docs/gpt_outputs/`): `20251222_prompt1_diagnosis.md`
+- Current external audit snapshot: `docs/gpt_outputs/20260216_analysis.md`
+- Current external audit (full): `docs/gpt_outputs/20260216_project_review_full.md`
+- Ticket/bundle review-thread capture (not the full project review): `docs/gpt_outputs/20260216_analysis_full.md`
+- Prompt-1 diagnosis context: `docs/gpt_outputs/20251222_prompt1_diagnosis.md`
 
 ---
 
@@ -30,6 +33,16 @@ A run is **not mergeable** and **not citeable** (for advisor or paper) if any of
   - Tests run (`make test-fast` minimum) and recorded in the log + commit body.
 - **Pipeline validity gates research**:
   - If validity fails, we stop and fix validity before running more grids.
+
+### 0.1) 2026-02-16 recenter snapshot (priority override)
+
+- The engineering pipeline is strong and auditable; this is not the blocker.
+- Publishable research status is still blocked by weak real-data effect evidence.
+- Injection sensitivity on real windows is still flat-zero in the latest week-design run.
+- Immediate priorities are:
+  1. Show non-flat injection response on at least one design, or conclusively explain the detection/residual mismatch.
+  2. Ship one advisor-ready uncapped run with valid aligned comparisons and clear detection/acceptance reporting.
+- Until those are done, do not expand experiment grids.
 
 ---
 
@@ -223,71 +236,37 @@ A run is “valid for research conclusions” only if ALL are true:
 
 ### Horizon 1: 1–2 weeks (debug/validity + advisor-ready RC run)
 
-**Goal:** one uncapped, config‑correct RC run with meaningful `n_effective`, plus injection sensitivity proof.
+**Goal:** close the two blocking validity gates before any new grid expansion.
 
-1) Fix “paper-v1” config integrity (no silent fallback) **DONE (ticket-16, 2025-12-23)**
-- Code:
-  - `experiments/eval/config.py`
-  - `Makefile`
-  - add/restore: `experiments/eval/config.paper_v1.yaml` (or update targets to a real existing config)
-- Tests:
-  - `tests/experiments/test_eval_run.py` (missing-config must fail)
-- Commands:
+1) Injection flat-zero debugging (TOP PRIORITY; ticket-18 still open)
+- Current evidence to explain:
+  - `reports/inject_spike/20251226_ticket24_week_full_fix/curve.csv` shows detection=0 and acceptance=0 for all tested `mu`.
+  - `reports/inject_spike/20251226_ticket24_week_full_fix/gating_reasons.csv` is dominated by pre-gate `tvec_off_component` and no-root reasons.
+- Required outcome:
+  - either a non-flat `mu -> detection/acceptance` curve on at least one design/mode, or
+  - a conclusive, artifact-backed explanation for why detection math mismatches financial residuals.
+- Minimum commands:
   - `make test-fast`
-  - `EXEC_MODE=deterministic make rc-dow` (or paper target after fix)
-- Artifacts:
-  - run log `docs/agent_runs/<RUN_NAME>/...`
-  - paper config exists + is referenced; `run.json` records resolved config path/hash
+  - `make inject-spike` (or explicit CLI runs with frozen config + seed)
 
-2) Extend nested calibration grid to cover real p,T and remove `calibration_missing_p_T`
-- Code/data:
-  - `experiments/synthetic/nested_killtest.py`
-  - `experiments/synthetic/config.nested.killtest.yaml`
-  - `calibration/nested_edge_delta_thresholds.json`
-- Commands:
-  - `make test-fast`
-  - `python -m experiments.synthetic.nested_killtest --config experiments/synthetic/config.nested.killtest.yaml --out reports/synthetic/nested_killtest/<RUN_ID> --calibration-out calibration/nested_edge_delta_thresholds.json`
-  - `EXEC_MODE=deterministic make run:equity_nested_smoke_tiny`
-- Artifacts:
-  - updated calibration JSON with audit metadata and new p,T cells
-  - nested smoke no longer skips with `calibration_missing_p_T`
-
-3) Injection sensitivity on real windows (prove detection works when spike exists)
-- Code:
-  - `experiments/eval/inject_spike.py`
-  - `tools/make_summary.py` (or a dedicated injector summary tool)
-- Commands:
-  - `make test-fast`
-  - `make inject-spike`
-- Artifacts:
-  - CSV/plot: injected_mu → detection_rate, acceptance_rate
-  - baseline false positives on non-injected windows reported
-
-4) Advisor-ready uncapped RC run (primary design = `week`)
-- Commands:
+2) One advisor-ready uncapped run (ticket-20 still open)
+- Required run properties:
+  - `cap_active=false`
+  - valid aligned comparisons (`comparison_valid_* = 1`)
+  - meaningful `n_effective_*` and non-empty summary tables.
+- Minimum commands:
   - `make test-fast`
   - `EXEC_MODE=throughput make rc-week RC_WORKERS=$(nproc)`
   - `PYTHONPATH=src:. python tools/make_summary.py --rc-dir reports/<rc-week-dir>`
-- Required artifacts (in reports dir):
-  - `run.json` with `cap_active=false`
-  - `resolved_config.json`
+- Required artifacts:
+  - `run.json`, `resolved_config.json`
   - `summary/summary_perf.csv`, `summary/summary_detection.csv`, `summary/completeness.json`, `summary/limitations.md`
-  - skip stats and regime slicing (if supported)
-- Required doc updates:
-  - `PROGRESS.md` (one entry with exact commands + artifact paths)
-  - `project_state/CURRENT_RESULTS.md` (add the new validated run)
+  - skip-reason and acceptance diagnostics safe for advisor review
 
-5) Add conditional-effect reporting (changed windows only)
-- Code:
-  - `tools/make_summary.py`
-  - `tools/summarize_rc_sanity.py`
-  - (where appropriate) `experiments/eval/run.py` and `src/evaluation/*`
-- Commands:
-  - `make test-fast`
-  - `EXEC_MODE=deterministic make rc-lite-sanity`
-- Artifacts:
-  - tables including conditional ΔLoss on changed windows
-  - weight-change magnitude summaries (median ‖Δw‖, turnover delta, changed fraction)
+3) Keep previously completed enablers stable (already done; do not regress)
+- Config integrity fail-loud behavior (ticket-16)
+- Nested calibration coverage update (ticket-17)
+- Conditional changed-window reporting (ticket-19)
 
 ### Horizon 2: 4–8 weeks (full experiment grid + robustness checks)
 

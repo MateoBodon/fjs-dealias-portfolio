@@ -33,6 +33,13 @@ test-slow:
 test-all:
 	pytest -m "unit or integration"
 
+.PHONY: check-data-policy validate-runlogs
+check-data-policy:
+	python3 scripts/check_data_policy.py
+
+validate-runlogs:
+	python3 tools/agentic/validate_runlog.py --all --repo .
+
 .PHONY: smoke-daily
 smoke-daily:
 	PYTHONPATH=src python experiments/daily/run.py --returns-csv data/returns_daily.csv --design dow --window 60 --horizon 10 --out reports/smoke-daily/dow
@@ -630,11 +637,15 @@ gpt-bundle:
 	if [ -z "$(RUN_NAME)" ]; then echo "RUN_NAME is required: make gpt-bundle TICKET=$(TICKET) RUN_NAME=<run name>" >&2; exit 1; fi; \
 	run_dir="docs/agent_runs/$(RUN_NAME)"; \
 	if [ ! -d "$$run_dir" ]; then echo "Run log $$run_dir is required but missing." >&2; exit 1; fi; \
-	required_run_files="PROMPT.md COMMANDS.md RESULTS.md TESTS.md META.md"; \
+	required_run_files="PROMPT.md COMMANDS.md RESULTS.md TESTS.md META.json"; \
 	missing_run=""; \
 	for f in $$required_run_files; do \
 		if [ ! -e "$$run_dir/$$f" ]; then missing_run="$$missing_run $$run_dir/$$f"; fi; \
 	done; \
+	if [ ! -e "$$run_dir/META.json" ] && [ -e "$$run_dir/META.md" ]; then \
+		echo "Run log $$run_dir uses legacy META.md only; add META.json." >&2; \
+		missing_run="$$missing_run $$run_dir/META.json"; \
+	fi; \
 	if [ -n "$$missing_run" ]; then echo "Run log missing required files:$$missing_run" >&2; exit 1; fi; \
 	required_files="AGENTS.md docs/PLAN_OF_RECORD.md docs/DOCS_AND_LOGGING_SYSTEM.md docs/CODEX_SPRINT_TICKETS.md project_state/CURRENT_RESULTS.md project_state/KNOWN_ISSUES.md project_state/CONFIG_REFERENCE.md PROGRESS.md"; \
 	missing=""; \
@@ -657,6 +668,22 @@ gpt-bundle:
 	python tools/gpt_bundle.py diff --repo "$$repo_root" --output "$$tmp/DIFF.patch" --meta-output "$$tmp/BUNDLE_META.md" --run-name "$(RUN_NAME)" --ticket "$(TICKET)"; \
 	if [ ! -s "$$tmp/DIFF.patch" ]; then echo "DIFF.patch is empty; aborting bundle." >&2; exit 1; fi; \
 	if [ ! -s "$$tmp/BUNDLE_META.md" ]; then echo "BUNDLE_META.md is empty; aborting bundle." >&2; exit 1; fi; \
+	base_sha=$$(sed -n 's/^base_sha: //p' "$$tmp/BUNDLE_META.md" | head -n 1); \
+	head_sha=$$(sed -n 's/^head_sha: //p' "$$tmp/BUNDLE_META.md" | head -n 1); \
+	if [ -z "$$base_sha" ] || [ -z "$$head_sha" ]; then echo "Could not parse base/head SHA from BUNDLE_META.md." >&2; exit 1; fi; \
+	python3 tools/agentic/validate_runlog.py --repo "$$repo_root" --run-name "$(RUN_NAME)" --require-meta-json --expected-head-sha "$$head_sha" --meta-sha-cutoff "20260216_000000"; \
+	git -C "$$repo_root" diff --name-only "$$base_sha..$$head_sha" > "$$tmp/changed_files.txt"; \
+	while IFS= read -r rel; do \
+		case "$$rel" in \
+			*.md) \
+				src="$$repo_root/$$rel"; \
+				if [ -f "$$src" ]; then \
+					mkdir -p "$$tmp/$$(dirname "$$rel")"; \
+					cp "$$src" "$$tmp/$$rel"; \
+				fi \
+				;; \
+		esac; \
+	done < "$$tmp/changed_files.txt"; \
 	git log -1 --stat > "$$tmp/LAST_COMMIT.txt"; \
 	if [ ! -s "$$tmp/LAST_COMMIT.txt" ]; then echo "LAST_COMMIT.txt is empty; aborting bundle." >&2; exit 1; fi; \
 	bundle_dir="$$repo_root/artifacts/_local/gpt_bundles"; \

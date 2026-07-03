@@ -1,0 +1,78 @@
+{
+  "completeness": {
+    "cap_active": false,
+    "cap_sources": [],
+    "excluded_from_aggregate": false,
+    "incomplete_reason": null,
+    "is_complete": true,
+    "label": "rc-t-012",
+    "missing_files": [],
+    "path": "/home/codex/repos/fjs-dealias-portfolio/reports/rc-t-012",
+    "present": true,
+    "run_type": "rc",
+    "window_coverage": null,
+    "windows_evaluated": null,
+    "windows_total": null
+  },
+  "criteria": [
+    {
+      "key": "delta_mse_ew",
+      "label": "EW \u0394MSE must not exceed baseline",
+      "pass": false,
+      "threshold": {
+        "max": 0.0
+      },
+      "value": 2.635418515787517e-11
+    },
+    {
+      "key": "delta_mse_mv",
+      "label": "MV \u0394MSE must not exceed baseline",
+      "pass": true,
+      "threshold": {
+        "max": 0.0
+      },
+      "value": -6.654496181059978e-13
+    },
+    {
+      "key": "detection_rate",
+      "label": "Detection coverage within target band",
+      "pass": true,
+      "threshold": {
+        "max": 0.25,
+        "min": 0.01
+      },
+      "value": 0.0416229200503975
+    },
+    {
+      "key": "edge_margin",
+      "label": "Average edge margin positive",
+      "pass": true,
+      "threshold": {
+        "min": 0.0
+      },
+      "value": 0.0007179833337235
+    },
+    {
+      "key": "alignment_cos",
+      "label": "Alignment cosine above 0.9",
+      "pass": true,
+      "threshold": {
+        "min": 0.9
+      },
+      "value": 0.9870349492671924
+    },
+    {
+      "key": "reason_code",
+      "label": "Dominant reason code acceptable",
+      "pass": true,
+      "threshold": {
+        "allowed": [
+          "accepted"
+        ]
+      },
+      "value": null
+    }
+  ],
+  "rc_run": "rc-t-012",
+  "regime": "full"
+}

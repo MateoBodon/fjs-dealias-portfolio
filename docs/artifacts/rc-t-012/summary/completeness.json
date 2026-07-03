@@ -1,0 +1,15 @@
+{
+  "cap_active": false,
+  "cap_sources": [],
+  "excluded_from_aggregate": false,
+  "incomplete_reason": null,
+  "is_complete": true,
+  "label": "rc-t-012",
+  "missing_files": [],
+  "path": "/home/codex/repos/fjs-dealias-portfolio/reports/rc-t-012",
+  "present": true,
+  "run_type": "rc",
+  "window_coverage": null,
+  "windows_evaluated": null,
+  "windows_total": null
+}

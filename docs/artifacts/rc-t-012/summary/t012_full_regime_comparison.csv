@@ -1,0 +1,9 @@
+rc_run,regime,portfolio,delta_qlike_vs_baseline,delta_mse_vs_baseline,cap_active,window_coverage,comparison_valid_mse,comparison_valid_es,comparison_valid_qlike,comparison_valid_dm,comparison_valid_delta,n_effective_qlike,n_changed,changed_frac,headline_gate_pass,qlike_improves_vs_baseline,run_status,run_stage,mandatory_baselines_present
+dow-paper-v1_ff5mom_w126,full,ew,-0.0671866909475027,2.635418515787517e-11,False,1.0,1.0,1.0,1.0,1.0,1.0,1749.0,1749,1.0,True,True,ok,complete,True
+dow-paper-v1_ff5mom_w126,full,mv,-0.0357629174555866,-6.654496181059978e-13,False,1.0,1.0,1.0,1.0,1.0,1.0,1749.0,1749,1.0,True,True,ok,complete,True
+dow-paper-v1_noprewhiten_w126,full,ew,-0.3184013657026124,4.8377913766085405e-09,False,1.0,1.0,1.0,1.0,1.0,1.0,1796.0,1796,1.0,True,True,ok,complete,True
+dow-paper-v1_noprewhiten_w126,full,mv,-0.0839030253658935,-6.151598103370174e-12,False,1.0,1.0,1.0,1.0,1.0,1.0,1796.0,1796,1.0,True,True,ok,complete,True
+dow-paper-v1_ff5mom_w252,full,ew,-0.0095291564243905,1.3216196016995945e-11,False,1.0,1.0,1.0,1.0,1.0,1.0,1688.0,1688,1.0,True,True,ok,complete,True
+dow-paper-v1_ff5mom_w252,full,mv,-0.0054396781873731,3.6290396942467586e-14,False,1.0,1.0,1.0,1.0,1.0,1.0,1688.0,1688,1.0,True,True,ok,complete,True
+dow-paper-v1_noprewhiten_w252,full,ew,-0.0327990066509463,3.120412943940577e-09,False,1.0,1.0,1.0,1.0,1.0,1.0,1666.0,1666,1.0,True,True,ok,complete,True
+dow-paper-v1_noprewhiten_w252,full,mv,-0.0092719760222629,9.639339228606278e-13,False,1.0,1.0,1.0,1.0,1.0,1.0,1666.0,1666,1.0,True,True,ok,complete,True

@@ -1,0 +1,14 @@
+{
+  "artifact_id": "rc-t-010-advisor-memo-recovered-for-t012-context",
+  "current_recovery_head": "0be87ed01cf31fde12c869feab19bc95125145ca",
+  "files": [
+    {
+      "path": "docs/artifacts/rc-t-010/summary/advisor_decision.md",
+      "sha256": "2218a41654e89da848bb0b9e88864607f64af3b9dcb62a9d8e8065e4ff76c969",
+      "size": 4370
+    }
+  ],
+  "note": "Recovered from the T-012 final bundle because the T-012 acceptance and bundle checks referenced the ratified T-010 advisor memo.",
+  "source_bundle": "20260401_055651_T-012_gpt_bundle.zip",
+  "source_bundle_sha256": "f2ca8e4a9621d0f72f298a3255e5eefca472638c8c62b06ce16800b9f04f1aad"
+}

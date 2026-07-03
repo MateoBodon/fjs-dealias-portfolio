@@ -1,0 +1,98 @@
+{
+  "artifact_id": "rc-t-012-recovered-curated-pack",
+  "claim_boundary": [
+    "T-012 scientific outputs are recovered evidence, not detector validation.",
+    "Daily dow remains empirical-only and does not restore the clean weekly oneway/FJS theory story.",
+    "Original T-012 review failed on monitoring/audit-trail preservation, not scientific artifact corruption."
+  ],
+  "current_recovery_head": "0be87ed01cf31fde12c869feab19bc95125145ca",
+  "files": [
+    {
+      "path": "docs/artifacts/rc-t-012/RECOVERY_STATUS.md",
+      "sha256": "f32597b52eb54073cf09c2b514b9c1d5adcbd8c531f3de3e83b537e142828733",
+      "size": 2342
+    },
+    {
+      "path": "docs/artifacts/rc-t-012/summary/campaign_decision.md",
+      "sha256": "e6a8fb920dc535f196de88e53b6da29163b523ed7b9ac8e98a87913f3362b9d2",
+      "size": 3237
+    },
+    {
+      "path": "docs/artifacts/rc-t-012/summary/completeness.json",
+      "sha256": "3b35457c088fbe95442b410ea4091291531c447ab26155b9875b36daebe15a81",
+      "size": 370
+    },
+    {
+      "path": "docs/artifacts/rc-t-012/summary/kill_criteria.json",
+      "sha256": "d6bfc105696c31e6184e94e6401e308de2b5274b8753005653e50e8725ee5af2",
+      "size": 1714
+    },
+    {
+      "path": "docs/artifacts/rc-t-012/summary/limitations.md",
+      "sha256": "3fd9769c069dd8d4133a3a3232a9aefe6f0ad779d8b6140f0a134b3425709303",
+      "size": 1972
+    },
+    {
+      "path": "docs/artifacts/rc-t-012/summary/summary_detection.csv",
+      "sha256": "c623b46b7e30ddefcaadadeb4ea1e3abde9a1b5a73aeeea18ef841cff217fd0d",
+      "size": 6735
+    },
+    {
+      "path": "docs/artifacts/rc-t-012/summary/summary_perf.csv",
+      "sha256": "2a04f2ed446d4ed7a0d882ebf9d67dc45186f633aca8b9596693cf8e63e4bc05",
+      "size": 10232
+    },
+    {
+      "path": "docs/artifacts/rc-t-012/summary/summary_skip_stats.csv",
+      "sha256": "c483e8f755bbb244d04dfea6e5ca88427d5ee565ff62e6b427713859dfba376b",
+      "size": 10269
+    },
+    {
+      "path": "docs/artifacts/rc-t-012/summary/t012_full_regime_comparison.csv",
+      "sha256": "acd9bb4d87b21e874521401550923da9dcdeb29220367b725021adaa17fa3b99",
+      "size": 1549
+    },
+    {
+      "path": "docs/agent_runs/20260331_230430_t-012/COMMANDS.md",
+      "sha256": "73272341029a29a116fc26732c9f3a1b48fedd6e29adca29bc691ffcf249f16b",
+      "size": 17988
+    },
+    {
+      "path": "docs/agent_runs/20260331_230430_t-012/META.json",
+      "sha256": "41f6cf36266ca9e101cd5a627d6eb0317d299120c995a7b9957e63e3af4db1ea",
+      "size": 589
+    },
+    {
+      "path": "docs/agent_runs/20260331_230430_t-012/PROMPT.md",
+      "sha256": "9116fe30609ed9a84cb89d981bfdc3f8059b3cf10a7cfc39cddb46e535d733e9",
+      "size": 576
+    },
+    {
+      "path": "docs/agent_runs/20260331_230430_t-012/RESULTS.md",
+      "sha256": "74fe500208391e8dd2ce985430dfd152bf5462de9d26dc6e42044406faeb75be",
+      "size": 14939
+    },
+    {
+      "path": "docs/agent_runs/20260331_230430_t-012/TESTS.md",
+      "sha256": "932f4bc2c461ac50a9382601129b25a4c0472787472788a735023a84db3e064c",
+      "size": 8586
+    },
+    {
+      "path": "docs/agent_runs/20260331_230430_t-012/VALIDATION.json",
+      "sha256": "a1e1c78837869496ac814b285708b0dd74c38d3822aa3093eb5d3a229fa99141",
+      "size": 146
+    }
+  ],
+  "full_artifact_tree_local_only": "/Volumes/Storage/Projects/fjs/_recovery/recovered_artifacts/rc-t-012",
+  "large_local_only_files": [
+    "reports/rc-t-012/summary/overlay_forensics.csv",
+    "reports/rc-t-012/** detail CSV/PNG surfaces"
+  ],
+  "source_bundle": "20260401_055651_T-012_gpt_bundle.zip",
+  "source_bundle_created_at_utc": "2026-04-01 06:01:02 UTC",
+  "source_bundle_generated_head": "97ac10bb009e5df371dd89b6299d935d59cb0816",
+  "source_bundle_git_branch": "chore/fjs-repo-os-bootstrap-20260324",
+  "source_bundle_git_sha": "eb6cf4fd3fe65773bc21a1cfd73e8c7d64851f0f",
+  "source_bundle_sha256": "f2ca8e4a9621d0f72f298a3255e5eefca472638c8c62b06ce16800b9f04f1aad",
+  "source_bundle_size": 27264079
+}

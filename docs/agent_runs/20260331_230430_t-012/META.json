@@ -1,0 +1,20 @@
+{
+  "created_at": "2026-03-31 23:04:30 UTC",
+  "git": {
+    "branch": "chore/fjs-repo-os-bootstrap-20260324",
+    "dirty": true,
+    "sha": "eb6cf4fd3fe65773bc21a1cfd73e8c7d64851f0f"
+  },
+  "label": "",
+  "paths": {
+    "now": "docs/plan/NOW.md",
+    "progress": "PROGRESS.md",
+    "ticket": "docs/tickets/T-012-execute-the-next-daily-dow-empirical-campaign.md"
+  },
+  "phase": "execute",
+  "repo_root": "/home/codex/repos/fjs-dealias-portfolio",
+  "run_name": "20260331_230430_t-012",
+  "status": "completed_review_ready",
+  "ticket_id": "T-012",
+  "updated_at": "2026-04-01 05:58 UTC"
+}

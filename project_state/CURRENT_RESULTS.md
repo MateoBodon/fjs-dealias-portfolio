@@ -8,6 +8,22 @@ commands:
 ---
 # Current Results (artifact-verified snapshot)
 
+## 2026-04-01 - Recovered T-012 daily DoW four-leg matrix
+
+- Recovery source: `20260401_055651_T-012_gpt_bundle.zip`, sha256 `f2ca8e4a9621d0f72f298a3255e5eefca472638c8c62b06ce16800b9f04f1aad`.
+- Curated recovered artifacts: `docs/artifacts/rc-t-012/summary/`.
+- Full local-only artifact tree: `/Volumes/Storage/Projects/fjs/_recovery/recovered_artifacts/rc-t-012`.
+- Run log: `docs/agent_runs/20260331_230430_t-012/`.
+- T-012 completed four daily DoW legs:
+  - `dow-paper-v1_ff5mom_w126`
+  - `dow-paper-v1_noprewhiten_w126`
+  - `dow-paper-v1_ff5mom_w252`
+  - `dow-paper-v1_noprewhiten_w252`
+- Recovered campaign decision: `empirical-lane-still-worth-scaling`.
+- Recovered evidence says both `w126` controls reproduce T-010 full-regime truth, and both `w252` legs remain uncapped, full-coverage, comparison-valid, and QLIKE-improving versus baseline for both `ew` and `mv`.
+- Claim boundary: daily DoW remains empirical-only, is not detector validation, and does not restore the original weekly oneway / clean FJS theory story.
+- Review status: T-012 failed review because the long-run monitoring/audit trail was not fully preserved, not because the scientific outputs were shown corrupt.
+
 ## 2025-12-26 - Injection sensitivity remains flat-zero (ticket-24)
 
 - Run artifact: `reports/inject_spike/20251226_ticket24_week_full_fix/curve.csv`.

@@ -744,3 +744,35 @@
 - **Artifacts**:
   - Run log: `docs/agent_runs/20260217_020118_ticket-36_enforce-runlog-meta-sha-correctness-fix-ticket35-drift/`
   - Bundle: `artifacts/_local/gpt_bundles/20260217_020630_36_20260217_020118_ticket-36_enforce-runlog-meta-sha-correctness-fix-ticket35-drift.zip`
+
+## 2026-07-10T23:13Z - ticket-37 deterministic FJS reference harness
+
+- **Branch/Run**: `portfolio/fjs-recenter-m1-20260710`
+  (`20260710_231303_ticket-37_fjs-reference-harness-m2`), starting from clean
+  checkpoint `e5399c4e94148abdad2a6585df9e548db9100025`.
+- **Implementation checkpoint**:
+  `ce147d91305155e5d3d7c178465d8e63713ce343`, tree
+  `755ed46510939929924ec7fc11871236ddc96082`.
+- **Changes**:
+  - Added a production-independent FJS equation (5.5) edge/root/component and
+    reconstruction oracle with exact scalar/two-stratum reference values.
+  - Added deterministic source-labeled oracle and orthogonal magnitude-matched
+    sham controls.
+  - Audited Ticket 24 injection provenance and reclassified the flat-zero curve
+    as exact-config negative-control evidence, not target-between power.
+  - Added treatment-provenance and acceptance-subset reducer checks plus the
+    fail-loud `make detector-reference-gate` command.
+- **Verification**:
+  - Focused reference/contract suite: PASS (`12 passed, 3 xfailed`).
+  - Expanded MP/de-alias/overlay surface: PASS with the same three strict
+    expected failures.
+  - `make test-fast`: PASS (`106 passed, 178 deselected, 3 xfailed`).
+  - Lint, compile, diff, canonical data policy, and run-log validation: PASS.
+  - Deterministic reference gate: expected BLOCK on five named issues; broad
+    empirical execution remains prohibited.
+- **Evidence**:
+  `docs/agent_runs/20260710_231303_ticket-37_fjs-reference-harness-m2/` and
+  `docs/strategy/FJS_REFERENCE_HARNESS_FINDINGS.md`.
+- **Next action**: repair the production one-way design, explicit-`C_s`
+  edge/root/t map, and reconstruction semantics without weakening the frozen
+  oracle; only then begin target-matched null/power calibration.

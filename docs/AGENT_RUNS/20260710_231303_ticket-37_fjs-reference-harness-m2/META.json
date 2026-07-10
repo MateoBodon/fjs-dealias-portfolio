@@ -1,0 +1,21 @@
+{
+  "ticket": "ticket-37",
+  "run_name": "20260710_231303_ticket-37_fjs-reference-harness-m2",
+  "git_sha_before": "e5399c4e94148abdad2a6585df9e548db9100025",
+  "git_sha_after": "ce147d91305155e5d3d7c178465d8e63713ce343",
+  "git_tree_after": "755ed46510939929924ec7fc11871236ddc96082",
+  "git_branch": "portfolio/fjs-recenter-m1-20260710",
+  "worktree": "/Volumes/Storage/Projects/fjs/worktrees/fjs-recenter-m1-20260710",
+  "dirty_at_start": false,
+  "dirty_at_end": false,
+  "resolved_config_paths": [],
+  "config_hashes": [],
+  "dataset_ids": {
+    "experiment_run": "none",
+    "historical_source_commit": "31c05a57ffd5db7a1531c427eb7373de5f7a5f22",
+    "historical_detector_curve_sha256": "1b8dc701074fec00a1c4d2fc0e33b386959f52aa8f33eecf037d9ff589c85525",
+    "historical_gating_reasons_sha256": "a4f9ee2d86d3cdd6d4ae8576983492fb4cd6421362480c41b2552b34979cd03c"
+  },
+  "broad_empirical_run": false,
+  "status": "completed_review_ready"
+}

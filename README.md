@@ -4,10 +4,12 @@ Robust covariance forecasting and portfolio gating over balanced equity panels, 
 
 ---
 
-## Current Status (2026-02-16)
+## Current Status (2026-07-03)
 
+- **AI OS v2 installed:** current strategy docs live in `docs/strategy/`, state-audit docs live in `project_state/`, and pre-v2 docs are indexed under `docs/_archive/pre_ai_os_v2/20260703/`.
 - **Engineering baseline:** auditability and reproducibility are strong (`docs/agent_runs/`, `PROGRESS.md`, bundle/test/runlog gates).
 - **Minimum commit gate:** `. .venv/bin/activate && make test-fast`.
+- **Current recovered high-water mark:** T-012 daily DoW four-leg matrix is recovered and scientifically useful, but not cleanly ratified because monitoring/audit preservation failed.
 - **Latest uncapped daily evidence:** `reports/rc-ticket-07-20251222_183800/summary/` (`cap_active=false`, `window_coverage=1.0`, `n_effective_mse=1749` in `summary_perf.csv`).
 - **Main research blocker:** injection sensitivity for week design is still flat-zero in `reports/inject_spike/20251226_ticket24_week_full_fix/curve.csv` (detection and acceptance both 0.0 for `mu` in {0, 3, 6, 12, 24}).
 - **Top priorities:**
@@ -43,6 +45,8 @@ Set `EXEC_MODE=deterministic` for thread-capped runs (used for tests, smokes, ca
 | Purpose | Command | Outputs |
 | --- | --- | --- |
 | Unit tests | `make test-fast` | - |
+| Project State Audit Bundle | `make project-state-audit-bundle` | `reports/_bundles/<stamp>_repo_project-state_initial.zip` |
+| AI OS review bundle | `make ai-os-review-bundle RUN_LOG=<path> [STATE_BUNDLE=<zip>]` | `reports/_bundles/<stamp>_repo_review_<ticket>.zip` |
 | Tiny nested smoke (deterministic, capped windows=3) | `make run:equity_nested_smoke_tiny` | `experiments/equity_panel/outputs_nested_smoke_tiny/` |
 | RC-lite spot-check (deterministic) | `make rc-lite` | `reports/rc-<DATE>/` + gallery/memo |
 | Null/power sweep (overlay calibration) | `HARNESS_TRIALS=800 EXEC_MODE=deterministic make sweep:acceptance` | `reports/synthetic/{null_harness,power_harness}`, `calibration_defaults.json` |

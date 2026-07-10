@@ -45,6 +45,13 @@ Follow these rules or do not make changes.
 
 Canonical reference: `docs/DOCS_AND_LOGGING_SYSTEM.md`
 
+AI Project OS v2 additions:
+- Current strategy docs live in `docs/strategy/`.
+- Current factual state docs include `project_state/STATE_INDEX.md`, `project_state/VALIDATION_MATRIX.md`, and `project_state/CLAIMS_AND_EVIDENCE.md`.
+- Pre-v2 docs are preserved under `docs/_archive/pre_ai_os_v2/20260703/`; archived docs are historical context, not current truth.
+- Pro-facing state audit bundles and Heavy review bundles live under `reports/_bundles/`.
+- T-000 style infrastructure run logs live under `reports/_runs/`; legacy Codex implementation logs remain under `docs/agent_runs/`.
+
 ### 2.1 Run naming
 Use:
 - `<YYYYMMDD_HHMMSS>_ticket-<NN>_<short-slug>`
@@ -81,6 +88,8 @@ Any run writing to `reports/` or `experiments/.../outputs_*` must include:
 - Deterministic smoke: `EXEC_MODE=deterministic make rc-lite-sanity`
 - Summaries: `PYTHONPATH=src:. python tools/make_summary.py --rc-dir <dir>`
 - Bundle: `make gpt-bundle TICKET=<NN> RUN_NAME=<RUN_NAME>`
+- Project State Audit Bundle: `make project-state-audit-bundle`
+- AI OS review bundle: `make ai-os-review-bundle RUN_LOG=<path> [STATE_BUNDLE=<zip>]`
 
 ### 3.3 Security / web policy
 - Default: no web search.

@@ -33,12 +33,19 @@ test-slow:
 test-all:
 	pytest -m "unit or integration"
 
-.PHONY: check-data-policy validate-runlogs
+.PHONY: check-data-policy validate-runlogs project-state-audit-bundle ai-os-review-bundle
 check-data-policy:
 	python3 scripts/check_data_policy.py
 
 validate-runlogs:
 	python3 tools/agentic/validate_runlog.py --all --repo .
+
+project-state-audit-bundle:
+	python3 tools/agentic/ai_os_bundle.py --profile project_state_audit
+
+ai-os-review-bundle:
+	@if [ -z "$(RUN_LOG)" ]; then echo "RUN_LOG is required: make ai-os-review-bundle RUN_LOG=<path> [STATE_BUNDLE=<zip>]" >&2; exit 1; fi
+	python3 tools/agentic/ai_os_bundle.py --profile review --ticket "$${TICKET:-T-000}" --run-log "$(RUN_LOG)" $${STATE_BUNDLE:+--state-bundle "$$STATE_BUNDLE"}
 
 .PHONY: smoke-daily
 smoke-daily:

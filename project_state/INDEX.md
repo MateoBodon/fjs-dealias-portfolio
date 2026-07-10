@@ -12,6 +12,7 @@ commands:
 
 How to read this folder without repo access:
 - **ARCHITECTURE.md** — system overview, layers, and main entrypoints.
+- **STATE_INDEX.md** — AI OS v2 factual map of repo structure, docs, artifacts, and current status.
 - **MODULE_SUMMARIES.md** — package/module inventory with role notes.
 - **FUNCTION_INDEX.md** — AST-derived list of top-level classes/functions (line numbers + signatures).
 - **DEPENDENCY_GRAPH.md** — internal import fan-in/out summary (see `_generated/import_graph.json`).
@@ -26,6 +27,8 @@ How to read this folder without repo access:
 - **CONFIG_REFERENCE.md** — CLI flags, env vars, YAML keys.
 - **SERVER_ENVIRONMENT.md** — runtime/dependency expectations.
 - **TEST_COVERAGE.md** — test surface + gaps.
+- **VALIDATION_MATRIX.md** — validation levels and command-to-claim mapping.
+- **CLAIMS_AND_EVIDENCE.md** — claim surface with artifact evidence and caveats.
 - **STYLE_GUIDE.md** — coding/doc conventions.
 - **CHANGELOG.md** — changes to `project_state/` itself.
 - **_generated/** — machine outputs (do not edit): `repo_inventory.json`, `symbol_index.json`, `import_graph.json`, `make_targets.txt`.

@@ -11,6 +11,11 @@ from baselines.covariance import cc_covariance as baseline_cc_covariance, ewma_c
 from finance.ledoit import lw_cov
 from finance.shrinkage import oas_covariance
 from fjs.dealias import Detection, dealias_search
+from fjs.detector_contract import (
+    candidate_source_counts,
+    format_candidate_source_counts,
+    require_candidate_source,
+)
 from fjs.gating import lookup_calibrated_delta, select_top_k
 
 __all__ = [
@@ -77,6 +82,7 @@ def _summarise_pre_gate(detections: Sequence[Mapping[str, Any]], cfg: OverlayCon
         "leakage_offcomp": float("nan"),
         "stability_eta_pass": float("nan"),
         "bracket_status": "none",
+        "candidate_sources": "",
     }
     if not detections:
         return summary
@@ -102,6 +108,9 @@ def _summarise_pre_gate(detections: Sequence[Mapping[str, Any]], cfg: OverlayCon
     if finite_stab.size:
         summary["stability_eta_pass"] = float(np.mean(finite_stab >= threshold))
     summary["bracket_status"] = _bracket_status_label(detections)
+    summary["candidate_sources"] = format_candidate_source_counts(
+        candidate_source_counts(detections)
+    )
     return summary
 
 
@@ -151,6 +160,7 @@ def _coarse_candidates(
             continue
         vec = vec / norm
         det: Detection = Detection(
+            candidate_source="coarse",
             mu_hat=lam_val,
             lambda_hat=lam_val,
             a=[1.0],
@@ -216,21 +226,29 @@ def _baseline_covariance(
         count = config.sample_count
         if count is None:
             if observations is None:
-                raise ValueError("observations required to infer sample_count for QuEST.")
+                raise ValueError(
+                    "observations required to infer sample_count for QuEST."
+                )
             count = int(observations.shape[0])
-        return quest_covariance(np.asarray(sample_covariance, dtype=np.float64), sample_count=int(count))
+        return quest_covariance(
+            np.asarray(sample_covariance, dtype=np.float64), sample_count=int(count)
+        )
     if shrinker == "ewma":
         if observations is None:
             raise ValueError("observations required for EWMA covariance.")
-        return ewma_covariance(np.asarray(observations, dtype=np.float64), halflife=float(config.ewma_halflife))
-    # Default RIE-style shrinkage
-    count = config.sample_count
-    if count is None and observations is not None:
-        count = int(observations.shape[0])
-    return rie_covariance(
-        np.asarray(sample_covariance, dtype=np.float64),
-        sample_count=count,
-    )
+        return ewma_covariance(
+            np.asarray(observations, dtype=np.float64),
+            halflife=float(config.ewma_halflife),
+        )
+    if shrinker == "rie":
+        count = config.sample_count
+        if count is None and observations is not None:
+            count = int(observations.shape[0])
+        return rie_covariance(
+            np.asarray(sample_covariance, dtype=np.float64),
+            sample_count=count,
+        )
+    raise ValueError(f"Unsupported shrinker {config.shrinker!r}; no fallback applied.")
 
 
 def _resolve_delta_frac(
@@ -275,10 +293,17 @@ def _gate_detections(
     rejected: list[Detection] = []
     delta_frac_min = cfg.gate_delta_frac_min
     delta_frac_max = cfg.gate_delta_frac_max
-    stability_min = cfg.gate_stability_min if cfg.gate_stability_min is not None else cfg.stability_eta_deg
-    alignment_min = cfg.gate_alignment_min if cfg.gate_alignment_min is not None else 0.0
+    stability_min = (
+        cfg.gate_stability_min
+        if cfg.gate_stability_min is not None
+        else cfg.stability_eta_deg
+    )
+    alignment_min = (
+        cfg.gate_alignment_min if cfg.gate_alignment_min is not None else 0.0
+    )
 
     for det in detections:
+        require_candidate_source(det)
         if not bool(det.get("admissible_root", True)):
             rejected.append(det)
             _track("inadmissible_root")
@@ -410,6 +435,7 @@ def detect_spikes(
 
     if stats_dict is not None:
         gating_info = stats_dict.setdefault("gating", {})
+        accepted_source_counts = candidate_source_counts(kept)
         gating_info.update(
             {
                 "mode": (cfg.gate_mode or "strict"),
@@ -419,6 +445,9 @@ def detect_spikes(
                 "soft_cap": int(soft_cap) if soft_cap is not None else None,
                 "delta_frac_used": resolved_delta_frac,
                 "capped": int(pre_cap - len(kept)) if pre_cap > len(kept) else 0,
+                "candidate_sources": format_candidate_source_counts(
+                    accepted_source_counts
+                ),
             }
         )
         if reason_counts is not None:
@@ -435,8 +464,17 @@ def apply_overlay(
     baseline_covariance: NDArray[np.float64] | None = None,
 ) -> NDArray[np.float64]:
     cfg = config or OverlayConfig()
+    detection_list = list(detections)
+    sources = {require_candidate_source(detection) for detection in detection_list}
+    if len(sources) > 1:
+        raise ValueError(
+            "An overlay may not mix candidate sources; run fjs, coarse, oracle, "
+            "and sham treatments separately."
+        )
     if baseline_covariance is None:
-        base = _baseline_covariance(sample_covariance, observations=observations, config=cfg)
+        base = _baseline_covariance(
+            sample_covariance, observations=observations, config=cfg
+        )
     else:
         base = np.asarray(baseline_covariance, dtype=np.float64)
     overlay = np.asarray(base, dtype=np.float64)
@@ -444,7 +482,7 @@ def apply_overlay(
 
     max_use = cfg.max_detections if cfg.max_detections is not None else cfg.q_max
     applied = 0
-    for det in detections:
+    for det in detection_list:
         if max_use is not None and applied >= int(max_use):
             break
         vec = np.asarray(det["eigvec"], dtype=np.float64).reshape(-1, 1)
@@ -468,8 +506,13 @@ def apply_overlay(
         try:
             eigvals = np.linalg.eigvalsh(overlay)
         except np.linalg.LinAlgError:
-            return np.asarray(base, dtype=np.float64)
+            raise RuntimeError(
+                "Overlay eigendecomposition failed after the explicit ridge repair; "
+                "baseline substitution is forbidden."
+            ) from None
     min_eig = float(eigvals.min(initial=0.0)) if eigvals.size else 0.0
     if min_eig < 0.0:
-        overlay = overlay + (-min_eig + 1e-8) * np.eye(overlay.shape[0], dtype=np.float64)
+        overlay = overlay + (-min_eig + 1e-8) * np.eye(
+            overlay.shape[0], dtype=np.float64
+        )
     return overlay

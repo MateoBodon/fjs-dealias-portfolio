@@ -14,6 +14,7 @@ from baselines.covariance import (
     quest_covariance,
 )
 from fjs.dealias import Detection
+from fjs.detector_contract import CandidateSource
 from fjs.overlay import OverlayConfig, apply_overlay, detect_spikes
 
 
@@ -26,10 +27,12 @@ def _make_detection(
     target_energy: float | None = None,
     alignment: float = 1.0,
     pre_outlier: int | None = 1,
+    candidate_source: CandidateSource = "fjs",
 ) -> Detection:
     vec = np.asarray(vec, dtype=np.float64)
     unit = vec / np.linalg.norm(vec)
     det: Detection = Detection(
+        candidate_source=candidate_source,
         mu_hat=float(mu),
         lambda_hat=float(mu),
         a=[1.0, 0.0],
@@ -74,6 +77,45 @@ def test_apply_overlay_substitutes_detected_eigenvalues() -> None:
     assert pytest.approx(result[2, 2], rel=1e-6) == 0.5
 
 
+def test_apply_overlay_requires_explicit_candidate_source() -> None:
+    detection = _make_detection(3.0, np.array([1.0, 0.0]))
+    detection.pop("candidate_source")
+    with pytest.raises(ValueError, match="candidate_source must be explicit"):
+        apply_overlay(np.eye(2), [detection], baseline_covariance=np.eye(2))
+
+
+@pytest.mark.parametrize("source", ["fjs", "coarse", "oracle", "sham"])
+def test_apply_overlay_accepts_predeclared_candidate_sources(
+    source: CandidateSource,
+) -> None:
+    detection = _make_detection(
+        2.0,
+        np.array([1.0, 0.0]),
+        candidate_source=source,
+    )
+    result = apply_overlay(np.eye(2), [detection], baseline_covariance=np.eye(2))
+    assert result[0, 0] == pytest.approx(2.0)
+
+
+def test_apply_overlay_rejects_mixed_candidate_sources() -> None:
+    fjs_detection = _make_detection(
+        2.0,
+        np.array([1.0, 0.0]),
+        candidate_source="fjs",
+    )
+    sham_detection = _make_detection(
+        1.5,
+        np.array([0.0, 1.0]),
+        candidate_source="sham",
+    )
+    with pytest.raises(ValueError, match="may not mix candidate sources"):
+        apply_overlay(
+            np.eye(2),
+            [fjs_detection, sham_detection],
+            baseline_covariance=np.eye(2),
+        )
+
+
 def test_apply_overlay_respects_detection_cap() -> None:
     sample_cov = np.diag([4.0, 3.0, 1.0])
     baseline = np.diag([2.0, 2.0, 1.0])
@@ -100,8 +142,11 @@ def test_detect_spikes_uses_tyler_edge_mode() -> None:
     y = observations.reshape(groups * replicates, features)
     labels = np.repeat(np.arange(groups, dtype=np.intp), replicates)
 
-    detections = detect_spikes(y, labels, config=OverlayConfig(edge_mode="tyler", q_max=2, a_grid=90))
+    detections = detect_spikes(
+        y, labels, config=OverlayConfig(edge_mode="tyler", q_max=2, a_grid=90)
+    )
     assert detections
+    assert all(det["candidate_source"] == "fjs" for det in detections)
     assert all(det.get("edge_mode") == "tyler" for det in detections)
     assert len(detections) <= 2
 
@@ -430,3 +475,16 @@ def test_detect_spikes_coarse_candidate_fallback(monkeypatch: pytest.MonkeyPatch
     pre = stats.get("pre_gate")
     assert pre is not None
     assert pre.get("coarse_candidates", 0) >= 1
+    assert pre["candidate_sources"].startswith("coarse:")
+    assert stats["gating"]["candidate_sources"].startswith("coarse:")
+    assert all(det["candidate_source"] == "coarse" for det in kept)
+
+
+def test_apply_overlay_rejects_unknown_shrinker() -> None:
+    with pytest.raises(ValueError, match="Unsupported shrinker"):
+        apply_overlay(
+            np.eye(2),
+            [],
+            observations=np.ones((5, 2)),
+            config=OverlayConfig(shrinker="typo"),
+        )

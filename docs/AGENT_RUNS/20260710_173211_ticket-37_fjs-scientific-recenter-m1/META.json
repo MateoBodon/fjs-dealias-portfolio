@@ -1,0 +1,21 @@
+{
+  "ticket": "ticket-37",
+  "run_name": "20260710_173211_ticket-37_fjs-scientific-recenter-m1",
+  "git_sha_before": "193a325dc681ebc4da67b44715a92e4f63113019",
+  "git_sha_after": "TBD",
+  "git_branch": "portfolio/fjs-recenter-m1-20260710",
+  "worktree": "/Volumes/Storage/Projects/fjs/worktrees/fjs-recenter-m1-20260710",
+  "dirty_at_start": false,
+  "dirty_at_end": "TBD",
+  "resolved_config_paths": [],
+  "config_hashes": [],
+  "dataset_ids": {
+    "experiment_run": "none",
+    "historical_detector_curve_sha256": "1b8dc701074fec00a1c4d2fc0e33b386959f52aa8f33eecf037d9ff589c85525",
+    "historical_gating_reasons_sha256": "a4f9ee2d86d3cdd6d4ae8576983492fb4cd6421362480c41b2552b34979cd03c",
+    "legacy_returns_sha256": "96ac7dd318245cf1a8b434bb358a9344bf282992fc9fe66f0282023696563197",
+    "factor_file_sha256": "469d44ad0c5cac556c60c1f258e14245acfcc9f2901ad443f41b64309bf908ca"
+  },
+  "broad_empirical_run": false,
+  "status": "locally_validated_checkpoint_pending"
+}

@@ -9,6 +9,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from fjs.balanced import mean_squares
+from fjs.detector_contract import CandidateSource
 from fjs.mp import admissible_m_from_lambda, estimate_Cs_from_MS, mp_edge, t_vec
 from fjs.theta_solver import ThetaSolverParams, solve_theta_for_t2_zero
 
@@ -22,6 +23,7 @@ class DesignParams(TypedDict):
 
 
 class Detection(TypedDict):
+    candidate_source: CandidateSource
     mu_hat: float
     lambda_hat: float
     a: list[float]
@@ -866,6 +868,7 @@ def dealias_search(
                 accept_high = None
 
             detection = Detection(
+                candidate_source="fjs",
                 mu_hat=mu_hat,
                 lambda_hat=float(lam_val),
                 a=a_vec.tolist(),

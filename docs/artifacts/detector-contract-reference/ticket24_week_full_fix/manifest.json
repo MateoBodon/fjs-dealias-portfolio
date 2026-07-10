@@ -1,0 +1,24 @@
+{
+  "artifact_role": "historical_detector_stop_line_reference_not_headline_evidence",
+  "reconciled_at": "2026-07-10T17:32:11-04:00",
+  "source_git_sha": "31c05a57ffd5db7a1531c427eb7373de5f7a5f22",
+  "source_run_id": "20251226_ticket24_week_full_fix",
+  "source_run_name": "20251226_060917_ticket-24_finish-week-inject-spike",
+  "source_recovery_root": "/Volumes/Storage/Projects/fjs/_recovery/pre-v3-portfolio-20260710T200000Z/repo-clone",
+  "source_inputs": {
+    "returns_sha256": "af5494a1d1fdab45cb1be6497a67eedce0f4b6e5c96a6221aefde630366bf653",
+    "factors_sha256": "877c14d4eaa84d5aeb8e9a8d6476ca73b9e110468d55fb0c8d4526c4e8544773",
+    "resolved_config_sha256": "c4faf3dbc5ed69c6cb7aee8c09ee38802410ab4aa08267721fd84a6a1391e3d4"
+  },
+  "files": {
+    "curve.csv": {
+      "sha256": "1b8dc701074fec00a1c4d2fc0e33b386959f52aa8f33eecf037d9ff589c85525",
+      "bytes": 164
+    },
+    "gating_reasons.csv": {
+      "sha256": "a4f9ee2d86d3cdd6d4ae8576983492fb4cd6421362480c41b2552b34979cd03c",
+      "bytes": 3604
+    }
+  },
+  "claim_boundary": "The recovered curve falsifies the detector stop-line for this exact historical configuration. It is not a real-data performance result and does not bind future repaired implementations."
+}

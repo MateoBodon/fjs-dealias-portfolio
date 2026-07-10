@@ -10,7 +10,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any, Sequence
 
 import numpy as np
 import pandas as pd
@@ -164,6 +164,10 @@ def _build_command(base_args: argparse.Namespace, combo: Combo, run_dir: Path) -
     ]
     if base_args.workers is not None:
         cmd.extend(["--workers", str(base_args.workers)])
+    if base_args.universe_csv:
+        cmd.extend(["--universe-csv", str(base_args.universe_csv)])
+    if base_args.universe_as_of:
+        cmd.extend(["--universe-as-of", str(base_args.universe_as_of)])
     if base_args.config:
         cmd.extend(["--config", str(base_args.config)])
     if base_args.thresholds:
@@ -383,6 +387,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--slice-start", type=str, required=True)
     parser.add_argument("--slice-end", type=str, required=True)
     parser.add_argument("--assets-top", type=int, default=150)
+    parser.add_argument("--universe-csv", type=Path, default=None)
+    parser.add_argument("--universe-as-of", type=str, default=None)
     parser.add_argument("--window", type=int, default=126)
     parser.add_argument("--horizon", type=int, default=21)
     parser.add_argument("--config", type=Path, default=None)

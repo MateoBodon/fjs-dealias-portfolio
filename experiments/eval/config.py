@@ -4,9 +4,12 @@ import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
+
+if TYPE_CHECKING:
+    from experiments.eval.run import EvalConfig
 
 DEFAULT_CONFIG_PATH = Path(__file__).with_name("config.yaml")
 DEFAULT_THRESHOLDS_PATH = Path(__file__).with_name("thresholds.json")
@@ -56,6 +59,8 @@ DEFAULTS: dict[str, Any] = {
     "seed": 0,
     "out_dir": "reports/eval-latest",
     "assets_top": None,
+    "universe_csv": None,
+    "universe_as_of": None,
     "calm_quantile": 0.25,
     "crisis_quantile": 0.75,
     "vol_ewma_span": 21,
@@ -301,6 +306,14 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         else None
     )
     merged["assets_top"] = assets_top_val
+    universe_csv_raw = merged.get("universe_csv", DEFAULTS["universe_csv"])
+    universe_csv_val = Path(universe_csv_raw) if universe_csv_raw else None
+    universe_as_of_raw = merged.get("universe_as_of", DEFAULTS["universe_as_of"])
+    universe_as_of_val = (
+        str(universe_as_of_raw).strip()
+        if universe_as_of_raw is not None and str(universe_as_of_raw).strip()
+        else None
+    )
 
     mv_gamma_val = float(merged.get("mv_gamma", DEFAULTS["mv_gamma"]))
     mv_tau_val = float(merged.get("mv_tau", DEFAULTS["mv_tau"]))
@@ -373,6 +386,8 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         horizon=int(merged.get("horizon", DEFAULTS["horizon"])),
         out_dir=Path(out_dir) if out_dir else Path(DEFAULTS["out_dir"]),
         assets_top=assets_top_val,
+        universe_csv=universe_csv_val,
+        universe_as_of=universe_as_of_val,
         start=merged.get("start"),
         end=merged.get("end"),
         shrinker=str(merged.get("shrinker", DEFAULTS["shrinker"])),
@@ -516,6 +531,8 @@ def resolve_eval_config(args: Mapping[str, Any]) -> ResolveResult:
         "max_missing_group_row": config.max_missing_group_row,
         "ewma_halflife": config.ewma_halflife,
         "assets_top": assets_top_val,
+        "universe_csv": str(config.universe_csv) if config.universe_csv else None,
+        "universe_as_of": config.universe_as_of,
     }
 
     return ResolveResult(config=config, resolved=resolved)

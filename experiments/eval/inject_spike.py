@@ -55,6 +55,7 @@ PRE_GATE_COLUMNS = [
     "pre_gate_stability_eta_pass",
     "pre_gate_bracket_status",
     "pre_gate_coarse_candidates",
+    "pre_gate_candidate_sources",
 ]
 
 GATING_COLUMNS = [
@@ -63,6 +64,7 @@ GATING_COLUMNS = [
     "gating_soft_cap",
     "gating_delta_frac_used",
     "gating_capped",
+    "gating_candidate_sources",
 ]
 
 GUARD_KEYS = [
@@ -338,11 +340,13 @@ def _extract_window_diagnostics(stats: dict[str, Any]) -> dict[str, Any]:
         "pre_gate_stability_eta_pass": pre_gate.get("stability_eta_pass"),
         "pre_gate_bracket_status": pre_gate.get("bracket_status"),
         "pre_gate_coarse_candidates": pre_gate.get("coarse_candidates"),
+        "pre_gate_candidate_sources": pre_gate.get("candidate_sources"),
         "gating_mode": gating.get("mode"),
         "gating_rejected": gating.get("rejected"),
         "gating_soft_cap": gating.get("soft_cap"),
         "gating_delta_frac_used": gating.get("delta_frac_used"),
         "gating_capped": gating.get("capped"),
+        "gating_candidate_sources": gating.get("candidate_sources"),
     }
 
     reasons = gating.get("reasons", {}) if isinstance(gating, dict) else {}
@@ -578,6 +582,8 @@ def _resolve_eval_config_or_fail(args: argparse.Namespace) -> ResolveResult:
         "start": args.start,
         "end": args.end,
         "assets_top": args.assets_top,
+        "universe_csv": args.universe_csv,
+        "universe_as_of": args.universe_as_of,
         "config": args.config,
         "thresholds": args.thresholds,
         "group_design": args.group_design,
@@ -629,7 +635,6 @@ def _collect_windows(
             continue
 
         train_end = pd.to_datetime(fit_labels[-1])
-        hold_start = pd.to_datetime(hold_labels[0])
         calm_cut, crisis_cut = eval_run._vol_thresholds(vol_proxy_past, train_end, config)
         try:
             fit_grouped, group_labels = eval_run._build_grouped_window(
@@ -706,6 +711,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--start", type=str, default=None)
     parser.add_argument("--end", type=str, default=None)
     parser.add_argument("--assets-top", type=int, default=150)
+    parser.add_argument("--universe-csv", type=Path, default=None)
+    parser.add_argument("--universe-as-of", type=str, default=None)
     parser.add_argument("--config", type=Path, default=None)
     parser.add_argument("--thresholds", type=Path, default=None)
     parser.add_argument("--group-design", type=str, default="week")

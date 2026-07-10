@@ -1,9 +1,9 @@
 ---
-generated: 2026-01-27T04:49:43Z
-git_sha: 95a29d978e0c31b921ac63350b1de6bfd116cf9f
-git_branch: codex/ticket-27-repo-hygiene-cleanup
+generated: 2026-07-10T17:32:11-04:00
+git_sha: 193a325dc681ebc4da67b44715a92e4f63113019
+git_branch: portfolio/fjs-recenter-m1-20260710
 commands:
-  - manual update (ticket-27 repo hygiene)
+  - Ticket 37 targeted detector, overlay, and eval-run unit tests
 ---
 # Test Coverage
 
@@ -11,6 +11,9 @@ commands:
 - **Latest recorded runs** — per PROGRESS.md: ticket-09 ran `make test-fast` (2025-12-20); ticket-15 ran targeted eval tests + `make test-fast`.
 - **Areas covered** (representative):
   - FJS math/gating: `tests/test_dealias.py`, `tests/test_mp_edge_and_root.py`, `tests/test_gating.py`, `tests/test_theta_solver.py`, `tests/test_balanced*`, `tests/test_nested_balanced.py`, `tests/test_nested_smoke.py`, `tests/fjs/test_overlay.py`.
+  - Detector stop-line/provenance: `tests/fjs/test_detector_contract.py` rejects
+    the hash-bound historical flat-zero curve, keeps its promotion test as a
+    strict expected failure, and exercises deterministic FJS source labeling.
   - Synthetic harness: `tests/test_power_null.py`, `tests/synthetic/test_calibration.py`, `tests/synthetic/test_harness_utils.py`, `tests/test_calibrate_defaults.py`, `tests/test_threshold_eval.py`.
   - Evaluation runners: `tests/experiments/test_eval_run.py`, `tests/experiments/test_gating_diagnostics.py`, `tests/experiments/test_skip_reasons.py`, `tests/test_pipeline_smoke.py`.
   - Finance/portfolio: `tests/test_portfolios_missing_solver.py`, `tests/test_eval_missing_solver.py`, `tests/test_minvar_regularized.py`, `tests/test_shrinkage.py`, `tests/test_factor_cov.py`, `tests/test_cache_switch_estimator.py`.
@@ -21,4 +24,9 @@ commands:
   - Full RC/RC-lite/AWS paths are not part of the fast suite; rely on smokes + manual runs.
   - Crisis configs, vol-state acceptance, and nested kill-test FPR remain mostly smoke-tested.
   - Plotting tests skip when matplotlib is unavailable.
-- **This rebuild** — ran `pytest -q tests/test_repo_hygiene.py` and `make test-fast`.
+  - The independent reference-equivalence, exact binomial-size,
+    planted-direction attribution, and real-design detector harnesses are the
+    next bounded implementation. No full CRSP execution is covered or allowed
+    by this milestone.
+- **Ticket 37 milestone** — targeted and native-suite results are recorded in
+  `docs/agent_runs/20260710_173211_ticket-37_fjs-scientific-recenter-m1/TESTS.md`.

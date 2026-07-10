@@ -1,17 +1,21 @@
 ---
-generated: 2026-02-16T02:32:01Z
-git_sha: 1371b3c2e7197c3629cc20e4e67c1f435f3ca13a
-git_branch: codex/ticket-27-repo-hygiene-cleanup
+generated: 2026-07-10T17:32:11-04:00
+git_sha: 193a325dc681ebc4da67b44715a92e4f63113019
+git_branch: portfolio/fjs-recenter-m1-20260710
 commands:
-  - manual documentation recenter for ticket-31
-  - artifact verification from reports/* files
+  - Ticket 37 live artifact and code audit
+  - sha256 reconciliation of the minimal Ticket 24 detector reference
 ---
 # Known Issues
 
 - **T-012 is recovered but not cleanly ratified**: the four-leg daily DoW matrix artifacts were recovered and appear scientifically usable, but the original T-012 review failed because the long-run monitoring/audit trail was not fully preserved.
-- **Daily DoW remains empirical-only**: T-008/T-010/T-012 support an empirical lane, but they do not provide detector validation or recover the clean weekly oneway / FJS theory story.
+- **T-012 does not identify an FJS effect**: all 6,917 changed full-regime windows in the four recovered legs are attributed to the generic `coarse` fallback. Across all eight leg-by-portfolio QLIKE comparisons the overlay loses to the best implemented CC/EWMA comparator, and EW MSE worsens in every leg. The result is historical coarse-overlay evidence, not detector validation.
+- **Daily DoW remains empirical-only**: T-008/T-010/T-012 do not recover the clean weekly one-way/FJS theory story. Candidate-source labels are now mandatory, so future arms cannot pool `fjs`, `coarse`, `oracle`, and `sham` candidates.
 - **Heavy T-012 details are local-only**: the full recovered tree is under `/Volumes/Storage/Projects/fjs/_recovery/recovered_artifacts/rc-t-012`; Git tracks only curated summary surfaces under `docs/artifacts/rc-t-012/`.
-- **Injection sensitivity is flat-zero on current week-design evidence**: `reports/inject_spike/20251226_ticket24_week_full_fix/curve.csv` shows detection/acceptance at 0.0 across tested `mu` values.
-- **Advisor-ready uncapped headline run still pending**: no updated week-design run has yet closed the gate for advisor-safe headline reporting with meaningful effect evidence.
-- **Detection diagnostics mismatch remains unresolved**: pre-gate reasons in `reports/inject_spike/20251226_ticket24_week_full_fix/gating_reasons.csv` are dominated by `tvec_off_component` and no-root buckets, which blocks interpretation.
+- **Injection sensitivity is flat-zero on the canonical reference**: `docs/artifacts/detector-contract-reference/ticket24_week_full_fix/curve.csv` shows detection/acceptance at 0.0 across `mu` values 0, 3, 6, 12, and 24. `tests/fjs/test_detector_contract.py` contains a strict expected failure so the stop-line remains visible.
+- **Detection diagnostics mismatch remains unresolved**: the canonical reference `gating_reasons.csv` is dominated by `tvec_off_component` and no-root buckets. The independent MP-edge/root/component reconstruction harness is not implemented yet.
+- **The old headline universe is invalid**: `data/returns_daily.csv` lacks PERMNO/security-filter provenance and the former `assets_top` behavior selected ticker labels alphabetically. The runner now fails closed without an explicit dated ranking snapshot, but a rolling CRSP CIZ/lagged-market-cap adapter is still required for the flagship result.
+- **2024/2025 CRSP receipts need dedicated manifests**: the item receipts are successful, but their enclosing manifest has unrelated failures. A content-hashed derived manifest must bind each year before use. Calendar 2025 remains the unopened holdout.
+- **Modern baselines remain incomplete**: current `rie` is simple convex shrinkage and current `quest` is MP clipping; neither is authoritative nonlinear shrinkage/QuEST. Robust nonlinear shrinkage, valid POET/SAF, and the large dynamic baseline must fail loudly until independently validated.
+- **Advisor-ready headline run is intentionally blocked**: no full CRSP run may start until the exact Ticket 37 detector stop-line passes and at least 30 non-overlapping confirmation dates are changed by the FJS-only arm.
 - **Nested design remains secondary**: calibration coverage improved, but tiny real-data nested smoke still has zero detections and skip reasons dominated by stability/no-isolated-spike, so nested is not currently a headline path.

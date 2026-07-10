@@ -208,11 +208,11 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for minimal environme
             wide = wide.ffill()
         wide = wide.dropna(axis=0, how="all")
         if cfg.assets_top is not None:
-            if cfg.assets_top <= 0:
-                raise ValueError("assets_top must be positive when provided.")
-            ordered_columns = sorted(wide.columns)
-            capped = ordered_columns[: int(cfg.assets_top)]
-            wide = wide.loc[:, capped]
+            raise ValueError(
+                "DailyLoaderConfig.assets_top cannot rank assets. Supply an explicit "
+                "point-in-time universe snapshot through EvalConfig.universe_csv and "
+                "EvalConfig.universe_as_of; alphabetical truncation is forbidden."
+            )
         if wide.shape[0] < cfg.min_history:
             raise ValueError("Insufficient history for requested window.")
         meta = {
@@ -225,6 +225,98 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for minimal environme
 
 
 @dataclass(slots=True, frozen=True)
+class RankedUniverseSnapshot:
+    tickers: tuple[str, ...]
+    as_of_date: str
+    source_path: str
+    source_sha256: str
+    universe_sha256: str
+
+
+def _load_ranked_universe_snapshot(
+    path: Path,
+    *,
+    as_of_date: str,
+    assets_top: int,
+    available_tickers: Sequence[object],
+    evaluation_start: pd.Timestamp,
+) -> RankedUniverseSnapshot:
+    """Load an explicitly ranked, point-in-time universe or fail closed."""
+
+    if assets_top <= 0:
+        raise ValueError("assets_top must be positive when provided.")
+    if not path.exists() or not path.is_file():
+        raise FileNotFoundError(f"Ranked universe CSV not found: {path}")
+    try:
+        target_date = pd.Timestamp(as_of_date).normalize()
+    except (TypeError, ValueError) as exc:
+        raise ValueError("universe_as_of must be a valid date.") from exc
+    if target_date > pd.Timestamp(evaluation_start).normalize():
+        raise ValueError(
+            "universe_as_of must be on or before the evaluation start; future-ranked "
+            "universes are forbidden."
+        )
+
+    frame = pd.read_csv(path, dtype={"ticker": "string"})
+    required = {"as_of_date", "ticker", "rank"}
+    missing_columns = sorted(required - set(frame.columns))
+    if missing_columns:
+        raise ValueError(
+            "Ranked universe CSV is missing required columns: "
+            + ", ".join(missing_columns)
+        )
+    parsed_dates = pd.to_datetime(frame["as_of_date"], errors="coerce").dt.normalize()
+    if parsed_dates.isna().any():
+        raise ValueError("Ranked universe CSV contains invalid as_of_date values.")
+    ranked = frame.loc[parsed_dates.eq(target_date), ["ticker", "rank"]].copy()
+    if ranked.empty:
+        raise ValueError(
+            f"Ranked universe CSV has no snapshot for {target_date.date().isoformat()}."
+        )
+    ranked["ticker"] = ranked["ticker"].astype("string").str.strip()
+    if ranked["ticker"].isna().any() or ranked["ticker"].eq("").any():
+        raise ValueError("Ranked universe CSV contains empty tickers.")
+    numeric_rank = pd.to_numeric(ranked["rank"], errors="coerce")
+    if numeric_rank.isna().any() or (numeric_rank <= 0).any():
+        raise ValueError("Ranked universe ranks must be positive numbers.")
+    if not np.allclose(numeric_rank, np.round(numeric_rank), rtol=0.0, atol=0.0):
+        raise ValueError("Ranked universe ranks must be positive integers.")
+    ranked["rank"] = numeric_rank.astype(int)
+    if ranked["ticker"].duplicated().any():
+        raise ValueError("Ranked universe snapshot contains duplicate tickers.")
+    if ranked["rank"].duplicated().any():
+        raise ValueError("Ranked universe snapshot contains duplicate ranks.")
+    ranked = ranked.sort_values("rank", kind="stable")
+    if ranked.shape[0] < int(assets_top):
+        raise ValueError(
+            f"Ranked universe has {ranked.shape[0]} assets, fewer than assets_top={assets_top}."
+        )
+
+    selected = tuple(str(value) for value in ranked["ticker"].iloc[:assets_top])
+    available = {str(value) for value in available_tickers}
+    unavailable = [ticker for ticker in selected if ticker not in available]
+    if unavailable:
+        raise ValueError(
+            "Ranked universe assets are missing from the returns panel: "
+            + ", ".join(unavailable[:10])
+        )
+
+    source_sha = hashlib.sha256(path.read_bytes()).hexdigest()
+    universe_sha = hashlib.sha256(
+        json.dumps(selected, ensure_ascii=False, separators=(",", ":")).encode(
+            "utf-8"
+        )
+    ).hexdigest()
+    return RankedUniverseSnapshot(
+        tickers=selected,
+        as_of_date=target_date.date().isoformat(),
+        source_path=str(path.resolve(strict=True)),
+        source_sha256=source_sha,
+        universe_sha256=universe_sha,
+    )
+
+
+@dataclass(slots=True, frozen=True)
 class EvalConfig:
     returns_csv: Path
     factors_csv: Path | None = None
@@ -232,6 +324,8 @@ class EvalConfig:
     horizon: int = 21
     out_dir: Path = Path("reports/eval-latest")
     assets_top: int | None = None
+    universe_csv: Path | None = None
+    universe_as_of: str | None = None
     start: str | None = None
     end: str | None = None
     shrinker: str = "rie"
@@ -349,6 +443,8 @@ def _serialise_config(config: EvalConfig) -> dict[str, Any]:
         "horizon": config.horizon,
         "out_dir": str(config.out_dir),
         "assets_top": config.assets_top,
+        "universe_csv": str(config.universe_csv) if config.universe_csv else None,
+        "universe_as_of": config.universe_as_of,
         "start": config.start,
         "end": config.end,
         "shrinker": config.shrinker,
@@ -750,7 +846,19 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[EvalConfig, dict[str,
         dest="assets_top",
         type=int,
         default=None,
-        help="Optional cap on the number of assets (keeps first N tickers alphabetically).",
+        help="Number of assets selected from --universe-csv at --universe-as-of.",
+    )
+    parser.add_argument(
+        "--universe-csv",
+        type=Path,
+        default=None,
+        help="Ranked point-in-time CSV with as_of_date,ticker,rank columns.",
+    )
+    parser.add_argument(
+        "--universe-as-of",
+        type=str,
+        default=None,
+        help="Exact ranked-universe snapshot date; must not follow evaluation start.",
     )
     parser.add_argument(
         "--shrinker",
@@ -1266,12 +1374,14 @@ def _detail_defaults() -> dict[str, object]:
         "leakage_offcomp": float("nan"),
         "stability_eta_pass": float("nan"),
         "bracket_status": "",
+        "candidate_sources": "",
         "raw_outliers_found": 0,
         "pre_mp_edge_margin": float("nan"),
         "pre_alignment_cos": float("nan"),
         "pre_leakage_offcomp": float("nan"),
         "pre_stability_eta_pass": float("nan"),
         "pre_bracket_status": "",
+        "pre_candidate_sources": "",
     }
 
 
@@ -1580,23 +1690,52 @@ def _prepare_returns(
     FactorRegistryEntry | None,
 ]:
     loader_kwargs: dict[str, Any] = {"min_history": config.window + config.horizon + 10}
-    if config.assets_top is not None:
-        loader_kwargs["assets_top"] = int(config.assets_top)
-    try:
-        loader_cfg = DailyLoaderConfig(**loader_kwargs)
-    except TypeError:
-        loader_kwargs.pop("assets_top", None)
-        loader_cfg = DailyLoaderConfig(**loader_kwargs)
+    loader_cfg = DailyLoaderConfig(**loader_kwargs)
     panel = load_daily_panel(config.returns_csv, config=loader_cfg)
     returns = panel.returns
-    if config.assets_top is not None and returns.shape[1] > int(config.assets_top):
-        ordered_columns = sorted(returns.columns)
-        capped = ordered_columns[: int(config.assets_top)]
-        returns = returns.loc[:, capped]
     if config.start:
         returns = returns.loc[returns.index >= pd.to_datetime(config.start)]
     if config.end:
         returns = returns.loc[returns.index <= pd.to_datetime(config.end)]
+    universe_fields = (config.universe_csv, config.universe_as_of)
+    if config.assets_top is not None:
+        if any(value is None for value in universe_fields):
+            raise ValueError(
+                "assets_top requires both universe_csv and universe_as_of; "
+                "alphabetical truncation is forbidden."
+            )
+        if returns.empty:
+            raise ValueError("No returns remain before ranked-universe selection.")
+        snapshot = _load_ranked_universe_snapshot(
+            Path(config.universe_csv),
+            as_of_date=str(config.universe_as_of),
+            assets_top=int(config.assets_top),
+            available_tickers=list(returns.columns),
+            evaluation_start=pd.Timestamp(returns.index.min()),
+        )
+        returns = returns.loc[:, list(snapshot.tickers)]
+        panel.meta.update(
+            {
+                "universe_source": snapshot.source_path,
+                "universe_source_sha256": snapshot.source_sha256,
+                "universe_as_of": snapshot.as_of_date,
+                "universe_sha256": snapshot.universe_sha256,
+                "symbols": list(snapshot.tickers),
+            }
+        )
+    elif any(value is not None for value in universe_fields):
+        raise ValueError(
+            "universe_csv and universe_as_of are only valid with an explicit assets_top."
+        )
+    if not returns.empty:
+        panel.meta.update(
+            {
+                "evaluation_start": pd.Timestamp(returns.index.min()).date().isoformat(),
+                "evaluation_end": pd.Timestamp(returns.index.max()).date().isoformat(),
+                "n_days_selected": int(returns.shape[0]),
+                "n_assets_selected": int(returns.shape[1]),
+            }
+        )
     if returns.shape[0] < config.window + config.horizon + 5:
         raise ValueError("Not enough observations for requested window and horizon.")
     returns = returns.sort_index()
@@ -1727,6 +1866,7 @@ def run_evaluation(
     current_stage = "init"
     terminal_status = "error"
     terminal_stage = current_stage
+    data_metadata: dict[str, object] | None = None
     _persist_run_state(current_stage, "running")
 
     try:
@@ -1734,6 +1874,12 @@ def run_evaluation(
         panel, raw_returns, whitening, prewhiten_meta, factor_entry = _prepare_returns(
             config
         )
+        data_metadata = {
+            "returns_csv": str(config.returns_csv),
+            "returns_sha256": _sha256_path(config.returns_csv),
+            "panel": dict(panel.meta),
+        }
+        run_state["data"] = data_metadata
         random.seed(config.seed)
         np.random.seed(config.seed)
         residuals = whitening.residuals.sort_index()
@@ -2788,7 +2934,10 @@ def run_evaluation(
             )
             gating_soft_cap = gating_info.get("soft_cap")
             gating_delta_frac = gating_info.get("delta_frac_used")
-            substitution_fraction = len(detections) / float(p_assets) if p_assets else 0.0
+            candidate_sources = str(gating_info.get("candidate_sources", ""))
+            substitution_fraction = (
+                len(detections) / float(p_assets) if p_assets else 0.0
+            )
             baseline_error_str = (
                 ""
                 if not baseline_errors
@@ -2808,6 +2957,7 @@ def run_evaluation(
                 pre_gate_stats.get("stability_eta_pass", float("nan"))
             )
             pre_bracket_status = str(pre_gate_stats.get("bracket_status", ""))
+            pre_candidate_sources = str(pre_gate_stats.get("candidate_sources", ""))
             diag_record = {
                 "window_id": start,
                 "window_start": hold_start.isoformat(),
@@ -2829,8 +2979,11 @@ def run_evaluation(
                     int(gating_soft_cap) if gating_soft_cap is not None else np.nan
                 ),
                 "gating_delta_frac": (
-                    float(gating_delta_frac) if gating_delta_frac is not None else np.nan
+                    float(gating_delta_frac)
+                    if gating_delta_frac is not None
+                    else np.nan
                 ),
+                "candidate_sources": candidate_sources,
                 "q_multi_rejections": q_multi_rejections,
                 "reason_code": reason_value,
                 "resolved_config_path": resolved_path_str,
@@ -2888,12 +3041,14 @@ def run_evaluation(
                     "leakage_offcomp": leakage_offcomp_value,
                     "stability_eta_pass": stability_eta_share,
                     "bracket_status": bracket_status,
+                    "candidate_sources": candidate_sources,
                     "raw_outliers_found": raw_outliers_found,
                     "pre_mp_edge_margin": pre_mp_edge_margin,
                     "pre_alignment_cos": pre_alignment_cos,
                     "pre_leakage_offcomp": pre_leakage_offcomp,
                     "pre_stability_eta_pass": pre_stability_eta_pass,
                     "pre_bracket_status": pre_bracket_status,
+                    "pre_candidate_sources": pre_candidate_sources,
                 }
             )
             diag_record.update(detail_fields)
@@ -3150,12 +3305,14 @@ def run_evaluation(
             "leakage_offcomp",
             "stability_eta_pass",
             "bracket_status",
+            "candidate_sources",
             "raw_outliers_found",
             "pre_mp_edge_margin",
             "pre_alignment_cos",
             "pre_leakage_offcomp",
             "pre_stability_eta_pass",
             "pre_bracket_status",
+            "pre_candidate_sources",
         ]
         if diagnostics_df.empty:
             diagnostics_df = pd.DataFrame(columns=expected_diag_columns)
@@ -3170,6 +3327,8 @@ def run_evaluation(
                         "prewhiten_factors",
                         "reps_by_label",
                         "bracket_status",
+                        "candidate_sources",
+                        "pre_candidate_sources",
                         "drop_reason",
                     }:
                         diagnostics_df[column] = ""
@@ -3291,6 +3450,7 @@ def run_evaluation(
                     "mode": resolved_payload.get("exec_mode", "deterministic"),
                     "thread_caps": runtime.thread_caps_snapshot(),
                 },
+                "data": data_metadata,
                 "windows": {
                     "windows_candidate": windows_candidate,
                     "windows_after_caps": windows_after_caps,
@@ -3600,12 +3760,14 @@ def run_evaluation(
             diagnostics_summary["stability_eta_pass"] = np.nan
             diagnostics_summary["design_ok"] = np.nan
             diagnostics_summary["bracket_status"] = ""
+            diagnostics_summary["candidate_sources"] = ""
             diagnostics_summary["raw_outliers_found"] = np.nan
             diagnostics_summary["pre_mp_edge_margin"] = np.nan
             diagnostics_summary["pre_alignment_cos"] = np.nan
             diagnostics_summary["pre_leakage_offcomp"] = np.nan
             diagnostics_summary["pre_stability_eta_pass"] = np.nan
             diagnostics_summary["pre_bracket_status"] = ""
+            diagnostics_summary["pre_candidate_sources"] = ""
         else:
             reason_summary = (
                 diagnostics_df.groupby("regime")["reason_code"]
@@ -3700,6 +3862,28 @@ def run_evaluation(
                 )
             else:
                 diagnostics_summary["pre_bracket_status"] = ""
+            if "candidate_sources" in diagnostics_df.columns:
+                source_summary = (
+                    diagnostics_df.groupby("regime")["candidate_sources"]
+                    .agg(_mode_string)
+                    .reset_index()
+                )
+                diagnostics_summary = diagnostics_summary.merge(
+                    source_summary, on="regime", how="left"
+                )
+            else:
+                diagnostics_summary["candidate_sources"] = ""
+            if "pre_candidate_sources" in diagnostics_df.columns:
+                pre_source_summary = (
+                    diagnostics_df.groupby("regime")["pre_candidate_sources"]
+                    .agg(_mode_string)
+                    .reset_index()
+                )
+                diagnostics_summary = diagnostics_summary.merge(
+                    pre_source_summary, on="regime", how="left"
+                )
+            else:
+                diagnostics_summary["pre_candidate_sources"] = ""
             if "prewhiten_mode_requested" in diagnostics_df.columns:
                 req_summary = (
                     diagnostics_df.groupby("regime")["prewhiten_mode_requested"]
@@ -4009,6 +4193,7 @@ def run_evaluation(
                 "mode": resolved_payload.get("exec_mode", "deterministic"),
                 "thread_caps": runtime.thread_caps_snapshot(),
             },
+            "data": data_metadata,
             "windows": {
                 "windows_candidate": windows_candidate,
                 "windows_after_caps": windows_after_caps,

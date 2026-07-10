@@ -40,18 +40,41 @@ def parse_args(argv: Sequence[str] | None = None) -> tuple[argparse.Namespace, l
         required=False,
         help="Replicate design alias maintained for backwards compatibility.",
     )
-    parser.add_argument("--out", type=Path, default=None, help="Optional explicit output directory.")
-    parser.add_argument("--factors-csv", type=Path, default=None, help="Optional factor CSV for prewhitening.")
-    parser.add_argument("--window", type=int, default=None, help="Optional window override (days).")
-    parser.add_argument("--horizon", type=int, default=None, help="Optional horizon override (days).")
+    parser.add_argument(
+        "--out", type=Path, default=None, help="Optional explicit output directory."
+    )
+    parser.add_argument(
+        "--factors-csv",
+        type=Path,
+        default=None,
+        help="Optional factor CSV for prewhitening.",
+    )
+    parser.add_argument(
+        "--window", type=int, default=None, help="Optional window override (days)."
+    )
+    parser.add_argument(
+        "--horizon", type=int, default=None, help="Optional horizon override (days)."
+    )
     parser.add_argument(
         "--assets-top",
         type=int,
         default=None,
-        help="Optional cap on the number of assets (selects first N tickers alphabetically).",
+        help="Optional count selected from an explicit ranked universe snapshot.",
     )
-    parser.add_argument("--shrinker", type=str, default=None, help="Baseline shrinker override for overlay baseline.")
-    parser.add_argument("--rc-date", type=str, default=None, help="RC date stamp (defaults to today if omitted).")
+    parser.add_argument("--universe-csv", type=Path, default=None)
+    parser.add_argument("--universe-as-of", type=str, default=None)
+    parser.add_argument(
+        "--shrinker",
+        type=str,
+        default=None,
+        help="Baseline shrinker override for overlay baseline.",
+    )
+    parser.add_argument(
+        "--rc-date",
+        type=str,
+        default=None,
+        help="RC date stamp (defaults to today if omitted).",
+    )
     parser.add_argument(
         "--smoke",
         action="store_true",
@@ -93,14 +116,26 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     forwarded: list[str] = ["--returns-csv", str(args.returns_csv)]
 
-    if args.factors_csv is not None and not _detect_forward_override(extra, "--factors-csv"):
+    if args.factors_csv is not None and not _detect_forward_override(
+        extra, "--factors-csv"
+    ):
         forwarded.extend(["--factors-csv", str(args.factors_csv)])
     if args.window is not None and not _detect_forward_override(extra, "--window"):
         forwarded.extend(["--window", str(args.window)])
     if args.horizon is not None and not _detect_forward_override(extra, "--horizon"):
         forwarded.extend(["--horizon", str(args.horizon)])
-    if args.assets_top is not None and not _detect_forward_override(extra, "--assets-top"):
+    if args.assets_top is not None and not _detect_forward_override(
+        extra, "--assets-top"
+    ):
         forwarded.extend(["--assets-top", str(args.assets_top)])
+    if args.universe_csv is not None and not _detect_forward_override(
+        extra, "--universe-csv"
+    ):
+        forwarded.extend(["--universe-csv", str(args.universe_csv)])
+    if args.universe_as_of is not None and not _detect_forward_override(
+        extra, "--universe-as-of"
+    ):
+        forwarded.extend(["--universe-as-of", str(args.universe_as_of)])
     if args.shrinker and not _detect_forward_override(extra, "--shrinker"):
         forwarded.extend(["--shrinker", args.shrinker])
     if args.prewhiten and not _detect_forward_override(extra, "--prewhiten"):

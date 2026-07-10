@@ -1,13 +1,51 @@
 # CODEX_SPRINT_TICKETS.md — Next sprint (ordered)
 
-Sprint scope: **unblock publishable validity + get one advisor‑ready uncapped RC run**.  
-Rule: do not expand the experiment grid until Ticket #18 and Ticket #20 are closed.
+Sprint scope: **first-principles scientific recenter before any new broad run**.
+Rule: do not expand the empirical grid until Ticket #37's detector stop-line is
+closed. Ticket #18 is retained as the historical falsification target; Ticket
+#20 cannot resume until attribution and baseline validity are repaired.
 
-Priority order as of 2026-02-16:
-1. Ticket #18 (injection flat-zero debugging)
-2. Ticket #20 (advisor-ready uncapped run)
-3. Ticket #31 (docs recenter + canonical truth refresh, completed)
-4. Ticket #33 (canonical project review + codex continuation prompt + ticket-32 audit drift fix)
+Priority order as of 2026-07-10:
+1. Ticket #37 (scientific recenter milestone and detector stop-line)
+2. Ticket #18 (repair and pass the bounded detector contract)
+3. Ticket #20 (only after Ticket #37 promotion gates pass)
+4. Ticket #31 and Ticket #33 (completed historical infrastructure work)
+
+---
+
+## Ticket #37 — FJS scientific recenter milestone 1
+
+**Status:** LOCALLY VALIDATED; scoped branch checkpoint/readback reported at handoff
+
+**Goal (1 sentence):** Freeze a first-principles, real-data flagship design and
+make the code fail closed on universe, estimator, and candidate provenance
+ambiguity before detector repair or broad CRSP execution.
+
+**Delivered scope:**
+
+- Canonical predeclaration at
+  `docs/strategy/FJS_SCIENTIFIC_RECENTER_PREDECLARATION.md` with the exact
+  detector stop-line, point-in-time universe, real-data manifests, time splits,
+  baseline ladder, holdout policy, endpoints, and claim reducer.
+- Explicit `fjs` / `coarse` / `oracle` / `sham` candidate-source contract with
+  fail-loud mixed or missing provenance.
+- `assets_top` no longer falls back to alphabetical ticker order. It requires an
+  explicit dated ranked-universe CSV and records source/selection hashes.
+- Unknown shrinker labels and failed overlay eigendecomposition no longer
+  silently route to another estimator/result.
+- Only the small Ticket 24 detector reference files were reconciled from
+  recovery, each bound by SHA-256 in a canonical manifest. No raw restricted
+  data were copied.
+- Deterministic unit/mechanism tests preserve the current flat-zero failure as a
+  strict expected failure and validate provenance and ranked-universe behavior.
+
+**Stop-line:** No full CRSP or other memory-heavy empirical run until the FJS-only
+detector contract passes. Synthetic/semi-synthetic work is mechanism calibration
+and cannot be promoted as the empirical result.
+
+**Next bounded action:** Implement the independent deterministic reference
+harness for the MP edge, roots, mapped component, and reconstructed covariance;
+then close the null/power/invariance gates before touching the holdout.
 
 ---
 

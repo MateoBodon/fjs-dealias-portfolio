@@ -16,6 +16,7 @@ from experiments.eval.run import (
     _aligned_dm_stat,
     _aligned_delta_mean,
     _apply_multi_alignment_guard,
+    _load_ranked_universe_snapshot,
     _min_variance_weights,
     _sign_test_stat,
     _vol_thresholds,
@@ -34,6 +35,25 @@ def _make_returns_csv(tmp_path: pytest.TempPathFactory) -> str:
     frame = pd.DataFrame(returns, index=dates, columns=[f"A{i}" for i in range(6)])
     path = tmp_path.mktemp("data") / "returns.csv"
     frame.reset_index().rename(columns={"index": "date"}).to_csv(path, index=False)
+    return str(path)
+
+
+def _make_ranked_universe_csv(
+    tmp_path: pytest.TempPathFactory,
+    tickers: list[str] | None = None,
+    *,
+    as_of_date: str = "2024-01-01",
+) -> str:
+    ordered = tickers or [f"A{idx}" for idx in range(6)]
+    frame = pd.DataFrame(
+        {
+            "as_of_date": [as_of_date] * len(ordered),
+            "ticker": ordered,
+            "rank": np.arange(1, len(ordered) + 1),
+        }
+    )
+    path = tmp_path.mktemp("universe") / "ranked_universe.csv"
+    frame.to_csv(path, index=False)
     return str(path)
 
 
@@ -62,6 +82,46 @@ def test_paper_config_path_loads() -> None:
     result = resolve_eval_config({"config": str(config_path)})
     assert result.config.config_path == config_path
     assert result.resolved["config_path"] == str(config_path)
+
+
+@pytest.mark.unit
+def test_assets_top_without_ranked_universe_fails_closed(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    returns_csv = _make_returns_csv(tmp_path_factory)
+    config = EvalConfig(
+        returns_csv=Path(returns_csv),
+        factors_csv=None,
+        window=20,
+        horizon=5,
+        out_dir=Path(tmp_path_factory.mktemp("fail_closed_universe")),
+        assets_top=3,
+        prewhiten="off",
+        use_factor_prewhiten=False,
+    )
+    with pytest.raises(ValueError, match="alphabetical truncation is forbidden"):
+        run_evaluation(config)
+
+
+@pytest.mark.unit
+def test_ranked_universe_rejects_future_snapshot(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    universe_csv = Path(
+        _make_ranked_universe_csv(
+            tmp_path_factory,
+            ["A", "B", "C"],
+            as_of_date="2024-02-01",
+        )
+    )
+    with pytest.raises(ValueError, match="future-ranked universes are forbidden"):
+        _load_ranked_universe_snapshot(
+            universe_csv,
+            as_of_date="2024-02-01",
+            assets_top=2,
+            available_tickers=["A", "B", "C"],
+            evaluation_start=pd.Timestamp("2024-01-02"),
+        )
 
 
 def test_aligned_delta_and_dm_use_window_intersection() -> None:
@@ -284,6 +344,7 @@ def test_run_evaluation_marks_comparison_valid_and_caps(
     tmp_path_factory: pytest.TempPathFactory,
 ) -> None:
     returns_csv = _make_returns_csv(tmp_path_factory)
+    universe_csv = _make_ranked_universe_csv(tmp_path_factory)
     out_dir = tmp_path_factory.mktemp("comparison_flags")
     config = EvalConfig(
         returns_csv=Path(returns_csv),
@@ -297,6 +358,8 @@ def test_run_evaluation_marks_comparison_valid_and_caps(
         min_comparison_windows=3,
         max_windows=2,
         assets_top=5,
+        universe_csv=Path(universe_csv),
+        universe_as_of="2024-01-01",
         mv_box_hi=1.0,
         mv_box_lo=-0.5,
         mv_turnover_bps=0.0,
@@ -343,7 +406,13 @@ def test_holdout_empty_windows_do_not_trigger_window_coverage_cap(
     returns[-2:, :] = np.nan
     frame = pd.DataFrame(returns, index=dates, columns=["A", "B", "C"])
     returns_csv = tmp_dir / "returns.csv"
-    frame.reset_index().rename(columns={"index": "date"}).to_csv(returns_csv, index=False)
+    frame.reset_index().rename(columns={"index": "date"}).to_csv(
+        returns_csv, index=False
+    )
+    universe_csv = _make_ranked_universe_csv(
+        tmp_path_factory,
+        ["A", "B", "C"],
+    )
     config = EvalConfig(
         returns_csv=returns_csv,
         factors_csv=None,
@@ -357,6 +426,8 @@ def test_holdout_empty_windows_do_not_trigger_window_coverage_cap(
         group_min_count=1,
         group_min_replicates=1,
         assets_top=3,
+        universe_csv=Path(universe_csv),
+        universe_as_of="2024-01-01",
         min_comparison_windows=1,
         mv_condition_cap=1e12,
         mv_turnover_bps=0.0,
@@ -382,6 +453,7 @@ def test_run_evaluation_delta_respects_changed_window_filter(
     tmp_path_factory: pytest.TempPathFactory,
 ) -> None:
     returns_csv = _make_returns_csv(tmp_path_factory)
+    universe_csv = _make_ranked_universe_csv(tmp_path_factory)
     out_dir = tmp_path_factory.mktemp("changed_window_filter")
     config = EvalConfig(
         returns_csv=Path(returns_csv),
@@ -395,6 +467,8 @@ def test_run_evaluation_delta_respects_changed_window_filter(
         min_comparison_windows=1,
         max_windows=2,
         assets_top=5,
+        universe_csv=Path(universe_csv),
+        universe_as_of="2024-01-01",
         mv_box_hi=1.0,
         mv_box_lo=-0.5,
         mv_turnover_bps=0.0,
@@ -424,6 +498,7 @@ def test_run_evaluation_delta_empty_changed_windows(
     tmp_path_factory: pytest.TempPathFactory,
 ) -> None:
     returns_csv = _make_returns_csv(tmp_path_factory)
+    universe_csv = _make_ranked_universe_csv(tmp_path_factory)
     out_dir = tmp_path_factory.mktemp("changed_window_empty")
     config = EvalConfig(
         returns_csv=Path(returns_csv),
@@ -437,6 +512,8 @@ def test_run_evaluation_delta_empty_changed_windows(
         min_comparison_windows=1,
         max_windows=2,
         assets_top=5,
+        universe_csv=Path(universe_csv),
+        universe_as_of="2024-01-01",
         mv_box_hi=1.0,
         mv_box_lo=-0.5,
         mv_turnover_bps=0.0,
@@ -487,6 +564,8 @@ def test_run_evaluation_respects_assets_top(
     tmp_path_factory: pytest.TempPathFactory,
 ) -> None:
     returns_csv = _make_returns_csv(tmp_path_factory)
+    ranked_tickers = ["A5", "A3", "A1", "A0", "A2", "A4"]
+    universe_csv = _make_ranked_universe_csv(tmp_path_factory, ranked_tickers)
     out_dir = tmp_path_factory.mktemp("outputs_capped")
     config = EvalConfig(
         returns_csv=Path(returns_csv),
@@ -497,9 +576,11 @@ def test_run_evaluation_respects_assets_top(
         shrinker="rie",
         seed=4321,
         assets_top=3,
+        universe_csv=Path(universe_csv),
+        universe_as_of="2024-01-01",
         use_factor_prewhiten=False,
     )
-    outputs = run_evaluation(config)
+    run_evaluation(config)
     summary_payload = json.loads(
         (Path(out_dir) / "prewhiten_summary.json").read_text(encoding="utf-8")
     )
@@ -508,6 +589,12 @@ def test_run_evaluation_respects_assets_top(
         (Path(out_dir) / "resolved_config.json").read_text(encoding="utf-8")
     )
     assert resolved_payload["assets_top"] == 3
+    assert resolved_payload["universe_csv"] == universe_csv
+    run_payload = json.loads((Path(out_dir) / "run.json").read_text(encoding="utf-8"))
+    assert run_payload["data"]["panel"]["symbols"] == ranked_tickers[:3]
+    assert run_payload["data"]["panel"]["universe_as_of"] == "2024-01-01"
+    assert run_payload["data"]["panel"]["n_assets_selected"] == 3
+    assert run_payload["data"]["panel"]["evaluation_start"] == "2024-01-02"
 
 
 def test_run_evaluation_vol_design_logs_state(
@@ -563,6 +650,7 @@ def test_vol_run_outputs_flip_and_prewhiten_effect(
 ) -> None:
     returns_csv = _make_returns_csv(tmp_path_factory)
     factors_csv = _make_factors_csv(tmp_path_factory)
+    universe_csv = _make_ranked_universe_csv(tmp_path_factory)
     off_dir = Path(tmp_path_factory.mktemp("vol_off"))
     on_dir = Path(tmp_path_factory.mktemp("vol_on"))
     common = dict(
@@ -574,6 +662,8 @@ def test_vol_run_outputs_flip_and_prewhiten_effect(
         group_min_replicates=1,
         min_reps_vol=1,
         assets_top=5,
+        universe_csv=Path(universe_csv),
+        universe_as_of="2024-01-01",
         mv_box_hi=1.0,
         mv_box_lo=-0.25,
         mv_turnover_bps=0.0,

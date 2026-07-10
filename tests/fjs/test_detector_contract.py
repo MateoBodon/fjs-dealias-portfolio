@@ -35,15 +35,37 @@ def test_historical_week_curve_is_rejected_by_detector_stop_line() -> None:
     }
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Historical ticket-24 week curve is flat-zero; broad empirical work "
-        "remains blocked."
-    ),
-)
-def test_historical_week_curve_meets_predeclared_detector_stop_line() -> None:
-    assert assess_power_curve(_reference_rows()).passed
+def test_historical_week_curve_cannot_support_between_component_power() -> None:
+    with pytest.raises(ValueError, match="missing inject_mode provenance"):
+        assess_power_curve(_reference_rows(), expected_inject_mode="between")
+
+
+def test_power_curve_rejects_mismatched_injection_component() -> None:
+    rows = [dict(row, inject_mode="total") for row in _reference_rows()]
+    with pytest.raises(ValueError, match="does not match the target"):
+        assess_power_curve(rows, expected_inject_mode="between")
+
+
+def test_power_curve_rejects_acceptance_above_detection() -> None:
+    rows = [
+        {
+            "mu": 0.0,
+            "detection_rate": 0.05,
+            "acceptance_rate": 0.04,
+            "n_windows": 200,
+        },
+        {
+            "mu": 1.5,
+            "detection_rate": 0.85,
+            "acceptance_rate": 0.90,
+            "n_windows": 200,
+        },
+    ]
+
+    assessment = assess_power_curve(rows)
+
+    assert not assessment.passed
+    assert assessment.reasons == ("acceptance_exceeds_detection",)
 
 
 def test_planted_oneway_mechanism_is_labeled_fjs() -> None:

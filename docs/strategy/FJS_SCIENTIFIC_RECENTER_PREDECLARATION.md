@@ -41,8 +41,11 @@ the confirmation/holdout period is allowed until the detector gates below pass.
 
 - The recovered Ticket 24 weekly injection curve is exactly flat at zero for
   detection and acceptance at `mu` in `{0, 3, 6, 12, 24}`. Its most common
-  pre-gate failures are off-component and no-root reasons. The small canonical
-  reference and its hashes are in
+  pre-gate failures are off-component and no-root reasons. Exact source and
+  command review shows that the historical run used an iid observation-level
+  outer-product injection and recorded no component mode. It is an exact-config
+  negative control, not a target-between-component power test. The small
+  canonical reference and its hashes are in
   `docs/artifacts/detector-contract-reference/ticket24_week_full_fix/`.
 - The recovered T-012 matrix is useful historical evidence but not a clean FJS
   validation. All 6,917 changed full-regime windows across its four legs are
@@ -116,10 +119,14 @@ semi-synthetic data are mechanism calibration only, never the headline result.
    the frozen 5 bps turnover charge may not worsen. Any failure stops promotion.
 
 `src/fjs/detector_contract.py` implements the persisted power-curve reducer for
-the null-rate, strong-power, acceptance, gain, and monotonicity subset. The
-remaining gates require the next bounded reference harness. The strict expected
-failure against the historical curve deliberately keeps the current blocker
-visible in the unit suite.
+the null-rate, strong-power, acceptance, gain, and monotonicity subset. It now
+also rejects a target-power curve unless `inject_mode=between` is present and
+consistent. `src/fjs/reference_oracle.py` implements the independent bounded
+edge/root/component/reconstruction oracle. `make detector-reference-gate`
+currently stops on five concrete production/provenance issues; three strict
+expected failures keep the code-level mismatches visible in the unit suite.
+Exact values and the repair sequence are frozen in
+`docs/strategy/FJS_REFERENCE_HARNESS_FINDINGS.md`.
 
 ## Real-data design and provenance
 
@@ -224,10 +231,11 @@ and must be disclosed as a new development generation.
 
 ## Execution stages
 
-1. Reproduce the historical flat-zero artifact by hash and keep its strict
-   expected failure visible. **Current stage.**
+1. Reproduce and audit the historical flat-zero artifact by hash; retain it as
+   an off-target negative control, not target-component power evidence.
 2. Build the independent deterministic reference harness and diagnose the
-   root/component mapping without CRSP-scale execution.
+   root/component mapping without CRSP-scale execution. **Completed; production
+   repair is the current stage.**
 3. Freeze and pass the full null/power/invariance/real-design detector suite.
 4. Build the rolling CRSP adapter and dedicated 2024/2025 derived manifests;
    validate point-in-time membership on a bounded sample.
@@ -235,9 +243,10 @@ and must be disclosed as a new development generation.
 6. Run development, then confirmation once. Reduce without changing the gate.
 7. Only if confirmation promotes the design, open and run the 2025 holdout once.
 
-The immediate next command is the bounded deterministic reference-harness test;
-a full CRSP or memory-heavy run remains prohibited while the historical curve
-fails the detector stop-line.
+The immediate next command is `make detector-reference-gate`. Repair the five
+reported stop conditions without weakening the oracle. A full CRSP or
+memory-heavy run remains prohibited until the deterministic gate and subsequent
+target-matched null/power/invariance gates pass.
 
 ## Literature frozen for implementation review
 

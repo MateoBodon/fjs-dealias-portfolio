@@ -61,6 +61,7 @@ def assess_power_curve(
     null_fpr_max: float = 0.075,
     strong_power_min: float = 0.80,
     power_gain_min: float = 0.50,
+    expected_inject_mode: str | None = None,
 ) -> PowerCurveAssessment:
     """Evaluate the bounded detector stop-line against a persisted power curve.
 
@@ -71,6 +72,14 @@ def assess_power_curve(
 
     if not rows:
         raise ValueError("Power curve must contain at least one row.")
+
+    expected_mode = (
+        None
+        if expected_inject_mode is None
+        else str(expected_inject_mode).strip().lower()
+    )
+    if expected_mode == "":
+        raise ValueError("expected_inject_mode cannot be empty.")
 
     parsed: list[tuple[float, float, float, int]] = []
     for row in rows:
@@ -92,6 +101,18 @@ def assess_power_curve(
             raise ValueError("Power curve n_windows values must be positive.")
         if not 0.0 <= detection <= 1.0 or not 0.0 <= acceptance <= 1.0:
             raise ValueError("Power curve rates must lie in [0, 1].")
+        if expected_mode is not None:
+            if "inject_mode" not in row:
+                raise ValueError(
+                    "Power curve is missing inject_mode provenance required for "
+                    f"the {expected_mode!r} target-component claim."
+                )
+            observed_mode = str(row["inject_mode"]).strip().lower()
+            if observed_mode != expected_mode:
+                raise ValueError(
+                    "Power curve injection component does not match the target: "
+                    f"expected {expected_mode!r}, observed {observed_mode!r}."
+                )
         parsed.append((mu, detection, acceptance, n_windows))
 
     parsed.sort(key=lambda item: item[0])
@@ -113,6 +134,8 @@ def assess_power_curve(
         reasons.append("strong_signal_acceptance_below_minimum")
     if detection_gain < float(power_gain_min):
         reasons.append("detection_gain_below_minimum")
+    if any(acceptance > detection + 1e-12 for _, detection, acceptance, _ in parsed):
+        reasons.append("acceptance_exceeds_detection")
 
     detection_rates = [item[1] for item in parsed]
     acceptance_rates = [item[2] for item in parsed]

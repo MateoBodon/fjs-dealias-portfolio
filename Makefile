@@ -33,12 +33,15 @@ test-slow:
 test-all:
 	pytest -m "unit or integration"
 
-.PHONY: check-data-policy validate-runlogs project-state-audit-bundle ai-os-review-bundle
+.PHONY: check-data-policy validate-runlogs detector-reference-gate project-state-audit-bundle ai-os-review-bundle
 check-data-policy:
 	python3 scripts/check_data_policy.py
 
 validate-runlogs:
 	python3 tools/agentic/validate_runlog.py --all --repo .
+
+detector-reference-gate:
+	PYTHONPATH=src:. python3 tools/check_fjs_reference.py
 
 project-state-audit-bundle:
 	python3 tools/agentic/ai_os_bundle.py --profile project_state_audit

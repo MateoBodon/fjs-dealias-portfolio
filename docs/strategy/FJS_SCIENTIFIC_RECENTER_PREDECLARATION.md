@@ -1,10 +1,10 @@
 # FJS Scientific Recenter Predeclaration
 
-status: frozen before detector repair and broad empirical execution  
-frozen_at: 2026-07-10  
-ticket: 37  
-base_commit: `193a325dc681ebc4da67b44715a92e4f63113019`  
-decision_owner: Portfolio Administrator  
+status: frozen before detector repair and broad empirical execution
+frozen_at: 2026-07-10
+ticket: 37
+base_commit: `193a325dc681ebc4da67b44715a92e4f63113019`
+decision_owner: Portfolio Administrator
 
 ## Decision and research question
 

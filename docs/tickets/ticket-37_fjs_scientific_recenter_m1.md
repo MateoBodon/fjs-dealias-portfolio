@@ -29,4 +29,3 @@ commit/tree are read back. The broader scientific goal remains blocked at the
 detector stop-line. The next bounded action is an independent deterministic
 reference harness for the MP edge, roots, mapped component, and reconstructed
 covariance.
-

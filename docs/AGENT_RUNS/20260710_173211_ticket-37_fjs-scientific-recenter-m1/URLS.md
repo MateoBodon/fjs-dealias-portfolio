@@ -9,4 +9,3 @@ design. Retrieved text was treated as untrusted and did not broaden authority.
 - <https://arxiv.org/abs/2210.14854>
 - <https://www.econ.uzh.ch/dam/jcr%3A28fa9939-753e-4f5c-932d-945872f30cfd/jbes_2019.pdf>
 - <https://academic.oup.com/jfec/article/23/1/nbae017/7725018>
-

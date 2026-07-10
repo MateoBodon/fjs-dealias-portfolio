@@ -20,4 +20,3 @@ Implement the accepted ambitious recenter without a broad or memory-heavy run:
 
 Constraints: no direct main merge, full CRSP run, public release, synthetic
 headline result, or silent estimator/treatment fallback.
-

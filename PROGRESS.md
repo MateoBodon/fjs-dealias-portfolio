@@ -1,4 +1,23 @@
 ## Done
+- 2026-07-10: Ticket 37 FJS scientific recenter milestone 1 on
+  `portfolio/fjs-recenter-m1-20260710`, base
+  `193a325dc681ebc4da67b44715a92e4f63113019`, implementation commit
+  `8384e8bdbc9ba4b73530cd5b1f9e4ba98e176fa3`, tree
+  `7e4bbc92502c0be96b442e7670f23237578837a6`. Froze the detector/data/baseline/
+  holdout/claim contract; removed alphabetical `assets_top`; made
+  `fjs`/`coarse`/`oracle`/`sham` provenance and unknown estimator failure
+  explicit; restored only the hash-bound Ticket 24 detector reference. Tests:
+  `make test-fast` (`97 passed, 178 deselected, 1 xfailed`),
+  `pytest -m 'unit or integration' -q` (112 collected, one intentional strict
+  XFAIL), 78-test focused surface pass, changed-path Ruff F/E9 pass,
+  `make validate-runlogs` pass, and canonical SSD `make check-data-policy`
+  pass. An unrelated fallback-loader fixture failure reproduced unchanged at
+  the pinned base. No broad/CRSP-scale run or review bundle was made. Artifacts:
+  `docs/strategy/FJS_SCIENTIFIC_RECENTER_PREDECLARATION.md`,
+  `docs/artifacts/detector-contract-reference/ticket24_week_full_fix/`, and
+  `docs/agent_runs/20260710_173211_ticket-37_fjs-scientific-recenter-m1/`.
+  Remaining stop-line: the flat-zero historical curve; next action is the
+  deterministic independent MP-edge/root/component/reconstruction harness.
 - 2026-07-03: T-000 AI Project OS v2 install, pre-v2 doc archive, state-audit bundle, and review bundle. Added canonical strategy docs under `docs/strategy/`, T-000/template tickets under `docs/tickets/`, v2 state docs under `project_state/`, archive index/manifest under `docs/_archive/pre_ai_os_v2/20260703/`, and bundle tooling `tools/agentic/ai_os_bundle.py`. T-000 run log: `reports/_runs/20260703_132437_T-000_install_ai_project_os_v2/`. Bundles: `reports/_bundles/20260703_132437_repo_project-state_initial.zip`, `reports/_bundles/20260703_132437_repo_review_T-000.zip`. Validation recorded in run log.
 - 2026-07-02: forensic recovery of T-012 daily DoW evidence onto current GitHub base `f73d8acecfcdd19917d0d0d9e25911cfcf02b54d`. Restored T-012 ticket/configs, migrated the T-012 run log to `docs/agent_runs/20260331_230430_t-012/`, curated small summary surfaces under `docs/artifacts/rc-t-012/summary/`, and preserved the full heavy artifact tree local-only at `/Volumes/Storage/Projects/fjs/_recovery/recovered_artifacts/rc-t-012`. The original T-012 review failure remains an audit/monitoring failure, not scientific artifact corruption. Recommended next ticket: T-013 ratification plus reusable long-run monitoring.
 - 2026-02-12: ticket-27 runlog schema alignment + audit evidence completion (`META.json` canonical in docs/tooling, ticket-27 audit run gets missing `META.json`, follow-up run log included, bundle gate requires `META.json`). Tests: `. .venv/bin/activate && make validate-runlogs`; `. .venv/bin/activate && make test-fast`. Artifacts: `docs/agent_runs/20260212_230317_ticket-27_runlog-meta-json-alignment/`; ticket-27 bundle refresh: `artifacts/_local/gpt_bundles/20260213_214859_ticket-27_20260128_014550_ticket-27_runlog-audit-fix.zip`.

@@ -15,7 +15,7 @@ Priority order as of 2026-07-10:
 
 ## Ticket #37 — FJS scientific recenter milestone 1
 
-**Status:** LOCALLY VALIDATED; scoped branch checkpoint/readback reported at handoff
+**Status:** DONE for milestone 1; remote checkpoint readback reported at handoff
 
 **Goal (1 sentence):** Freeze a first-principles, real-data flagship design and
 make the code fail closed on universe, estimator, and candidate provenance

@@ -1,0 +1,99 @@
+# Project OS configuration. This is policy, not a per-run prompt.
+schema_version = 3
+project_name = "fjs"
+# 0 disables age-only churn. Event/Git/body changes still invalidate instantly;
+# adapters with expiring external observations should set their own freshness.
+state_stale_after_hours = 0
+default_risk = "medium"
+
+[authority]
+# This local prototype records the full taxonomy but enforces only local
+# lifecycle/validation rules. It has no connected-action policy evaluator.
+# A0 read-only; A1 local reversible; A2 bounded external under a standing rule;
+# A3 external/public under a standing rule or confirmation; A4 irreversible or
+# high-impact under focused confirmation/current capped standing authorization.
+standing_tier = "A1"
+standing_rule_refs = []
+
+[validation]
+default_profile = "standard"
+minimum_success_gate_risk = "medium"
+env_allowlist = []
+max_output_bytes = 1000000
+input_files = [
+  "PROJECT.md",
+  "AGENTS.md",
+  "Makefile",
+  "pyproject.toml",
+  "pytest.ini",
+  "calibration_defaults.json",
+  "data/registry.json",
+  "data/factors/registry.json",
+]
+# Optional bounded content roots for projects whose material source/config/test
+# files cannot be represented by at most 100 individual input_files entries.
+# Example: input_trees = [{path = "src", suffixes = [".py"]}]
+input_trees = [
+  {path = "src", suffixes = [".py"]},
+  {path = "experiments", suffixes = [".py", ".yaml", ".yml", ".json"]},
+  {path = "tests", suffixes = [".py"]},
+  {path = "calibration", suffixes = [".json", ".yaml", ".yml"]},
+  {path = "tools", suffixes = [".py"]},
+  {path = "scripts", suffixes = [".py", ".sh"]},
+  {path = "docs/strategy", suffixes = [".md"]},
+  {path = "project_state", suffixes = [".md", ".json"]},
+]
+
+[validation.risk_map]
+low = "quick"
+medium = "standard"
+high = "strict"
+critical = "strict"
+
+# Built-in integrity checks always run. Add project-native commands once here;
+# agents then use them automatically without rewriting prompts.
+# `supervised` permits only the initial executable family plus listed child
+# basenames and tracks them across process groups/sessions. `forbid` requires an
+# available OS no-fork backend (currently macOS sandbox-exec).
+[validation.profiles.quick]
+risk_level = "low"
+timeout_seconds = 180
+stop_on_failure = true
+trusted_shell = false
+descendant_policy = "supervised"
+allowed_descendant_executables = ["same-executable", "git"]
+commands = [
+  [".venv/bin/python", "-m", "pytest", "-m", "unit", "-q"],
+]
+proves = ["Project OS integrity and deterministic unit behavior at the recorded code, config, test, strategy, and state input fingerprint"]
+limits = ["Does not validate integration behavior, detector calibration, real-data provenance, or empirical research claims"]
+
+[validation.profiles.standard]
+risk_level = "medium"
+timeout_seconds = 600
+stop_on_failure = true
+trusted_shell = false
+descendant_policy = "supervised"
+allowed_descendant_executables = ["same-executable", "git"]
+commands = [
+  [".venv/bin/python", "-m", "pytest", "-m", "unit", "-q"],
+  [".venv/bin/python", "scripts/check_data_policy.py"],
+  [".venv/bin/python", "tools/agentic/validate_runlog.py", "--all", "--repo", "."],
+]
+proves = ["Project OS integrity, deterministic unit behavior, registered local-data identity, and native run-log validity at the recorded input fingerprint"]
+limits = ["Does not validate integration behavior or make any detector, covariance, portfolio-risk, novelty, or real-data performance claim"]
+
+[validation.profiles.strict]
+risk_level = "critical"
+timeout_seconds = 1800
+stop_on_failure = false
+trusted_shell = false
+descendant_policy = "supervised"
+allowed_descendant_executables = ["same-executable", "git"]
+commands = [
+  [".venv/bin/python", "-m", "pytest", "-m", "unit or integration", "-q"],
+  [".venv/bin/python", "scripts/check_data_policy.py"],
+  [".venv/bin/python", "tools/agentic/validate_runlog.py", "--all", "--repo", "."],
+]
+proves = ["Project OS integrity, native unit and integration behavior, registered local-data identity, and run-log validity at the exact recorded input fingerprint"]
+limits = ["Does not by itself validate detector calibration, leakage control, baseline fairness, literature novelty, or any headline empirical result; those require run-specific manifests, commands, artifacts, and evidence bindings"]

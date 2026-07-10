@@ -65,3 +65,7 @@ data/**/*.parquet.xz
 
 # Local paper materials
 Paper and Project Context/
+
+# PROJECT-OS-V3:GENERATED-IGNORE:START
+/STATE.md
+# PROJECT-OS-V3:GENERATED-IGNORE:END

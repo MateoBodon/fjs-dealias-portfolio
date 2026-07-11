@@ -1,6 +1,6 @@
 # FJS M4 Execution Readiness
 
-status: v4 bounded realistic-design contract passed; full derivation and external execution blocked
+status: v4 full monthly fixture passed provenance and failed flagship geometry; outcomes and AWS held
 as_of: 2026-07-11
 active_goal: `goal_71e41ee4ddc6`
 
@@ -35,6 +35,14 @@ active_goal: `goal_71e41ee4ddc6`
   gates, source/cell aggregate digests, and an independent final readback that
   rehashes all sources, cells, factors, and the final manifest. Its synthetic
   72-source/72-cell contract suite passes without deriving real full cells.
+- The real v4 monthly generation is complete at exactly 72/72 cells, and an
+  independent replay rehashed every source, factor, cell, and final manifest.
+  The compact aggregate receipt publishes those identities without placing
+  restricted or derived cell artifacts in Git.
+- Aggregate scientific QA fails the flagship geometry boundary: every cell has
+  zero missingness, residual windows contain only 9-13 trading dates, and the
+  resulting between/within degrees of freedom are only 1-2 and 6-10. V4 is a
+  provenance-valid monthly fixture, not the frozen 156-week real-design corpus.
 
 ## Stop-line blockers
 
@@ -44,10 +52,12 @@ WRDS login is no longer an input-acquisition blocker: all 72 required monthly
 2013-2018 partitions and status-ok receipts are already on disk. The remaining
 stop-lines are:
 
-1. run and reduce the full successor v4 generation across those 72 partitions;
-   the one-partition proof is not the full realistic-design cell set;
-2. a consumed trusted route admission;
-3. a fresh AWS launch admission and authoritative cost receipt.
+1. freeze and pass an additive v5 rolling 156-week coverage/geometry contract
+   using local 2010-2012 warm-up plus 2013-2018 development; v4's completed
+   monthly fixture is scientifically too short and too complete;
+2. a consumed trusted route admission for any covered full detector run;
+3. a fresh AWS launch admission and authoritative cost receipt for external
+   execution.
 
 The current trusted `route-plan` returns no exact project/goal task envelope.
 Quota diagnostics or general AWS standing authority do not replace that
@@ -55,16 +65,16 @@ missing admission.
 
 ## Next executable sequence
 
-1. The portfolio memory-heavy lane is now available. Derive the full
-   development-only realistic-design cell set locally from 2013-2018 and keep
-   2025 unopened. Each source file and derived cell must retain exact hash
-   readback and register atomically before the next month starts.
-2. Freeze and validate a full successor v4 manifest generation. Do not edit v2
-   or v3 in place, and do not infer that the legacy ticker CSV came from these
-   newer receipts.
-3. Obtain a current `c7i.16xlarge` price and perform a stratified full-shape
-   timing benchmark. Require July actual plus planned incremental cost to remain
-   within the active `$250` account boundary.
+1. Freeze additive v5 before derivation: rolling 156-week windows, monthly or
+   non-overlapping endpoints, point-in-time top-60 eligibility, natural
+   missingness, and explicit coverage/aspect/group-geometry acceptance gates.
+2. Implement and pass a bounded return-free v5 geometry proof using only local
+   2010-2012 warm-up and 2013-2018 development. Do not reinterpret v4 as
+   flagship evidence or edit v2-v4 in place.
+3. Only after v5 coverage proof passes, obtain a current `c7i.16xlarge` price
+   and perform a stratified full-shape timing benchmark. Require July actual
+   plus planned incremental cost to remain within the active `$250` account
+   boundary.
 4. Only after authoritative admission, launch from
    `project-os-general-worker-v1` with profile `portfolio-admin`, SSM-only
    access, no inbound rules, encrypted storage, and tags `Project`, `RunId`,
@@ -92,6 +102,25 @@ missing admission.
 No AWS command or full calibration outcome is authorized while the v3
 readiness flags remain false.
 
+## Exact v4 full monthly-fixture receipts
+
+- Final checkpoint digest:
+  `bff252e8f569c531be2c0161f6d3c5802481bfa68c7e091904420d19a544b14e`.
+- Full manifest file SHA-256:
+  `1dec6b53c32ac98e56f4dd3521593d30d317af30e5d0e818a2d17f0e5cad6a61`.
+- Manifest digest:
+  `c22a7dc7dbb6b35af938e35f55f2d6935786ac5b74ee3c1e935622563574a32e`.
+- Source-set digest:
+  `d43d35d04dfd11fb11697244de0a3cebf14957df359c55173db9bd64152caea4`.
+- Cell-set digest:
+  `c93a41d97d1f9bb7222ca87ced3119be83df23e312d4ac23222fda05efe10999`.
+- Independent readback digest:
+  `a9e5a171b7ac4bea99a2481fe642e04dfa7f3fab8733163c446fd34ea2c1bc62`.
+
+These receipts prove byte identity and complete monthly provenance. The QA
+failure above prevents any flagship scientific claim or detector/AWS outcome
+from this generation.
+
 ## Exact v4 bounded-proof receipts
 
 - CRSP January 2013 source SHA-256:
@@ -112,4 +141,5 @@ detector size/power, empirical performance, or promotion evidence.
 The full-generation finalizer contract is documented in
 `docs/strategy/FJS_M4_V4_FULL_GENERATION_CONTRACT.md`. At contract freeze time
 there is no real 72-month final manifest or readback receipt; synthetic tests
-prove the finalizer mechanics only.
+proved the finalizer mechanics only. The later real generation and its failed
+flagship geometry classification are recorded in the aggregate receipt.

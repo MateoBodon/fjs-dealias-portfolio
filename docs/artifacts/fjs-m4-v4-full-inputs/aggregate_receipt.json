@@ -1,0 +1,69 @@
+{
+  "schema": "fjs-m4-v4-full-input-aggregate-receipt/v1",
+  "generation_id": "fjs-m4-v4-real-design-2013-2018-g1",
+  "run_root": "/Volumes/Storage/Projects/fjs/_runs/fjs_m4_v4_real_design_20260711T201145Z",
+  "coverage": {
+    "first_month": "2013-01",
+    "last_month": "2018-12",
+    "month_count": 72,
+    "universe_size_each": 60,
+    "unique_permnos": 94
+  },
+  "provenance": {
+    "checkpoint_digest": "bff252e8f569c531be2c0161f6d3c5802481bfa68c7e091904420d19a544b14e",
+    "manifest_file_sha256": "1dec6b53c32ac98e56f4dd3521593d30d317af30e5d0e818a2d17f0e5cad6a61",
+    "manifest_digest": "c22a7dc7dbb6b35af938e35f55f2d6935786ac5b74ee3c1e935622563574a32e",
+    "source_set_digest": "d43d35d04dfd11fb11697244de0a3cebf14957df359c55173db9bd64152caea4",
+    "cell_set_digest": "c93a41d97d1f9bb7222ca87ced3119be83df23e312d4ac23222fda05efe10999",
+    "readback_digest": "a9e5a171b7ac4bea99a2481fe642e04dfa7f3fab8733163c446fd34ea2c1bc62",
+    "readback_byte_replay_passed": true,
+    "rows_scanned": 10834723,
+    "rows_after_filters": 4743587,
+    "exact_duplicate_rows_collapsed": 423,
+    "cell_artifact_bytes": 5931637
+  },
+  "geometry_qa": {
+    "missing_fraction_mean": 0.0,
+    "missing_fraction_max": 0.0,
+    "zero_missing_cells": 72,
+    "residual_window_dates_min": 9,
+    "residual_window_dates_median": 11.0,
+    "residual_window_dates_max": 13,
+    "between_degrees_of_freedom_min": 1,
+    "between_degrees_of_freedom_max": 2,
+    "within_degrees_of_freedom_min": 6,
+    "within_degrees_of_freedom_median": 8.0,
+    "within_degrees_of_freedom_max": 10,
+    "month_to_month_turnover_mean": 0.02347417840375589,
+    "month_to_month_turnover_median": 0.01666666666666672,
+    "month_to_month_turnover_max": 0.06666666666666665
+  },
+  "lineage": [
+    {
+      "cell_count": 15,
+      "git_head": "9a580f2172e9806d96121e94731a1a340e5d0fe0",
+      "git_tree": "a0d2dfac20e39727faa1c919f0d2cf1f083abd81"
+    },
+    {
+      "cell_count": 57,
+      "git_head": "50401586409bef2ba3fcfd21b2906e6bb525aff7",
+      "git_tree": "400542516595e486320eba220d49149b27fdebd7"
+    }
+  ],
+  "repair_migration": {
+    "source_checkpoint_digest": "7aa35dfe2719ec1923f23e1e9a2874cf5465c150741dc5f6067a84d5f6a121e6",
+    "migrated_checkpoint_digest": "b828e539ca3d8f3c14ab9d07b9c4ce5f5318ba0dbcb60167285368899585ac6e",
+    "revalidated_cell_count": 15,
+    "migration_digest": "0f57a24d9e6fc99d5b85f65193e24031ba52f8f92b9cf001e28d290149fc6d1c",
+    "prior_cell_core_set_sha256": "2def914231a3cddc0b914806dcafa9f46261cccb0fde0129f2a4f7a791a35458"
+  },
+  "classification": {
+    "provenance_valid_monthly_fixture": true,
+    "flagship_real_design_geometry_adequate": false,
+    "reason": "All cells have zero natural missingness and only 9-13 residual dates, versus the frozen 156-week flagship geometry.",
+    "detector_outcomes_authorized": false,
+    "aws_execution_authorized": false,
+    "holdout_2025_opened": false
+  },
+  "artifact_policy": "Raw inputs, cells, checkpoint, full manifest, and readback stay outside Git; this compact receipt publishes their exact aggregate identities and QA boundary."
+}

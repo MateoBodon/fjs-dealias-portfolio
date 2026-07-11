@@ -940,3 +940,22 @@
 - **Next action**: publish this frozen contract, then use the newly released
   sole memory-heavy lane for the full local restart-safe 2013-2018 input
   derivation. Do not run detector outcomes.
+
+## 2026-07-11T20:25Z - ticket-37 M4 v4 full monthly fixture and QA stop
+
+- **Complete provenance**: finalized 72/72 unique monthly cells from 2013-01
+  through 2018-12 after scanning 10,834,723 receipted CRSP rows. Independent
+  readback passed with manifest SHA `1dec6b53...`, source-set `d43d35d0...`,
+  cell-set `c93a41d9...`, and readback `a9e5a171...`.
+- **Fail-closed repair**: April 2014 exposed a high-cap name with insufficient
+  factor history. Eligibility now applies frozen fit and window floors before
+  the unchanged cap rank. All 15 prior cell cores replayed exactly; an explicit
+  checkpoint migration revalidated them before resuming the remaining 57.
+- **Critical QA result**: all 72 cells have zero missingness and only 9-13
+  residual dates, with 1-2 between and 6-10 within degrees of freedom. This is
+  a provenance-valid monthly fixture but fails the predeclared flagship
+  156-week realistic-design geometry.
+- **Decision**: no v4 detector outcomes and no AWS spend. Open additive v5 and
+  freeze rolling 156-week coverage/geometry using local 2010-2012 warm-up plus
+  2013-2018 development, point-in-time top-60 membership, and natural
+  missingness. Keep 2025 unopened.

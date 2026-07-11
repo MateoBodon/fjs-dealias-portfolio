@@ -1,0 +1,193 @@
+{
+  "aws_execution_authorized": false,
+  "balanced_control": {
+    "all_computed_gate_results": {
+      "calendar_dates_min": true,
+      "calendar_week_count_exact": true,
+      "complete_balanced_weeks_min": true,
+      "natural_missing_cells_min": false,
+      "observations_per_asset_min": true,
+      "observed_assets_per_date_min": true,
+      "pairwise_observations_min": true,
+      "panel_missing_fraction_max": true,
+      "selected_assets_exact": true,
+      "target_between_aspect_ratio_below_one": true,
+      "target_boundary_finite_positive": true
+    },
+    "geometry_metrics": {
+      "between_aspect_ratio": 0.38064516129032255,
+      "between_degrees_of_freedom": 155,
+      "complete_balanced_groups": 128,
+      "eligible_candidate_count": 2288,
+      "group_size_histogram": {
+        "3": 1,
+        "4": 27,
+        "5": 128
+      },
+      "missing_cells": 0,
+      "missing_fraction": 0.0,
+      "n_dates": 751,
+      "n_groups": 156,
+      "observations_per_asset_distribution": {
+        "max": 751.0,
+        "median": 751.0,
+        "min": 751.0,
+        "q25": 751.0,
+        "q75": 751.0
+      },
+      "observations_per_asset_min": 751,
+      "observed_assets_per_date_distribution": {
+        "max": 60.0,
+        "median": 60.0,
+        "min": 60.0,
+        "q25": 60.0,
+        "q75": 60.0
+      },
+      "observed_assets_per_date_min": 60,
+      "p_assets": 60,
+      "pairwise_observations_distribution": {
+        "max": 751.0,
+        "median": 751.0,
+        "min": 751.0,
+        "q25": 751.0,
+        "q75": 751.0
+      },
+      "pairwise_observations_min": 751,
+      "within_aspect_ratio": 0.09915966386554621,
+      "within_degrees_of_freedom": 595
+    },
+    "required_gate_results": {
+      "calendar_dates_min": true,
+      "calendar_week_count_exact": true,
+      "complete_balanced_weeks_min": true,
+      "observations_per_asset_min": true,
+      "observed_assets_per_date_min": true,
+      "pairwise_observations_min": true,
+      "panel_missing_fraction_max": true,
+      "selected_assets_exact": true,
+      "target_between_aspect_ratio_below_one": true,
+      "target_boundary_finite_positive": true
+    },
+    "role_passed": true,
+    "target_boundary_feasibility": {
+      "between_aspect_ratio": 0.4645669291338583,
+      "between_degrees_of_freedom": 127,
+      "boundary_kind": "population_between_covariance_eigenvalue",
+      "bulk_dimension": 59,
+      "complete_balanced_groups": 128,
+      "finite_positive": true,
+      "p_assets": 60,
+      "population_eigenvalue_boundary": 0.15228936983701238,
+      "predeclared_power_spike": 0.2284340547555186,
+      "replicates": 5,
+      "sha256": "fdc6eaa0847af4147accafb1ea23a2f72bdffa90190df8c06c48df2fdb6d8376",
+      "target_rank": 1,
+      "within_aspect_ratio": 0.115234375,
+      "within_degrees_of_freedom": 512
+    }
+  },
+  "coverage_proof_passed": true,
+  "detector_outcomes_present": false,
+  "endpoint_month": "2013-01",
+  "exact_duplicates_collapsed": 233,
+  "full_72_endpoint_derivation_run": false,
+  "holdout_2025_opened": false,
+  "manifest_digest": "b57b425c0c147080791091d1247497aeede2d43a666ecc82580c21b3e8498058",
+  "manifest_file_sha256": "4612db4bcbdfe172a2b2383be1d03eb5ef2d4c2857e192a267e0a8cdd2059d50",
+  "manifest_path": "/Volumes/Storage/Projects/fjs/_runs/fjs_m7_two_stratum_geometry_20260711T234136Z/aggregate_manifest.json",
+  "missingness_stress": {
+    "geometry_metrics": {
+      "between_aspect_ratio": 0.38064516129032255,
+      "between_degrees_of_freedom": 155,
+      "complete_balanced_groups": 91,
+      "eligible_candidate_count": 60,
+      "group_size_histogram": {
+        "3": 1,
+        "4": 27,
+        "5": 128
+      },
+      "missing_cells": 440,
+      "missing_fraction": 0.009764758100310697,
+      "n_dates": 751,
+      "n_groups": 156,
+      "observations_per_asset_distribution": {
+        "max": 751.0,
+        "median": 751.0,
+        "min": 678.0,
+        "q25": 750.0,
+        "q75": 751.0
+      },
+      "observations_per_asset_min": 678,
+      "observed_assets_per_date_distribution": {
+        "max": 60.0,
+        "median": 60.0,
+        "min": 57.0,
+        "q25": 59.0,
+        "q75": 60.0
+      },
+      "observed_assets_per_date_min": 57,
+      "p_assets": 60,
+      "pairwise_observations_distribution": {
+        "max": 751.0,
+        "median": 751.0,
+        "min": 615.0,
+        "q25": 733.0,
+        "q75": 751.0
+      },
+      "pairwise_observations_min": 615,
+      "within_aspect_ratio": 0.09915966386554621,
+      "within_degrees_of_freedom": 595
+    },
+    "required_gate_results": {
+      "calendar_dates_min": true,
+      "calendar_week_count_exact": true,
+      "complete_balanced_weeks_min": true,
+      "natural_missing_cells_min": true,
+      "observations_per_asset_min": true,
+      "observed_assets_per_date_min": true,
+      "pairwise_observations_min": true,
+      "panel_missing_fraction_max": true,
+      "selected_assets_exact": true,
+      "target_between_aspect_ratio_below_one": true,
+      "target_boundary_finite_positive": true
+    },
+    "role_passed": true,
+    "selection_aggregates": {
+      "capacity_eligible_candidate_count": 2244,
+      "formation_current_candidate_count": 2288,
+      "natural_missing_candidate_count": 94,
+      "selected_max_missing_names_per_date": 3,
+      "selected_missing_fraction": 0.009764758100310697,
+      "selected_naturally_incomplete_names": 17,
+      "selected_total_missing_cells": 440,
+      "selection_digest": "0bcf642eeccbb8c1b406102a0f8a98bc906639ccee73a4337f6c14a98a39750a",
+      "source_seasoned_candidate_count": 2288
+    },
+    "target_boundary_feasibility": {
+      "between_aspect_ratio": 0.6555555555555556,
+      "between_degrees_of_freedom": 90,
+      "boundary_kind": "population_between_covariance_eigenvalue",
+      "bulk_dimension": 59,
+      "complete_balanced_groups": 91,
+      "finite_positive": true,
+      "p_assets": 60,
+      "population_eigenvalue_boundary": 0.18084728006176568,
+      "predeclared_power_spike": 0.2712709200926485,
+      "replicates": 5,
+      "sha256": "ddb8742f96a60c730a7803fb65654c52c4d476193ec498fee18a1a0722a56f9c",
+      "target_rank": 1,
+      "within_aspect_ratio": 0.1620879120879121,
+      "within_degrees_of_freedom": 364
+    }
+  },
+  "proof_digest": "4f1ffbd91553a5d61fcd338e2b4cbca94d3839d530c744eb122bad686fffa61f",
+  "proof_file_sha256": "df85fc05155eba956531b22462b6dfedf1673853a5838ed192e1966f1c2954a7",
+  "proof_path": "/Volumes/Storage/Projects/fjs/_runs/fjs_m7_two_stratum_geometry_20260711T234136Z/detailed_proof.json",
+  "readback_digest": "e407343d94c95c409a1e4702242001066b69577f7d1e25d41daf9215e99a0188",
+  "readback_passed": true,
+  "return_values_persisted": false,
+  "rows_after_filters": 2264725,
+  "rows_scanned": 5112121,
+  "schema": "fjs-two-stratum-geometry-readback/v1",
+  "source_partition_count": 36
+}

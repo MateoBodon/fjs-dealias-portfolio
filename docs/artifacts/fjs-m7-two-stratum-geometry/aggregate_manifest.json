@@ -1,0 +1,334 @@
+{
+  "aws_execution_authorized": false,
+  "balanced_control": {
+    "all_computed_gate_results": {
+      "calendar_dates_min": true,
+      "calendar_week_count_exact": true,
+      "complete_balanced_weeks_min": true,
+      "natural_missing_cells_min": false,
+      "observations_per_asset_min": true,
+      "observed_assets_per_date_min": true,
+      "pairwise_observations_min": true,
+      "panel_missing_fraction_max": true,
+      "selected_assets_exact": true,
+      "target_between_aspect_ratio_below_one": true,
+      "target_boundary_finite_positive": true
+    },
+    "geometry_metrics": {
+      "between_aspect_ratio": 0.38064516129032255,
+      "between_degrees_of_freedom": 155,
+      "complete_balanced_groups": 128,
+      "eligible_candidate_count": 2288,
+      "group_size_histogram": {
+        "3": 1,
+        "4": 27,
+        "5": 128
+      },
+      "missing_cells": 0,
+      "missing_fraction": 0.0,
+      "n_dates": 751,
+      "n_groups": 156,
+      "observations_per_asset_distribution": {
+        "max": 751.0,
+        "median": 751.0,
+        "min": 751.0,
+        "q25": 751.0,
+        "q75": 751.0
+      },
+      "observations_per_asset_min": 751,
+      "observed_assets_per_date_distribution": {
+        "max": 60.0,
+        "median": 60.0,
+        "min": 60.0,
+        "q25": 60.0,
+        "q75": 60.0
+      },
+      "observed_assets_per_date_min": 60,
+      "p_assets": 60,
+      "pairwise_observations_distribution": {
+        "max": 751.0,
+        "median": 751.0,
+        "min": 751.0,
+        "q25": 751.0,
+        "q75": 751.0
+      },
+      "pairwise_observations_min": 751,
+      "within_aspect_ratio": 0.09915966386554621,
+      "within_degrees_of_freedom": 595
+    },
+    "required_gate_results": {
+      "calendar_dates_min": true,
+      "calendar_week_count_exact": true,
+      "complete_balanced_weeks_min": true,
+      "observations_per_asset_min": true,
+      "observed_assets_per_date_min": true,
+      "pairwise_observations_min": true,
+      "panel_missing_fraction_max": true,
+      "selected_assets_exact": true,
+      "target_between_aspect_ratio_below_one": true,
+      "target_boundary_finite_positive": true
+    },
+    "role_passed": true,
+    "target_boundary_feasibility": {
+      "between_aspect_ratio": 0.4645669291338583,
+      "between_degrees_of_freedom": 127,
+      "boundary_kind": "population_between_covariance_eigenvalue",
+      "bulk_dimension": 59,
+      "complete_balanced_groups": 128,
+      "finite_positive": true,
+      "p_assets": 60,
+      "population_eigenvalue_boundary": 0.15228936983701238,
+      "predeclared_power_spike": 0.2284340547555186,
+      "replicates": 5,
+      "sha256": "fdc6eaa0847af4147accafb1ea23a2f72bdffa90190df8c06c48df2fdb6d8376",
+      "target_rank": 1,
+      "within_aspect_ratio": 0.115234375,
+      "within_degrees_of_freedom": 512
+    }
+  },
+  "contract": {
+    "aws_execution_authorized": false,
+    "base_v5_contract_sha256": "d7a31a34b1611d6c41e69467569bbebb1f98b71fe58109eaef831670d46f94d3",
+    "base_v6_contract_sha256": "0b071d491fe489b3cf33365f07d8c31b9c32a63b59ea09c57c12ae24502b1656",
+    "contract_id": "fjs-m7-two-stratum-geometry-v1",
+    "detector_outcomes_present": false,
+    "holdout_2025_opened": false,
+    "method_change": {
+      "balanced_control": {
+        "exception_reason": "natural missingness is measured in the separate stress stratum",
+        "purpose": "balanced_real_geometry_control",
+        "required_gate_exception": "natural_missing_cells_min",
+        "source": "unchanged_m6_seasoned_point_in_time_top_60"
+      },
+      "geometry_result_used_to_set_selection_rule": false,
+      "missingness_stress": {
+        "candidate_order": [
+          "natural_missingness_first",
+          "missing_cells_descending",
+          "lagged_market_cap_descending",
+          "permno_ascending"
+        ],
+        "candidate_pool": "same_m6_seasoned_eligible_names",
+        "formation_recency_days_max": 10,
+        "natural_missing_cells_min": 1,
+        "per_asset_missing_cap_formula": "floor(calendar_dates * frozen_panel_cap)",
+        "per_date_missing_capacity_formula": "universe_size - frozen_minimum_observed_assets_per_date",
+        "point_in_time": true,
+        "selection": "greedily_accept_in_frozen_order_if_per_date_and_total_missing_capacities_remain_satisfied_then_stop_at_60",
+        "total_missing_capacity_formula": "floor(calendar_dates * universe_size * frozen_panel_cap)"
+      },
+      "name": "role_separated_balanced_control_and_missingness_stress",
+      "one_universe_required_to_be_both_complete_and_incomplete": false
+    },
+    "role_gate_policy": {
+      "balanced_control": "all unchanged v5 computed gates except natural_missing_cells_min",
+      "future_detector_claim": "both strata must pass without pooled rescue",
+      "missingness_stress": "all unchanged v5 computed gates"
+    },
+    "sha256": "73adfe345816497013c211e8f648bbb2b075b52eb0255c7bc696fe3bdfb5362d",
+    "unchanged_coverage_gates": {
+      "calendar_dates_min": 720,
+      "calendar_week_count_exact": 156,
+      "complete_balanced_weeks_min": 78,
+      "natural_missing_cells_min": 1,
+      "observations_per_asset_min": 390,
+      "observed_assets_per_date_min": 57,
+      "pairwise_observations_min": 500,
+      "panel_missing_fraction_max": 0.1,
+      "selected_assets_exact": 60
+    },
+    "unchanged_endpoint_month": "2013-01",
+    "unchanged_headline_calibration_claim": {
+      "claim_id": "fjs-m5-headline-calibration-claim-v1",
+      "fjs_only_required": true,
+      "headline_success_policy": "all_frozen_geometry_strata_must_pass",
+      "holdout_2025_opened": false,
+      "invariance_required": [
+        "standardized_rescaling",
+        "deterministic_row_order",
+        "asset_permutation_with_direction_mapback",
+        "group_label_permutation"
+      ],
+      "null_gate": {
+        "exact_95pct_interval_must_contain_nominal": true,
+        "exact_95pct_upper_bound_max": 0.075,
+        "nominal_rate": 0.05
+      },
+      "outcomes_observed_when_frozen": false,
+      "planted_gate": {
+        "acceptance_rate_min": 0.8,
+        "detection_rate_min": 0.8,
+        "nuisance_component_attribution_max": 0.1,
+        "null_to_power_gain_min": 0.5,
+        "planted_component_attribution_min": 0.9,
+        "population_spike_multiple_of_boundary": 1.5,
+        "power_curve_nondecreasing": true,
+        "squared_cosine_min": 0.8
+      },
+      "scope": "Every frozen v5 development geometry stratum; no pooled rescue and no confirmation or holdout tuning.",
+      "sha256": "834345298783b9528bd489208bdd2a854e19ed7ac7ff86ee13a8b90baca40087"
+    }
+  },
+  "coverage_proof_passed": true,
+  "detector_outcomes_present": false,
+  "execution_identity": {
+    "bounded_endpoint_count": 1,
+    "branch": "portfolio/fjs-recenter-m1-20260710",
+    "full_72_endpoint_derivation_run": false,
+    "git_head": "f9ba6dda817aa9eeb949fc7d00081461ea9629b5",
+    "git_tree": "c152da3b804d7068b4a1d44cd58bb09220c24780",
+    "published_remote_commit": "fb5a9b0052ca1485649c32d4b16b7ed77f2919f8",
+    "stratum_count": 2
+  },
+  "full_72_endpoint_derivation_run": false,
+  "headline_calibration_claim": {
+    "claim_id": "fjs-m5-headline-calibration-claim-v1",
+    "fjs_only_required": true,
+    "headline_success_policy": "all_frozen_geometry_strata_must_pass",
+    "holdout_2025_opened": false,
+    "invariance_required": [
+      "standardized_rescaling",
+      "deterministic_row_order",
+      "asset_permutation_with_direction_mapback",
+      "group_label_permutation"
+    ],
+    "null_gate": {
+      "exact_95pct_interval_must_contain_nominal": true,
+      "exact_95pct_upper_bound_max": 0.075,
+      "nominal_rate": 0.05
+    },
+    "outcomes_observed_when_frozen": false,
+    "planted_gate": {
+      "acceptance_rate_min": 0.8,
+      "detection_rate_min": 0.8,
+      "nuisance_component_attribution_max": 0.1,
+      "null_to_power_gain_min": 0.5,
+      "planted_component_attribution_min": 0.9,
+      "population_spike_multiple_of_boundary": 1.5,
+      "power_curve_nondecreasing": true,
+      "squared_cosine_min": 0.8
+    },
+    "scope": "Every frozen v5 development geometry stratum; no pooled rescue and no confirmation or holdout tuning.",
+    "sha256": "834345298783b9528bd489208bdd2a854e19ed7ac7ff86ee13a8b90baca40087"
+  },
+  "holdout_2025_opened": false,
+  "implementation_bindings": {
+    "docs/strategy/FJS_M7_TWO_STRATUM_GEOMETRY_CONTRACT.md": {
+      "path": "docs/strategy/FJS_M7_TWO_STRATUM_GEOMETRY_CONTRACT.md",
+      "sha256": "f547b5e14a494cdbcda2b3bd450c929b6dc07122631f8f9550ece03a65bbf53c",
+      "size_bytes": 3000
+    },
+    "src/fjs/rolling_geometry_contract.py": {
+      "path": "src/fjs/rolling_geometry_contract.py",
+      "sha256": "675bf991dd47bd749e52764c8fe1335bbec16c910c05e2210ba26e048f04d5f5",
+      "size_bytes": 38775
+    },
+    "src/fjs/seasoned_geometry_contract.py": {
+      "path": "src/fjs/seasoned_geometry_contract.py",
+      "sha256": "1196929b1fca03bd5390afa9cabbd80d32952b17ff0fb5319f04e1ef70f1bd2c",
+      "size_bytes": 11766
+    },
+    "src/fjs/two_stratum_geometry_contract.py": {
+      "path": "src/fjs/two_stratum_geometry_contract.py",
+      "sha256": "0daf6e5e69190be42f874ae00a3318e0e524ad12a274b25b8c768ec46f35a798",
+      "size_bytes": 22439
+    },
+    "tools/freeze_fjs_m7_two_stratum_geometry.py": {
+      "path": "tools/freeze_fjs_m7_two_stratum_geometry.py",
+      "sha256": "7fb3486982dff4ac546d9b0fddfabcf5a81337368f755c1e989646a1c49267f2",
+      "size_bytes": 9050
+    }
+  },
+  "manifest_digest": "b57b425c0c147080791091d1247497aeede2d43a666ecc82580c21b3e8498058",
+  "missingness_stress": {
+    "geometry_metrics": {
+      "between_aspect_ratio": 0.38064516129032255,
+      "between_degrees_of_freedom": 155,
+      "complete_balanced_groups": 91,
+      "eligible_candidate_count": 60,
+      "group_size_histogram": {
+        "3": 1,
+        "4": 27,
+        "5": 128
+      },
+      "missing_cells": 440,
+      "missing_fraction": 0.009764758100310697,
+      "n_dates": 751,
+      "n_groups": 156,
+      "observations_per_asset_distribution": {
+        "max": 751.0,
+        "median": 751.0,
+        "min": 678.0,
+        "q25": 750.0,
+        "q75": 751.0
+      },
+      "observations_per_asset_min": 678,
+      "observed_assets_per_date_distribution": {
+        "max": 60.0,
+        "median": 60.0,
+        "min": 57.0,
+        "q25": 59.0,
+        "q75": 60.0
+      },
+      "observed_assets_per_date_min": 57,
+      "p_assets": 60,
+      "pairwise_observations_distribution": {
+        "max": 751.0,
+        "median": 751.0,
+        "min": 615.0,
+        "q25": 733.0,
+        "q75": 751.0
+      },
+      "pairwise_observations_min": 615,
+      "within_aspect_ratio": 0.09915966386554621,
+      "within_degrees_of_freedom": 595
+    },
+    "required_gate_results": {
+      "calendar_dates_min": true,
+      "calendar_week_count_exact": true,
+      "complete_balanced_weeks_min": true,
+      "natural_missing_cells_min": true,
+      "observations_per_asset_min": true,
+      "observed_assets_per_date_min": true,
+      "pairwise_observations_min": true,
+      "panel_missing_fraction_max": true,
+      "selected_assets_exact": true,
+      "target_between_aspect_ratio_below_one": true,
+      "target_boundary_finite_positive": true
+    },
+    "role_passed": true,
+    "selection_aggregates": {
+      "capacity_eligible_candidate_count": 2244,
+      "formation_current_candidate_count": 2288,
+      "natural_missing_candidate_count": 94,
+      "selected_max_missing_names_per_date": 3,
+      "selected_missing_fraction": 0.009764758100310697,
+      "selected_naturally_incomplete_names": 17,
+      "selected_total_missing_cells": 440,
+      "selection_digest": "0bcf642eeccbb8c1b406102a0f8a98bc906639ccee73a4337f6c14a98a39750a",
+      "source_seasoned_candidate_count": 2288
+    },
+    "target_boundary_feasibility": {
+      "between_aspect_ratio": 0.6555555555555556,
+      "between_degrees_of_freedom": 90,
+      "boundary_kind": "population_between_covariance_eigenvalue",
+      "bulk_dimension": 59,
+      "complete_balanced_groups": 91,
+      "finite_positive": true,
+      "p_assets": 60,
+      "population_eigenvalue_boundary": 0.18084728006176568,
+      "predeclared_power_spike": 0.2712709200926485,
+      "replicates": 5,
+      "sha256": "ddb8742f96a60c730a7803fb65654c52c4d476193ec498fee18a1a0722a56f9c",
+      "target_rank": 1,
+      "within_aspect_ratio": 0.1620879120879121,
+      "within_degrees_of_freedom": 364
+    }
+  },
+  "proof_cell": {
+    "cell_id": "fjs-two-stratum-geometry-2013-01-v7",
+    "coverage_proof_passed": true,
+    "proof_digest": "4f1ffbd91553a5d61fcd338e2b4cbca94d3839d530c744eb122bad686fffa61f"
+  },
+  "schema": "fjs-two-stratum-geometry-manifest/v1"
+}

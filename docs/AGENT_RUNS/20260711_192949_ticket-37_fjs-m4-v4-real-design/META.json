@@ -1,0 +1,33 @@
+{
+  "ticket": "ticket-37",
+  "run_name": "20260711_192949_ticket-37_fjs-m4-v4-real-design",
+  "git_sha_before": "b86d98f2a39457920cf9ae4428c2aef517a99e4a",
+  "git_sha_after": "ac5116eaacd8c13ec1aefcbe21018c8e8da27956",
+  "git_tree_after": "ff0b00cafdb73aa013090a43529990f1a6fff623",
+  "git_branch": "portfolio/fjs-recenter-m1-20260710",
+  "worktree": "/Volumes/Storage/Projects/fjs/worktrees/fjs-recenter-m1-20260710",
+  "dirty_at_start": true,
+  "dirty_at_end": true,
+  "resolved_config_paths": [
+    "calibration/manifests/fjs_m4_full_target_between_v3.json",
+    "src/fjs/real_design_contract.py",
+    "tools/freeze_fjs_m4_real_design_v4.py"
+  ],
+  "config_hashes": [
+    "0be2557e3cef75d871f3209f145ec0cd4bd9a5e0ca50b4ea632a234b72e00849"
+  ],
+  "dataset_ids": {
+    "crsp_partition": "month=2013-01",
+    "crsp_partition_sha256": "21bd0e46eacc37a8c33ab953da84935163b860481b3083b3f5e28c7cc7524167",
+    "receipt_manifest_sha256": "ea993595018676fcc53926a6f801b1ac6184b4ba6864b2175f3e09617918f4bf",
+    "bounded_cell_digest": "86defc680ab260565a12a7413acc3306779eded536a91a33c25b0bad04e18855",
+    "bounded_cell_file_sha256": "855d3a57673d2bee0ae40c06eb96268ee64dffd6039d6207da52c99d8896d208",
+    "bounded_manifest_file_sha256": "e2d2d9880dc9c5e4533085ce2b396ea6aa152043bed8aa82172c46d4865a3f39"
+  },
+  "broad_empirical_run": false,
+  "full_derivation_run": false,
+  "aws_launched": false,
+  "holdout_2025_opened": false,
+  "project_os_verification_run": "val_20260711T193751470372Z_d7eee6bb",
+  "status": "bounded_real_design_contract_verified"
+}

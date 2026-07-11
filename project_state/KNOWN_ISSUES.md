@@ -21,6 +21,15 @@ commands:
   licensed development-only realistic-design cells, a consumed trusted route,
   and fresh AWS admission/cost authority. The bounded v3 smoke is execution
   evidence only and is not size/power evidence.
+- **M4 v4 closes the realistic-design implementation contract, not the full
+  generation**: the bounded January 2013 proof exact-binds the CRSP receipt and
+  partition hash, frozen CIZ filters, PERMNO identity, lagged-cap selection,
+  past-only FF6 fit, missingness, group geometry, and residual covariance. The
+  full 72-partition 2013-2018 derivation has deliberately not run while another
+  portfolio lane owns the memory-heavy slot. V4 remains fail-closed on that
+  full generation, trusted route admission, and fresh AWS admission. The
+  legacy ticker CSV is neither an input nor inferred to descend from the newer
+  receipts, and 2025 remains unopened.
 - **The old headline universe is invalid**: `data/returns_daily.csv` lacks PERMNO/security-filter provenance and the former `assets_top` behavior selected ticker labels alphabetically. The runner now fails closed without an explicit dated ranking snapshot, but a rolling CRSP CIZ/lagged-market-cap adapter is still required for the flagship result.
 - **2024/2025 CRSP receipts need dedicated manifests**: the item receipts are successful, but their enclosing manifest has unrelated failures. A content-hashed derived manifest must bind each year before use. Calendar 2025 remains the unopened holdout.
 - **Modern baselines remain incomplete**: current `rie` is simple convex shrinkage and current `quest` is MP clipping; neither is authoritative nonlinear shrinkage/QuEST. Robust nonlinear shrinkage, valid POET/SAF, and the large dynamic baseline must fail loudly until independently validated.

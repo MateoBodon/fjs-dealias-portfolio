@@ -875,3 +875,37 @@
   real-data result, or empirical claim occurred.
 - **Remaining stop-lines**: licensed development-only realistic-design inputs,
   a consumed trusted route admission, and fresh AWS admission/cost authority.
+
+## 2026-07-11T19:29Z - ticket-37 M4 v4 bounded realistic-design contract
+
+- **Branch**: `portfolio/fjs-recenter-m1-20260710`, extending exact published
+  v3 tree `f2e60230d7df88f637a348e67c994d128e7f6fbc` without editing v2/v3.
+- **Additive v4 contract**:
+  - status-ok CRSP receipt plus full partition-byte hash binding;
+  - frozen CIZ common-equity filters and fail-loud PERMNO identity;
+  - exact-only analytical duplicate collapse for event-shaped exports;
+  - lagged-market-cap membership fixed before the window;
+  - FF5+MOM regression fit only on prior dates;
+  - serialized and hash-bound factor coefficients, missingness, group geometry,
+    pairwise observation counts, and PSD residual covariance.
+- **Bounded real proof**:
+  - scanned the complete January 2013 source receipt in 25,000-row chunks:
+    141,542 rows, source SHA-256 `21bd0e46eacc37a8c33ab953da84935163b860481b3083b3f5e28c7cc7524167`;
+  - retained 62,572 rows after frozen filters and collapsed two exact
+    analytical duplicates; no conflicting duplicate was accepted;
+  - built an eight-PERMNO proof cell with 10 strictly prior FF6 fit dates and
+    11 subsequent dates; cell digest
+    `86defc680ab260565a12a7413acc3306779eded536a91a33c25b0bad04e18855`;
+  - bounded proof manifest file SHA-256
+    `e2d2d9880dc9c5e4533085ce2b396ea6aa152043bed8aa82172c46d4865a3f39`.
+- **Verification**: focused v4 `5 passed`, combined v3/v4 `75 passed`,
+  `make test-fast` `191 passed, 188 deselected`, native unit/integration,
+  reference gate, Ruff, compile, run-log, diff, sensitive-path, and canonical
+  data-policy checks passed. Project OS strict verification passed as
+  `val_20260711T193751470372Z_d7eee6bb` and marked the evidence adequate for
+  the active goal.
+- **Claim boundary**: the proof is development-only input-freezer evidence.
+  It is not the full 72-partition generation, detector size/power evidence,
+  empirical performance, or promotion authority. The legacy ticker CSV was
+  not used or provenance-inferred, 2025 remained unopened, and no AWS or full
+  outcome ran.

@@ -40,6 +40,14 @@ commands:
     reducer failure behavior, standardized-rescaling identity, and real-kernel
     execution of all four invariances through the v3 runner helper. Two bounded
     end-to-end smokes also proved fresh stable-reducer equality.
+  - M4 v4 realistic-design input contract:
+    `tests/tools/test_fjs_m4_real_design_v4.py` checks exact source receipt and
+    file-hash binding, frozen CIZ filters, PERMNO lagged-cap selection,
+    past-only FF6 fitting, deterministic missingness/covariance serialization,
+    exact-only duplicate collapse with conflicting-duplicate rejection,
+    post-binding tamper rejection, 2025 refusal, v2/v3 byte immutability, and
+    fail-closed bounded-proof manifests. A complete January 2013 partition
+    proof separately exercised the same contract on 141,542 receipted rows.
   - Evaluation runners: `tests/experiments/test_eval_run.py`, `tests/experiments/test_gating_diagnostics.py`, `tests/experiments/test_skip_reasons.py`, `tests/test_pipeline_smoke.py`.
   - Finance/portfolio: `tests/test_portfolios_missing_solver.py`, `tests/test_eval_missing_solver.py`, `tests/test_minvar_regularized.py`, `tests/test_shrinkage.py`, `tests/test_factor_cov.py`, `tests/test_cache_switch_estimator.py`.
   - Reporting: `tests/test_report_gather.py`, `tests/test_report_tables.py`, `tests/test_report_plots.py`, `tests/tools/test_make_summary.py`, `tests/tools/test_summarize_rc_sanity.py`, `tests/test_gpt_bundle.py`.
@@ -52,8 +60,10 @@ commands:
   - The independent deterministic reference, two-cell mechanism fixture,
     cell-specific boundary contract, and v3 invariance path pass. Exact
     binomial-size and target-power outcomes across the full grid remain
-    unobserved; licensed real-design adequacy is also open. No full synthetic,
-    CRSP, or AWS execution is covered or allowed by this milestone.
+    unobserved. The v4 realistic-design implementation and one-partition proof
+    pass, but the full 72-partition development generation remains unobserved.
+    No full synthetic, CRSP, or AWS execution is covered or allowed by this
+    milestone.
 - **Ticket 37 milestone** — targeted and native-suite results are recorded in
   `docs/agent_runs/20260710_173211_ticket-37_fjs-scientific-recenter-m1/TESTS.md`.
 - **Ticket 37 reference milestone** — exact gate and test evidence is recorded

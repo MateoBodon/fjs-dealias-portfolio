@@ -1,6 +1,6 @@
 # FJS M4 Execution Readiness
 
-status: v3 local scientific contracts and runner passed; external execution blocked
+status: v4 bounded realistic-design contract passed; full derivation and external execution blocked
 as_of: 2026-07-11
 active_goal: `goal_71e41ee4ddc6`
 
@@ -21,16 +21,26 @@ active_goal: `goal_71e41ee4ddc6`
   at both null and power roles.
 - Canonical v3 full/smoke manifests are byte-replayable and bind the exact
   boundary, reducer, freeze tool, and v3 runner bytes. V2 remains byte-identical.
+- The additive v4 freezer binds status-ok CRSP receipts and exact partition
+  content hashes, applies the frozen CIZ common-equity filters, preserves
+  PERMNO identity, selects the lagged-cap universe before the window, fits FF6
+  only on prior dates, and serializes/hash-binds missingness, group geometry,
+  factor coefficients, pairwise counts, and PSD residual covariance.
+- A one-partition January 2013 proof scanned the complete 141,542-row receipt
+  in bounded chunks. Two event-join duplicate date/PERMNO rows were identical
+  across every required analytical field and were collapsed under an
+  exact-only rule; any conflicting duplicate remains a hard error.
 
 ## Stop-line blockers
 
-The v3 full manifest has `full_execution_ready=false` and
-`aws_execution_authorized=false`. The runner validates the complete v3
-scientific contract and then exits before creating a run root on exactly these
-remaining external stop-lines:
+The v3 runner and v4 bounded-proof manifest both retain
+`full_execution_ready=false` and `aws_execution_authorized=false`. The local
+WRDS login is no longer an input-acquisition blocker: all 72 required monthly
+2013-2018 partitions and status-ok receipts are already on disk. The remaining
+stop-lines are:
 
-1. realistic-design cells sampled from development-only CRSP window geometry
-   and residual covariance, with exact licensed-source manifests;
+1. run and reduce the full successor v4 generation across those 72 partitions;
+   the one-partition proof is not the full realistic-design cell set;
 2. a consumed trusted route admission;
 3. a fresh AWS launch admission and authoritative cost receipt.
 
@@ -40,10 +50,12 @@ missing admission.
 
 ## Next executable sequence
 
-1. Through the required trusted route and licensed data boundary, bind
-   development-only realistic-design cell inputs; keep 2025 unopened.
-2. Freeze a successor manifest generation containing those exact inputs. Do
-   not edit v2 or v3 in place.
+1. When the portfolio memory-heavy lane is available, derive the full
+   development-only realistic-design cell set from 2013-2018 and keep 2025
+   unopened. Each source file and derived cell must retain exact hash readback.
+2. Freeze and validate a full successor v4 manifest generation. Do not edit v2
+   or v3 in place, and do not infer that the legacy ticker CSV came from these
+   newer receipts.
 3. Obtain a current `c7i.16xlarge` price and perform a stratified full-shape
    timing benchmark. Require July actual plus planned incremental cost to remain
    within the active `$250` account boundary.
@@ -73,3 +85,20 @@ missing admission.
 
 No AWS command or full calibration outcome is authorized while the v3
 readiness flags remain false.
+
+## Exact v4 bounded-proof receipts
+
+- CRSP January 2013 source SHA-256:
+  `21bd0e46eacc37a8c33ab953da84935163b860481b3083b3f5e28c7cc7524167`.
+- Status-ok source receipt manifest SHA-256:
+  `ea993595018676fcc53926a6f801b1ac6184b4ba6864b2175f3e09617918f4bf`.
+- Bounded cell digest:
+  `86defc680ab260565a12a7413acc3306779eded536a91a33c25b0bad04e18855`.
+- Bounded cell file SHA-256:
+  `855d3a57673d2bee0ae40c06eb96268ee64dffd6039d6207da52c99d8896d208`.
+- Bounded v4 proof manifest file SHA-256:
+  `e2d2d9880dc9c5e4533085ce2b396ea6aa152043bed8aa82172c46d4865a3f39`.
+
+The proof artifacts remain outside Git under `/tmp`; only aggregate hashes and
+contract evidence are recorded here. They are input-freezer evidence, not
+detector size/power, empirical performance, or promotion evidence.

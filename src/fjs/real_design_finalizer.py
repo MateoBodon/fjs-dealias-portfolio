@@ -20,6 +20,7 @@ from fjs.real_design_contract import (
 ROOT = Path(__file__).resolve().parents[2]
 CELL_RECEIPT_SCHEMA = "fjs-real-design-cell-receipt/v1"
 CHECKPOINT_SCHEMA = "fjs-real-design-finalizer-checkpoint/v1"
+CHECKPOINT_MIGRATION_SCHEMA = "fjs-real-design-checkpoint-migration/v1"
 FINAL_MANIFEST_SCHEMA = "fjs-real-design-full-manifest/v1"
 READBACK_SCHEMA = "fjs-real-design-full-readback/v1"
 FINALIZER_CONTRACT_ID = "fjs-m4-v4-72-month-finalizer-v1"
@@ -34,6 +35,31 @@ PUBLISHED_V4_PROOF_CELL_SHA256 = (
 PUBLISHED_V4_PROOF_MANIFEST_SHA256 = (
     "e2d2d9880dc9c5e4533085ce2b396ea6aa152043bed8aa82172c46d4865a3f39"
 )
+ELIGIBILITY_REPAIR_SOURCE_CHECKPOINT_DIGEST = (
+    "7aa35dfe2719ec1923f23e1e9a2874cf5465c150741dc5f6067a84d5f6a121e6"
+)
+ELIGIBILITY_REPAIR_SOURCE_CONTRACT_BINDINGS = {
+    "src/fjs/real_design_contract.py": {
+        "path": "src/fjs/real_design_contract.py",
+        "sha256": "3e6fbed511ce1a4ea58e9b4a44bc2de0ec8c2e88bb1be39e95b09cf774fa617a",
+        "size_bytes": 38170,
+    },
+    "src/fjs/real_design_finalizer.py": {
+        "path": "src/fjs/real_design_finalizer.py",
+        "sha256": "0d3bb0c3f1d546a83b3f9d1b87662b1c8e308da62eb7dd657d473f250b972399",
+        "size_bytes": 30926,
+    },
+    "tools/finalize_fjs_m4_real_design_v4.py": {
+        "path": "tools/finalize_fjs_m4_real_design_v4.py",
+        "sha256": "a20e98d0749712d63dd2c0335b11bbaad6c7e1fdcdc2c398d3714e29341c0512",
+        "size_bytes": 4957,
+    },
+    "tools/freeze_fjs_m4_real_design_v4.py": {
+        "path": "tools/freeze_fjs_m4_real_design_v4.py",
+        "sha256": "d1694d2588e32b6d90d184e865bc02d38cf6d3683bccc9d403c7166a1108adcd",
+        "size_bytes": 16253,
+    },
+}
 
 CONTRACT_BINDING_PATHS = (
     "src/fjs/real_design_contract.py",
@@ -100,6 +126,20 @@ FINAL_MANIFEST_KEYS = {
     "source_set_digest",
     "cell_set_digest",
     "manifest_digest",
+}
+CHECKPOINT_MIGRATION_KEYS = {
+    "schema",
+    "generation_id",
+    "source_checkpoint_digest",
+    "migrated_checkpoint_digest",
+    "source_predecessor",
+    "migrated_predecessor",
+    "source_contract_bindings",
+    "migrated_contract_bindings",
+    "revalidated_cell_count",
+    "cell_receipt_set_digest",
+    "boundaries",
+    "migration_digest",
 }
 
 
@@ -191,6 +231,16 @@ def predecessor_binding() -> dict[str, Any]:
             ROOT / "tools/freeze_fjs_m4_real_design_v4.py"
         ),
     }
+
+
+def eligibility_repair_source_predecessor() -> dict[str, Any]:
+    predecessor = predecessor_binding()
+    predecessor["real_design_contract_sha256"] = (
+        ELIGIBILITY_REPAIR_SOURCE_CONTRACT_BINDINGS["src/fjs/real_design_contract.py"][
+            "sha256"
+        ]
+    )
+    return predecessor
 
 
 def _assert_exact_keys(
@@ -471,6 +521,61 @@ def validate_checkpoint(
         checkpoint, "checkpoint_digest"
     ):
         raise ValueError("Finalizer checkpoint digest mismatch.")
+
+
+def migrate_eligibility_repair_checkpoint(
+    checkpoint: Mapping[str, Any], *, expected_source_checkpoint_digest: str
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    _assert_exact_keys(checkpoint, CHECKPOINT_KEYS, "migration-source checkpoint")
+    source_digest = str(checkpoint["checkpoint_digest"])
+    if source_digest != str(expected_source_checkpoint_digest):
+        raise ValueError("Migration source checkpoint digest was not predeclared.")
+    if source_digest != _digest_without(checkpoint, "checkpoint_digest"):
+        raise ValueError("Migration source checkpoint digest mismatch.")
+    if checkpoint["contract"] != generation_contract():
+        raise ValueError("Migration source generation contract mismatch.")
+    if checkpoint["boundaries"] != boundary_contract():
+        raise ValueError("Migration source boundary mismatch.")
+    source_predecessor = eligibility_repair_source_predecessor()
+    if checkpoint["predecessor"] != source_predecessor:
+        raise ValueError("Migration source predecessor is not the frozen lineage.")
+    if checkpoint["contract_bindings"] != ELIGIBILITY_REPAIR_SOURCE_CONTRACT_BINDINGS:
+        raise ValueError("Migration source executable bindings are not frozen.")
+
+    migrated = copy.deepcopy(dict(checkpoint))
+    migrated["predecessor"] = predecessor_binding()
+    migrated["contract_bindings"] = contract_bindings()
+    migrated["checkpoint_digest"] = _digest_without(migrated, "checkpoint_digest")
+    validate_checkpoint(migrated, revalidate_artifacts=True)
+
+    receipt: dict[str, Any] = {
+        "schema": CHECKPOINT_MIGRATION_SCHEMA,
+        "generation_id": migrated["generation_id"],
+        "source_checkpoint_digest": source_digest,
+        "migrated_checkpoint_digest": migrated["checkpoint_digest"],
+        "source_predecessor": copy.deepcopy(checkpoint["predecessor"]),
+        "migrated_predecessor": copy.deepcopy(migrated["predecessor"]),
+        "source_contract_bindings": copy.deepcopy(checkpoint["contract_bindings"]),
+        "migrated_contract_bindings": copy.deepcopy(migrated["contract_bindings"]),
+        "revalidated_cell_count": int(migrated["completion_count"]),
+        "cell_receipt_set_digest": stable_sha256(
+            [str(cell["receipt_digest"]) for cell in migrated["completed_cells"]]
+        ),
+        "boundaries": boundary_contract(),
+    }
+    receipt["migration_digest"] = stable_sha256(receipt)
+    return migrated, receipt
+
+
+def write_checkpoint_migration(receipt: Mapping[str, Any], path: Path) -> Path:
+    _assert_exact_keys(receipt, CHECKPOINT_MIGRATION_KEYS, "checkpoint migration")
+    if receipt["schema"] != CHECKPOINT_MIGRATION_SCHEMA:
+        raise ValueError("Checkpoint migration schema mismatch.")
+    if receipt["boundaries"] != boundary_contract():
+        raise ValueError("Checkpoint migration boundary mismatch.")
+    if receipt["migration_digest"] != _digest_without(receipt, "migration_digest"):
+        raise ValueError("Checkpoint migration digest mismatch.")
+    return _atomic_write_json(receipt, path)
 
 
 def register_cell(

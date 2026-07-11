@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -20,9 +21,11 @@ from fjs.real_design_finalizer import (  # noqa: E402
     checkpoint_status,
     independent_readback,
     load_checkpoint,
+    migrate_eligibility_repair_checkpoint,
     new_checkpoint,
     register_cell,
     write_checkpoint,
+    write_checkpoint_migration,
     write_final_manifest,
     write_readback,
 )
@@ -52,6 +55,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
     status = subparsers.add_parser("status")
     status.add_argument("--checkpoint", type=Path, required=True)
+
+    migrate = subparsers.add_parser("migrate-eligibility-repair")
+    migrate.add_argument("--checkpoint", type=Path, required=True)
+    migrate.add_argument("--receipt-out", type=Path, required=True)
+    migrate.add_argument("--expected-checkpoint-digest", required=True)
 
     finalize = subparsers.add_parser("finalize")
     finalize.add_argument("--checkpoint", type=Path, required=True)
@@ -99,6 +107,22 @@ def _status(args: argparse.Namespace) -> Path:
     return checkpoint_path
 
 
+def _migrate_eligibility_repair(args: argparse.Namespace) -> Path:
+    checkpoint_path = args.checkpoint.expanduser().resolve()
+    payload = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("Migration source checkpoint must be a JSON object.")
+    migrated, receipt = migrate_eligibility_repair_checkpoint(
+        payload,
+        expected_source_checkpoint_digest=str(args.expected_checkpoint_digest),
+    )
+    write_checkpoint_migration(receipt, args.receipt_out)
+    write_checkpoint(migrated, checkpoint_path)
+    load_checkpoint(checkpoint_path, revalidate_artifacts=True)
+    _print(receipt)
+    return checkpoint_path
+
+
 def _finalize(args: argparse.Namespace) -> Path:
     checkpoint = load_checkpoint(args.checkpoint, revalidate_artifacts=True)
     manifest = build_final_manifest(checkpoint)
@@ -138,6 +162,8 @@ def main(argv: Sequence[str] | None = None) -> Path:
         return _register(args)
     if args.command == "status":
         return _status(args)
+    if args.command == "migrate-eligibility-repair":
+        return _migrate_eligibility_repair(args)
     if args.command == "finalize":
         return _finalize(args)
     if args.command == "readback":

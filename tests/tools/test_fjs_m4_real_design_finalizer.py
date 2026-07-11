@@ -25,18 +25,22 @@ from fjs.real_design_contract import (
     write_real_design_cell,
 )
 from fjs.real_design_finalizer import (
+    ELIGIBILITY_REPAIR_SOURCE_CONTRACT_BINDINGS,
     build_cell_receipt,
     build_final_manifest,
     checkpoint_status,
+    eligibility_repair_source_predecessor,
     expected_cell_id,
     independent_readback,
     load_checkpoint,
     load_final_manifest,
+    migrate_eligibility_repair_checkpoint,
     new_checkpoint,
     register_cell,
     required_months,
     validate_final_manifest,
     write_checkpoint,
+    write_checkpoint_migration,
     write_final_manifest,
     write_readback,
 )
@@ -307,6 +311,52 @@ def test_finalizer_restart_and_independent_readback_are_byte_stable(
     receipt_path = tmp_path / "final" / "readback.json"
     write_readback(readback, receipt_path)
     assert json.loads(receipt_path.read_text(encoding="utf-8")) == readback
+
+
+@pytest.mark.unit
+def test_checkpoint_eligibility_repair_migration_is_exact_and_revalidates_cells(
+    tmp_path: Path,
+) -> None:
+    cells, _ = _generation(tmp_path)
+    checkpoint = new_checkpoint("fjs-m4-v4-migration-test")
+    cell_receipt = build_cell_receipt(
+        generation_id=checkpoint["generation_id"],
+        month="2013-01",
+        cell_path=cells[0],
+    )
+    checkpoint = register_cell(checkpoint, cell_receipt)
+    checkpoint["predecessor"] = eligibility_repair_source_predecessor()
+    checkpoint["contract_bindings"] = copy.deepcopy(
+        ELIGIBILITY_REPAIR_SOURCE_CONTRACT_BINDINGS
+    )
+    checkpoint["checkpoint_digest"] = stable_sha256(
+        {key: value for key, value in checkpoint.items() if key != "checkpoint_digest"}
+    )
+    source_digest = checkpoint["checkpoint_digest"]
+
+    migrated, migration = migrate_eligibility_repair_checkpoint(
+        checkpoint,
+        expected_source_checkpoint_digest=source_digest,
+    )
+    assert migrated["generation_id"] == checkpoint["generation_id"]
+    assert migrated["completed_cells"] == checkpoint["completed_cells"]
+    assert migration["source_checkpoint_digest"] == source_digest
+    assert migration["migrated_checkpoint_digest"] == migrated["checkpoint_digest"]
+    assert migration["revalidated_cell_count"] == 1
+    receipt_path = tmp_path / "migration.json"
+    write_checkpoint_migration(migration, receipt_path)
+    assert json.loads(receipt_path.read_text(encoding="utf-8")) == migration
+
+    tampered = copy.deepcopy(checkpoint)
+    tampered["completed_cells"][0]["receipt_digest"] = "0" * 64
+    tampered["checkpoint_digest"] = stable_sha256(
+        {key: value for key, value in tampered.items() if key != "checkpoint_digest"}
+    )
+    with pytest.raises(ValueError, match="receipt digest"):
+        migrate_eligibility_repair_checkpoint(
+            tampered,
+            expected_source_checkpoint_digest=tampered["checkpoint_digest"],
+        )
 
 
 @pytest.mark.unit

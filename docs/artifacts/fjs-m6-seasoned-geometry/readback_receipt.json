@@ -1,0 +1,102 @@
+{
+  "aws_execution_authorized": false,
+  "coverage_gates": {
+    "calendar_dates_min": true,
+    "calendar_week_count_exact": true,
+    "complete_balanced_weeks_min": true,
+    "natural_missing_cells_min": false,
+    "observations_per_asset_min": true,
+    "observed_assets_per_date_min": true,
+    "pairwise_observations_min": true,
+    "panel_missing_fraction_max": true,
+    "selected_assets_exact": true,
+    "target_between_aspect_ratio_below_one": true,
+    "target_boundary_finite_positive": true
+  },
+  "coverage_proof_passed": false,
+  "detector_outcomes_present": false,
+  "endpoint_month": "2013-01",
+  "exact_duplicates_collapsed": 233,
+  "full_72_endpoint_derivation_run": false,
+  "geometry_metrics": {
+    "between_aspect_ratio": 0.38064516129032255,
+    "between_degrees_of_freedom": 155,
+    "complete_balanced_groups": 128,
+    "eligible_candidate_count": 2288,
+    "group_size_histogram": {
+      "3": 1,
+      "4": 27,
+      "5": 128
+    },
+    "missing_cells": 0,
+    "missing_fraction": 0.0,
+    "n_dates": 751,
+    "n_groups": 156,
+    "observations_per_asset_distribution": {
+      "max": 751.0,
+      "median": 751.0,
+      "min": 751.0,
+      "q25": 751.0,
+      "q75": 751.0
+    },
+    "observations_per_asset_min": 751,
+    "observed_assets_per_date_distribution": {
+      "max": 60.0,
+      "median": 60.0,
+      "min": 60.0,
+      "q25": 60.0,
+      "q75": 60.0
+    },
+    "observed_assets_per_date_min": 60,
+    "p_assets": 60,
+    "pairwise_observations_distribution": {
+      "max": 751.0,
+      "median": 751.0,
+      "min": 751.0,
+      "q25": 751.0,
+      "q75": 751.0
+    },
+    "pairwise_observations_min": 751,
+    "within_aspect_ratio": 0.09915966386554621,
+    "within_degrees_of_freedom": 595
+  },
+  "holdout_2025_opened": false,
+  "manifest_digest": "fc8c94e5fb2aeaac2551f1a098147f29fce145a0295f4f5d8a46c65db0b792d4",
+  "manifest_file_sha256": "805e90719be8293fda100b3b253b333de0f8db6f19302f47cf06e2f935c0ba00",
+  "manifest_path": "/Volumes/Storage/Projects/fjs/_runs/fjs_m6_seasoned_geometry_20260711T231932Z/manifest.json",
+  "proof_digest": "8d2d9dee359023c0a95a9132d83e79cbd6b8edd6030bc779472a0cf9a1f10182",
+  "proof_file_sha256": "4daca476f24bf2ea4be9bcb2f758ae28e5e592dd44a5acc067dca12ee50bb04b",
+  "proof_path": "/Volumes/Storage/Projects/fjs/_runs/fjs_m6_seasoned_geometry_20260711T231932Z/proof_2013-01.json",
+  "readback_digest": "c20b653c73459a2ba6b0bc37b735f7a0384d45469051e5fa8e56b2f52e4a9ab0",
+  "readback_passed": true,
+  "return_values_persisted": false,
+  "rows_after_filters": 2264725,
+  "rows_scanned": 5112121,
+  "schema": "fjs-seasoned-geometry-readback/v1",
+  "seasoned_eligibility": {
+    "anchor_date_count": 390,
+    "anchor_week_count": 78,
+    "calendar_date_count": 751,
+    "eligible_candidate_count": 2288,
+    "guaranteed_pairwise_lower_bound": 501,
+    "minimum_asset_observations": 626,
+    "selection_digest": "0b7fef82cc5cf3e3af228b3929f62f388326d9af45dc37c3cc18692bf23e16a0"
+  },
+  "source_partition_count": 36,
+  "target_boundary_feasibility": {
+    "between_aspect_ratio": 0.4645669291338583,
+    "between_degrees_of_freedom": 127,
+    "boundary_kind": "population_between_covariance_eigenvalue",
+    "bulk_dimension": 59,
+    "complete_balanced_groups": 128,
+    "finite_positive": true,
+    "p_assets": 60,
+    "population_eigenvalue_boundary": 0.15228936983701238,
+    "predeclared_power_spike": 0.2284340547555186,
+    "replicates": 5,
+    "sha256": "fdc6eaa0847af4147accafb1ea23a2f72bdffa90190df8c06c48df2fdb6d8376",
+    "target_rank": 1,
+    "within_aspect_ratio": 0.115234375,
+    "within_degrees_of_freedom": 512
+  }
+}

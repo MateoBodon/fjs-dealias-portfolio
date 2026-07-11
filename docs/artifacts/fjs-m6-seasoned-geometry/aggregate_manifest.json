@@ -1,0 +1,74 @@
+{
+  "schema": "fjs-m6-seasoned-geometry-published-aggregate/v1",
+  "endpoint_month": "2013-01",
+  "execution_identity": {
+    "local_commit": "d5233462bbffc35d314f2869755e2d14521426b5",
+    "git_tree": "973440752bb282289eca8003ea6c11ddbeba8c98",
+    "published_remote_commit": "95b8a1589f523c881a8b2d1171abf11af166abbb"
+  },
+  "source_manifest": {
+    "file_sha256": "805e90719be8293fda100b3b253b333de0f8db6f19302f47cf06e2f935c0ba00",
+    "manifest_digest": "fc8c94e5fb2aeaac2551f1a098147f29fce145a0295f4f5d8a46c65db0b792d4"
+  },
+  "detailed_proof": {
+    "file_sha256": "4daca476f24bf2ea4be9bcb2f758ae28e5e592dd44a5acc067dca12ee50bb04b",
+    "proof_digest": "8d2d9dee359023c0a95a9132d83e79cbd6b8edd6030bc779472a0cf9a1f10182",
+    "storage_policy": "outside_git_contains_permno_member_and_mask_data"
+  },
+  "seasoned_eligibility": {
+    "calendar_date_count": 751,
+    "minimum_asset_observations": 626,
+    "guaranteed_pairwise_lower_bound": 501,
+    "anchor_week_count": 78,
+    "anchor_date_count": 390,
+    "eligible_candidate_count": 2288,
+    "selection_digest": "0b7fef82cc5cf3e3af228b3929f62f388326d9af45dc37c3cc18692bf23e16a0"
+  },
+  "geometry": {
+    "p_assets": 60,
+    "n_dates": 751,
+    "n_groups": 156,
+    "complete_balanced_groups": 128,
+    "missing_cells": 0,
+    "missing_fraction": 0.0,
+    "observations_per_asset_min_median_max": [751.0, 751.0, 751.0],
+    "observed_assets_per_date_min_median_max": [60.0, 60.0, 60.0],
+    "pairwise_observations_min_median_max": [751.0, 751.0, 751.0],
+    "between_degrees_of_freedom": 155,
+    "within_degrees_of_freedom": 595,
+    "between_aspect_ratio": 0.38064516129032255,
+    "within_aspect_ratio": 0.09915966386554621
+  },
+  "target_boundary_feasibility": {
+    "population_eigenvalue_boundary": 0.15228936983701238,
+    "predeclared_power_spike": 0.2284340547555186,
+    "between_aspect_ratio": 0.4645669291338583,
+    "within_aspect_ratio": 0.115234375,
+    "finite_positive": true
+  },
+  "coverage_gate_decision": {
+    "passed": false,
+    "passed_gate_count": 10,
+    "total_gate_count": 11,
+    "failed": {
+      "natural_missing_cells_min": {
+        "observed": 0,
+        "required": 1
+      }
+    }
+  },
+  "method_change_result": {
+    "v5_pairwise_gate_repaired": true,
+    "v5_complete_week_gate_repaired": true,
+    "new_failure": "seasoned_top60_panel_is_fully_complete",
+    "thresholds_changed_after_results": false
+  },
+  "boundaries": {
+    "return_presence_and_numeric_validity_read": true,
+    "return_values_persisted": false,
+    "full_72_endpoint_derivation_run": false,
+    "detector_outcomes_present": false,
+    "aws_execution_authorized": false,
+    "holdout_2025_opened": false
+  }
+}

@@ -909,3 +909,34 @@
   empirical performance, or promotion authority. The legacy ticker CSV was
   not used or provenance-inferred, 2025 remained unopened, and no AWS or full
   outcome ran.
+
+## 2026-07-11T19:57Z - ticket-37 M4 v4 72-month finalizer freeze
+
+- **Scope**: additive finalizer/readback contract only; no real full derivation
+  or detector outcome was run before the contract freeze.
+- **Restart identity**: exactly one `fjs-real-design-YYYY-MM-v4` cell and one
+  primary status-ok source binding for each of the 72 months from January 2013
+  through December 2018. Exact duplicate registration is idempotent; any
+  conflicting month, cell, source, artifact, or generation fails.
+- **Finalization**: incomplete, duplicate, missing-month, source-catalog,
+  factor-binding, artifact-hash, and aggregate-digest checks are mandatory.
+  Independent readback rehashes all 72 sources, all 72 cells, the shared factor
+  input, and the final manifest before emitting a separate receipt.
+- **Boundaries**: finalization can only certify input completeness. Detector
+  outcomes, empirical claims, promotion, AWS authority, the legacy ticker CSV,
+  and 2025 remain false/absent.
+- **Focused proof**: a synthetic 72-source/72-cell generation passed restart,
+  complete finalization, byte-stable manifest replay, independent readback,
+  missing/duplicate/cross-generation rejection, and artifact tamper rejection
+  (`4 passed`).
+- **Regression verification**: combined v3/v4/finalizer `79 passed`, fast suite
+  `195 passed, 188 deselected`, native unit/integration, reference gate,
+  run-log validation, Ruff, compile, and canonical data policy passed.
+- **Checkpoint**: implementation commit
+  `556c5e515757f19723275090fa32fcc0fb4c5813`, tree
+  `b2d63095a93b0bbef4b19ce738c07ded453db319`; Project OS strict verification
+  `val_20260711T200220822211Z_04730216` passed and was adequate for the active
+  goal.
+- **Next action**: publish this frozen contract, then use the newly released
+  sole memory-heavy lane for the full local restart-safe 2013-2018 input
+  derivation. Do not run detector outcomes.

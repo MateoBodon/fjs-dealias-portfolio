@@ -48,6 +48,14 @@ commands:
     post-binding tamper rejection, 2025 refusal, v2/v3 byte immutability, and
     fail-closed bounded-proof manifests. A complete January 2013 partition
     proof separately exercised the same contract on 141,542 receipted rows.
+  - M4 v4 full-generation finalizer:
+    `tests/tools/test_fjs_m4_real_design_finalizer.py` builds a synthetic exact
+    72-month/72-cell generation and checks idempotent restart, atomic
+    checkpoint reload, full completeness, missing/duplicate/cross-generation
+    rejection, per-source and factor readback, stable aggregate manifest
+    bytes, source/cell/manifest digests, independent readback receipts, CLI
+    fail-closed behavior, artifact tamper rejection, and explicit no-outcome,
+    no-AWS, no-2025 boundaries.
   - Evaluation runners: `tests/experiments/test_eval_run.py`, `tests/experiments/test_gating_diagnostics.py`, `tests/experiments/test_skip_reasons.py`, `tests/test_pipeline_smoke.py`.
   - Finance/portfolio: `tests/test_portfolios_missing_solver.py`, `tests/test_eval_missing_solver.py`, `tests/test_minvar_regularized.py`, `tests/test_shrinkage.py`, `tests/test_factor_cov.py`, `tests/test_cache_switch_estimator.py`.
   - Reporting: `tests/test_report_gather.py`, `tests/test_report_tables.py`, `tests/test_report_plots.py`, `tests/tools/test_make_summary.py`, `tests/tools/test_summarize_rc_sanity.py`, `tests/test_gpt_bundle.py`.

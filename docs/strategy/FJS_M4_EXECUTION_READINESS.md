@@ -30,6 +30,11 @@ active_goal: `goal_71e41ee4ddc6`
   in bounded chunks. Two event-join duplicate date/PERMNO rows were identical
   across every required analytical field and were collapsed under an
   exact-only rule; any conflicting duplicate remains a hard error.
+- The additive 72-month finalizer freezes one restart-safe identity per month,
+  idempotent exact replay, atomic checkpoints, exact missing/duplicate-month
+  gates, source/cell aggregate digests, and an independent final readback that
+  rehashes all sources, cells, factors, and the final manifest. Its synthetic
+  72-source/72-cell contract suite passes without deriving real full cells.
 
 ## Stop-line blockers
 
@@ -50,9 +55,10 @@ missing admission.
 
 ## Next executable sequence
 
-1. When the portfolio memory-heavy lane is available, derive the full
-   development-only realistic-design cell set from 2013-2018 and keep 2025
-   unopened. Each source file and derived cell must retain exact hash readback.
+1. The portfolio memory-heavy lane is now available. Derive the full
+   development-only realistic-design cell set locally from 2013-2018 and keep
+   2025 unopened. Each source file and derived cell must retain exact hash
+   readback and register atomically before the next month starts.
 2. Freeze and validate a full successor v4 manifest generation. Do not edit v2
    or v3 in place, and do not infer that the legacy ticker CSV came from these
    newer receipts.
@@ -102,3 +108,8 @@ readiness flags remain false.
 The proof artifacts remain outside Git under `/tmp`; only aggregate hashes and
 contract evidence are recorded here. They are input-freezer evidence, not
 detector size/power, empirical performance, or promotion evidence.
+
+The full-generation finalizer contract is documented in
+`docs/strategy/FJS_M4_V4_FULL_GENERATION_CONTRACT.md`. At contract freeze time
+there is no real 72-month final manifest or readback receipt; synthetic tests
+prove the finalizer mechanics only.

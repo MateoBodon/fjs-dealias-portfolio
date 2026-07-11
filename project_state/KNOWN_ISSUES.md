@@ -30,6 +30,12 @@ commands:
   full generation, trusted route admission, and fresh AWS admission. The
   legacy ticker CSV is neither an input nor inferred to descend from the newer
   receipts, and 2025 remains unopened.
+- **The v4 72-month finalizer is frozen but has not yet finalized real cells**:
+  its restart ledger, exact one-cell/one-primary-source monthly identities,
+  missing/duplicate/conflict gates, aggregate hashes, and independent readback
+  pass a complete synthetic 72-month contract fixture. This is engineering
+  evidence only. The real 2013-2018 derivation and final readback must complete
+  before the realistic-design input stop-line is closed.
 - **The old headline universe is invalid**: `data/returns_daily.csv` lacks PERMNO/security-filter provenance and the former `assets_top` behavior selected ticker labels alphabetically. The runner now fails closed without an explicit dated ranking snapshot, but a rolling CRSP CIZ/lagged-market-cap adapter is still required for the flagship result.
 - **2024/2025 CRSP receipts need dedicated manifests**: the item receipts are successful, but their enclosing manifest has unrelated failures. A content-hashed derived manifest must bind each year before use. Calendar 2025 remains the unopened holdout.
 - **Modern baselines remain incomplete**: current `rie` is simple convex shrinkage and current `quest` is MP clipping; neither is authoritative nonlinear shrinkage/QuEST. Robust nonlinear shrinkage, valid POET/SAF, and the large dynamic baseline must fail loudly until independently validated.

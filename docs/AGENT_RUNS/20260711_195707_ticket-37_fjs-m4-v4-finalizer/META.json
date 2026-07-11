@@ -1,0 +1,28 @@
+{
+  "ticket": "ticket-37",
+  "run_name": "20260711_195707_ticket-37_fjs-m4-v4-finalizer",
+  "git_sha_before": "90746fdb7c74dd333c14f78d1bfe7cec0016c952",
+  "git_sha_after": "556c5e515757f19723275090fa32fcc0fb4c5813",
+  "git_tree_after": "b2d63095a93b0bbef4b19ce738c07ded453db319",
+  "git_branch": "portfolio/fjs-recenter-m1-20260710",
+  "worktree": "/Volumes/Storage/Projects/fjs/worktrees/fjs-recenter-m1-20260710",
+  "dirty_at_start": true,
+  "dirty_at_end": true,
+  "resolved_config_paths": [
+    "src/fjs/real_design_finalizer.py",
+    "tools/finalize_fjs_m4_real_design_v4.py",
+    "docs/strategy/FJS_M4_V4_FULL_GENERATION_CONTRACT.md"
+  ],
+  "dataset_ids": {
+    "required_month_start": "2013-01",
+    "required_month_end": "2018-12",
+    "required_month_count": 72,
+    "real_full_generation": "not_run"
+  },
+  "broad_empirical_run": false,
+  "full_derivation_run": false,
+  "aws_launched": false,
+  "holdout_2025_opened": false,
+  "project_os_verification_run": "val_20260711T200220822211Z_04730216",
+  "status": "finalizer_contract_verified"
+}

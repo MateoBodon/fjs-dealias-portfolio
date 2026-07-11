@@ -1,0 +1,76 @@
+{
+  "schema": "fjs-m5-rolling-geometry-published-aggregate/v1",
+  "endpoint_month": "2013-01",
+  "contract_sha256": "d7a31a34b1611d6c41e69467569bbebb1f98b71fe58109eaef831670d46f94d3",
+  "headline_calibration_claim_sha256": "834345298783b9528bd489208bdd2a854e19ed7ac7ff86ee13a8b90baca40087",
+  "execution_identity": {
+    "local_commit": "7fa6b0889ec7b664719a764b0bdbbff5b441397c",
+    "git_tree": "dde9ea3d25470b11b240e6d6a8770d03ee224441",
+    "published_remote_commit": "31ec72ff2b052119793def93ed8bf4e647ea4f54"
+  },
+  "source_manifest": {
+    "file_sha256": "a907eec1147bb19a8207b7c15019078bcf8aa82a5a450fa5e903594dbdb42f99",
+    "manifest_digest": "2350245cb1fd6aabd6df9b644a21143d65ce88442106a1879ed47ca88e963d43"
+  },
+  "detailed_proof": {
+    "file_sha256": "ce016165bec981c8515e4fccd905da70531673903b31f894113969fab070b6ea",
+    "proof_digest": "c33acd5da23870ad81de9d86c505db3f37d6d686f3417e1709ccb59edbd35dd0",
+    "storage_policy": "outside_git_contains_permno_member_and_mask_data"
+  },
+  "source_scan": {
+    "partition_count": 36,
+    "rows_scanned": 5112121,
+    "rows_after_filters": 2264725,
+    "exact_duplicates_collapsed": 233
+  },
+  "geometry": {
+    "p_assets": 60,
+    "n_dates": 751,
+    "n_groups": 156,
+    "group_size_histogram": {
+      "3": 1,
+      "4": 27,
+      "5": 128
+    },
+    "missing_cells": 313,
+    "missing_fraction": 0.006946293830448291,
+    "observations_per_asset_min_median_max": [439.0, 751.0, 751.0],
+    "observed_assets_per_date_min_median_max": [59.0, 60.0, 60.0],
+    "pairwise_observations_min_median_max": [438.0, 751.0, 751.0],
+    "complete_balanced_groups": 72,
+    "between_degrees_of_freedom": 155,
+    "within_degrees_of_freedom": 595,
+    "between_aspect_ratio": 0.38064516129032255,
+    "within_aspect_ratio": 0.09915966386554621
+  },
+  "target_boundary_feasibility": {
+    "population_eigenvalue_boundary": 0.20355314063939853,
+    "predeclared_power_spike": 0.3053297109590978,
+    "between_aspect_ratio": 0.8309859154929577,
+    "within_aspect_ratio": 0.2048611111111111,
+    "finite_positive": true
+  },
+  "coverage_gate_decision": {
+    "passed": false,
+    "passed_gate_count": 9,
+    "total_gate_count": 11,
+    "failed": {
+      "complete_balanced_weeks_min": {
+        "observed": 72,
+        "required": 78
+      },
+      "pairwise_observations_min": {
+        "observed": 438,
+        "required": 500
+      }
+    }
+  },
+  "boundaries": {
+    "return_presence_and_numeric_validity_read": true,
+    "return_values_persisted": false,
+    "full_72_endpoint_derivation_run": false,
+    "detector_outcomes_present": false,
+    "aws_execution_authorized": false,
+    "holdout_2025_opened": false
+  }
+}

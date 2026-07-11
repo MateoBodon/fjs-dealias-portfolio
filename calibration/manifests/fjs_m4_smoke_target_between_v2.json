@@ -1,0 +1,153 @@
+{
+  "artifacts": {
+    "canonical_promotion_requires_explicit_action": true,
+    "run_root_template": "reports/synthetic/calib/{run_id}",
+    "smoke_outputs_must_be_temp": true
+  },
+  "cell_digests": {
+    "p4_g8_r2_d300_scm": "fe7d14935310999a6c3fd2c124de72aba1723dd1ff870cd9d943e182279d9ab2",
+    "p4_g8_r2_d300_tyler": "a0a7338cc6c358386cf157fa438ff648bc5c0f37dd44c0457c0de7259f3b9f27"
+  },
+  "cells": [
+    {
+      "attribution_fields": [
+        "fjs_detection_count",
+        "fjs_acceptance_count",
+        "candidate_source_counts_pre_gate",
+        "candidate_source_counts_accepted",
+        "direction_squared_cosine_mean",
+        "planted_component_accept_share",
+        "nuisance_component_accept_share"
+      ],
+      "cell_id": "p4_g8_r2_d300_scm",
+      "delta_abs": 0.3,
+      "direction_squared_cosine_min": 0.8,
+      "edge_mode": "scm",
+      "index": 0,
+      "inject_mode": "between",
+      "invariance_checks": [
+        "standardized_rescaling",
+        "deterministic_row_order",
+        "asset_permutation",
+        "group_label_permutation"
+      ],
+      "n_groups": 8,
+      "nominal_size": 0.05,
+      "nuisance_component_accept_share_max": 0.1,
+      "null_upper_bound_max": 0.075,
+      "p_assets": 4,
+      "planted_component_accept_share_min": 0.9,
+      "power_acceptance_min": 0.8,
+      "power_detection_min": 0.8,
+      "power_gain_min": 0.5,
+      "power_mu": 1.5,
+      "replicates": 2,
+      "seed": 710000
+    },
+    {
+      "attribution_fields": [
+        "fjs_detection_count",
+        "fjs_acceptance_count",
+        "candidate_source_counts_pre_gate",
+        "candidate_source_counts_accepted",
+        "direction_squared_cosine_mean",
+        "planted_component_accept_share",
+        "nuisance_component_accept_share"
+      ],
+      "cell_id": "p4_g8_r2_d300_tyler",
+      "delta_abs": 0.3,
+      "direction_squared_cosine_min": 0.8,
+      "edge_mode": "tyler",
+      "index": 1,
+      "inject_mode": "between",
+      "invariance_checks": [
+        "standardized_rescaling",
+        "deterministic_row_order",
+        "asset_permutation",
+        "group_label_permutation"
+      ],
+      "n_groups": 8,
+      "nominal_size": 0.05,
+      "nuisance_component_accept_share_max": 0.1,
+      "null_upper_bound_max": 0.075,
+      "p_assets": 4,
+      "planted_component_accept_share_min": 0.9,
+      "power_acceptance_min": 0.8,
+      "power_detection_min": 0.8,
+      "power_gain_min": 0.5,
+      "power_mu": 1.5,
+      "replicates": 2,
+      "seed": 710001
+    }
+  ],
+  "claim_boundary": {
+    "empirical_claims_forbidden": true,
+    "mechanism_calibration_only": true,
+    "notes": [
+      "Synthetic and semi-synthetic detector evidence are mechanism calibration only.",
+      "Empirical claims remain separately gated by development, confirmation, and holdout rules."
+    ]
+  },
+  "execution_readiness": {
+    "aws_execution_authorized": false,
+    "blockers": [
+      "cell_specific_independent_detection_boundary_unbound",
+      "invariance_reducer_not_yet_hash_bound",
+      "real_design_cell_manifest_not_yet_bound",
+      "fresh_authoritative_aws_admission_required"
+    ],
+    "full_execution_ready": false,
+    "smoke_scope": "checkpoint_restart_and_reducer_integrity_only"
+  },
+  "expected_cell_set_digest": "59508c6824287dd1b1cad62b534c910a0d27106a28cafb2af4aba92b94ee8509",
+  "manifest_digest": "5862b0af9a6eed8b1f8b2af731efabc8704c5a602c8e3c81490e5578d05615c9",
+  "manifest_id": "fjs-m4-smoke-target-between-v2",
+  "predeclaration_contract": {
+    "boundary_status": "reference_scalar_placeholder_not_full_cell_boundary",
+    "detection_and_acceptance_separate": true,
+    "exact_binomial_interval": "95%",
+    "inject_mode": "between",
+    "monotonic_power_required": true,
+    "nominal_size": 0.05,
+    "paired_trial_seeds_across_mu": true,
+    "power_boundary_multiplier": 1.5,
+    "real_design_adequacy_required": true
+  },
+  "profile": "smoke",
+  "promotion_allowed": false,
+  "purpose": "Bounded two-cell deterministic real-kernel smoke for M4 checkpoint/restart, mismatch rejection, and reducer-equality evidence only.",
+  "schema_version": 2,
+  "sweep": {
+    "cells_total": 2,
+    "delta_abs_grid": [
+      0.3
+    ],
+    "delta_frac_grid": [
+      0.01
+    ],
+    "edge_modes": [
+      "scm",
+      "tyler"
+    ],
+    "eps": 0.02,
+    "expected_cell_ids": [
+      "p4_g8_r2_d300_scm",
+      "p4_g8_r2_d300_tyler"
+    ],
+    "n_groups": [
+      8
+    ],
+    "p_assets": [
+      4
+    ],
+    "q_max": 2,
+    "replicates": [
+      2
+    ],
+    "stability_grid": [
+      0.3
+    ],
+    "trials_alt": 6,
+    "trials_null": 6
+  }
+}

@@ -14,6 +14,13 @@ commands:
 - **Heavy T-012 details are local-only**: the full recovered tree is under `/Volumes/Storage/Projects/fjs/_recovery/recovered_artifacts/rc-t-012`; Git tracks only curated summary surfaces under `docs/artifacts/rc-t-012/`.
 - **Ticket 24 is off-target for between-component power**: `docs/artifacts/detector-contract-reference/ticket24_week_full_fix/curve.csv` shows detection/acceptance at 0.0 across `mu` values 0, 3, 6, 12, and 24, but exact source/command review shows an iid observation-level outer-product injection with no component-mode provenance. It remains exact-config negative-control evidence; the reducer now rejects it for a target `between` claim.
 - **The deterministic reference gate passes, but full detector calibration is still open**: production now matches the independent oracle and the predeclared two-cell `between` fixture passes at null `0/12` and `mu=6` `12/12`. This is mechanism plumbing only; exact-binomial per-cell null size, a full target-power curve, direction/component attribution, invariance, and realistic-design adequacy remain required before broad experiments.
+- **M4 v2 orchestration is integrity-checked but scientifically fail-closed**:
+  exact-binomial bounds, planted/nuisance attribution, code-byte checkpoint
+  binding, process cleanup, and resume equality are repaired and tested. Full
+  execution remains blocked until a cell-specific independent detection
+  boundary, hash-bound invariance reducer, development-only realistic-design
+  cells, and authoritative routed/AWS admission are frozen in a new manifest
+  generation. The six-trial smoke is not size/power evidence.
 - **The old headline universe is invalid**: `data/returns_daily.csv` lacks PERMNO/security-filter provenance and the former `assets_top` behavior selected ticker labels alphabetically. The runner now fails closed without an explicit dated ranking snapshot, but a rolling CRSP CIZ/lagged-market-cap adapter is still required for the flagship result.
 - **2024/2025 CRSP receipts need dedicated manifests**: the item receipts are successful, but their enclosing manifest has unrelated failures. A content-hashed derived manifest must bind each year before use. Calendar 2025 remains the unopened holdout.
 - **Modern baselines remain incomplete**: current `rie` is simple convex shrinkage and current `quest` is MP clipping; neither is authoritative nonlinear shrinkage/QuEST. Robust nonlinear shrinkage, valid POET/SAF, and the large dynamic baseline must fail loudly until independently validated.

@@ -1,0 +1,149 @@
+{
+  "schema_version": 1,
+  "manifest_id": "fjs-m4-target-between-v1",
+  "generated_at": "2026-07-11T08:07:06.653501+00:00",
+  "purpose": "Frozen full M4 null/power/invariance calibration package for FJS scientific recenter stage 3.",
+  "claim_boundary": {
+    "headline_evidence_forbidden": true,
+    "notes": [
+      "This manifest freezes calibration design only.",
+      "Synthetic outcomes are mechanism calibration, not empirical headline evidence.",
+      "Real-data claims remain blocked until the later WRDS/public development and holdout stages."
+    ]
+  },
+  "scientific_contract": {
+    "inject_mode": "between",
+    "tuning_after_holdout_forbidden": true,
+    "invariance_checks": [
+      "sign_flip",
+      "component_permutation",
+      "edge_mode_consistency",
+      "seed_replay"
+    ],
+    "attribution_outputs": [
+      "direction_alignment",
+      "component_hit_count",
+      "accepted_count",
+      "edge_mode"
+    ]
+  },
+  "gates": {
+    "null_family": {
+      "type": "exact_binomial",
+      "alpha": 0.02,
+      "trials_per_cell": 200,
+      "target": "false_positive_rate",
+      "rule": "Cell passes when selected threshold has empirical FPR <= alpha under the frozen null design."
+    },
+    "power_family": {
+      "type": "exact_binomial",
+      "trials_per_cell": 200,
+      "target": "target_between_detection",
+      "rule": "Power is measured and archived per cell; no retrospective threshold retuning is allowed."
+    }
+  },
+  "execution": {
+    "preferred_instance_type": "c7i.16xlarge",
+    "preferred_exec_mode": "throughput",
+    "process_parallelism": "outer-cell process pool; one calibration kernel per worker",
+    "inner_workers_per_cell": 1,
+    "resume_policy": "skip valid completed cell checkpoints and re-reduce final artifacts deterministically",
+    "local_smoke_recommendation": {
+      "max_cells": 4,
+      "workers": 2,
+      "trials_null": 8,
+      "trials_alt": 8
+    }
+  },
+  "sweep": {
+    "alpha": 0.02,
+    "trials_null": 200,
+    "trials_alt": 200,
+    "q_max": 2,
+    "eps": 0.02,
+    "spike_strength": 4.0,
+    "delta_frac_grid": [
+      0.01
+    ],
+    "stability_grid": [
+      0.3
+    ],
+    "p_assets": [
+      4
+    ],
+    "n_groups": [
+      8
+    ],
+    "replicates": [
+      2
+    ],
+    "delta_abs_grid": [
+      0.3
+    ],
+    "edge_modes": [
+      "scm",
+      "tyler"
+    ],
+    "cells_total": 3,
+    "grid_evals_per_cell": 20,
+    "total_trial_evals": 2016000
+  },
+  "artifacts": {
+    "run_root_template": "reports/synthetic/calib/{run_id}",
+    "cells_subdir": "cells",
+    "final_thresholds_path": "calibration/edge_delta_thresholds_m4.json",
+    "defaults_path": "calibration/defaults_m4.json",
+    "runner_summary": "run_summary.json",
+    "progress_log": "progress.jsonl"
+  },
+  "cells": [
+    {
+      "cell_id": "smoke2_p4_g8_r2_d300_scm_0",
+      "index": 0,
+      "seed": 82000,
+      "p_assets": 4,
+      "n_groups": 8,
+      "replicates": 2,
+      "delta_abs": 0.3,
+      "edge_mode": "scm",
+      "inject_mode": "between",
+      "attribution": {
+        "record_direction_alignment": true,
+        "record_component_hits": true,
+        "record_edge_mode": true
+      }
+    },
+    {
+      "cell_id": "smoke2_p4_g8_r2_d300_tyler_1",
+      "index": 1,
+      "seed": 82001,
+      "p_assets": 4,
+      "n_groups": 8,
+      "replicates": 2,
+      "delta_abs": 0.3,
+      "edge_mode": "tyler",
+      "inject_mode": "between",
+      "attribution": {
+        "record_direction_alignment": true,
+        "record_component_hits": true,
+        "record_edge_mode": true
+      }
+    },
+    {
+      "cell_id": "smoke2_p4_g8_r2_d300_scm_2",
+      "index": 2,
+      "seed": 82002,
+      "p_assets": 4,
+      "n_groups": 8,
+      "replicates": 2,
+      "delta_abs": 0.3,
+      "edge_mode": "scm",
+      "inject_mode": "between",
+      "attribution": {
+        "record_direction_alignment": true,
+        "record_component_hits": true,
+        "record_edge_mode": true
+      }
+    }
+  ]
+}

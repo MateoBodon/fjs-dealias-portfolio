@@ -27,6 +27,12 @@ commands:
     covers the immutable spec, paired draws, and stable reducers;
     `tools/generate_fjs_between_fixture.py --check` performs the full byte replay.
   - Synthetic harness: `tests/test_power_null.py`, `tests/synthetic/test_calibration.py`, `tests/synthetic/test_harness_utils.py`, `tests/test_calibrate_defaults.py`, `tests/test_threshold_eval.py`.
+  - M4 preparation integrity: `tests/tools/test_fjs_calibration_manifest.py`
+    covers exact-binomial known values, actual planted-direction replay,
+    manifest identities, fail-closed full execution, smoke path isolation,
+    checkpoint mismatch/stale-cell rejection, zero override handling, and
+    restart/fresh stable-reducer equality. A real two-process smoke separately
+    proved child cleanup and exact resume equality.
   - Evaluation runners: `tests/experiments/test_eval_run.py`, `tests/experiments/test_gating_diagnostics.py`, `tests/experiments/test_skip_reasons.py`, `tests/test_pipeline_smoke.py`.
   - Finance/portfolio: `tests/test_portfolios_missing_solver.py`, `tests/test_eval_missing_solver.py`, `tests/test_minvar_regularized.py`, `tests/test_shrinkage.py`, `tests/test_factor_cov.py`, `tests/test_cache_switch_estimator.py`.
   - Reporting: `tests/test_report_gather.py`, `tests/test_report_tables.py`, `tests/test_report_plots.py`, `tests/tools/test_make_summary.py`, `tests/tools/test_summarize_rc_sanity.py`, `tests/test_gpt_bundle.py`.

@@ -1,0 +1,28 @@
+{
+  "ticket": "ticket-37",
+  "run_name": "20260711_171700_ticket-37_fjs-m4-v2-integrity",
+  "git_sha_before": "4fb5dd751fd731a33b276703399f0725b1214222",
+  "git_sha_after": "2bc8a61e6a3737082f0849f83ead6bacc6704997",
+  "git_tree_after": "c4b81988284201110b3f785553d0aec46737dacd",
+  "git_branch": "portfolio/fjs-recenter-m1-20260710",
+  "worktree": "/Volumes/Storage/Projects/fjs/worktrees/fjs-recenter-m1-20260710",
+  "dirty_at_start": true,
+  "dirty_at_end": true,
+  "resolved_config_paths": [
+    "calibration/manifests/fjs_m4_full_target_between_v2.json",
+    "calibration/manifests/fjs_m4_smoke_target_between_v2.json"
+  ],
+  "config_hashes": [
+    "aa444e283fa99048e77353d7912c00baf5552c33cc777fc0b8137fe074448b22",
+    "ccca12d54fd73a0ea88e885297176c2de07153528af81083e8076960bd8cb5ef"
+  ],
+  "dataset_ids": {
+    "experiment_run": "none",
+    "smoke_run_root": "/tmp/fjs-m4-v2-commit.SWsXTD",
+    "stable_reducer_sha256": "049408720a08c3178a4ef0f161998235149cd5ee9f6dbcfdefbfdfe1a11821a6",
+    "code_input_fingerprint_sha256": "3be1e68e4517eeb02e2351a41d729eadefbac686fe35225da6dcc81fd2efda2a"
+  },
+  "broad_empirical_run": false,
+  "aws_launched": false,
+  "status": "completed_bounded_integrity_blocked_scientific_admission"
+}

@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
-from experiments.synthetic_oneway.run import simulate_panel
 from fjs.robust import edge_from_scatter, tyler_scatter
 
 __all__ = [
@@ -21,6 +20,47 @@ __all__ = [
     "select_energy_floor",
     "write_run_metadata",
 ]
+
+
+def simulate_panel(
+    rng: np.random.Generator,
+    *,
+    n_assets: int,
+    n_groups: int,
+    replicates: int,
+    spike_strength: float,
+    noise_variance: float,
+    signal_to_noise: float,
+    return_dirs: bool = False,
+) -> (
+    tuple[np.ndarray, np.ndarray]
+    | tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+):
+    """Simulate a balanced panel and optionally return its planted directions."""
+
+    observations = np.zeros((n_groups * replicates, n_assets), dtype=np.float64)
+    groups = np.repeat(np.arange(n_groups, dtype=np.intp), replicates)
+
+    signal_dir = rng.normal(size=n_assets)
+    signal_dir /= np.linalg.norm(signal_dir)
+    aux_dir = rng.normal(size=n_assets)
+    aux_dir /= np.linalg.norm(aux_dir)
+
+    noise_scale = np.sqrt(noise_variance)
+    spike_scale = np.sqrt(spike_strength)
+
+    idx = 0
+    for _ in range(n_groups):
+        factor = spike_scale * rng.normal()
+        group_effect = factor * signal_dir
+        for _ in range(replicates):
+            common_noise = signal_to_noise * noise_scale * rng.normal() * aux_dir
+            idio_noise = noise_scale * rng.normal(size=n_assets)
+            observations[idx] = group_effect + common_noise + idio_noise
+            idx += 1
+    if return_dirs:
+        return observations, groups, signal_dir, aux_dir
+    return observations, groups
 
 
 @dataclass(frozen=True)
@@ -88,7 +128,9 @@ class SimulatedScores:
         return self.scores.loc[mask].copy()
 
 
-def _compute_scatter(observations: NDArray[np.float64], edge_mode: str) -> NDArray[np.float64]:
+def _compute_scatter(
+    observations: NDArray[np.float64], edge_mode: str
+) -> NDArray[np.float64]:
     y = np.asarray(observations, dtype=np.float64)
     if y.ndim != 2:
         raise ValueError("observations must be a 2D array.")
@@ -124,7 +166,10 @@ def _run_single_mu(
     *,
     scenario_label: str,
 ) -> list[ScoreResult]:
-    label_seed = int.from_bytes(scenario_label.encode("utf-8"), "little", signed=False) & 0xFFFFFFFF
+    label_seed = (
+        int.from_bytes(scenario_label.encode("utf-8"), "little", signed=False)
+        & 0xFFFFFFFF
+    )
     mu_seed = int(round(mu * 1000.0)) & 0xFFFFFFFF
     base_seed = (int(config.seed) & 0xFFFFFFFF) ^ label_seed ^ mu_seed
     rng = np.random.default_rng(base_seed)
@@ -144,7 +189,12 @@ def _run_single_mu(
             try:
                 score, lambda_max, cond, mp_edge = _score_trial(observations, edge_mode)
             except Exception:
-                score, lambda_max, cond, mp_edge = float("nan"), float("nan"), float("nan"), float("nan")
+                score, lambda_max, cond, mp_edge = (
+                    float("nan"),
+                    float("nan"),
+                    float("nan"),
+                    float("nan"),
+                )
             results.append(
                 ScoreResult(
                     scenario=scenario_label,
@@ -175,7 +225,9 @@ def simulate_scores(
         trials = _run_single_mu(config, float(mu), scenario_label=label)
         records.extend(result.to_dict() for result in trials)
     frame = pd.DataFrame.from_records(records)
-    return SimulatedScores(config=config, scores=frame, mu_values=tuple(float(mu) for mu in mu_values))
+    return SimulatedScores(
+        config=config, scores=frame, mu_values=tuple(float(mu) for mu in mu_values)
+    )
 
 
 def roc_table(
@@ -197,14 +249,24 @@ def roc_table(
     threshold_array = np.asarray(list(thresholds), dtype=np.float64)
     for mode in modes:
         null_mode = null_scores[null_scores["edge_mode"] == mode]
-        null_values = np.nan_to_num(null_mode["score"].to_numpy(dtype=np.float64), nan=0.0, posinf=0.0, neginf=0.0)
+        null_values = np.nan_to_num(
+            null_mode["score"].to_numpy(dtype=np.float64),
+            nan=0.0,
+            posinf=0.0,
+            neginf=0.0,
+        )
         if null_values.size == 0:
             continue
         for threshold in threshold_array:
             fpr = float(np.mean(null_values >= threshold))
             for mu, df in power_scores.items():
                 power_mode = df[df["edge_mode"] == mode]
-                vals = np.nan_to_num(power_mode["score"].to_numpy(dtype=np.float64), nan=0.0, posinf=0.0, neginf=0.0)
+                vals = np.nan_to_num(
+                    power_mode["score"].to_numpy(dtype=np.float64),
+                    nan=0.0,
+                    posinf=0.0,
+                    neginf=0.0,
+                )
                 if vals.size == 0:
                     continue
                 tpr = float(np.mean(vals >= threshold))
@@ -234,7 +296,9 @@ class EnergyFloorSelection:
             "threshold": float(self.threshold),
             "fpr": float(self.fpr),
             "average_power": float(self.average_power),
-            "tpr_by_mu": {f"{mu:.2f}": float(val) for mu, val in self.tpr_by_mu.items()},
+            "tpr_by_mu": {
+                f"{mu:.2f}": float(val) for mu, val in self.tpr_by_mu.items()
+            },
         }
 
 
@@ -251,15 +315,24 @@ def select_energy_floor(
 
     best: EnergyFloorSelection | None = None
     for mode in sorted(null_scores["edge_mode"].unique()):
-        null_mode_scores = null_scores[null_scores["edge_mode"] == mode]["score"].to_numpy(dtype=np.float64)
+        null_mode_scores = null_scores[null_scores["edge_mode"] == mode][
+            "score"
+        ].to_numpy(dtype=np.float64)
         if null_mode_scores.size == 0:
             continue
-        thresholds = np.unique(np.linspace(0.0, np.nanmax(null_mode_scores), num=128, dtype=np.float64))
+        thresholds = np.unique(
+            np.linspace(0.0, np.nanmax(null_mode_scores), num=128, dtype=np.float64)
+        )
         for df in power_scores.values():
-            mode_scores = df[df["edge_mode"] == mode]["score"].to_numpy(dtype=np.float64)
+            mode_scores = df[df["edge_mode"] == mode]["score"].to_numpy(
+                dtype=np.float64
+            )
             thresholds = np.unique(np.concatenate([thresholds, mode_scores]))
 
-        thresholds = np.asarray(sorted(set(float(x) for x in thresholds if np.isfinite(x))), dtype=np.float64)
+        thresholds = np.asarray(
+            sorted(set(float(x) for x in thresholds if np.isfinite(x))),
+            dtype=np.float64,
+        )
         if thresholds.size == 0:
             continue
 
@@ -267,7 +340,9 @@ def select_energy_floor(
             fpr = float(np.mean(null_mode_scores >= threshold))
             tpr_map: dict[float, float] = {}
             for mu, df in power_scores.items():
-                mode_scores = df[df["edge_mode"] == mode]["score"].to_numpy(dtype=np.float64)
+                mode_scores = df[df["edge_mode"] == mode]["score"].to_numpy(
+                    dtype=np.float64
+                )
                 if mode_scores.size == 0:
                     continue
                 tpr_map[float(mu)] = float(np.mean(mode_scores >= threshold))

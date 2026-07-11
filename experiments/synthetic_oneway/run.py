@@ -8,11 +8,6 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, cast
 
-import matplotlib
-
-matplotlib.use("Agg")
-
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import yaml
@@ -28,18 +23,19 @@ except Exception:  # pragma: no cover - best-effort import
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SRC_ROOT = PROJECT_ROOT / "src"
-# Ensure both project root (for top-level utilities like pairing.py) and src are importable
+# Make the project root and src importable for top-level utilities.
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
+from pairing import align_spikes
+
 from fjs.balanced import mean_squares
 from fjs.dealias import dealias_search
-from pairing import align_spikes
 from fjs.spectra import plot_spike_timeseries
-from plotting import s4_plot_guardrails_from_csv
 from meta.run_meta import code_signature, write_run_meta
+from plotting import s4_plot_guardrails_from_csv
 
 DEFAULT_CONFIG = {
     "n_assets": 60,
@@ -64,6 +60,20 @@ DEFAULT_CONFIG = {
     "output_dir": "figures/synthetic",
     "progress": True,
 }
+
+plt = None
+
+
+def _plt():
+    global plt
+    if plt is None:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt_mod
+
+        plt = plt_mod
+    return plt
 
 
 def load_config(path: Path | None) -> dict[str, Any]:
@@ -182,7 +192,7 @@ def histogram_s1(
     """Save the S1 histogram visualising the empirical spectrum."""
 
     ensure_dir(out_dir)
-    fig, ax = plt.subplots(figsize=(7, 4))
+    fig, ax = _plt().subplots(figsize=(7, 4))
     ax.hist(eigenvalues, bins=50, alpha=0.7, color="C0", label="Eigenvalues")
     ax.axvline(edge, color="C1", linestyle="--", linewidth=1.5, label="MP edge")
     ax.set_xlabel("Eigenvalue")
@@ -191,7 +201,7 @@ def histogram_s1(
     ax.legend()
     fig.savefig(out_dir / "s1_histogram.png", bbox_inches="tight")
     fig.savefig(out_dir / "s1_histogram.pdf", bbox_inches="tight")
-    plt.close(fig)
+    _plt().close(fig)
 
 
 def bias_table_s3(df: pd.DataFrame, out_dir: Path) -> None:
@@ -225,7 +235,7 @@ def s2_vector_alignment(
 
     components = np.arange(signal_dir.shape[0])
     ensure_dir(Path(config["output_dir"]))
-    fig, ax = plt.subplots(figsize=(8, 4))
+    fig, ax = _plt().subplots(figsize=(8, 4))
     ax.plot(components, signal_dir, label="Ground truth", linewidth=2.0, color="C0")
     ax.plot(
         components,
@@ -244,7 +254,7 @@ def s2_vector_alignment(
     out_dir = Path(config["output_dir"])
     fig.savefig(out_dir / "s2_vectors.png", bbox_inches="tight")
     fig.savefig(out_dir / "s2_vectors.pdf", bbox_inches="tight")
-    plt.close(fig)
+    _plt().close(fig)
 
     return {"s2_alignment": alignment}
 
@@ -341,9 +351,7 @@ def s3_bias(config: dict[str, Any], rng: np.random.Generator) -> pd.DataFrame:
                 use_tvector=True,
                 nonnegative_a=not signed_a,
                 scan_basis=scan_basis,
-                off_component_leak_cap=(
-                    None if off_cap is None else float(off_cap)
-                ),
+                off_component_leak_cap=(None if off_cap is None else float(off_cap)),
                 energy_min_abs=energy_min,
             )
             if detections:
@@ -413,9 +421,7 @@ def s4_guardrail_analysis(
             use_tvector=True,
             nonnegative_a=not signed_a,
             scan_basis=scan_basis,
-            off_component_leak_cap=(
-                None if off_cap is None else float(off_cap)
-            ),
+            off_component_leak_cap=(None if off_cap is None else float(off_cap)),
             energy_min_abs=energy_min,
         )
         detections_lax = dealias_search(
@@ -459,7 +465,7 @@ def s4_guardrail_analysis(
     csv_path = out_dir / "s4_guardrails.csv"
     df.to_csv(csv_path, index=False)
 
-    fig, ax = plt.subplots(figsize=(6, 4))
+    fig, ax = _plt().subplots(figsize=(6, 4))
     ax.bar(df["setting"], df["false_positive_rate"], color=["C0", "C3"])
     ax.set_ylabel("False positive rate")
     ax.set_ylim(0.0, max(0.05, df["false_positive_rate"].max() * 1.1))
@@ -477,7 +483,7 @@ def s4_guardrail_analysis(
     fig.tight_layout()
     fig.savefig(out_dir / "s4_guardrails.png", bbox_inches="tight")
     fig.savefig(out_dir / "s4_guardrails.pdf", bbox_inches="tight")
-    plt.close(fig)
+    _plt().close(fig)
     # Also store S4 into experiments/<run>/figures
     try:
         s4_plot_guardrails_from_csv(csv_path, run="synthetic_oneway")
@@ -541,9 +547,7 @@ def s5_multi_spike_bias(
             use_tvector=True,
             nonnegative_a=not signed_a,
             scan_basis=scan_basis,
-            off_component_leak_cap=(
-                None if off_cap is None else float(off_cap)
-            ),
+            off_component_leak_cap=(None if off_cap is None else float(off_cap)),
             energy_min_abs=energy_min,
         )
         # Top-k aliased eigenvalues
@@ -575,7 +579,7 @@ def s5_multi_spike_bias(
                 ],
                 dtype=np.float64,
             )
-            # dirs is shaped (k, p); det_vecs shaped (m, p). Align in strength-descending order
+            # Align truth (k, p) and detections (m, p) in strength order.
             dirs_sorted = np.asarray(dirs, dtype=np.float64)[truth_order]
             perm = align_spikes(dirs_sorted, det_vecs)
             for j in range(k):  # j indexes sorted strengths
@@ -611,7 +615,11 @@ def s5_multi_spike_bias(
                     aligned_bias = aligned_bias_raw
             else:
                 aligned_bias = float("nan")
-            aligned_mean_report = float(truth + aligned_bias) if np.isfinite(truth) and np.isfinite(aligned_bias) else float("nan")
+            aligned_mean_report = (
+                float(truth + aligned_bias)
+                if np.isfinite(truth) and np.isfinite(aligned_bias)
+                else float("nan")
+            )
         else:
             aliased_bias = float("nan")
             naive_bias = float("nan")
@@ -653,7 +661,7 @@ def s5_multi_spike_bias(
 
     indices = np.arange(len(rows))
     width = 0.26
-    fig, ax = plt.subplots(figsize=(7, 4))
+    fig, ax = _plt().subplots(figsize=(7, 4))
     ax.bar(
         indices - width,
         [row["aliased_bias"] for row in rows],
@@ -687,7 +695,7 @@ def s5_multi_spike_bias(
     fig.tight_layout()
     fig.savefig(out_dir / "s5_multispike.png", bbox_inches="tight")
     fig.savefig(out_dir / "s5_multispike.pdf", bbox_inches="tight")
-    plt.close(fig)
+    _plt().close(fig)
 
     return df
 

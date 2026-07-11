@@ -11,11 +11,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, Mapping, Sequence, Tuple
 
-try:  # pragma: no cover - plotting optional
-    import matplotlib.pyplot as plt
-except Exception:  # pragma: no cover - matplotlib optional
-    plt = None  # type: ignore[assignment]
-
 from experiments.synthetic.harness_utils import write_run_metadata
 from meta import runtime
 from synthetic.calibration import CalibrationConfig, calibrate_thresholds
@@ -234,7 +229,11 @@ def _assign_bin(value: float, bins: Sequence[tuple[str, float, float]], *, defau
 
 
 def _maybe_plot(entries: list[dict[str, float | int | str | None]], alpha: float, path: Path) -> Path | None:
-    if plt is None or not entries:  # pragma: no cover - plotting optional
+    if not entries:  # pragma: no cover - plotting optional
+        return None
+    try:  # pragma: no cover - plotting optional
+        import matplotlib.pyplot as plt
+    except Exception:
         return None
 
     edge_modes = sorted({str(entry["edge_mode"]) for entry in entries})
@@ -243,7 +242,7 @@ def _maybe_plot(entries: list[dict[str, float | int | str | None]], alpha: float
     max_power = max((float(entry["power"]) if entry["power"] is not None else 0.0 for entry in entries), default=0.0)
 
     fig, ax = plt.subplots(figsize=(6.5, 4.0))
-    cmap = plt.cm.get_cmap("tab10")
+    cmap = plt.get_cmap("tab10")
     markers = ["o", "s", "D", "^", "v", "P", "X", "*"]
 
     for edge_idx, edge_mode in enumerate(edge_modes):

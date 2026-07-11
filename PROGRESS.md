@@ -813,3 +813,34 @@
   null/power/invariance runner with exact-binomial cell gates, target-between
   injection, direction/component attribution, invariance checks, and
   checkpoint/restart orchestration for independently authorized AWS execution.
+
+## 2026-07-11T17:22Z - ticket-37 M4 v2 deterministic integrity milestone
+
+- **Branch/Run**: `portfolio/fjs-recenter-m1-20260710`
+  (`20260711_171700_ticket-37_fjs-m4-v2-integrity`).
+- **Code/manifest checkpoint**:
+  `2bc8a61e6a3737082f0849f83ead6bacc6704997`, tree
+  `c4b81988284201110b3f785553d0aec46737dacd`.
+- **Correctness repairs**:
+  - fixed the reversed exact-binomial upper-bound solver;
+  - bound attribution to the actual planted and nuisance directions;
+  - bound resume to exact executable bytes, not only Git `HEAD`;
+  - repaired process argument construction and terminate/wait cleanup;
+  - removed invalid smoke-derived AWS cost extrapolation.
+- **Frozen artifacts**:
+  - 252-cell full planning manifest SHA-256
+    `aa444e283fa99048e77353d7912c00baf5552c33cc777fc0b8137fe074448b22`;
+  - two-cell smoke manifest SHA-256
+    `ccca12d54fd73a0ea88e885297176c2de07153528af81083e8076960bd8cb5ef`.
+- **Real-kernel proof**: two-process intentional interrupt/resume and fresh
+  runs produced identical stable reducer SHA-256
+  `049408720a08c3178a4ef0f161998235149cd5ee9f6dbcfdefbfdfe1a11821a6`;
+  no worker survived.
+- **Validation**: focused suites, exact reference gate, `make test-fast`
+  (`117 passed, 187 deselected`), native unit/integration, Ruff, compile,
+  diff, run-log, and canonical data-policy gates passed.
+- **Claim boundary**: the smoke is orchestration evidence only and fails the
+  statistical stop-line as expected at six trials. Full execution is
+  fail-closed on the unbound cell-specific detection boundary, invariance
+  reducer, realistic-design cells, and authoritative routed/AWS admission.
+  No AWS or broad empirical run occurred.

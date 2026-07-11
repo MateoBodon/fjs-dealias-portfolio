@@ -9,8 +9,9 @@ from numpy.testing import assert_allclose
 from fjs.mp import (
     MarchenkoPasturModel,
     admissible_m_from_lambda,
-    configure_mp_cache,
     clear_mp_cache,
+    configure_mp_cache,
+    estimate_Cs_from_MS,
     marchenko_pastur_edges,
     marchenko_pastur_pdf,
     mp_edge,
@@ -39,7 +40,7 @@ def micro_mp_params() -> dict[str, object]:
         c_weights * a / (1.0 + (n_total / d) * a * c_weights * m_ref)
     )
     c = np.array([2.0, 1.0], dtype=np.float64)
-    order = [[1, 2], [2]]
+    order = [[1], [1, 2]]
     assert_allclose(lam, lambda_target, atol=1e-3)
     return {
         "a": a,
@@ -86,21 +87,33 @@ def test_admissible_root_matches_reference(micro_mp_params: dict[str, object]) -
     assert_allclose(root, params["m_ref"], atol=1e-3)
 
 
-def test_mp_edge_uses_Cs_in_denominator() -> None:
-    # Construct a small balanced one-way setting where Cs materially impacts the edge
+def test_mp_edge_uses_explicit_cs_in_denominator() -> None:
+    # Construct a setting where the canonical bulk scales affect the edge.
     a = np.array([0.8, 0.2], dtype=np.float64)
     c_design = np.array([3.0, 1.0], dtype=np.float64)  # J and 1
     d = np.array([10.0, 90.0], dtype=np.float64)
-    N = 3.0
-    # Two different Cs scales; larger Cs should generally lift denominators and lower the edge
-    Cs_small = np.array([0.05, 0.05], dtype=np.float64)
-    Cs_large = np.array([0.50, 0.50], dtype=np.float64)
-    edge_small = mp_edge(a, c_design, d, N, Cs=Cs_small)
-    edge_large = mp_edge(a, c_design, d, N, Cs=Cs_large)
+    n_bulk = 3.0
+    small_scales = np.array([0.05, 0.05], dtype=np.float64)
+    large_scales = np.array([0.50, 0.50], dtype=np.float64)
+    edge_small = mp_edge(a, c_design, d, n_bulk, Cs=small_scales)
+    edge_large = mp_edge(a, c_design, d, n_bulk, Cs=large_scales)
     assert np.isfinite(edge_small) and np.isfinite(edge_large)
     # With the fallback (Cs->c when Cs ~ 0), monotonicity may not always hold
     # Check that Cs affects the edge materially instead
     assert abs(edge_large - edge_small) > 1e-6
+
+
+def test_estimate_cs_uses_canonical_mean_square_bulk_scales() -> None:
+    identity = np.eye(4, dtype=np.float64)
+
+    scales = estimate_Cs_from_MS(
+        [3.0 * identity, identity],
+        [3.0, 4.0],
+        [2.0, 1.0],
+        drop_top=1,
+    )
+
+    assert_allclose(scales, np.array([3.0, 1.0]), atol=1e-12)
 
 
 def test_t_vec_monotonicity(micro_mp_params: dict[str, object]) -> None:
@@ -129,7 +142,7 @@ def test_t_vec_monotonicity(micro_mp_params: dict[str, object]) -> None:
         params["order"],
     )
     assert shifted[0] > baseline[0]
-    assert_allclose(shifted[1], baseline[1], atol=1e-6)
+    assert shifted[1] > baseline[1]
 
 
 def test_marchenko_pastur_edges_is_stub() -> None:
@@ -145,7 +158,9 @@ def test_marchenko_pastur_pdf_is_stub() -> None:
         marchenko_pastur_pdf(model, grid)
 
 
-def test_mp_edge_cache_parity(tmp_path: Path, micro_mp_params: dict[str, object]) -> None:
+def test_mp_edge_cache_parity(
+    tmp_path: Path, micro_mp_params: dict[str, object]
+) -> None:
     configure_mp_cache(None)
     clear_mp_cache()
     params = micro_mp_params

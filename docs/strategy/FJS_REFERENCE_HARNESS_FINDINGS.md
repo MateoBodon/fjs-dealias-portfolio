@@ -1,15 +1,16 @@
 # FJS Deterministic Reference Harness Findings
 
-status: production repair blocked by five fail-loud reference-gate issues  
+status: deterministic production reference gate passed
 verified_at: 2026-07-10  
 ticket: 37  
 scope: balanced one-way detector correctness; no empirical performance claim
 
 ## Decision
 
-Broad experiments remain blocked. The independent reference implementation now
-defines and tests the minimum correctness contract for the balanced one-way FJS
-path, but the production implementation does not yet satisfy it.
+Broad experiments remain blocked, but the bounded production correctness repair
+is complete. The independent reference implementation defines and tests the
+minimum balanced one-way FJS contract, and production now satisfies that exact
+contract without changing the oracle or reducer thresholds.
 
 Run the stop-line with:
 
@@ -17,9 +18,9 @@ Run the stop-line with:
 make detector-reference-gate
 ```
 
-The command must exit non-zero while any issue below is present. A future repair
-is eligible for null and planted-power calibration only when the command exits
-zero without weakening the reference values or treatment-provenance check.
+The command now exits zero against the manifest-bound between-component
+mechanism fixture. The historical Ticket 24 curve still fails if supplied
+explicitly, as it must, because its target-treatment provenance is absent.
 
 ## Independent reference
 
@@ -71,9 +72,11 @@ It is not a target-between-component planted-power test. The new reducer fails
 loudly when a target-power claim omits `inject_mode=between` or supplies another
 mode.
 
-## Production blockers
+## Resolved production failures
 
-The deterministic gate currently reports exactly these blockers:
+Production checkpoint `4437571acf4b42bd1f4c7db8a9616b623c5a3a7b`
+resolved the four code failures, and subsequent bounded root-seeding commits
+preserved the same outputs while restoring native-suite runtime:
 
 1. `oneway_bulk_dimension_mismatch`: production uses the replicate count for
    `N`; the reference contract requires the bulk dimension `N=p-L`.
@@ -85,25 +88,48 @@ The deterministic gate currently reports exactly these blockers:
 4. `spectral_reconstruction_mismatch`: the overlay changes only the candidate's
    Rayleigh quotient when the direction is not already a baseline eigenvector;
    it does not install the claimed eigenpair.
-5. `target_power_provenance_invalid`: the historical curve cannot support a
-   target-between-component power claim because injection-mode provenance is
-   absent.
+5. `target_power_provenance_invalid`: the historical curve remains ineligible,
+   while the new fixture carries exact `inject_mode=between` provenance.
 
-Three strict expected failures keep the first four code-level mismatches visible
-inside the unit suite. The fifth is an ordinary passing rejection test: missing
-or mismatched target-treatment provenance is rejected by contract.
 
-## Repair order and next gate
+The former strict expected failures are now ordinary passing production-to-
+oracle equivalence tests. Missing or mismatched target-treatment provenance is
+still rejected by contract.
 
-1. Correct one-way `N`, inclusion order, and canonical mean-square-to-`C_s`
-   semantics.
-2. Use one equation (5.5) implementation and identical explicit `C_s` values
-   for edge, root, and `t` calculations; make the root solver reachable before a
-   grid candidate has already passed the same gates.
-3. Define and implement the intended multi-candidate reconstruction semantics.
-4. Make `make detector-reference-gate` pass without changing the oracle.
-5. Produce a bounded deterministic `inject_mode=between` calibration with exact
-   manifests and only then run the frozen null/power/invariance suite.
+## Frozen between-component mechanism fixture
+
+The fixture was predeclared at commit
+`82d1ffc0b2fc7c4c39e820b7aae3c4ad0bcdb43c` before generator implementation or
+execution. Its fixed 12 paired trials used seed `20260710`, `I=60`, `J=3`,
+`p=10`, within-noise scale `0.3`, and `mu` in `{0,6}`. The final production
+replay is bound to source commit `9afbb72cb02172080c52ba206ddd73ed2110dedf`.
+
+- null: detection `0/12`, acceptance `0/12`;
+- `mu=6`, `inject_mode=between`: detection `12/12`, acceptance `12/12`;
+- curve SHA-256:
+  `d19edfb7bdfa22fab487a1e0ff551bc346435340fa467fd4c02f77c446848a07`;
+- trial SHA-256:
+  `0620d728f509bed0a3ae8f065f22e2330a1c696c2918a16638a34ab6cc076f7f`.
+
+`tools/generate_fjs_between_fixture.py --check` reproduced both output hashes.
+This establishes only deterministic mechanism plumbing at two cells. It is not
+an exact-binomial null-size study, a full power curve, realistic-design evidence,
+or an empirical result.
+
+## Completed repair and next gate
+
+1. One-way `N=p-L`, inclusion order, and canonical mean-square `C_s` semantics
+   are corrected.
+2. Edge, admissible root, and `t` use one exact equation (5.5) map and the same
+   explicit `C_s`; rank-one theta roots are seeded from the strongest bounded
+   outliers before candidate gating.
+3. Multi-candidate reconstruction uses symmetric orthonormalisation and
+   `PBP + Q diag(mu) Q'`, is permutation/sign invariant, and fails on deficient
+   candidate spans.
+4. `make detector-reference-gate` passes with the independent oracle unchanged.
+5. The next gate is the frozen full null/power/invariance calibration with exact
+   binomial cell reducers, direction/component attribution, and checkpointed
+   deterministic execution. It remains mechanism calibration only.
 
 No synthetic, semi-synthetic, or reference-harness output in this milestone is
 a headline empirical result.

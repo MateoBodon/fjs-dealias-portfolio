@@ -41,7 +41,8 @@ validate-runlogs:
 	python3 tools/agentic/validate_runlog.py --all --repo .
 
 detector-reference-gate:
-	PYTHONPATH=src:. python3 tools/check_fjs_reference.py
+	PYTHONPATH=src:. python3 tools/check_fjs_reference.py --power-curve \
+		docs/artifacts/detector-contract-reference/between_mechanism_v1/curve.csv
 
 project-state-audit-bundle:
 	python3 tools/agentic/ai_os_bundle.py --profile project_state_audit

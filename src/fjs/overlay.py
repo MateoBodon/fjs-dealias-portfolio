@@ -1,13 +1,21 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
 
-from baselines.covariance import cc_covariance as baseline_cc_covariance, ewma_covariance, quest_covariance, rie_covariance
+from baselines.covariance import (
+    cc_covariance as baseline_cc_covariance,
+)
+from baselines.covariance import (
+    ewma_covariance,
+    quest_covariance,
+    rie_covariance,
+)
 from finance.ledoit import lw_cov
 from finance.shrinkage import oas_covariance
 from fjs.dealias import Detection, dealias_search
@@ -17,6 +25,7 @@ from fjs.detector_contract import (
     require_candidate_source,
 )
 from fjs.gating import lookup_calibrated_delta, select_top_k
+from fjs.reconstruction import replace_spectral_subspace
 
 __all__ = [
     "OverlayConfig",
@@ -75,7 +84,9 @@ def _bracket_status_label(detections: Sequence[Mapping[str, Any]]) -> str:
     return "+".join(tokens[:3])
 
 
-def _summarise_pre_gate(detections: Sequence[Mapping[str, Any]], cfg: OverlayConfig) -> dict[str, Any]:
+def _summarise_pre_gate(
+    detections: Sequence[Mapping[str, Any]], cfg: OverlayConfig
+) -> dict[str, Any]:
     summary = {
         "raw_outliers_found": int(len(detections)),
         "mp_edge_margin": float("nan"),
@@ -86,12 +97,17 @@ def _summarise_pre_gate(detections: Sequence[Mapping[str, Any]], cfg: OverlayCon
     }
     if not detections:
         return summary
-    edge_vals = np.asarray([float(det.get("edge_margin", float("nan"))) for det in detections], dtype=np.float64)
+    edge_vals = np.asarray(
+        [float(det.get("edge_margin", float("nan"))) for det in detections],
+        dtype=np.float64,
+    )
     leak_vals = np.asarray(
-        [float(det.get("off_component_ratio", float("nan"))) for det in detections], dtype=np.float64
+        [float(det.get("off_component_ratio", float("nan"))) for det in detections],
+        dtype=np.float64,
     )
     stab_vals = np.asarray(
-        [float(det.get("stability_margin", float("nan"))) for det in detections], dtype=np.float64
+        [float(det.get("stability_margin", float("nan"))) for det in detections],
+        dtype=np.float64,
     )
     finite_edges = edge_vals[np.isfinite(edge_vals)]
     finite_leak = leak_vals[np.isfinite(leak_vals)]
@@ -217,7 +233,9 @@ def _baseline_covariance(
         return np.asarray(oas_covariance(observations), dtype=np.float64)
     if shrinker == "cc":
         if observations is None:
-            raise ValueError("observations required for constant-correlation shrinkage.")
+            raise ValueError(
+                "observations required for constant-correlation shrinkage."
+            )
         return np.asarray(baseline_cc_covariance(observations), dtype=np.float64)
     if shrinker == "sample":
         sigma = np.asarray(sample_covariance, dtype=np.float64)
@@ -326,7 +344,9 @@ def _gate_detections(
 
     if mode == "soft":
         limit = soft_cap if soft_cap is not None else cfg.q_max
-        selected, discarded = select_top_k(base, int(limit) if limit is not None else len(base))
+        selected, discarded = select_top_k(
+            base, int(limit) if limit is not None else len(base)
+        )
         rejected.extend(discarded)
         _track("accepted", len(selected))
         _track("soft_cap", len(discarded))
@@ -336,7 +356,9 @@ def _gate_detections(
         stability = float(det.get("stability_margin", 0.0))
         alignment = float(det.get("alignment_cos", 1.0))
         delta_used = det.get("delta_frac")
-        if delta_used is None or (isinstance(delta_used, float) and math.isnan(delta_used)):
+        if delta_used is None or (
+            isinstance(delta_used, float) and math.isnan(delta_used)
+        ):
             delta_used = delta_frac_used
         delta_used = float(delta_used) if delta_used is not None else float("nan")
 
@@ -348,11 +370,19 @@ def _gate_detections(
             rejected.append(det)
             _track("alignment")
             continue
-        if delta_frac_min is not None and np.isfinite(delta_used) and delta_used < float(delta_frac_min):
+        if (
+            delta_frac_min is not None
+            and np.isfinite(delta_used)
+            and delta_used < float(delta_frac_min)
+        ):
             rejected.append(det)
             _track("delta_frac_min")
             continue
-        if delta_frac_max is not None and np.isfinite(delta_used) and delta_used > float(delta_frac_max):
+        if (
+            delta_frac_max is not None
+            and np.isfinite(delta_used)
+            and delta_used > float(delta_frac_max)
+        ):
             rejected.append(det)
             _track("delta_frac_max")
             continue
@@ -419,11 +449,17 @@ def detect_spikes(
         pre_gate_summary["coarse_candidates"] = len(coarse_candidates)
     if stats_dict is not None:
         stats_dict.setdefault("pre_gate", {}).update(pre_gate_summary)
-    soft_cap = cfg.gate_soft_max if (cfg.gate_mode or "strict").lower() == "soft" else None
+    soft_cap = (
+        cfg.gate_soft_max if (cfg.gate_mode or "strict").lower() == "soft" else None
+    )
     reason_counts: dict[str, int] | None = {} if stats_dict is not None else None
-    kept, rejected = _gate_detections(detections, cfg, soft_cap, resolved_delta_frac, reason_counts)
+    kept, rejected = _gate_detections(
+        detections, cfg, soft_cap, resolved_delta_frac, reason_counts
+    )
 
-    kept.sort(key=lambda det: float(det.get("edge_margin") or det["mu_hat"]), reverse=True)
+    kept.sort(
+        key=lambda det: float(det.get("edge_margin") or det["mu_hat"]), reverse=True
+    )
     limit_q = cfg.q_max if cfg.q_max is not None else len(kept)
     limit_m = cfg.max_detections if cfg.max_detections is not None else len(kept)
     cap = min(limit_q, limit_m)
@@ -431,7 +467,9 @@ def detect_spikes(
     if kept and cap < len(kept):
         kept = kept[: int(cap)]
         if reason_counts is not None:
-            reason_counts["hard_cap"] = reason_counts.get("hard_cap", 0) + int(pre_cap - len(kept))
+            reason_counts["hard_cap"] = reason_counts.get("hard_cap", 0) + int(
+                pre_cap - len(kept)
+            )
 
     if stats_dict is not None:
         gating_info = stats_dict.setdefault("gating", {})
@@ -477,25 +515,18 @@ def apply_overlay(
         )
     else:
         base = np.asarray(baseline_covariance, dtype=np.float64)
-    overlay = np.asarray(base, dtype=np.float64)
-    overlay = 0.5 * (overlay + overlay.T)
+    overlay = np.asarray(0.5 * (base + base.T), dtype=np.float64)
 
     max_use = cfg.max_detections if cfg.max_detections is not None else cfg.q_max
-    applied = 0
-    for det in detection_list:
-        if max_use is not None and applied >= int(max_use):
-            break
-        vec = np.asarray(det["eigvec"], dtype=np.float64).reshape(-1, 1)
-        norm = float(np.linalg.norm(vec))
-        if norm <= 0.0:
-            continue
-        vec /= norm
-        mu = float(det["mu_hat"])
-        if not np.isfinite(mu) or mu <= 0.0:
-            continue
-        current = float((vec.T @ overlay @ vec)[0, 0])
-        overlay = overlay + (mu - current) * (vec @ vec.T)
-        applied += 1
+    selected = detection_list
+    if max_use is not None:
+        selected = selected[: max(int(max_use), 0)]
+    if selected:
+        overlay = replace_spectral_subspace(
+            overlay,
+            [np.asarray(det["eigvec"], dtype=np.float64) for det in selected],
+            [float(det["mu_hat"]) for det in selected],
+        )
 
     overlay = np.asarray(0.5 * (overlay + overlay.T), dtype=np.float64)
     try:

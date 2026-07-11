@@ -196,26 +196,12 @@ def test_reference_reconstruction_sets_eigenpair_and_preserves_orthogonal_block(
     ) == pytest.approx(reconstructed, abs=1e-12)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Production one-way N and inclusion order do not yet match the frozen "
-        "FJS reference."
-    ),
-)
 def test_production_default_oneway_design_matches_reference() -> None:
     production = _default_design({"I": 5, "J": 2, "n": 10, "p": 5})
     require_reference_close("bulk_dimension", production["N"], 4.0)
     assert production["order"] == [[1], [1, 2]]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Production explicit-Cs MP/root/t map does not yet implement FJS "
-        "equation 5.5."
-    ),
-)
 def test_production_explicit_cs_map_matches_two_stratum_reference() -> None:
     design = _oneway_component_design()
     edge = upper_edge_reference(design)
@@ -256,13 +242,6 @@ def test_production_explicit_cs_map_matches_two_stratum_reference() -> None:
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Production overlay patches a Rayleigh quotient but does not replace "
-        "a non-aligned eigenpair."
-    ),
-)
 def test_production_reconstruction_matches_reference_for_non_aligned_baseline() -> None:
     baseline = np.array([[2.0, 1.0], [1.0, 2.0]], dtype=np.float64)
     direction = np.array([1.0, 0.0], dtype=np.float64)

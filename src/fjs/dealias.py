@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
-import math
 from typing import Any, TypedDict
 
 import numpy as np
@@ -11,6 +11,7 @@ from numpy.typing import NDArray
 from fjs.balanced import mean_squares
 from fjs.detector_contract import CandidateSource
 from fjs.mp import admissible_m_from_lambda, estimate_Cs_from_MS, mp_edge, t_vec
+from fjs.reconstruction import replace_spectral_subspace
 from fjs.theta_solver import ThetaSolverParams, solve_theta_for_t2_zero
 
 
@@ -71,7 +72,7 @@ class DealiasingResult:
 def _compute_admissible_root(
     lam_val: float,
     a_vec: np.ndarray,
-    C_for_mp: np.ndarray,
+    c_for_mp: np.ndarray,
     d_vec: np.ndarray,
     n_total: float,
     cs_vec: np.ndarray,
@@ -80,7 +81,7 @@ def _compute_admissible_root(
         admissible_m_from_lambda(
             float(lam_val),
             a_vec.tolist(),
-            C_for_mp.tolist(),
+            c_for_mp.tolist(),
             d_vec.tolist(),
             n_total,
             Cs=cs_vec,
@@ -162,7 +163,9 @@ def _generate_unit_vectors(
         vectors.append(vec)
 
     if component_count == 2:
-        angles = np.linspace(0.0, 2.0 * np.pi, num=a_grid, endpoint=False, dtype=np.float64)
+        angles = np.linspace(
+            0.0, 2.0 * np.pi, num=a_grid, endpoint=False, dtype=np.float64
+        )
         for angle in angles:
             vec = np.array([np.cos(angle), np.sin(angle)], dtype=np.float64)
             _record(vec)
@@ -171,8 +174,12 @@ def _generate_unit_vectors(
     if component_count == 3:
         num_phi = max(3, int(np.sqrt(max(a_grid, 1))))
         num_theta = max(6, int(np.ceil(max(a_grid, 1) / num_phi)))
-        theta_vals = np.linspace(0.0, 2.0 * np.pi, num=num_theta, endpoint=False, dtype=np.float64)
-        phi_vals = np.linspace(0.0, np.pi, num=num_phi, endpoint=False, dtype=np.float64)
+        theta_vals = np.linspace(
+            0.0, 2.0 * np.pi, num=num_theta, endpoint=False, dtype=np.float64
+        )
+        phi_vals = np.linspace(
+            0.0, np.pi, num=num_phi, endpoint=False, dtype=np.float64
+        )
         for phi in phi_vals:
             sin_phi = np.sin(phi)
             cos_phi = np.cos(phi)
@@ -256,23 +263,8 @@ def dealias_covariance(
 
     # Symmetrise to guard against minor numerical asymmetry.
     matrix = 0.5 * (matrix + matrix.T)
-    adjusted = matrix.copy()
-    n = adjusted.shape[0]
     iterations = 0
-
-    def _apply_update(vec: NDArray[np.float64], target: float) -> None:
-        nonlocal adjusted, iterations
-        vector = np.asarray(vec, dtype=np.float64).reshape(n)
-        norm = np.linalg.norm(vector)
-        if not np.isfinite(norm) or norm <= 0.0:
-            return
-        unit = vector / norm
-        mu_target = float(target)
-        if not np.isfinite(mu_target):
-            return
-        rayleigh = float(unit.T @ adjusted @ unit)
-        adjusted += (mu_target - rayleigh) * np.outer(unit, unit)
-        iterations += 1
+    adjusted = matrix.copy()
 
     handled = False
 
@@ -284,14 +276,23 @@ def dealias_covariance(
             if isinstance(entry, dict):
                 mu_val = entry.get("mu_hat")
                 vec_val = entry.get("eigvec")
-                if mu_val is not None and vec_val is not None:
-                    mu_candidates.append(float(mu_val))
-                    vec_candidates.append(np.asarray(vec_val, dtype=np.float64))
-        if mu_candidates and vec_candidates and len(mu_candidates) == len(vec_candidates):
-            for mu_val, vec_val in zip(mu_candidates, vec_candidates):
-                if vec_val.shape[0] != n:
-                    raise ValueError("eigvec dimensions must match covariance.")
-                _apply_update(vec_val, mu_val)
+                if mu_val is None or vec_val is None:
+                    raise ValueError(
+                        "Detection entries require both mu_hat and eigvec."
+                    )
+                mu_candidates.append(float(mu_val))
+                vec_candidates.append(np.asarray(vec_val, dtype=np.float64))
+        if (
+            mu_candidates
+            and vec_candidates
+            and len(mu_candidates) == len(vec_candidates)
+        ):
+            adjusted = replace_spectral_subspace(
+                adjusted,
+                vec_candidates,
+                mu_candidates,
+            )
+            iterations = len(mu_candidates)
             handled = True
 
     if not handled:
@@ -300,7 +301,11 @@ def dealias_covariance(
             raise ValueError("spectrum must be one-dimensional when given as array.")
         if values.size == 0:
             spectrum_sorted = np.linalg.eigvalsh(adjusted)
-            return DealiasingResult(covariance=adjusted, spectrum=spectrum_sorted, iterations=0)
+            return DealiasingResult(
+                covariance=adjusted,
+                spectrum=spectrum_sorted,
+                iterations=0,
+            )
 
         eigvals, eigvecs = np.linalg.eigh(adjusted)
         order = np.argsort(eigvals)[::-1]
@@ -308,8 +313,12 @@ def dealias_covariance(
 
         replacements = min(values.size, eigvecs.shape[1])
         target_vals = np.sort(values)[::-1]
-        for idx in range(replacements):
-            _apply_update(eigvecs[:, idx], target_vals[idx])
+        adjusted = replace_spectral_subspace(
+            adjusted,
+            [eigvecs[:, idx] for idx in range(replacements)],
+            target_vals[:replacements],
+        )
+        iterations = replacements
         handled = True
 
     final_spectrum = np.linalg.eigvalsh(adjusted)
@@ -338,17 +347,23 @@ def _default_design(stats: dict[str, int]) -> DesignParams:
     n_groups = int(stats["I"])
     replicates = int(stats["J"])
     total_samples = int(stats["n"])
+    feature_count = int(stats["p"])
+    spike_rank = int(stats.get("L", 1))
+    if spike_rank < 0 or spike_rank >= feature_count:
+        raise ValueError("Balanced-design spike rank L must satisfy 0 <= L < p.")
     d_vals = np.array(
         [float(n_groups - 1), float(total_samples - n_groups)], dtype=np.float64
     )
     c_vals = np.array([float(replicates), 1.0], dtype=np.float64)
     weight_vals = np.ones(2, dtype=np.float64)
-    order = [[1, 2], [2]]
+    # Paper indexing: the group component contributes to the between stratum;
+    # observational noise contributes to both between and residual strata.
+    order = [[1], [1, 2]]
     return DesignParams(
         c=c_vals,
         C=weight_vals,
         d=d_vals,
-        N=float(replicates),
+        N=float(feature_count - spike_rank),
         order=order,
     )
 
@@ -391,7 +406,7 @@ def _merge_detections(
                     visited[neighbour] = True
                     stack.append(neighbour)
         cluster = [detections_sorted[i] for i in cluster_indices]
-        # Prefer higher stability; break ties by larger target component energy when available
+        # Prefer higher stability; break ties by target energy when available.
         best = max(
             cluster,
             key=lambda item: (
@@ -421,9 +436,9 @@ def dealias_search(
     design: dict | None = None,
     cs_drop_top_frac: float | None = None,
     cs_sensitivity_frac: float | None = None,
-    use_design_c_for_C: bool = False,
+    use_design_c_for_C: bool = False,  # noqa: N803
     scan_basis: str = "ms",
-    oneway_a_solver: str = "grid",
+    oneway_a_solver: str = "auto",
     off_component_leak_cap: float | None = 0.3,
     cs_scale: float | None = None,
     diagnostics: dict[str, int] | None = None,
@@ -471,11 +486,14 @@ def dealias_search(
         break
 
     if len(ms_list) != len(sigma_components) or not ms_list:
-        raise ValueError("stats must provide matched mean squares and sigma components.")
+        raise ValueError(
+            "stats must provide matched mean squares and sigma components."
+        )
     # Design parameters:
-    # - c_vec holds the design coefficients (e.g., [J, 1] in one-way)
-    # - design_params["C"] defaults to ones and is not used for MP mapping
-    #   in the de-aliasing search; we use c_vec consistently for the MP calls.
+    # - c_vec holds the component coefficients (e.g., [J, 1] in one-way)
+    # - Cs below are the canonical bulk scales of the mean squares themselves.
+    # - design_params["C"] remains the positional fallback for public MP APIs;
+    #   explicit Cs replaces it rather than acting as an additive correction.
     c_weights = np.asarray(design_params["C"], dtype=np.float64)
     c_vec = np.asarray(design_params["c"], dtype=np.float64)
     d_vec = np.asarray(design_params["d"], dtype=np.float64)
@@ -522,30 +540,13 @@ def dealias_search(
         if cs_vec.ndim != 1 or cs_vec.shape[0] != component_count:
             raise ValueError("Cs must match the number of mean square components.")
 
-    # Auto-scale Cs to the Σ̂ basis magnitude when scanning Σ̂(a)
     scan_basis_norm = (scan_basis or "sigma").strip().lower()
     if scan_basis_norm not in {"sigma", "ms"}:
         raise ValueError("scan_basis must be 'sigma' or 'ms'.")
-    # Prepare Σ̂(a)-aware scaling for MP mapping
-    lam_mean = float("nan")
-    if scan_basis_norm == "sigma":
-        try:
-            sigma_total = np.zeros_like(sigma_components[0], dtype=np.float64)
-            for component in sigma_components:
-                sigma_total = sigma_total + component
-            eigvals_total = np.linalg.eigvalsh(0.5 * (sigma_total + sigma_total.T))
-            lam_mean = float(np.mean(eigvals_total)) if eigvals_total.size else float(np.nan)
-        except Exception:
-            lam_mean = float("nan")
-        cs_mean = float(np.mean(cs_vec)) if cs_vec.size else float("nan")
-        if np.isfinite(lam_mean) and np.isfinite(cs_mean) and cs_mean > 0:
-            auto_alpha = lam_mean / cs_mean
-        else:
-            auto_alpha = 1.0
-        alpha = float(cs_scale) if (cs_scale is not None and np.isfinite(cs_scale)) else auto_alpha
-        # Guard against underflow/overflow
+    if cs_scale is not None:
+        alpha = float(cs_scale)
         if not np.isfinite(alpha) or alpha <= 0.0:
-            alpha = 1.0
+            raise ValueError("cs_scale must be a positive finite scalar.")
         cs_vec = (alpha * cs_vec).astype(np.float64, copy=False)
 
     grid_size = max(8, min(int(a_grid), 60))
@@ -559,6 +560,10 @@ def dealias_search(
         for vec in candidate_vectors:
             theta_key = _angle_key(float(math.atan2(vec[1], vec[0])))
             angle_source.setdefault(theta_key, "grid")
+    # The one-way target is rank one. A small fixed number of admissible
+    # outliers is sufficient to seed the exact theta solve without multiplying
+    # a full angular root search across every grid/outlier combination.
+    root_solve_limit = 4
     eta_rad = np.deg2rad(stability_eta_deg)
     detections: list[Detection] = []
 
@@ -567,7 +572,7 @@ def dealias_search(
         rel = 0.0 if (delta_frac is None) else float(delta_frac) * float(z_plus_val)
         return float(z_plus_val + max(float(delta), rel))
 
-    C_for_mp = c_vec if use_design_c_for_C else c_weights
+    c_for_mp = c_vec if use_design_c_for_C else c_weights
 
     edge_scale_val = 1.0
     if edge_scale is not None:
@@ -579,7 +584,7 @@ def dealias_search(
             edge_scale_val = 1.0
     edge_mode_name = (edge_mode or "scm").strip()
 
-    def _edge_margin_for(Cs_local: np.ndarray):
+    def _edge_margin_for(cs_local: np.ndarray):
         def margin(a_vec_local: np.ndarray, lam_val: float) -> float | None:
             if nonnegative_a and np.any(a_vec_local < -1e-8):
                 return float("inf")
@@ -587,10 +592,10 @@ def dealias_search(
                 z_plus_local = mp_edge(
                     a_vec_local.tolist(),
                     # Use chosen mapping for MP edge
-                    C_for_mp.tolist(),
+                    c_for_mp.tolist(),
                     d_vec.tolist(),
                     n_total,
-                    Cs=Cs_local,
+                    Cs=cs_local,
                 )
             except (RuntimeError, ValueError):
                 return None
@@ -619,29 +624,98 @@ def dealias_search(
         _edge_margin_low = None  # type: ignore[assignment]
         _edge_margin_high = None  # type: ignore[assignment]
 
-    # Choose C mapping for MP computations
-    if use_design_c_for_C:
-        C_for_mp = c_vec
-    else:
-        if scan_basis_norm == "sigma" and np.isfinite(lam_mean) and lam_mean > 0.0:
-            C_for_mp = np.full_like(c_vec, lam_mean, dtype=np.float64)
-        else:
-            C_for_mp = c_weights
+    if use_theta_solver:
+        root_seeds: list[tuple[float, float]] = []
+        for seed_vector in candidate_vectors:
+            if nonnegative_a and np.any(seed_vector < -1e-8):
+                continue
+            try:
+                seed_edge = mp_edge(
+                    seed_vector.tolist(),
+                    c_for_mp.tolist(),
+                    d_vec.tolist(),
+                    n_total,
+                    Cs=cs_vec,
+                )
+            except (RuntimeError, ValueError):
+                continue
+            if scan_basis_norm == "sigma":
+                seed_matrix = np.zeros_like(
+                    sigma_components[0],
+                    dtype=np.float64,
+                )
+                for weight, sigma_component in zip(
+                    seed_vector,
+                    sigma_components,
+                ):
+                    seed_matrix += float(weight) * sigma_component
+            else:
+                seed_matrix = _sigma_of_a_from_MS(seed_vector, ms_list)
+            try:
+                seed_eigenvalues = np.linalg.eigvalsh(seed_matrix)[::-1]
+            except np.linalg.LinAlgError:
+                continue
+            seed_threshold = _threshold_from_z(
+                float(seed_edge) * edge_scale_val
+            )
+            for seed_lambda in seed_eigenvalues:
+                seed_margin = float(seed_lambda - seed_threshold)
+                if seed_margin < 0.0:
+                    break
+                root_seeds.append((seed_margin, float(seed_lambda)))
+
+        solver_params = ThetaSolverParams(
+            C=c_for_mp.copy(),
+            d=d_vec.copy(),
+            N=float(n_total),
+            c=c_vec.copy(),
+            order=[list(item) for item in design_params["order"]],
+            Cs=cs_vec.copy(),
+            eps=float(eps),
+            delta=float(eta_rad if eta_rad > 0.0 else 1e-3),
+            grid_size=max(72, int(a_grid)),
+            tol=1e-10,
+            max_iter=80,
+        )
+        for _, seed_lambda in sorted(root_seeds, reverse=True)[
+            :root_solve_limit
+        ]:
+            theta_solution = solve_theta_for_t2_zero(
+                seed_lambda,
+                solver_params,
+            )
+            if theta_solution is None:
+                continue
+            theta_norm = _angle_key(theta_solution)
+            duplicate = any(
+                min(
+                    abs(theta_norm - existing),
+                    2.0 * math.pi - abs(theta_norm - existing),
+                )
+                <= _ANGLE_TOL
+                for existing in angle_source
+            )
+            if duplicate:
+                continue
+            angle_source[theta_norm] = "rootfind"
+            candidate_vectors.append(
+                np.array(
+                    [math.cos(theta_norm), math.sin(theta_norm)],
+                    dtype=np.float64,
+                )
+            )
 
     for a_vec in candidate_vectors:
         if nonnegative_a and np.any(a_vec < -1e-8):
             continue
-        theta_current = None
-        theta_key = None
         solver_tag = "grid"
         if use_theta_solver:
-            theta_current = float(math.atan2(a_vec[1], a_vec[0]))
-            theta_key = _angle_key(theta_current)
+            theta_key = _angle_key(float(math.atan2(a_vec[1], a_vec[0])))
             solver_tag = angle_source.get(theta_key, "grid")
         try:
             z_plus_base = mp_edge(
                 a_vec.tolist(),
-                C_for_mp.tolist(),
+                c_for_mp.tolist(),
                 d_vec.tolist(),
                 n_total,
                 Cs=cs_vec,
@@ -674,7 +748,7 @@ def dealias_search(
             try:
                 z_plus_low = mp_edge(
                     a_vec.tolist(),
-                    C_for_mp.tolist(),
+                    c_for_mp.tolist(),
                     d_vec.tolist(),
                     n_total,
                     Cs=cs_vec_low,
@@ -691,7 +765,7 @@ def dealias_search(
             try:
                 z_plus_high = mp_edge(
                     a_vec.tolist(),
-                    C_for_mp.tolist(),
+                    c_for_mp.tolist(),
                     d_vec.tolist(),
                     n_total,
                     Cs=cs_vec_high,
@@ -722,11 +796,12 @@ def dealias_search(
                 raw_t = t_vec(
                     float(lam_val),
                     a_vec.tolist(),
-                    C_for_mp.tolist(),
+                    c_for_mp.tolist(),
                     d_vec.tolist(),
                     n_total,
                     c_vec.tolist(),
                     design_params["order"],
+                    Cs=cs_vec,
                 )
                 t_vals = np.asarray(raw_t, dtype=np.float64)
                 if t_vals.shape[0] <= target_r:
@@ -779,10 +854,16 @@ def dealias_search(
                 continue
             denom = max(energy_magnitude, 1e-12)
             worst_off = max(
-                (abs(component_vals[j]) for j in range(len(component_vals)) if j != target_r),
+                (
+                    abs(component_vals[j])
+                    for j in range(len(component_vals))
+                    if j != target_r
+                ),
                 default=0.0,
             )
-            off_component_ratio = float(worst_off / denom) if denom > 0 else float("inf")
+            off_component_ratio = (
+                float(worst_off / denom) if denom > 0 else float("inf")
+            )
             if (
                 off_component_leak_cap is not None
                 and off_component_ratio > float(off_component_leak_cap)
@@ -846,7 +927,10 @@ def dealias_search(
             if cs_vec_high is not None and _edge_margin_high is not None:
                 mp_main_high = (
                     float(lam_val - threshold_high)
-                    if (isinstance(threshold_high, float) and np.isfinite(threshold_high))
+                    if (
+                        isinstance(threshold_high, float)
+                        and np.isfinite(threshold_high)
+                    )
                     else float("nan")
                 )
                 mp_plus_high = _edge_margin_high(a_plus, lam_val)
@@ -902,7 +986,7 @@ def dealias_search(
                 admissible_root=_compute_admissible_root(
                     lam_val,
                     a_vec,
-                    C_for_mp,
+                    c_for_mp,
                     d_vec,
                     n_total,
                     cs_vec,
@@ -912,43 +996,6 @@ def dealias_search(
             )
             detection["solver_used"] = solver_tag
             detections.append(detection)
-
-            if (
-                use_theta_solver
-                and solver_tag == "grid"
-                and theta_current is not None
-                and theta_key is not None
-            ):
-                solver_params = ThetaSolverParams(
-                    C=C_for_mp.copy(),
-                    d=d_vec.copy(),
-                    N=float(n_total),
-                    c=c_vec.copy(),
-                    order=[list(item) for item in design_params["order"]],
-                    Cs=None if cs_vec is None else cs_vec.copy(),
-                    eps=float(eps),
-                    delta=float(eta_rad if eta_rad > 0.0 else 1e-3),
-                    grid_size=max(72, int(a_grid)),
-                    tol=1e-8,
-                    max_iter=60,
-                )
-                theta_solution = solve_theta_for_t2_zero(float(lam_val), solver_params)
-                if theta_solution is not None:
-                    theta_norm = _angle_key(theta_solution)
-                    duplicate = any(
-                        abs(theta_norm - existing) <= _ANGLE_TOL
-                        for existing in angle_source.keys()
-                    )
-                    if not duplicate:
-                        angle_source[theta_norm] = "rootfind"
-                        candidate_vectors.append(
-                            np.array(
-                                [math.cos(theta_norm), math.sin(theta_norm)],
-                                dtype=np.float64,
-                            )
-                        )
-                elif solver_mode == "rootfind":
-                    angle_source[theta_key] = "grid"
 
     merged = _merge_detections(detections)
     return merged

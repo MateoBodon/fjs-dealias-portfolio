@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+
 import numpy as np
 import pytest
 
@@ -95,8 +96,12 @@ def test_dealias_search_detects_sigma1_spike() -> None:
     detections = dealias_search(y, groups, target_r=0, a_grid=grid, delta=0.3, eps=0.05)
     assert detections, "Expected a detection for Sigma1 spike."
     assert len(detections) == 1
-    lambda_est = detections[0]["lambda_hat"]
-    assert abs(lambda_est - 6.0) < 0.8
+    # mu_hat estimates the realized component eigenvalue; lambda_hat is the
+    # outlier of the scanning matrix and is not on the component scale.
+    stats = mean_squares(y, groups)
+    realized_component = float(np.linalg.eigvalsh(stats["Sigma1_hat"])[-1])
+    mu_est = float(detections[0]["mu_hat"])
+    assert abs(mu_est - realized_component) < 0.8
     assert detections[0]["stability_margin"] >= 0.0
 
 

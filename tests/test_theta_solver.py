@@ -29,7 +29,9 @@ def _synthetic_oneway_dataset(
             noise = rng.normal(scale=0.15, size=p)
             observations.append(base + noise)
             labels.append(g)
-    return np.asarray(observations, dtype=np.float64), np.asarray(labels, dtype=np.int64)
+    return np.asarray(observations, dtype=np.float64), np.asarray(
+        labels, dtype=np.int64
+    )
 
 
 @pytest.mark.unit
@@ -37,12 +39,12 @@ def test_theta_solver_brackets_root(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_t_vec(
         lambda_hat: float,
         a: list[float],
-        C: list[float],
+        bulk_scales: list[float],
         d: list[float],
-        N: float,
+        n_bulk: float,
         c: list[float],
         order: list[list[int]],
-        Cs: list[float] | None = None,
+        explicit_scales: list[float] | None = None,
     ) -> np.ndarray:
         theta = math.atan2(a[1], a[0])
         return np.array([1.0, math.cos(theta) - 0.25], dtype=np.float64)
@@ -82,12 +84,12 @@ def test_theta_solver_brackets_root(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.integration
-def test_theta_solver_fallback_to_grid(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_theta_solver_failure_fails_closed(monkeypatch: pytest.MonkeyPatch) -> None:
     y, groups = _synthetic_oneway_dataset(seed=7)
     stats = mean_squares(y, groups)
 
     monkeypatch.setattr(
-        "fjs.theta_solver.solve_theta_for_t2_zero",
+        "fjs.dealias.solve_theta_for_t2_zero",
         lambda lambda_hat, params: None,
     )
 
@@ -109,26 +111,34 @@ def test_theta_solver_fallback_to_grid(monkeypatch: pytest.MonkeyPatch) -> None:
         stats=stats,
         oneway_a_solver="rootfind",
     )
-    assert detections
-    assert all(det.get("solver_used") == "grid" for det in detections)
+    assert detections == []
 
 
 @pytest.mark.integration
 def test_theta_solver_logs_solver_flag() -> None:
-    y, groups = _synthetic_oneway_dataset(seed=13)
+    rng = np.random.default_rng(13)
+    group_count, replicates, features = 60, 3, 10
+    direction = rng.normal(size=features)
+    direction /= np.linalg.norm(direction)
+    scores = rng.normal(size=group_count)
+    residuals = rng.normal(size=(group_count, replicates, features))
+    y = (
+        np.sqrt(6.0) * np.outer(scores, direction)[:, None, :] + 0.3 * residuals
+    ).reshape(group_count * replicates, features)
+    groups = np.repeat(np.arange(group_count, dtype=np.intp), replicates)
     stats = mean_squares(y, groups)
 
     detections = dealias_search(
         y,
         groups,
         target_r=0,
-        delta=0.0,
+        delta=0.3,
         delta_frac=None,
-        eps=1e-4,
-        stability_eta_deg=0.2,
+        eps=0.03,
+        stability_eta_deg=0.4,
         use_tvector=True,
         nonnegative_a=False,
-        a_grid=72,
+        a_grid=60,
         cs_drop_top_frac=0.0,
         cs_sensitivity_frac=0.0,
         scan_basis="ms",

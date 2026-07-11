@@ -47,6 +47,12 @@ the confirmation/holdout period is allowed until the detector gates below pass.
   negative control, not a target-between-component power test. The small
   canonical reference and its hashes are in
   `docs/artifacts/detector-contract-reference/ticket24_week_full_fix/`.
+- A new, separately predeclared two-cell between-component mechanism fixture is
+  bound under
+  `docs/artifacts/detector-contract-reference/between_mechanism_v1/`. Its 12
+  paired null trials produced 0 detections/acceptances and its 12 `mu=6` trials
+  produced 12 detections/acceptances. This passes the deterministic reference
+  gate but is not the full null/power/invariance suite or empirical evidence.
 - The recovered T-012 matrix is useful historical evidence but not a clean FJS
   validation. All 6,917 changed full-regime windows across its four legs are
   attributed to the generic `coarse` fallback; the FJS-only contribution is
@@ -122,10 +128,10 @@ semi-synthetic data are mechanism calibration only, never the headline result.
 the null-rate, strong-power, acceptance, gain, and monotonicity subset. It now
 also rejects a target-power curve unless `inject_mode=between` is present and
 consistent. `src/fjs/reference_oracle.py` implements the independent bounded
-edge/root/component/reconstruction oracle. `make detector-reference-gate`
-currently stops on five concrete production/provenance issues; three strict
-expected failures keep the code-level mismatches visible in the unit suite.
-Exact values and the repair sequence are frozen in
+edge/root/component/reconstruction oracle. `make detector-reference-gate` now
+passes against the predeclared manifest-bound fixture without changing oracle
+values or reducer thresholds. Exact values, resolved failures, and claim limits
+are frozen in
 `docs/strategy/FJS_REFERENCE_HARNESS_FINDINGS.md`.
 
 ## Real-data design and provenance
@@ -234,19 +240,22 @@ and must be disclosed as a new development generation.
 1. Reproduce and audit the historical flat-zero artifact by hash; retain it as
    an off-target negative control, not target-component power evidence.
 2. Build the independent deterministic reference harness and diagnose the
-   root/component mapping without CRSP-scale execution. **Completed; production
-   repair is the current stage.**
+   root/component mapping without CRSP-scale execution. **Completed.**
 3. Freeze and pass the full null/power/invariance/real-design detector suite.
+   **Current stage; the two-cell mechanism fixture is only the bounded entry
+   gate.**
 4. Build the rolling CRSP adapter and dedicated 2024/2025 derived manifests;
    validate point-in-time membership on a bounded sample.
 5. Implement and independently validate every frozen baseline.
 6. Run development, then confirmation once. Reduce without changing the gate.
 7. Only if confirmation promotes the design, open and run the 2025 holdout once.
 
-The immediate next command is `make detector-reference-gate`. Repair the five
-reported stop conditions without weakening the oracle. A full CRSP or
-memory-heavy run remains prohibited until the deterministic gate and subsequent
-target-matched null/power/invariance gates pass.
+The immediate next stage is preparation of the frozen full
+null/power/invariance calibration runner with exact-binomial cell gates,
+target-between injection, direction/component attribution, invariance checks,
+and restart-safe bounded blocks. Do not launch cloud execution or a full CRSP
+run until its manifest and execution package are independently ready and the
+applicable external-spend authority is confirmed.
 
 ## Literature frozen for implementation review
 

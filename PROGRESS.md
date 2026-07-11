@@ -776,3 +776,40 @@
 - **Next action**: repair the production one-way design, explicit-`C_s`
   edge/root/t map, and reconstruction semantics without weakening the frozen
   oracle; only then begin target-matched null/power calibration.
+
+## 2026-07-10T23:56Z - ticket-37 production reference repair and frozen between fixture
+
+- **Branch/Run**: `portfolio/fjs-recenter-m1-20260710`
+  (`20260710_235634_ticket-37_fjs-reference-repair-m3`).
+- **Predeclaration**: fixture inputs were frozen at
+  `82d1ffc0b2fc7c4c39e820b7aae3c4ad0bcdb43c` before generator implementation
+  or execution.
+- **Production changes**:
+  - Corrected `N=p-L`, the one-way inclusion lattice, and canonical mean-square
+    `C_s` estimation.
+  - Unified edge, root, derivative, and `t` calculations on exact FJS equation
+    (5.5), with polynomial root enumeration and bounded strongest-outlier theta
+    seeding.
+  - Replaced order-dependent rank-one overlays with symmetric multi-candidate
+    subspace replacement and fail-loud rank checks.
+- **Frozen fixture**:
+  - source commit/tree: `9afbb72cb02172080c52ba206ddd73ed2110dedf` /
+    `75ce510b7193eee457f825fa57d6417a2c361170`;
+  - null detection/acceptance: `0/12`; `mu=6`, `between`:
+    detection/acceptance `12/12`;
+  - curve/trials SHA-256: `d19edfb7bdfa22fab487a1e0ff551bc346435340fa467fd4c02f77c446848a07` /
+    `0620d728f509bed0a3ae8f065f22e2330a1c696c2918a16638a34ab6cc076f7f`;
+  - byte reproduction: PASS.
+- **Verification**:
+  - `make detector-reference-gate`: PASS with unchanged oracle/reducer logic;
+  - focused reference/MP/de-alias/theta/reconstruction/overlay suite: PASS;
+  - `make test-fast`: PASS after obsolete no-root diagnostic expectation was
+    replaced by corrected fail-closed behavior;
+  - combined native unit/integration suite: PASS;
+  - no broad empirical grid or cloud job was launched.
+- **Claim boundary**: the two-cell fixture is synthetic mechanism calibration,
+  not a size/power study, real-data result, or promotion evidence.
+- **Next action**: prepare—but do not launch—the frozen full
+  null/power/invariance runner with exact-binomial cell gates, target-between
+  injection, direction/component attribution, invariance checks, and
+  checkpoint/restart orchestration for independently authorized AWS execution.

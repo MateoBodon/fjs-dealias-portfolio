@@ -1,0 +1,47 @@
+{
+  "claim_boundary": "synthetic balanced-one-way mechanism calibration only; never headline or empirical evidence",
+  "design": {
+    "features": 10,
+    "groups": 60,
+    "replicates": 3,
+    "within_noise_scale": 0.3
+  },
+  "detector": {
+    "a_grid": 60,
+    "coarse_candidate": false,
+    "delta": 0.3,
+    "edge_mode": "scm",
+    "eps": 0.03,
+    "gate_mode": "strict",
+    "off_component_cap": 0.3,
+    "q_max": 1,
+    "require_isolated": true,
+    "stability_eta_deg": 0.4
+  },
+  "draw_contract": {
+    "bit_generator": "PCG64",
+    "child_streams": "numpy.random.SeedSequence(master_seed).spawn(trial_count)",
+    "direction": "standard_normal(features), then unit L2 normalization",
+    "group_scores": "standard_normal(groups)",
+    "pairing": "reuse direction, group_scores, and residuals for every mu within a trial",
+    "residuals": "standard_normal((groups, replicates, features))"
+  },
+  "frozen_at": "2026-07-10T23:20:00Z",
+  "inject_mode": "between",
+  "master_seed": 20260710,
+  "mu_grid": [
+    0.0,
+    6.0
+  ],
+  "project_os_goal": "goal_66cfb5598280",
+  "reducer": {
+    "acceptance": "one or more FJS candidates retained after strict overlay gating",
+    "detection": "one or more production FJS candidates before overlay gating",
+    "expected_inject_mode": "between",
+    "power_gain_min": 0.5,
+    "strong_power_min": 0.8,
+    "null_fpr_max": 0.075
+  },
+  "schema_version": "fjs-between-mechanism-input/v1",
+  "trial_count": 12
+}

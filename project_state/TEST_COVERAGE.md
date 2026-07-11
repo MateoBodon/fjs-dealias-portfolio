@@ -18,8 +18,14 @@ commands:
   - Independent reference: `tests/fjs/test_reference_oracle.py` checks exact
     scalar and two-stratum MP edge/root/component values, homogeneity, stratum
     permutation, deterministic magnitude-matched oracle/sham controls, and
-    eigenpair reconstruction. Three strict expected failures expose production
-    design, explicit-`C_s`, and reconstruction mismatches.
+    eigenpair reconstruction. The former production mismatches are now ordinary
+    passing equivalence checks.
+  - Multi-candidate reconstruction: `tests/fjs/test_reconstruction.py` covers
+    exact subspace eigenpairs, orthogonal-block preservation, permutation/sign
+    invariance, and fail-loud rank deficiency.
+  - Frozen mechanism fixture: `tests/tools/test_generate_fjs_between_fixture.py`
+    covers the immutable spec, paired draws, and stable reducers;
+    `tools/generate_fjs_between_fixture.py --check` performs the full byte replay.
   - Synthetic harness: `tests/test_power_null.py`, `tests/synthetic/test_calibration.py`, `tests/synthetic/test_harness_utils.py`, `tests/test_calibrate_defaults.py`, `tests/test_threshold_eval.py`.
   - Evaluation runners: `tests/experiments/test_eval_run.py`, `tests/experiments/test_gating_diagnostics.py`, `tests/experiments/test_skip_reasons.py`, `tests/test_pipeline_smoke.py`.
   - Finance/portfolio: `tests/test_portfolios_missing_solver.py`, `tests/test_eval_missing_solver.py`, `tests/test_minvar_regularized.py`, `tests/test_shrinkage.py`, `tests/test_factor_cov.py`, `tests/test_cache_switch_estimator.py`.
@@ -30,12 +36,15 @@ commands:
   - Full RC/RC-lite/AWS paths are not part of the fast suite; rely on smokes + manual runs.
   - Crisis configs, vol-state acceptance, and nested kill-test FPR remain mostly smoke-tested.
   - Plotting tests skip when matplotlib is unavailable.
-  - The independent deterministic reference harness is implemented, but the
-    production path fails its gate. Exact binomial-size, target-matched planted
-    power, planted-direction attribution, and real-design detector harnesses
-    remain blocked until `make detector-reference-gate` passes. No full CRSP
-    execution is covered or allowed by this milestone.
+  - The independent deterministic reference and two-cell mechanism fixture pass.
+    Exact binomial-size, the full target-matched planted-power curve,
+    planted-direction/component attribution, invariance, and real-design
+    detector harnesses remain open. No full CRSP execution is covered or
+    allowed by this milestone.
 - **Ticket 37 milestone** — targeted and native-suite results are recorded in
   `docs/agent_runs/20260710_173211_ticket-37_fjs-scientific-recenter-m1/TESTS.md`.
 - **Ticket 37 reference milestone** — exact gate and test evidence is recorded
   in `docs/agent_runs/20260710_231303_ticket-37_fjs-reference-harness-m2/`.
+- **Ticket 37 repair milestone** — production repair, frozen fixture, and native
+  regression evidence is recorded in
+  `docs/agent_runs/20260710_235634_ticket-37_fjs-reference-repair-m3/`.

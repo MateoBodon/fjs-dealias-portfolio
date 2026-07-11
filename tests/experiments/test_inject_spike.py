@@ -4,8 +4,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
-
 from experiments.eval import inject_spike
+
 from fjs.balanced import mean_squares
 from fjs.overlay import OverlayConfig, detect_spikes
 
@@ -107,9 +107,13 @@ def test_windows_detail_and_gating_outputs(tmp_path: Path) -> None:
     gating_df.to_csv(gating_path, index=False)
 
     loaded_detail = pd.read_csv(detail_path)
-    assert set(inject_spike.WINDOW_DETAIL_REQUIRED_COLUMNS).issubset(loaded_detail.columns)
+    assert set(inject_spike.WINDOW_DETAIL_REQUIRED_COLUMNS).issubset(
+        loaded_detail.columns
+    )
     loaded_gating = pd.read_csv(gating_path)
-    assert {"stage", "reason", "count", "injected_mu", "inject_mode"}.issubset(loaded_gating.columns)
+    assert {"stage", "reason", "count", "injected_mu", "inject_mode"}.issubset(
+        loaded_gating.columns
+    )
 
 
 @pytest.mark.unit
@@ -118,14 +122,18 @@ def test_injection_modes_group_means() -> None:
     labels = np.repeat(np.arange(3, dtype=np.intp), 4)
 
     rng_total = np.random.default_rng(1)
-    basis_total = inject_spike._make_injection_basis(base, labels, rng_total, inject_mode="total")
+    basis_total = inject_spike._make_injection_basis(
+        base, labels, rng_total, inject_mode="total"
+    )
     injected_total = inject_spike._apply_injection(base, basis_total, mu=1.0)
     series_total = injected_total @ basis_total.direction
     assert abs(float(np.mean(series_total))) < 1e-8
     assert abs(float(np.std(series_total)) - 1.0) < 1e-8
 
     rng_between = np.random.default_rng(2)
-    basis_between = inject_spike._make_injection_basis(base, labels, rng_between, inject_mode="between")
+    basis_between = inject_spike._make_injection_basis(
+        base, labels, rng_between, inject_mode="between"
+    )
     injected_between = inject_spike._apply_injection(base, basis_between, mu=1.0)
     series_between = injected_between @ basis_between.direction
     group_means_between = [
@@ -134,7 +142,9 @@ def test_injection_modes_group_means() -> None:
     assert float(np.var(group_means_between)) > 1e-6
 
     rng_within = np.random.default_rng(3)
-    basis_within = inject_spike._make_injection_basis(base, labels, rng_within, inject_mode="within")
+    basis_within = inject_spike._make_injection_basis(
+        base, labels, rng_within, inject_mode="within"
+    )
     injected_within = inject_spike._apply_injection(base, basis_within, mu=1.0)
     series_within = injected_within @ basis_within.direction
     group_means_within = [
@@ -160,7 +170,7 @@ def test_missing_config_path_fails(tmp_path: Path) -> None:
 
 
 @pytest.mark.unit
-def test_debug_window_no_tvec_compute_error() -> None:
+def test_debug_window_fails_closed_without_tvec_errors() -> None:
     fixture_path = Path("tests/fixtures/debug_window_week_no_root.npz")
     assert fixture_path.exists()
     with np.load(fixture_path, allow_pickle=True) as data:
@@ -171,12 +181,14 @@ def test_debug_window_no_tvec_compute_error() -> None:
     cfg_payload = metadata["overlay_config"]
     overlay_cfg = OverlayConfig(**cfg_payload)
     stats = mean_squares(obs, groups)
-    _ = detect_spikes(
+    detections = detect_spikes(
         obs,
         groups,
         config=overlay_cfg,
         stats=stats,
     )
     diagnostics = stats.get("diagnostics", {})
+    assert detections == []
+    assert stats["pre_gate"]["raw_outliers_found"] == 0
     assert diagnostics.get("tvec_compute_error", 0) == 0
-    assert diagnostics.get("tvec_no_real_root", 0) > 0
+    assert diagnostics.get("tvec_no_real_root", 0) == 0

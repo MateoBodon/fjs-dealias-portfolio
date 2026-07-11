@@ -1,0 +1,28 @@
+{
+  "ticket": "ticket-37",
+  "run_name": "20260710_235634_ticket-37_fjs-reference-repair-m3",
+  "git_sha_before": "e6df52575a1db65c85372ddaa545ae62698ee507",
+  "git_sha_after": "143b74972392a0fa1ba0ece6384a33d2c1a663fd",
+  "git_tree_after": "8315f975e24ef5c387c5b58350ce578097eb9098",
+  "git_branch": "portfolio/fjs-recenter-m1-20260710",
+  "worktree": "/Volumes/Storage/Projects/fjs/worktrees/fjs-recenter-m1-20260710",
+  "dirty_at_start": false,
+  "dirty_at_end": false,
+  "resolved_config_paths": [
+    "docs/artifacts/detector-contract-reference/between_mechanism_v1/input_spec.json"
+  ],
+  "config_hashes": [
+    "e212e430e91bbd285eb20b11090f08b31a7c929ec8208ea1da541b57e94c5093"
+  ],
+  "dataset_ids": {
+    "experiment_run": "none",
+    "fixture_source_commit": "9afbb72cb02172080c52ba206ddd73ed2110dedf",
+    "fixture_source_tree": "75ce510b7193eee457f825fa57d6417a2c361170",
+    "input_spec_sha256": "e212e430e91bbd285eb20b11090f08b31a7c929ec8208ea1da541b57e94c5093",
+    "curve_sha256": "d19edfb7bdfa22fab487a1e0ff551bc346435340fa467fd4c02f77c446848a07",
+    "trials_sha256": "0620d728f509bed0a3ae8f065f22e2330a1c696c2918a16638a34ab6cc076f7f",
+    "generator_sha256": "632ad21f54bdca4447b65173dd07d8c2107ff4d66b418b340e5b0e2fe587a38e"
+  },
+  "broad_empirical_run": false,
+  "status": "completed_review_ready"
+}

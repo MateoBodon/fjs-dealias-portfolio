@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import hashlib
 import os
+import warnings
 from collections import OrderedDict
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-import warnings
 
 import numpy as np
+from numpy.polynomial import Polynomial
 from numpy.typing import NDArray
 
 # ruff: noqa: N803
@@ -141,7 +142,28 @@ def _prepare_cs(
         raise ValueError("Cs must be one-dimensional.")
     if cs_arr.shape != template.shape:
         raise ValueError("Cs must match the shape of a.")
+    if not np.all(np.isfinite(cs_arr)):
+        raise ValueError("Cs must contain only finite values.")
     return cs_arr
+
+
+def _bulk_scales(
+    C: np.ndarray,
+    Cs: ArrayLike | None,
+) -> np.ndarray:
+    """Resolve the paper's canonical mean-square bulk scales ``C_s``.
+
+    ``C`` remains the backward-compatible positional source.  An explicit
+    ``Cs`` value replaces it; it is not an additive correction term.
+    """
+
+    scales = np.asarray(C, dtype=np.float64) if Cs is None else _prepare_cs(Cs, C)
+    if np.any(scales < 0.0) or not np.any(scales > 0.0):
+        raise ValueError(
+            "Mean-square bulk scales must be non-negative with at least one "
+            "positive entry."
+        )
+    return np.asarray(scales, dtype=np.float64)
 
 
 def estimate_Cs_from_MS(  # noqa: N802
@@ -160,7 +182,9 @@ def estimate_Cs_from_MS(  # noqa: N802
     d_list
         Degrees of freedom associated with each stratum (used for validation).
     c_list
-        Design coefficients associated with each stratum.
+        Design coefficients associated with each stratum. They are validated
+        for design alignment but do not multiply a canonical mean square that
+        already estimates its own ``C_s`` bulk scale.
     drop_top
         Number of leading eigenvalues to discard before averaging.
     """
@@ -202,10 +226,7 @@ def estimate_Cs_from_MS(  # noqa: N802
         sigma_sq = float(np.mean(trimmed))
         sigma_estimates[idx] = max(sigma_sq, 0.0)
 
-    cs_values = np.zeros(len(ms_arrays), dtype=np.float64)
-    for idx in range(len(ms_arrays) - 1, -1, -1):
-        cs_values[idx] = float(np.dot(c_arr[idx:], sigma_estimates[idx:]))
-    return cs_values
+    return sigma_estimates
 
 
 def _k_values(  # noqa: N803
@@ -239,14 +260,12 @@ def z_of_m(  # noqa: N803
     m_val = float(m)
     if not np.isfinite(m_val) or m_val == 0.0:
         raise ValueError("m must be a non-zero finite scalar.")
-    cs_arr = _prepare_cs(Cs, a_arr)
-    # Denominator uses Cs when provided (non-zero); otherwise fall back to design c
-    denom_weights = cs_arr if np.any(np.abs(cs_arr) > 0.0) else c_arr
-    k_vals = _k_values(a_arr, denom_weights, d_arr, n_float)
+    bulk_scales = _bulk_scales(c_arr, Cs)
+    k_vals = _k_values(a_arr, bulk_scales, d_arr, n_float)
     denom = 1.0 + k_vals * m_val
     if np.any(np.isclose(denom, 0.0, atol=1e-12, rtol=0.0)):
         raise ValueError("Denominator becomes singular for the supplied m.")
-    numerators = c_arr * a_arr + cs_arr
+    numerators = bulk_scales * a_arr
     contributions = numerators / denom
     return float(-1.0 / m_val + np.sum(contributions))
 
@@ -311,14 +330,13 @@ def z0_prime(  # noqa: N802
     """Closed-form first derivative z0'(m) for balanced one-way design.
 
     Uses the identity
-    z'(m) = 1/m^2 - sum_s ( (c_s a_s + Cs_s) k_s / (1 + k_s m)^2 ),
+    z'(m) = 1/m^2 - sum_s (a_s C_s k_s / (1 + k_s m)^2),
     where k_s = (N/d_s) a_s C_s.
     """
     a_arr, c_arr, d_arr, n_float = _prepare_inputs(a, C, d, N)
-    cs_arr = _prepare_cs(Cs, a_arr)
-    denom_weights = cs_arr if np.any(np.abs(cs_arr) > 0.0) else c_arr
-    k_vals = _k_values(a_arr, denom_weights, d_arr, n_float)
-    numerators = c_arr * a_arr + cs_arr
+    bulk_scales = _bulk_scales(c_arr, Cs)
+    k_vals = _k_values(a_arr, bulk_scales, d_arr, n_float)
+    numerators = bulk_scales * a_arr
     return _dz_dm(float(m), k_vals, numerators)
 
 
@@ -333,13 +351,12 @@ def z0_double_prime(  # noqa: N802
     """Closed-form second derivative z0''(m) for balanced one-way design.
 
     Uses the identity
-    z''(m) = -2/m^3 + sum_s ( 2 (c_s a_s + Cs_s) k_s^2 / (1 + k_s m)^3 ).
+    z''(m) = -2/m^3 + sum_s (2 a_s C_s k_s^2 / (1 + k_s m)^3).
     """
     a_arr, c_arr, d_arr, n_float = _prepare_inputs(a, C, d, N)
-    cs_arr = _prepare_cs(Cs, a_arr)
-    denom_weights = cs_arr if np.any(np.abs(cs_arr) > 0.0) else c_arr
-    k_vals = _k_values(a_arr, denom_weights, d_arr, n_float)
-    numerators = c_arr * a_arr + cs_arr
+    bulk_scales = _bulk_scales(c_arr, Cs)
+    k_vals = _k_values(a_arr, bulk_scales, d_arr, n_float)
+    numerators = bulk_scales * a_arr
     return _d2z_dm2(float(m), k_vals, numerators)
 
 
@@ -362,6 +379,28 @@ def _augment_with_singularities(grid: np.ndarray, k_vals: np.ndarray) -> np.ndar
     points.append(-1e-12)
     points = sorted(set(pt for pt in points if pt < -1e-12))
     return np.array(points, dtype=np.float64)
+
+
+def _polynomial_product(polynomials: Sequence[Polynomial]) -> Polynomial:
+    result = Polynomial([1.0])
+    for polynomial in polynomials:
+        result *= polynomial
+    return result
+
+
+def _finite_real_roots(polynomial: Polynomial) -> list[float]:
+    roots: list[float] = []
+    for root in polynomial.roots():
+        real = float(np.real(root))
+        imaginary = float(np.imag(root))
+        if abs(imaginary) <= 1e-8 * max(1.0, abs(real)) and np.isfinite(real):
+            roots.append(real)
+    roots.sort()
+    unique: list[float] = []
+    for value in roots:
+        if not unique or abs(value - unique[-1]) > 1e-7 * max(1.0, abs(value)):
+            unique.append(value)
+    return unique
 
 
 def _newton_refine(
@@ -407,20 +446,29 @@ def _stationary_points(
     def curvature(m_val: float) -> float:
         return _d2z_dm2(m_val, k_vals, numerators)
 
-    grid = _augment_with_singularities(_logspace_grid(), k_vals)
-    brackets = _brackets_sign_change(derivative, grid, k_vals)
+    linear = [Polynomial([1.0, value]) for value in k_vals]
+    squared = [polynomial * polynomial for polynomial in linear]
+    stationary_polynomial = _polynomial_product(squared)
+    m_squared = Polynomial([0.0, 0.0, 1.0])
+    for index, coefficient in enumerate(numerators * k_vals):
+        other_factors = [
+            polynomial
+            for other_index, polynomial in enumerate(squared)
+            if other_index != index
+        ]
+        stationary_polynomial -= (
+            float(coefficient) * m_squared * _polynomial_product(other_factors)
+        )
+
     roots: list[float] = []
-    for left, right in brackets:
-        if left == right:
-            root = left
-        else:
-            try:
-                root = _bisect(derivative, left, right)
-            except RuntimeError:
-                continue
-        # Optional Newton polish
-        root = _newton_refine(root, derivative, curvature)
-        if np.isfinite(root):
+    for root in _finite_real_roots(stationary_polynomial):
+        if root == 0.0 or _crosses_pole(root, root, k_vals):
+            continue
+        residual = derivative(root)
+        if np.isfinite(residual) and abs(residual) <= 1e-7 * max(
+            1.0,
+            abs(root) ** -2,
+        ):
             roots.append(float(root))
     return roots, derivative, curvature
 
@@ -566,52 +614,47 @@ def mp_edge(  # noqa: N803
     Locate the upper bulk edge of the Marčenko--Pastur distribution.
     """
     a_arr, c_arr, d_arr, n_float = _prepare_inputs(a, C, d, N)
-    cs_arr = _prepare_cs(Cs, a_arr)
-    cache_key = f"mp_edge:{_hash_arrays(a_arr, c_arr, d_arr, np.asarray([n_float]), cs_arr)}"
+    bulk_scales = _bulk_scales(c_arr, Cs)
+    cache_key = (
+        "mp_edge:" f"{_hash_arrays(a_arr, bulk_scales, d_arr, np.asarray([n_float]))}"
+    )
     cached = _cache_get(cache_key)
     if cached is not None:
         return cached
-    value = _mp_edge_impl(a_arr, c_arr, d_arr, n_float, cs_arr)
+    value = _mp_edge_impl(a_arr, bulk_scales, d_arr, n_float)
     _cache_set(cache_key, value)
     return value
 
 
 def _mp_edge_impl(
     a_arr: np.ndarray,
-    c_arr: np.ndarray,
+    bulk_scales: np.ndarray,
     d_arr: np.ndarray,
     n_float: float,
-    cs_arr: np.ndarray,
 ) -> float:
-    denom_weights = cs_arr if np.any(np.abs(cs_arr) > 0.0) else c_arr
-    k_vals = _k_values(a_arr, denom_weights, d_arr, n_float)
-    numerators = c_arr * a_arr + cs_arr
+    k_vals = _k_values(a_arr, bulk_scales, d_arr, n_float)
+    numerators = bulk_scales * a_arr
 
-    roots, derivative, curvature = _stationary_points(k_vals, numerators)
+    roots, _, curvature = _stationary_points(k_vals, numerators)
 
-    if not roots:
-        # fall back: pick point with minimal |z'(m)| on the search grid
-        grid = _augment_with_singularities(_logspace_grid(), k_vals)
-        values = [
-            (abs(derivative(point)), point)
-            for point in grid
-            if np.isfinite(derivative(point))
-        ]
-        if not values:
-            raise RuntimeError("Unable to locate a stationary point for z(m).")
-        _, candidate = min(values, key=lambda pair: pair[0])
-        roots = [candidate]
+    edge_roots = [
+        root
+        for root in roots
+        if root < 0.0 and np.isfinite(curvature(root)) and curvature(root) > 0.0
+    ]
+    if not edge_roots:
+        raise RuntimeError(
+            "No convex negative-real stationary root defines an upper MP edge."
+        )
 
-    # Prefer roots with negative second derivative (concave maximum).
-    roots_sorted = sorted(roots, reverse=True)
-    for root in roots_sorted:
-        curvature_val = curvature(root)
-        if np.isfinite(curvature_val) and curvature_val < 0:
-            return float(z_of_m(root, a_arr, c_arr, d_arr, n_float, cs_arr))
-
-    # If no root satisfies curvature < 0, return the best available candidate.
-    best_root = min(roots_sorted, key=lambda r: abs(derivative(r)))
-    return float(z_of_m(best_root, a_arr, c_arr, d_arr, n_float, cs_arr))
+    edge_values = [
+        (
+            z_of_m(root, a_arr, bulk_scales, d_arr, n_float),
+            root,
+        )
+        for root in edge_roots
+    ]
+    return float(max(edge_values, key=lambda item: item[0])[0])
 
 
 def m_edge(  # noqa: N803
@@ -621,24 +664,37 @@ def m_edge(  # noqa: N803
     N: int | float,
     Cs: ArrayLike | None = None,
 ) -> float:
-    """Return m_plus where z'(m_plus)=0 and z''(m_plus)<0 (upper edge).
+    """Return m_plus where z'(m_plus)=0 and z''(m_plus)>0 (upper edge).
 
     Parameters mirror :func:`mp_edge`. This provides the stationary m used to
     compute the upper spectral edge via ``z_plus = z0(m_plus)``.
     """
     a_arr, c_arr, d_arr, n_float = _prepare_inputs(a, C, d, N)
-    cs_arr = _prepare_cs(Cs, a_arr)
-    denom_weights = cs_arr if np.any(np.abs(cs_arr) > 0.0) else c_arr
-    k_vals = _k_values(a_arr, denom_weights, d_arr, n_float)
-    numerators = c_arr * a_arr + cs_arr
-    roots, derivative, curvature = _stationary_points(k_vals, numerators)
-    if not roots:
-        raise RuntimeError("No stationary point located for z(m).")
-    roots_sorted = sorted(roots, reverse=True)
-    for root in roots_sorted:
-        if curvature(root) < 0:
-            return float(root)
-    return float(roots_sorted[0])
+    bulk_scales = _bulk_scales(c_arr, Cs)
+    k_vals = _k_values(a_arr, bulk_scales, d_arr, n_float)
+    numerators = bulk_scales * a_arr
+    roots, _, curvature = _stationary_points(k_vals, numerators)
+    edge_roots = [
+        root
+        for root in roots
+        if root < 0.0 and np.isfinite(curvature(root)) and curvature(root) > 0.0
+    ]
+    if not edge_roots:
+        raise RuntimeError(
+            "No convex negative-real stationary root defines an upper MP edge."
+        )
+    return float(
+        max(
+            edge_roots,
+            key=lambda root: z_of_m(
+                root,
+                a_arr,
+                bulk_scales,
+                d_arr,
+                n_float,
+            ),
+        )
+    )
 
 
 def admissible_m_from_lambda(  # noqa: N803
@@ -653,15 +709,24 @@ def admissible_m_from_lambda(  # noqa: N803
     Recover the admissible real root of z(m) = λ with positive slope.
     """
     a_arr, c_arr, d_arr, n_float = _prepare_inputs(a, C, d, N)
-    cs_arr = _prepare_cs(Cs, a_arr)
+    bulk_scales = _bulk_scales(c_arr, Cs)
     lam_val = float(lam)
     if not np.isfinite(lam_val):
         raise ValueError("λ must be a finite scalar.")
-    cache_key = f"admiss:{_hash_arrays(a_arr, c_arr, d_arr, np.asarray([n_float, lam_val]), cs_arr)}"
+    cache_key = (
+        "admiss:"
+        f"{_hash_arrays(a_arr, bulk_scales, d_arr, np.asarray([n_float, lam_val]))}"
+    )
     cached = _cache_get(cache_key)
     if cached is not None:
         return cached
-    value = _admissible_m_from_lambda_impl(lam_val, a_arr, c_arr, d_arr, n_float, cs_arr)
+    value = _admissible_m_from_lambda_impl(
+        lam_val,
+        a_arr,
+        bulk_scales,
+        d_arr,
+        n_float,
+    )
     _cache_set(cache_key, value)
     return value
 
@@ -669,33 +734,44 @@ def admissible_m_from_lambda(  # noqa: N803
 def _admissible_m_from_lambda_impl(
     lam_val: float,
     a_arr: np.ndarray,
-    c_arr: np.ndarray,
+    bulk_scales: np.ndarray,
     d_arr: np.ndarray,
     n_float: float,
-    cs_arr: np.ndarray,
 ) -> float:
-    denom_weights = cs_arr if np.any(np.abs(cs_arr) > 0.0) else c_arr
-    k_vals = _k_values(a_arr, denom_weights, d_arr, n_float)
-    numerators = c_arr * a_arr + cs_arr
+    k_vals = _k_values(a_arr, bulk_scales, d_arr, n_float)
+    numerators = bulk_scales * a_arr
 
-    def equation(m_val: float) -> float:
-        return z_of_m(m_val, a_arr, c_arr, d_arr, n_float, cs_arr) - lam_val
+    edge = _mp_edge_impl(a_arr, bulk_scales, d_arr, n_float)
+    if lam_val <= edge:
+        raise ValueError(
+            "lambda must lie strictly above the independently defined upper edge."
+        )
 
-    grid = _augment_with_singularities(_logspace_grid(), k_vals)
-    brackets = _brackets_sign_change(equation, grid, k_vals)
+    linear = [Polynomial([1.0, value]) for value in k_vals]
+    denominator_polynomial = _polynomial_product(linear)
+    m_polynomial = Polynomial([0.0, 1.0])
+    equation_polynomial = -denominator_polynomial - (
+        lam_val * m_polynomial * denominator_polynomial
+    )
+    for index, numerator in enumerate(numerators):
+        other_factors = [
+            polynomial
+            for other_index, polynomial in enumerate(linear)
+            if other_index != index
+        ]
+        equation_polynomial += (
+            float(numerator) * m_polynomial * _polynomial_product(other_factors)
+        )
+
     roots: list[float] = []
-
-    for left, right in brackets:
-        if left == right:
-            root = left
-        else:
-            try:
-                root = _bisect(equation, left, right)
-            except RuntimeError:
-                continue
-        # Optional Newton polish using derivative of z(m)
-        root = _newton_refine(root, equation, lambda m_val: _dz_dm(m_val, k_vals, numerators))
-        if np.isfinite(root):
+    for root in _finite_real_roots(equation_polynomial):
+        if root >= -1e-12:
+            continue
+        try:
+            residual = z_of_m(root, a_arr, bulk_scales, d_arr, n_float) - lam_val
+        except ValueError:
+            continue
+        if abs(residual) <= 1e-8 * max(1.0, abs(lam_val)):
             roots.append(root)
 
     if not roots:
@@ -715,11 +791,13 @@ def _admissible_m_from_lambda_impl(
 
     # Diagnostics: warn if very close to the edge stationary point or a singularity.
     try:
-        m_plus = m_edge(a_arr, c_arr, d_arr, n_float, cs_arr)
+        m_plus = m_edge(a_arr, bulk_scales, d_arr, n_float)
         if abs(best_root - m_plus) <= max(1e-8, 1e-6 * abs(m_plus)):
             warnings.warn(
-                "Root m(λ) lies extremely close to the spectral edge; results may be unstable.",
+                "Root m(λ) lies extremely close to the spectral edge; "
+                "results may be unstable.",
                 RuntimeWarning,
+                stacklevel=2,
             )
     except Exception:
         pass
@@ -728,6 +806,7 @@ def _admissible_m_from_lambda_impl(
         warnings.warn(
             "Root m(λ) is close to a pole of z(m); numerical conditioning is poor.",
             RuntimeWarning,
+            stacklevel=2,
         )
     return float(best_root)
 
@@ -777,17 +856,19 @@ def t_vec(  # noqa: N803
     if len(order) != c_vec.shape[0]:
         raise ValueError("Order length must match the length of c.")
 
-    cs_arr = _prepare_cs(Cs, a_arr)
-    m_root = admissible_m_from_lambda(lam, a_arr, c_weights, d_arr, n_float, cs_arr)
-    denom_weights = cs_arr if np.any(np.abs(cs_arr) > 0.0) else c_weights
-    k_vals = _k_values(a_arr, denom_weights, d_arr, n_float)
+    bulk_scales = _bulk_scales(c_weights, Cs)
+    m_root = admissible_m_from_lambda(
+        lam,
+        a_arr,
+        bulk_scales,
+        d_arr,
+        n_float,
+    )
+    k_vals = _k_values(a_arr, bulk_scales, d_arr, n_float)
     denom = 1.0 + k_vals * m_root
     if np.any(np.isclose(denom, 0.0, atol=1e-12, rtol=0.0)):
         raise ValueError("Encountered singularity while computing the t-vector.")
-    numerators = c_weights * a_arr + cs_arr
-    base_terms = np.zeros_like(a_arr, dtype=np.float64)
-    mask = np.abs(c_weights) > 1e-12
-    base_terms[mask] = numerators[mask] / (c_weights[mask] * denom[mask])
+    base_terms = a_arr / denom
 
     normalised_order = _normalise_order(order, len(a_arr))
     t_values = np.zeros_like(c_vec, dtype=np.float64)

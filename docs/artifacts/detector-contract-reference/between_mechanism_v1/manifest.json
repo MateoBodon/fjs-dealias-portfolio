@@ -1,0 +1,33 @@
+{
+  "assessment": {
+    "detection_gain": 1.0,
+    "null_detection_rate": 0.0,
+    "passed": true,
+    "reasons": [],
+    "strong_acceptance_rate": 1.0,
+    "strong_detection_rate": 1.0
+  },
+  "claim_boundary": "synthetic balanced-one-way mechanism calibration only; never headline or empirical evidence",
+  "environment": {
+    "numpy": "2.4.3",
+    "python": "3.12.2"
+  },
+  "inject_mode": "between",
+  "inputs": {
+    "generator": "tools/generate_fjs_between_fixture.py",
+    "generator_sha256": "632ad21f54bdca4447b65173dd07d8c2107ff4d66b418b340e5b0e2fe587a38e",
+    "input_spec": "docs/artifacts/detector-contract-reference/between_mechanism_v1/input_spec.json",
+    "input_spec_sha256": "e212e430e91bbd285eb20b11090f08b31a7c929ec8208ea1da541b57e94c5093"
+  },
+  "outputs": {
+    "curve": "curve.csv",
+    "curve_sha256": "d19edfb7bdfa22fab487a1e0ff551bc346435340fa467fd4c02f77c446848a07",
+    "trials": "trials.csv",
+    "trials_sha256": "0620d728f509bed0a3ae8f065f22e2330a1c696c2918a16638a34ab6cc076f7f"
+  },
+  "predeclaration_commit": "82d1ffc0b2fc7c4c39e820b7aae3c4ad0bcdb43c",
+  "production_repair_commit": "4437571acf4b42bd1f4c7db8a9616b623c5a3a7b",
+  "schema_version": "fjs-between-mechanism-manifest/v1",
+  "source_commit": "9afbb72cb02172080c52ba206ddd73ed2110dedf",
+  "source_tree": "75ce510b7193eee457f825fa57d6417a2c361170"
+}

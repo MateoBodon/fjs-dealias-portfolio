@@ -844,3 +844,34 @@
   fail-closed on the unbound cell-specific detection boundary, invariance
   reducer, realistic-design cells, and authoritative routed/AWS admission.
   No AWS or broad empirical run occurred.
+
+## 2026-07-11T18:45Z - ticket-37 M4 v3 local scientific readiness
+
+- **Branch**: `portfolio/fjs-recenter-m1-20260710`, starting from published
+  checkpoint `fef5c487966e483a77e3c6f06e385959d02b6e89`.
+- **Scientific contracts**:
+  - derived the cell-specific balanced-one-way target-between phase boundary;
+  - checked all 63 frozen geometries against the independent edge oracle;
+  - bound exact null/power invariance reducers for standardized rescaling, row
+    order, asset permutation, and group-label permutation.
+- **Canonical v3 artifacts**:
+  - 252-cell full manifest SHA-256
+    `0be2557e3cef75d871f3209f145ec0cd4bd9a5e0ca50b4ea632a234b72e00849`;
+  - two-cell smoke manifest SHA-256
+    `8a55a1fd26bc0e010a897fc81f5d36ab2a551e1469749fb31ed0d6a684c45478`;
+  - independent regeneration matched both files byte for byte;
+  - v2 full/smoke hashes remained unchanged.
+- **Runner validation**:
+  - 69 focused unit checks and the real-kernel runner invariance integration
+    passed;
+  - full v3 execution failed closed before creating a run root on licensed
+    real-design, trusted-route, and fresh AWS admission blockers;
+  - two independent one-cell/one-trial v3 smokes outside the repository had
+    identical stable reducer SHA-256
+    `3c571d5dbfe509b893bd555ce340d800baf4e138e2360e9653ab286c81a204dd`;
+  - both null/power invariance roles passed and no worker survived.
+- **Claim boundary**: the one-trial smoke intentionally fails statistical
+  gates and is execution/invariance evidence only. No full grid, AWS job,
+  real-data result, or empirical claim occurred.
+- **Remaining stop-lines**: licensed development-only realistic-design inputs,
+  a consumed trusted route admission, and fresh AWS admission/cost authority.

@@ -33,6 +33,13 @@ commands:
     checkpoint mismatch/stale-cell rejection, zero override handling, and
     restart/fresh stable-reducer equality. A real two-process smoke separately
     proved child cleanup and exact resume equality.
+  - M4 v3 scientific contract:
+    `tests/tools/test_fjs_m4_contract_v3.py` checks all 63 frozen geometries
+    against the independent FJS edge oracle, byte-stable manifest generation,
+    v2 immutability, hash-bound manifest loading, exact external stop-lines,
+    reducer failure behavior, standardized-rescaling identity, and real-kernel
+    execution of all four invariances through the v3 runner helper. Two bounded
+    end-to-end smokes also proved fresh stable-reducer equality.
   - Evaluation runners: `tests/experiments/test_eval_run.py`, `tests/experiments/test_gating_diagnostics.py`, `tests/experiments/test_skip_reasons.py`, `tests/test_pipeline_smoke.py`.
   - Finance/portfolio: `tests/test_portfolios_missing_solver.py`, `tests/test_eval_missing_solver.py`, `tests/test_minvar_regularized.py`, `tests/test_shrinkage.py`, `tests/test_factor_cov.py`, `tests/test_cache_switch_estimator.py`.
   - Reporting: `tests/test_report_gather.py`, `tests/test_report_tables.py`, `tests/test_report_plots.py`, `tests/tools/test_make_summary.py`, `tests/tools/test_summarize_rc_sanity.py`, `tests/test_gpt_bundle.py`.
@@ -42,11 +49,11 @@ commands:
   - Full RC/RC-lite/AWS paths are not part of the fast suite; rely on smokes + manual runs.
   - Crisis configs, vol-state acceptance, and nested kill-test FPR remain mostly smoke-tested.
   - Plotting tests skip when matplotlib is unavailable.
-  - The independent deterministic reference and two-cell mechanism fixture pass.
-    Exact binomial-size, the full target-matched planted-power curve,
-    planted-direction/component attribution, invariance, and real-design
-    detector harnesses remain open. No full CRSP execution is covered or
-    allowed by this milestone.
+  - The independent deterministic reference, two-cell mechanism fixture,
+    cell-specific boundary contract, and v3 invariance path pass. Exact
+    binomial-size and target-power outcomes across the full grid remain
+    unobserved; licensed real-design adequacy is also open. No full synthetic,
+    CRSP, or AWS execution is covered or allowed by this milestone.
 - **Ticket 37 milestone** — targeted and native-suite results are recorded in
   `docs/agent_runs/20260710_173211_ticket-37_fjs-scientific-recenter-m1/TESTS.md`.
 - **Ticket 37 reference milestone** — exact gate and test evidence is recorded

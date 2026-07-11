@@ -38,6 +38,16 @@ from tools.fjs_m4_contract import (  # noqa: E402
 )
 
 from fjs.detector_contract import candidate_source_counts  # noqa: E402
+from fjs.invariance_contract import (  # noqa: E402
+    InvarianceTolerances,
+    assess_invariance,
+    build_detector_signature,
+    deterministic_asset_permutation,
+    deterministic_group_label_permutation,
+    deterministic_rescaling,
+    deterministic_row_permutation,
+    standardize_columns,
+)
 from fjs.overlay import OverlayConfig, detect_spikes  # noqa: E402
 from meta import runtime  # noqa: E402
 from synthetic.calibration import (  # noqa: E402
@@ -120,6 +130,13 @@ def _load_manifest(path: Path) -> dict[str, Any]:
     )
     if actual_digest != payload["manifest_digest"]:
         raise ValueError("Manifest digest mismatch.")
+    schema_version = int(payload["schema_version"])
+    if schema_version not in {2, 3}:
+        raise ValueError(f"Unsupported FJS calibration schema {schema_version}.")
+    if schema_version == 3:
+        from tools.fjs_m4_contract_v3 import validate_manifest_v3
+
+        validate_manifest_v3(payload)
     return payload
 
 
@@ -246,6 +263,145 @@ def _build_overlay_config(
         off_component_cap=0.3,
         edge_mode=str(cell["edge_mode"]),
     )
+
+
+def _detector_signature_for_panel(
+    observations: np.ndarray,
+    groups: np.ndarray,
+    *,
+    config: OverlayConfig,
+    direction_indexer: np.ndarray | None = None,
+) -> dict[str, Any]:
+    stats: dict[str, Any] = {}
+    accepted = detect_spikes(observations, groups, config=config, stats=stats)
+    return build_detector_signature(
+        stats.get("pre_gate", {}),
+        accepted,
+        direction_indexer=direction_indexer,
+    )
+
+
+def _evaluate_invariance_for_panel(
+    observations: np.ndarray,
+    groups: np.ndarray,
+    *,
+    config: OverlayConfig,
+    invariance_seed: int,
+    tolerances: InvarianceTolerances,
+) -> dict[str, Any]:
+    reference = _detector_signature_for_panel(
+        observations,
+        groups,
+        config=config,
+    )
+    row_order = deterministic_row_permutation(observations.shape[0])
+    asset_order = deterministic_asset_permutation(
+        observations.shape[1], invariance_seed
+    )
+    inverse_asset_order = np.argsort(asset_order)
+    standardized = standardize_columns(observations)
+    standardized_rescaled = standardize_columns(
+        observations * deterministic_rescaling(observations.shape[1])
+    )
+    standardized_error = float(np.max(np.abs(standardized - standardized_rescaled)))
+    comparisons = {
+        "standardized_rescaling": (
+            _detector_signature_for_panel(standardized, groups, config=config),
+            _detector_signature_for_panel(
+                standardized_rescaled,
+                groups,
+                config=config,
+            ),
+        ),
+        "deterministic_row_order": (
+            reference,
+            _detector_signature_for_panel(
+                observations[row_order],
+                groups[row_order],
+                config=config,
+            ),
+        ),
+        "asset_permutation": (
+            reference,
+            _detector_signature_for_panel(
+                observations[:, asset_order],
+                groups,
+                config=config,
+                direction_indexer=inverse_asset_order,
+            ),
+        ),
+        "group_label_permutation": (
+            reference,
+            _detector_signature_for_panel(
+                observations,
+                deterministic_group_label_permutation(groups),
+                config=config,
+            ),
+        ),
+    }
+    assessment = assess_invariance(comparisons, tolerances=tolerances)
+    assessment["standardized_matrix_max_abs_error"] = standardized_error
+    if standardized_error > tolerances.standardized_matrix_atol:
+        check = assessment["checks"]["standardized_rescaling"]
+        check["passed"] = False
+        check["reasons"].append("standardized_matrix_outside_tolerance")
+        assessment["passed"] = False
+        if "standardized_rescaling" not in assessment["failed_checks"]:
+            assessment["failed_checks"].insert(0, "standardized_rescaling")
+    return assessment
+
+
+def _evaluate_invariance_checks(
+    *,
+    manifest: Mapping[str, Any],
+    cell: Mapping[str, Any],
+    threshold: Mapping[str, Any],
+) -> dict[str, Any]:
+    if int(manifest["schema_version"]) != 3:
+        raise ValueError("Invariance execution is available only for schema v3.")
+    contract = manifest["invariance_contract"]
+    tolerances = InvarianceTolerances.from_mapping(contract["tolerances"])
+    config = _build_overlay_config(cell, threshold)
+    seed = int(cell["invariance_seed"])
+    evaluations = []
+    for role, mu in (
+        ("null", 0.0),
+        ("power", float(cell["power_mu"])),
+    ):
+        observations, groups, _, _ = simulate_panel(
+            np.random.default_rng(seed),
+            n_assets=int(cell["p_assets"]),
+            n_groups=int(cell["n_groups"]),
+            replicates=int(cell["replicates"]),
+            spike_strength=float(mu),
+            noise_variance=1.0,
+            signal_to_noise=0.35,
+            return_dirs=True,
+        )
+        evaluations.append(
+            {
+                "role": role,
+                "mu": float(mu),
+                "seed": seed,
+                "assessment": _evaluate_invariance_for_panel(
+                    observations,
+                    groups,
+                    config=config,
+                    invariance_seed=seed,
+                    tolerances=tolerances,
+                ),
+            }
+        )
+    failed_roles = [
+        item["role"] for item in evaluations if not item["assessment"]["passed"]
+    ]
+    return {
+        "contract_id": str(contract["contract_id"]),
+        "contract_sha256": str(contract["sha256"]),
+        "passed": not failed_roles,
+        "failed_roles": failed_roles,
+        "evaluations": evaluations,
+    }
 
 
 def _evaluate_trials(
@@ -420,6 +576,54 @@ def _assess_statistical_gates(
     }
 
 
+def _assess_cell_gates(
+    *,
+    manifest: Mapping[str, Any],
+    cell: Mapping[str, Any],
+    gate_metrics: Mapping[str, Any],
+    invariance: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    statistical = _assess_statistical_gates(cell, gate_metrics)
+    if int(manifest["schema_version"]) != 3:
+        return statistical
+    if invariance is None:
+        raise ValueError("Schema v3 cells require an invariance assessment.")
+
+    role_results = {
+        str(item["role"]): bool(item["assessment"]["passed"])
+        for item in invariance["evaluations"]
+    }
+    if set(role_results) != {"null", "power"}:
+        raise ValueError("Schema v3 invariance must cover null and power roles.")
+    checks = dict(statistical["checks"])
+    checks.update(
+        {
+            "null_invariance_pass": role_results["null"],
+            "power_invariance_pass": role_results["power"],
+        }
+    )
+    failed_checks = [name for name, passed in checks.items() if not passed]
+    local_scientific_pass = not failed_checks
+    blockers = []
+    if not statistical["statistical_gate_pass"]:
+        blockers.append("statistical_detector_gate_failed")
+    if not bool(invariance["passed"]):
+        blockers.append("invariance_gate_failed")
+    blockers.extend(
+        str(item)
+        for item in manifest.get("execution_readiness", {}).get("blockers", [])
+    )
+    return {
+        "statistical_gate_pass": bool(statistical["statistical_gate_pass"]),
+        "invariance_gate_pass": bool(invariance["passed"]),
+        "local_scientific_gate_pass": local_scientific_pass,
+        "checks": checks,
+        "failed_checks": failed_checks,
+        "full_detector_gate_pass": local_scientific_pass and not blockers,
+        "full_detector_gate_blockers": blockers,
+    }
+
+
 def _stable_cell_payload(
     *,
     manifest: Mapping[str, Any],
@@ -521,7 +725,16 @@ def _stable_cell_payload(
             for a, d in zip(acceptance_rates, detection_rates, strict=False)
         ),
     }
-    return {
+    invariance_payload = (
+        _evaluate_invariance_checks(
+            manifest=manifest,
+            cell=cell,
+            threshold=threshold_entry,
+        )
+        if int(manifest["schema_version"]) == 3
+        else None
+    )
+    stable_payload = {
         "manifest_id": manifest["manifest_id"],
         "cell_id": str(cell["cell_id"]),
         "cell_spec_digest": _cell_spec_digest(manifest, cell),
@@ -529,11 +742,22 @@ def _stable_cell_payload(
         "curve": curve,
         "trial_rows": trial_rows,
         "gate_metrics": gate_metrics,
-        "gate_assessment": _assess_statistical_gates(cell, gate_metrics),
+        "gate_assessment": _assess_cell_gates(
+            manifest=manifest,
+            cell=cell,
+            gate_metrics=gate_metrics,
+            invariance=invariance_payload,
+        ),
     }
+    if invariance_payload is not None:
+        stable_payload["invariance"] = invariance_payload
+    return stable_payload
 
 
 def independently_power_boundary(cell: Mapping[str, Any]) -> float:
+    boundary = cell.get("detection_boundary")
+    if isinstance(boundary, Mapping):
+        return float(boundary["derived"]["population_eigenvalue_boundary"])
     return float(cell["power_mu"]) / 1.5
 
 
@@ -792,6 +1016,31 @@ def _reduce_expected_cells(
         "full_detector_gate_pass": False,
         "cells": cell_payloads,
     }
+    if int(manifest["schema_version"]) == 3:
+        stable_reducer.update(
+            {
+                "invariance_gate_pass_count": sum(
+                    int(
+                        bool(
+                            payload.get("gate_assessment", {}).get(
+                                "invariance_gate_pass", False
+                            )
+                        )
+                    )
+                    for payload in cell_payloads
+                ),
+                "local_scientific_gate_pass_count": sum(
+                    int(
+                        bool(
+                            payload.get("gate_assessment", {}).get(
+                                "local_scientific_gate_pass", False
+                            )
+                        )
+                    )
+                    for payload in cell_payloads
+                ),
+            }
+        )
     stable_reducer["stable_reducer_sha256"] = stable_sha256(
         {k: v for k, v in stable_reducer.items() if k != "stable_reducer_sha256"}
     )

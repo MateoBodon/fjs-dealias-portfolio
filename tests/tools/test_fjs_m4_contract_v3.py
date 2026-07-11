@@ -22,20 +22,17 @@ from fjs.invariance_contract import (
     InvarianceTolerances,
     assess_invariance,
     build_detector_signature,
-    deterministic_asset_permutation,
-    deterministic_group_label_permutation,
     deterministic_rescaling,
-    deterministic_row_permutation,
     standardize_columns,
 )
-from fjs.overlay import OverlayConfig, detect_spikes
+from fjs.overlay import OverlayConfig
 from fjs.reference_oracle import (
     BalancedReferenceDesign,
     t_vector_reference,
     upper_edge_reference,
     z_prime_reference,
 )
-from tools import freeze_fjs_m4_manifest_v3
+from tools import freeze_fjs_m4_manifest_v3, run_fjs_calibration_manifest
 
 
 def _edge_isolating_reference_design(
@@ -144,11 +141,62 @@ def test_v3_manifest_is_byte_stable_and_v2_files_are_untouched(
     assert payload["execution_readiness"]["aws_execution_authorized"] is False
     assert payload["execution_readiness"]["blockers"] == [
         "real_design_cell_manifest_not_yet_bound",
+        "trusted_route_admission_required",
         "fresh_authoritative_aws_admission_required",
     ]
     assert len({cell["power_mu"] for cell in payload["cells"]}) > 1
     validate_contract_bindings(payload)
+    assert run_fjs_calibration_manifest._load_manifest(first) == payload
     assert {path: file_sha256(path) for path in v2_paths} == v2_before
+
+
+@pytest.mark.unit
+def test_v3_default_manifest_paths_use_canonical_underscore_namespace() -> None:
+    assert freeze_fjs_m4_manifest_v3.default_manifest_path(FULL_MANIFEST_ID).name == (
+        "fjs_m4_full_target_between_v3.json"
+    )
+
+
+@pytest.mark.unit
+def test_v3_runner_gate_keeps_external_stop_lines_explicit(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "smoke.json"
+    freeze_fjs_m4_manifest_v3.main(["--profile", "smoke", "--out", str(manifest_path)])
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    cell = manifest["cells"][0]
+    metrics = {
+        "null_detection_ci_low": 0.04,
+        "null_detection_ci_high": 0.06,
+        "strong_detection_rate": 0.90,
+        "strong_acceptance_rate": 0.85,
+        "detection_gain": 0.85,
+        "monotone_detection": True,
+        "monotone_acceptance": True,
+        "acceptance_exceeds_detection": False,
+        "direction_squared_cosine_mean": 0.90,
+        "planted_component_accept_share": 0.95,
+        "nuisance_component_accept_share": 0.05,
+        "non_fjs_accept_count": 0,
+    }
+    invariance = {
+        "passed": True,
+        "evaluations": [
+            {"role": "null", "assessment": {"passed": True}},
+            {"role": "power", "assessment": {"passed": True}},
+        ],
+    }
+    assessment = run_fjs_calibration_manifest._assess_cell_gates(
+        manifest=manifest,
+        cell=cell,
+        gate_metrics=metrics,
+        invariance=invariance,
+    )
+    assert assessment["local_scientific_gate_pass"] is True
+    assert assessment["full_detector_gate_pass"] is False
+    assert assessment["full_detector_gate_blockers"] == [
+        "real_design_cell_manifest_not_yet_bound",
+        "trusted_route_admission_required",
+        "fresh_authoritative_aws_admission_required",
+    ]
 
 
 def _candidate(direction: np.ndarray) -> dict[str, object]:
@@ -245,46 +293,11 @@ def test_real_kernel_mechanism_fixture_passes_all_four_invariances() -> None:
         edge_mode="scm",
     )
 
-    def signature(
-        matrix: np.ndarray,
-        labels: np.ndarray,
-        *,
-        direction_indexer: np.ndarray | None = None,
-    ) -> dict[str, object]:
-        stats: dict[str, object] = {}
-        accepted = detect_spikes(matrix, labels, config=config, stats=stats)
-        return build_detector_signature(
-            stats["pre_gate"],
-            accepted,
-            direction_indexer=direction_indexer,
-        )
-
-    reference = signature(observations, groups)
-    row_order = deterministic_row_permutation(observations.shape[0])
-    asset_order = deterministic_asset_permutation(observations.shape[1], 813)
-    inverse_asset_order = np.argsort(asset_order)
-    scaled = observations * deterministic_rescaling(observations.shape[1])
-    comparisons = {
-        "standardized_rescaling": (
-            signature(standardize_columns(observations), groups),
-            signature(standardize_columns(scaled), groups),
-        ),
-        "deterministic_row_order": (
-            reference,
-            signature(observations[row_order], groups[row_order]),
-        ),
-        "asset_permutation": (
-            reference,
-            signature(
-                observations[:, asset_order],
-                groups,
-                direction_indexer=inverse_asset_order,
-            ),
-        ),
-        "group_label_permutation": (
-            reference,
-            signature(observations, deterministic_group_label_permutation(groups)),
-        ),
-    }
-    assessment = assess_invariance(comparisons)
+    assessment = run_fjs_calibration_manifest._evaluate_invariance_for_panel(
+        observations,
+        groups,
+        config=config,
+        invariance_seed=813,
+        tolerances=InvarianceTolerances(),
+    )
     assert assessment["passed"] is True

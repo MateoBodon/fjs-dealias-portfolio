@@ -1,0 +1,280 @@
+{
+  "artifacts": {
+    "canonical_promotion_requires_explicit_action": true,
+    "run_root_template": "reports/synthetic/calib/{run_id}",
+    "smoke_outputs_must_be_temp": true
+  },
+  "cell_digests": {
+    "p4_g8_r2_d300_scm": "65244860d07a5a7a77639ac8f0f368c47acdd70eae300c68dfa1a74deb333a94",
+    "p4_g8_r2_d300_tyler": "146a65584c0419a9da027d42b3c676784b07c76c7c710951d0f66169bc4f9cbd"
+  },
+  "cells": [
+    {
+      "attribution_fields": [
+        "fjs_detection_count",
+        "fjs_acceptance_count",
+        "candidate_source_counts_pre_gate",
+        "candidate_source_counts_accepted",
+        "direction_squared_cosine_mean",
+        "planted_component_accept_share",
+        "nuisance_component_accept_share"
+      ],
+      "cell_id": "p4_g8_r2_d300_scm",
+      "delta_abs": 0.3,
+      "detection_boundary": {
+        "boundary_kind": "population_between_covariance_eigenvalue",
+        "contract_id": "fjs-balanced-oneway-isolated-target-edge-v1",
+        "derived": {
+          "between_aspect_ratio": 0.42857142857142855,
+          "between_degrees_of_freedom": 7,
+          "between_mean_square_bulk": 1.0,
+          "bulk_dimension": 3,
+          "excess_eigenvalue_boundary": 0.4482107285003976,
+          "population_eigenvalue_boundary": 0.4482107285003976,
+          "within_aspect_ratio": 0.375,
+          "within_degrees_of_freedom": 8,
+          "within_mean_square_bulk": 1.0
+        },
+        "formula": "sigma_between + sqrt(y_between*C_between^2 + y_within*C_within^2) / replicates",
+        "inputs": {
+          "between_bulk_variance": 0.0,
+          "n_groups": 8,
+          "p_assets": 4,
+          "replicates": 2,
+          "residual_bulk_variance": 1.0,
+          "target_rank": 1
+        },
+        "scope": {
+          "asymptotic_phase_transition": true,
+          "delta_and_edge_mode_calibrated_separately": true,
+          "finite_rank_residual_nuisance_excluded_from_bulk": true,
+          "finite_sample_operating_margin_included": false,
+          "nuisance_attribution_required_separately": true
+        },
+        "sha256": "efb9802390ab7ee92f17415a014489b09abf4aef7ca0ac14efb756d71ae32156"
+      },
+      "direction_squared_cosine_min": 0.8,
+      "edge_mode": "scm",
+      "index": 0,
+      "inject_mode": "between",
+      "invariance_checks": [
+        "standardized_rescaling",
+        "deterministic_row_order",
+        "asset_permutation",
+        "group_label_permutation"
+      ],
+      "invariance_contract_sha256": "47fe3e534982baf5ad02c231a5844d41ba57c32bb2ed2f0934ed780f79917cf4",
+      "invariance_seed": 736570037,
+      "n_groups": 8,
+      "nominal_size": 0.05,
+      "nuisance_component_accept_share_max": 0.1,
+      "null_upper_bound_max": 0.075,
+      "p_assets": 4,
+      "planted_component_accept_share_min": 0.9,
+      "power_acceptance_min": 0.8,
+      "power_detection_min": 0.8,
+      "power_gain_min": 0.5,
+      "power_mu": 0.6723160927505965,
+      "replicates": 2,
+      "seed": 730000
+    },
+    {
+      "attribution_fields": [
+        "fjs_detection_count",
+        "fjs_acceptance_count",
+        "candidate_source_counts_pre_gate",
+        "candidate_source_counts_accepted",
+        "direction_squared_cosine_mean",
+        "planted_component_accept_share",
+        "nuisance_component_accept_share"
+      ],
+      "cell_id": "p4_g8_r2_d300_tyler",
+      "delta_abs": 0.3,
+      "detection_boundary": {
+        "boundary_kind": "population_between_covariance_eigenvalue",
+        "contract_id": "fjs-balanced-oneway-isolated-target-edge-v1",
+        "derived": {
+          "between_aspect_ratio": 0.42857142857142855,
+          "between_degrees_of_freedom": 7,
+          "between_mean_square_bulk": 1.0,
+          "bulk_dimension": 3,
+          "excess_eigenvalue_boundary": 0.4482107285003976,
+          "population_eigenvalue_boundary": 0.4482107285003976,
+          "within_aspect_ratio": 0.375,
+          "within_degrees_of_freedom": 8,
+          "within_mean_square_bulk": 1.0
+        },
+        "formula": "sigma_between + sqrt(y_between*C_between^2 + y_within*C_within^2) / replicates",
+        "inputs": {
+          "between_bulk_variance": 0.0,
+          "n_groups": 8,
+          "p_assets": 4,
+          "replicates": 2,
+          "residual_bulk_variance": 1.0,
+          "target_rank": 1
+        },
+        "scope": {
+          "asymptotic_phase_transition": true,
+          "delta_and_edge_mode_calibrated_separately": true,
+          "finite_rank_residual_nuisance_excluded_from_bulk": true,
+          "finite_sample_operating_margin_included": false,
+          "nuisance_attribution_required_separately": true
+        },
+        "sha256": "efb9802390ab7ee92f17415a014489b09abf4aef7ca0ac14efb756d71ae32156"
+      },
+      "direction_squared_cosine_min": 0.8,
+      "edge_mode": "tyler",
+      "index": 1,
+      "inject_mode": "between",
+      "invariance_checks": [
+        "standardized_rescaling",
+        "deterministic_row_order",
+        "asset_permutation",
+        "group_label_permutation"
+      ],
+      "invariance_contract_sha256": "47fe3e534982baf5ad02c231a5844d41ba57c32bb2ed2f0934ed780f79917cf4",
+      "invariance_seed": 736571046,
+      "n_groups": 8,
+      "nominal_size": 0.05,
+      "nuisance_component_accept_share_max": 0.1,
+      "null_upper_bound_max": 0.075,
+      "p_assets": 4,
+      "planted_component_accept_share_min": 0.9,
+      "power_acceptance_min": 0.8,
+      "power_detection_min": 0.8,
+      "power_gain_min": 0.5,
+      "power_mu": 0.6723160927505965,
+      "replicates": 2,
+      "seed": 730001
+    }
+  ],
+  "claim_boundary": {
+    "empirical_claims_forbidden": true,
+    "full_outcomes_unobserved_when_contract_frozen": true,
+    "mechanism_calibration_only": true
+  },
+  "contract_bindings": {
+    "src/fjs/invariance_contract.py": {
+      "sha256": "ce815734d7708ee33215daf67f2020656fb6b38ed908100aa4efcbea27a139e2",
+      "size_bytes": 15641
+    },
+    "tools/fjs_m4_contract_v3.py": {
+      "sha256": "d39ca8b9d9baf0b507158b86fd89bb98e7571943dfa4e062230abcc1f55362b7",
+      "size_bytes": 15235
+    },
+    "tools/freeze_fjs_m4_manifest_v3.py": {
+      "sha256": "0986cc3e8cd13d65b21205b1ba9070a36993df9f287ec01a087f88756e4cab37",
+      "size_bytes": 1713
+    },
+    "tools/run_fjs_calibration_manifest.py": {
+      "sha256": "4dbca422a33c2cda792ad75493f256e6c4f603f86f0831901991b1ba28f264b6",
+      "size_bytes": 49263
+    }
+  },
+  "execution_readiness": {
+    "aws_execution_authorized": false,
+    "blockers": [
+      "real_design_cell_manifest_not_yet_bound",
+      "trusted_route_admission_required",
+      "fresh_authoritative_aws_admission_required"
+    ],
+    "full_execution_ready": false,
+    "scientific_definition_ready": true,
+    "smoke_scope": "boundary_invariance_and_checkpoint_integrity_only"
+  },
+  "expected_cell_set_digest": "1fc016df5b8d417a6126ee3d86df920072ee6b57834b0a886e828a6b4e0b2035",
+  "invariance_contract": {
+    "candidate_directions": "sign_invariant_squared_cosine",
+    "candidate_matching": "exhaustive_minimum_mismatch_qmax2",
+    "candidate_sources": "exact_and_fjs_only",
+    "contract_id": "fjs-decision-invariance-v1",
+    "decisions_and_counts": "exact",
+    "evaluation_mu_roles": [
+      "null",
+      "power"
+    ],
+    "required_checks": [
+      "standardized_rescaling",
+      "deterministic_row_order",
+      "asset_permutation",
+      "group_label_permutation"
+    ],
+    "sha256": "47fe3e534982baf5ad02c231a5844d41ba57c32bb2ed2f0934ed780f79917cf4",
+    "tolerances": {
+      "direction_squared_cosine_min": 0.9999999999,
+      "scalar_atol": 1e-10,
+      "scalar_rtol": 1e-08,
+      "standardized_matrix_atol": 1e-12
+    },
+    "transformations": {
+      "asset_permutation": {
+        "comparison": "candidate_directions_mapped_back_to_canonical_assets",
+        "permutation": "PCG64(invariance_seed).permutation(p)"
+      },
+      "deterministic_row_order": {
+        "labels": "carried_with_rows",
+        "permutation": "reverse_rows"
+      },
+      "group_label_permutation": {
+        "mapping": "sorted_unique_labels_to_reverse_sorted_unique_labels",
+        "rows": "unchanged"
+      },
+      "standardized_rescaling": {
+        "reference": "column_zscore(Y, ddof=1)",
+        "variant": "column_zscore(Y * exp(linspace(-1.25,1.25,p)), ddof=1)"
+      }
+    }
+  },
+  "manifest_digest": "f9e9f28d59f7b9220efdf3ca908de2c7b40c984f610274e0d7a4618cad71c009",
+  "manifest_id": "fjs-m4-smoke-target-between-v3",
+  "predeclaration_contract": {
+    "boundary_contract_id": "fjs-balanced-oneway-isolated-target-edge-v1",
+    "boundary_status": "cell_specific_closed_form_hash_bound",
+    "detection_and_acceptance_separate": true,
+    "exact_binomial_interval": "95%",
+    "finite_sample_margin_policy": "delta_abs and calibrated delta_frac are separate operating margins and do not redefine the asymptotic phase transition",
+    "inject_mode": "between",
+    "monotonic_power_required": true,
+    "nominal_size": 0.05,
+    "paired_trial_seeds_across_mu": true,
+    "power_boundary_multiplier": 1.5,
+    "real_design_adequacy_required": true
+  },
+  "profile": "smoke",
+  "promotion_allowed": false,
+  "purpose": "V3 FJS M4 calibration generation with a closed-form cell boundary and hash-bound invariance reducer; no empirical or promotion claim.",
+  "schema_version": 3,
+  "sweep": {
+    "cells_total": 2,
+    "delta_abs_grid": [
+      0.3
+    ],
+    "delta_frac_grid": [
+      0.01
+    ],
+    "edge_modes": [
+      "scm",
+      "tyler"
+    ],
+    "eps": 0.02,
+    "expected_cell_ids": [
+      "p4_g8_r2_d300_scm",
+      "p4_g8_r2_d300_tyler"
+    ],
+    "n_groups": [
+      8
+    ],
+    "p_assets": [
+      4
+    ],
+    "q_max": 2,
+    "replicates": [
+      2
+    ],
+    "stability_grid": [
+      0.3
+    ],
+    "trials_alt": 6,
+    "trials_null": 6
+  }
+}

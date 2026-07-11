@@ -17,6 +17,11 @@ from tools.fjs_m4_contract import stable_json_dumps  # noqa: E402
 from tools.fjs_m4_contract_v3 import build_manifest_v3  # noqa: E402
 
 
+def default_manifest_path(manifest_id: str) -> Path:
+    filename = f"{str(manifest_id).replace('-', '_')}.json"
+    return ROOT / "calibration" / "manifests" / filename
+
+
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser("Freeze the FJS M4 v3 calibration manifest.")
     parser.add_argument("--profile", choices=["full", "smoke"], default="full")
@@ -36,7 +41,7 @@ def main(argv: Sequence[str] | None = None) -> Path:
     out_path = (
         args.out.expanduser().resolve()
         if args.out is not None
-        else ROOT / "calibration" / "manifests" / f"{manifest['manifest_id']}.json"
+        else default_manifest_path(str(manifest["manifest_id"]))
     )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(stable_json_dumps(manifest) + "\n", encoding="utf-8")

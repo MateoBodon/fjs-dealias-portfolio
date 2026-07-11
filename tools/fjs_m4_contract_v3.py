@@ -29,6 +29,7 @@ CONTRACT_BINDING_PATHS = (
     "src/fjs/invariance_contract.py",
     "tools/fjs_m4_contract_v3.py",
     "tools/freeze_fjs_m4_manifest_v3.py",
+    "tools/run_fjs_calibration_manifest.py",
 )
 
 
@@ -170,6 +171,58 @@ def validate_contract_bindings(manifest: Mapping[str, Any]) -> None:
         raise ValueError("V3 scientific contract binding mismatch.")
 
 
+def validate_manifest_v3(manifest: Mapping[str, Any]) -> None:
+    """Recompute every v3 scientific definition without using run outcomes."""
+
+    if int(manifest.get("schema_version", -1)) != SCHEMA_VERSION:
+        raise ValueError("The v3 validator requires schema_version=3.")
+    if manifest.get("manifest_id") not in {FULL_MANIFEST_ID, SMOKE_MANIFEST_ID}:
+        raise ValueError("Unknown FJS M4 v3 manifest identity.")
+    validate_contract_bindings(manifest)
+
+    invariance_contract = manifest.get("invariance_contract")
+    if not isinstance(invariance_contract, Mapping):
+        raise ValueError("V3 manifest is missing the invariance contract.")
+    expected_invariance_digest = stable_sha256(
+        {key: value for key, value in invariance_contract.items() if key != "sha256"}
+    )
+    if invariance_contract.get("sha256") != expected_invariance_digest:
+        raise ValueError("V3 invariance contract digest mismatch.")
+    if invariance_contract.get("required_checks") != list(REQUIRED_INVARIANCE_CHECKS):
+        raise ValueError("V3 invariance check set mismatch.")
+
+    cells = manifest.get("cells")
+    if not isinstance(cells, list) or not cells:
+        raise ValueError("V3 manifest must contain at least one cell.")
+    for cell in cells:
+        if not isinstance(cell, Mapping):
+            raise TypeError("V3 manifest cells must be mappings.")
+        expected_boundary = independently_computed_oneway_boundary(
+            p_assets=int(cell["p_assets"]),
+            n_groups=int(cell["n_groups"]),
+            replicates=int(cell["replicates"]),
+        ).to_dict()
+        expected_boundary["sha256"] = stable_sha256(expected_boundary)
+        if cell.get("detection_boundary") != expected_boundary:
+            raise ValueError(f"V3 boundary mismatch for cell {cell.get('cell_id')!r}.")
+        expected_power = (
+            POWER_BOUNDARY_MULTIPLIER
+            * expected_boundary["derived"]["population_eigenvalue_boundary"]
+        )
+        if cell.get("power_mu") != expected_power:
+            raise ValueError(
+                f"V3 power point mismatch for cell {cell.get('cell_id')!r}."
+            )
+        if cell.get("invariance_contract_sha256") != expected_invariance_digest:
+            raise ValueError(
+                f"V3 invariance binding mismatch for cell {cell.get('cell_id')!r}."
+            )
+        if cell.get("invariance_seed") != int(cell["seed"]) * 1009 + 37:
+            raise ValueError(
+                f"V3 invariance seed mismatch for cell {cell.get('cell_id')!r}."
+            )
+
+
 def _invariance_contract() -> dict[str, Any]:
     tolerances = InvarianceTolerances()
     payload = {
@@ -259,6 +312,7 @@ def build_manifest_v3(
             "aws_execution_authorized": False,
             "blockers": [
                 "real_design_cell_manifest_not_yet_bound",
+                "trusted_route_admission_required",
                 "fresh_authoritative_aws_admission_required",
             ],
             "smoke_scope": (

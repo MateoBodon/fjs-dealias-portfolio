@@ -217,6 +217,56 @@ def test_v4_real_design_cell_is_deterministic_and_hash_bound(tmp_path: Path) -> 
 
 
 @pytest.mark.unit
+def test_v4_universe_prefilters_fit_and_window_history_before_cap_rank(
+    tmp_path: Path,
+) -> None:
+    inputs = _fixture_inputs(tmp_path)
+    frame = pd.read_csv(inputs["source"])
+    fit_dates = sorted(
+        frame.loc[
+            frame["permno"].eq(10008) & frame["dlycaldt"].le("2013-01-15"),
+            "dlycaldt",
+        ].unique()
+    )
+    window_dates = sorted(
+        frame.loc[
+            frame["permno"].eq(10007) & frame["dlycaldt"].ge("2013-01-16"),
+            "dlycaldt",
+        ].unique()
+    )
+    insufficient_fit = frame["permno"].eq(10008) & frame["dlycaldt"].isin(fit_dates[:3])
+    insufficient_window = frame["permno"].eq(10007) & frame["dlycaldt"].isin(
+        window_dates[:3]
+    )
+    frame = frame.loc[~(insufficient_fit | insufficient_window)].copy()
+    frame.to_csv(inputs["source"], index=False, compression="gzip")
+    _refresh_receipt(inputs, len(frame))
+
+    source_binding = bind_source_partition(inputs["source"], inputs["receipt"])
+    factor_binding = bind_factor_source(inputs["factors"], inputs["registry"])
+    source_frame, scan = load_filtered_sources(
+        [source_binding], start="2013-01-02", end="2013-01-31", chunksize=7
+    )
+    factors = load_bound_factors(factor_binding, start="2013-01-02", end="2013-01-31")
+    cell = derive_real_design_cell(
+        source_frame,
+        factors,
+        spec=_spec(),
+        source_bindings=[source_binding],
+        factor_binding=factor_binding,
+        scan_receipt=scan,
+    )
+
+    assert [entry["permno"] for entry in cell["universe"]["members"]] == [
+        10006,
+        10005,
+        10004,
+        10003,
+    ]
+    validate_real_design_cell(cell)
+
+
+@pytest.mark.unit
 def test_v4_source_binding_detects_post_binding_mutation(tmp_path: Path) -> None:
     inputs = _fixture_inputs(tmp_path)
     binding = bind_source_partition(inputs["source"], inputs["receipt"])

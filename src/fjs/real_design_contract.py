@@ -638,7 +638,42 @@ def derive_real_design_cell(
     if not source_bindings:
         raise ValueError("At least one source binding is required.")
 
+    factor_dates = factors.loc[factors.index.to_series().between(fit_start, window_end)]
+    if factor_dates.empty:
+        raise ValueError("FF6 factors do not cover the cell interval.")
+    fit_date_index = factor_dates.loc[
+        factor_dates.index.to_series().between(fit_start, fit_end)
+    ].index
+    date_index = factor_dates.loc[
+        factor_dates.index.to_series().between(window_start, window_end)
+    ].index
+    if len(date_index) < spec.min_window_observations:
+        raise ValueError(
+            f"Only {len(date_index)} factor dates exist in the window; "
+            f"{spec.min_window_observations} required."
+        )
+
+    fit_observation_counts = (
+        source_frame.loc[source_frame["dlycaldt"].isin(fit_date_index)]
+        .groupby("permno")["dlycaldt"]
+        .nunique()
+    )
+    window_observation_counts = (
+        source_frame.loc[source_frame["dlycaldt"].isin(date_index)]
+        .groupby("permno")["dlycaldt"]
+        .nunique()
+    )
+    eligible_permnos = fit_observation_counts.loc[
+        fit_observation_counts.ge(spec.min_factor_observations)
+    ].index.intersection(
+        window_observation_counts.loc[
+            window_observation_counts.ge(spec.min_window_observations)
+        ].index,
+        sort=False,
+    )
+
     ranking = source_frame.loc[source_frame["dlycaldt"].le(formation)].copy()
+    ranking = ranking.loc[ranking["permno"].isin(eligible_permnos)].copy()
     ranking = ranking.sort_values(["permno", "dlycaldt"])
     ranking = ranking.groupby("permno", as_index=False).tail(1)
     age_days = (formation - ranking["dlycaldt"]).dt.days
@@ -668,17 +703,6 @@ def derive_real_design_cell(
         source_frame["permno"].isin(selected_permnos)
         & source_frame["dlycaldt"].between(fit_start, window_end)
     ].copy()
-    factor_dates = factors.loc[factors.index.to_series().between(fit_start, window_end)]
-    if factor_dates.empty:
-        raise ValueError("FF6 factors do not cover the cell interval.")
-    date_index = factor_dates.loc[
-        factor_dates.index.to_series().between(window_start, window_end)
-    ].index
-    if len(date_index) < spec.min_window_observations:
-        raise ValueError(
-            f"Only {len(date_index)} factor dates exist in the window; "
-            f"{spec.min_window_observations} required."
-        )
     residuals = np.full((len(date_index), len(selected_permnos)), np.nan)
     coefficients = np.full((len(selected_permnos), len(FACTOR_COLUMNS) + 1), np.nan)
     fit_counts: list[int] = []
